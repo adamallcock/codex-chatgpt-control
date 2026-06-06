@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest a public-safe improvement.
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow should this improve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should the SDK do?
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Codex -> browser -> chatgpt.com workflow
+        - Python protocol client
+        - Node backend/runtime
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Boundary check
+      options:
+        - label: This does not require hidden ChatGPT endpoints or bypassing user-visible controls.
+          required: true

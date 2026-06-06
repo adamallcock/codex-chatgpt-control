@@ -1,0 +1,27 @@
+name: Safety or boundary concern
+description: Report a concern about privacy, redaction, visible-session boundaries, or misuse risk.
+title: "[Safety]: "
+labels: ["safety", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not disclose secrets or private account/session data in this issue. If details are sensitive, describe the class of concern and ask for a private reporting path.
+  - type: textarea
+    id: concern
+    attributes:
+      label: Concern
+      description: What boundary, redaction, or misuse issue are you worried about?
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Potential impact
+    validations:
+      required: true
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Suggested mitigation
+      description: Optional, but helpful.

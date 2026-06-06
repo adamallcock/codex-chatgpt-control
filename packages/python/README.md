@@ -2,6 +2,8 @@
 
 Python parity client for Codex agents controlling visible ChatGPT web sessions through the shared Node backend protocol.
 
+Unofficial project: not affiliated with, endorsed by, or sponsored by OpenAI. This is not an OpenAI API wrapper and does not call hidden or private ChatGPT endpoints.
+
 ```text
 Python SDK -> backend protocol -> Node runtime -> browser bridge -> visible chatgpt.com session
 ```

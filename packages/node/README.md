@@ -2,7 +2,7 @@
 
 TypeScript runtime for Codex agents controlling visible ChatGPT web sessions through a compatible browser bridge.
 
-This is not an OpenAI API wrapper and does not call hidden ChatGPT endpoints. Browser-required calls need a visible session and should return structured blockers when the bridge is unavailable.
+Unofficial project: not affiliated with, endorsed by, or sponsored by OpenAI. This is not an OpenAI API wrapper and does not call hidden or private ChatGPT endpoints. Browser-required calls need a visible session and should return structured blockers when the bridge is unavailable.
 
 ```ts
 import { createChatGPT } from "codex-chatgpt-control";

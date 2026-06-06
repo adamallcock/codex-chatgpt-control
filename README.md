@@ -1,5 +1,8 @@
 # codex-chatgpt-control
 
+[![Node CI](https://github.com/adamallcock/codex-chatgpt-control/actions/workflows/node.yml/badge.svg)](https://github.com/adamallcock/codex-chatgpt-control/actions/workflows/node.yml)
+[![Parity CI](https://github.com/adamallcock/codex-chatgpt-control/actions/workflows/parity.yml/badge.svg)](https://github.com/adamallcock/codex-chatgpt-control/actions/workflows/parity.yml)
+
 Unofficial alpha SDK facade for Codex agents that need to run user-directed workflows in a visible ChatGPT web session.
 
 - **Visible-session only:** drives chatgpt.com through a compatible Codex/browser bridge and user-visible UI controls, including file uploads and visible downloads where available.

@@ -13,7 +13,8 @@
     "node:bundle": "npm --prefix packages/node run bundle && npm --prefix packages/node run bundle:backend && npm --prefix packages/node run bundle:live-smoke",
     "node:contracts": "npm --prefix packages/node run contract:validate && npm --prefix packages/node run parity:fixtures",
     "python:test": "cd packages/python && python -m unittest discover -s tests",
-    "python:compile": "cd packages/python && python -m compileall -q src examples"
+    "python:compile": "cd packages/python && python -m compileall -q src examples",
+    "release:check-names": "node scripts/check-release-names.mjs"
   },
   "license": "MIT"
 }
