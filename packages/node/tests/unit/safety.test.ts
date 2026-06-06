@@ -57,7 +57,7 @@ describe("logger redaction", () => {
 describe("redactSensitiveText", () => {
   it("redacts emails, token-like strings, and user paths", () => {
     const redacted = redactSensitiveText(
-      "adam@example.com /home/example/Desktop/file.txt abcdefghijklmnopqrstuvwxyzABCDEFG1234567890"
+      "adam@example.com /example/user/Desktop/file.txt abcdefghijklmnopqrstuvwxyzABCDEFG1234567890"
     );
 
     expect(redacted).toContain("[redacted-email]");

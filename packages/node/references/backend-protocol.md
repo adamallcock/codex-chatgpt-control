@@ -111,6 +111,19 @@ The backend must support:
 - command discovery: `commands`, `describe`, `help`
 - primitives: `session.bootstrap`, `threads.*`, `messages.*`, `files.*`, `modes.set`, `tools.select`, `response.copy`
 
+`session.bootstrap` accepts `existingTab` for explicit reuse of a user-open Chrome tab before any read or prompt step. The wire shape is shared by TypeScript and Python:
+
+```json
+{
+  "existingTab": {
+    "target": { "type": "selected", "host": "chatgpt" },
+    "ifMissing": "block"
+  }
+}
+```
+
+Other supported targets are `{ "type": "url", "url": "https://chatgpt.com/c/..." }`, `{ "type": "conversationId", "conversationId": "..." }`, and `{ "type": "tabId", "tabId": "..." }`. Explicit existing-tab reuse blocks by default when no matching tab is open. `ifMissing: "open"` may open URL or conversation-id targets, but selected-tab and tab-id targets remain claim-only because there is no deterministic URL to create.
+
 `backend.capabilities` is the source of truth for supported commands, transports, and stream modes. The current backend advertises:
 
 ```json
@@ -153,7 +166,7 @@ Important: in Codex, `globalThis.agent` is not present until the Chrome plugin r
 The live Chrome bootstrap is:
 
 ```js
-const { setupBrowserRuntime } = await import("/absolute/path/to/browser-client.mjs");
+const { setupBrowserRuntime } = await import("/example/user/.codex/plugins/cache/openai-bundled/chrome/26.602.40724/scripts/browser-client.mjs");
 await setupBrowserRuntime({ globals: globalThis });
 globalThis.browser = await agent.browsers.get("extension");
 ```

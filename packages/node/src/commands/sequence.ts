@@ -5,6 +5,7 @@ import { copyResponse } from "./response-actions.js";
 import { bootstrap } from "./session.js";
 import { newThread, openThread, searchThreads } from "./threads.js";
 import { setMode, selectTool } from "./modes.js";
+import { withCommandOutputText } from "./output.js";
 
 export type SequenceExecutor = (
   step: SequenceStep,
@@ -55,7 +56,7 @@ export async function runSequenceWithExecutor(
   if (finalResult === undefined) {
     return okSequenceResult(values, stepResults);
   }
-  return { ...finalResult, steps: stepResults };
+  return withCommandOutputText({ ...finalResult, steps: stepResults });
 }
 
 export async function executeStep(
@@ -271,21 +272,21 @@ function sequenceFailure(
   if (result.blocker !== undefined) {
     failure.blocker = result.blocker;
   }
-  return failure;
+  return withCommandOutputText(failure);
 }
 
 function okSequenceResult(
   values: Map<string, CommandResult<unknown>>,
   stepResults: SequenceStepResult[]
 ): CommandResult<unknown> {
-  return {
+  return withCommandOutputText({
     ok: true,
     status: "ok",
     data: collectSequenceData(values),
     warnings: collectWarnings(stepResults),
     context: { timestamp: new Date().toISOString() },
     steps: stepResults
-  };
+  });
 }
 
 function collectSequenceData(values: Map<string, CommandResult<unknown>>): Record<string, unknown> {

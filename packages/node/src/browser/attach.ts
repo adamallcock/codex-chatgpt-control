@@ -1,8 +1,9 @@
-import { BrowserBridgeUnavailableError, LoginRequiredError, SelectorDriftError } from "../errors.js";
-import type { BootstrapArgs, BrowserLike, PageLike, RuntimeEnv } from "../types.js";
-import { readPageState } from "./page-state.js";
+import { BrowserBridgeUnavailableError, ChatGPTControlError, LoginRequiredError, SelectorDriftError } from "../errors.js";
+import type { BootstrapArgs, BrowserLike, BrowserUserTabInfo, ExistingTabPolicy, ExistingTabTarget, PageLike, RuntimeEnv } from "../types.js";
+import { parseConversationId, readPageState } from "./page-state.js";
 
 const CHATGPT_HOME = "https://chatgpt.com/";
+const CHATGPT_HOSTS = new Set(["chatgpt.com", "www.chatgpt.com", "chat.openai.com"]);
 
 export type AttachedBrowser = {
   browser: BrowserLike;
@@ -132,6 +133,29 @@ async function getOrCreateChatGPTPage(
   }
 
   const targetUrl = args.url ?? CHATGPT_HOME;
+  const explicitExistingPolicy = normalizeExplicitExistingTabPolicy(args);
+  if (explicitExistingPolicy !== undefined) {
+    const existing = await selectExistingTab(browser, explicitExistingPolicy);
+    if (existing !== undefined) {
+      return existing;
+    }
+
+    const ifMissing = explicitExistingPolicy.ifMissing ?? "block";
+    if (ifMissing === "block") {
+      throw new ExistingTabSelectionError(
+        "No already-open ChatGPT tab matched the requested existing-tab target.",
+        "existing_tab_not_found"
+      );
+    }
+    const missingUrl = ifMissing === "open"
+      ? urlFromExistingTarget(explicitExistingPolicy.target) ?? targetUrl
+      : targetUrl;
+    const created = await createTab(browser, missingUrl);
+    if (created !== undefined) {
+      return created;
+    }
+    throw new BrowserBridgeUnavailableError("Codex can access a browser object, but no tab creation API was found.");
+  }
 
   if (args.preferExistingTab !== false) {
     const existing = await findExistingChatGPTTab(browser);
@@ -146,6 +170,115 @@ async function getOrCreateChatGPTPage(
   }
 
   throw new BrowserBridgeUnavailableError("Codex can access a browser object, but no tab creation API was found.");
+}
+
+function normalizeExplicitExistingTabPolicy(args: BootstrapArgs): ExistingTabPolicy | undefined {
+  if (args.existingTab === undefined) {
+    return undefined;
+  }
+  if (args.existingTab === true) {
+    return {
+      target: { type: "selected", host: "chatgpt" },
+      ifMissing: "create",
+      ifMultiple: "first",
+      requireChatGPT: true
+    };
+  }
+  if (args.existingTab === false) {
+    return undefined;
+  }
+  return {
+    requireChatGPT: true,
+    ifMissing: "block",
+    ifMultiple: args.existingTab.target?.type === "selected" ? "first" : "block",
+    ...args.existingTab
+  };
+}
+
+async function selectExistingTab(browser: BrowserLike, policy: ExistingTabPolicy): Promise<PageLike | undefined> {
+  const userMatch = await selectExistingUserTab(browser, policy);
+  if (userMatch !== undefined) {
+    return userMatch;
+  }
+
+  if (policy.target?.type === "selected" && typeof browser.tabs?.selected === "function") {
+    const selected = await Promise.resolve(browser.tabs.selected.call(browser.tabs)).catch(() => undefined);
+    if (selected !== undefined) {
+      const normalized = normalizePage(selected);
+      if (await pageMatchesExistingTarget(normalized, policy)) {
+        return normalized;
+      }
+    }
+  }
+
+  if (policy.target?.type === "tabId" && typeof browser.tabs?.get === "function") {
+    const tab = await Promise.resolve(browser.tabs.get.call(browser.tabs, policy.target.tabId)).catch(() => undefined);
+    if (tab !== undefined) {
+      const normalized = normalizePage(tab);
+      if (await pageMatchesExistingTarget(normalized, policy)) {
+        return normalized;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+async function selectExistingUserTab(browser: BrowserLike, policy: ExistingTabPolicy): Promise<PageLike | undefined> {
+  const openTabs = browser.user?.openTabs;
+  const claimTab = browser.user?.claimTab;
+  if (typeof openTabs !== "function" || typeof claimTab !== "function") {
+    return undefined;
+  }
+
+  const tabs = await Promise.resolve(openTabs.call(browser.user)).catch(() => []);
+  const matches = tabs.filter(tab => userTabMatchesTarget(tab, policy));
+
+  if (matches.length === 0) {
+    return undefined;
+  }
+
+  if (matches.length > 1 && (policy.ifMultiple ?? "block") !== "first") {
+    throw new ExistingTabSelectionError(
+      "Multiple already-open ChatGPT tabs matched the requested existing-tab target.",
+      "existing_tab_ambiguous",
+      matches
+    );
+  }
+
+  const selected = matches[0]!;
+  return normalizePage(await claimTab.call(browser.user, selected));
+}
+
+function userTabMatchesTarget(tab: BrowserUserTabInfo, policy: ExistingTabPolicy): boolean {
+  const target = policy.target ?? { type: "selected", host: "chatgpt" };
+  const requireChatGPT = policy.requireChatGPT ?? targetRequiresChatGPT(target);
+  if (requireChatGPT && !isChatGPTUrl(tab.url)) {
+    return false;
+  }
+
+  switch (target.type) {
+    case "selected":
+      return target.host === undefined || target.host === "chatgpt" ? isChatGPTUrl(tab.url) : true;
+    case "tabId":
+      return tab.id === target.tabId;
+    case "conversationId":
+    case "conversation_id":
+      return parseConversationId(tab.url ?? "") === target.conversationId;
+    case "url":
+      return urlMatches(tab.url, target.url);
+    case "title":
+      return titleMatches(tab.title, target.title, target.exact ?? true);
+  }
+}
+
+async function pageMatchesExistingTarget(page: PageLike, policy: ExistingTabPolicy): Promise<boolean> {
+  const url = await Promise.resolve(page.url?.()).catch(() => undefined);
+  const title = await Promise.resolve(page.title?.()).catch(() => undefined);
+  const tab: BrowserUserTabInfo = { id: getTabId(page) ?? "" };
+  if (url !== undefined) tab.url = url;
+  if (title !== undefined) tab.title = title;
+  return userTabMatchesTarget(tab, policy);
 }
 
 async function findExistingChatGPTTab(browser: BrowserLike): Promise<PageLike | undefined> {
@@ -185,6 +318,108 @@ async function findExistingChatGPTTab(browser: BrowserLike): Promise<PageLike | 
     }
   }
   return undefined;
+}
+
+class ExistingTabSelectionError extends ChatGPTControlError {
+  constructor(message: string, code: string, candidates: BrowserUserTabInfo[] = []) {
+    super(message, "not_found", true, undefined, {
+      code,
+      candidates: candidates.map(tab => ({ label: userTabCandidateLabel(tab) })),
+      remediation: [
+        {
+          label: "Choose an exact tab",
+          instruction: "Use the selected tab, a ChatGPT conversation URL, conversation ID, or a tab id returned by openTabs().",
+          userActionRequired: false
+        },
+        {
+          label: "Allow opening",
+          instruction: "Rerun with open-if-missing only if it is acceptable to open or create a ChatGPT tab instead of reusing an already-open one.",
+          userActionRequired: false
+        }
+      ]
+    });
+  }
+}
+
+function targetRequiresChatGPT(target: ExistingTabTarget): boolean {
+  switch (target.type) {
+    case "selected":
+      return target.host === "chatgpt";
+    case "tabId":
+    case "title":
+      return true;
+    case "conversationId":
+    case "conversation_id":
+    case "url":
+      return true;
+  }
+}
+
+function isChatGPTUrl(url: string | undefined): boolean {
+  if (url === undefined) {
+    return false;
+  }
+  try {
+    return CHATGPT_HOSTS.has(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+function urlMatches(actual: string | undefined, expected: string): boolean {
+  if (actual === undefined) {
+    return false;
+  }
+  const actualConversationId = parseConversationId(actual);
+  const expectedConversationId = parseConversationId(expected);
+  if (actualConversationId !== undefined || expectedConversationId !== undefined) {
+    return actualConversationId !== undefined && actualConversationId === expectedConversationId;
+  }
+  return normalizeUrl(actual) === normalizeUrl(expected);
+}
+
+function normalizeUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return value.trim().replace(/\/$/, "");
+  }
+}
+
+function titleMatches(actual: string | undefined, expected: string, exact: boolean): boolean {
+  if (actual === undefined) {
+    return false;
+  }
+  const normalizedActual = normalizeText(actual);
+  const normalizedExpected = normalizeText(expected);
+  return exact ? normalizedActual === normalizedExpected : normalizedActual.includes(normalizedExpected);
+}
+
+function normalizeText(value: string): string {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function urlFromExistingTarget(target: ExistingTabTarget | undefined): string | undefined {
+  if (target === undefined) {
+    return undefined;
+  }
+  switch (target.type) {
+    case "url":
+      return target.url;
+    case "conversationId":
+    case "conversation_id":
+      return new URL(`/c/${target.conversationId}`, CHATGPT_HOME).toString();
+    case "selected":
+    case "tabId":
+    case "title":
+      return undefined;
+  }
+}
+
+function userTabCandidateLabel(tab: BrowserUserTabInfo): string {
+  return `tab ${tab.id} - ${tab.title ?? "Untitled"} - ${tab.url ?? "unknown URL"}`;
 }
 
 async function createTab(browser: BrowserLike, url: string): Promise<PageLike | undefined> {

@@ -5,6 +5,7 @@ import { readLatestMessage, readMessages, type ExtractedMessage } from "../dom/m
 import { copyResponseButtons } from "../dom/selectors.js";
 import type { CommandResult, CopiedResponse, CopyResponseArgs, PageLike, RuntimeEnv } from "../types.js";
 import { contextFromPage } from "./context.js";
+import { withCommandOutputText } from "./output.js";
 import { bootstrap } from "./session.js";
 
 export async function copyResponse(
@@ -37,7 +38,7 @@ export async function copyResponse(
             const data = copiedResponseFromExtracted(latest, "dom", fallbackReason);
             data.markdown = formatClipboardMarkdown(copied).markdown ?? copied;
             data.warnings = [...(data.warnings ?? []), fallbackReason];
-            return resultOk(data, await contextFromPage(page), data.warnings);
+            return withCommandOutputText(resultOk(data, await contextFromPage(page), data.warnings));
           }
 
           const warning = `Clipboard copy succeeded, but ${formatLabel(requestedFormat)} requires DOM extraction and no assistant DOM message was available; returned clipboard Markdown instead.`;
@@ -47,7 +48,7 @@ export async function copyResponse(
             fallbackReason: warning,
             warnings: [warning]
           };
-          return resultOk(data, await contextFromPage(page), [warning]);
+          return withCommandOutputText(resultOk(data, await contextFromPage(page), [warning]));
         }
 
         const metadata = await readSelectedAssistantMessage(page, args.which, "markdown").catch(() => undefined);
@@ -56,10 +57,10 @@ export async function copyResponse(
           source: "clipboard"
         };
         mergeResponseMetadata(data, metadata);
-        return resultOk(
+        return withCommandOutputText(resultOk(
           data,
           await contextFromPage(page)
-        );
+        ));
       }
     }
 
@@ -69,11 +70,11 @@ export async function copyResponse(
         ? `Returned DOM-derived ${formatLabel(latest.format)} because clipboard copy was not requested.`
         : "System clipboard did not change; returned DOM-derived response content.";
       const data = copiedResponseFromExtracted(latest, "dom", fallbackReason);
-      return resultOk(
+      return withCommandOutputText(resultOk(
         data,
         await contextFromPage(page),
         data.warnings ?? [fallbackReason]
-      );
+      ));
     }
 
     return {

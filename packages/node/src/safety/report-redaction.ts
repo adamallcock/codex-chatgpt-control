@@ -77,7 +77,7 @@ function normalizeOptions(options: ReportRedactionOptions): Required<ReportRedac
 }
 
 function isHeavyContentKey(key: string): boolean {
-  return /^(text|markdown|html|visibleText|normalizedText|responseText|prompt|blocks|tables|codeBlocks|dataPreview)$/i.test(key);
+  return /^(text|markdown|html|visibleText|normalizedText|responseText|output_text|outputText|finalOutput|prompt|blocks|tables|codeBlocks|dataPreview)$/i.test(key);
 }
 
 function summarizeHeavyValue(value: object): string {

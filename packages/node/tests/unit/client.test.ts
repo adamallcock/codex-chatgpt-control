@@ -13,13 +13,8 @@ describe("createChatGPT", () => {
     expect(plan?.steps.map(step => step.command)).toEqual([
       "session.bootstrap",
       "threads.new",
-      "modes.set",
       "messages.ask"
     ]);
-    expect(plan?.steps[2]).toMatchObject({
-      command: "modes.set",
-      args: { effort: "Thinking" }
-    });
     expect(plan?.steps.at(-1)).toMatchObject({
       command: "messages.ask",
       args: {
@@ -27,6 +22,29 @@ describe("createChatGPT", () => {
         wait: true,
         read: { format: "markdown" }
       }
+    });
+  });
+
+  it("preserves visible mode by default but honors explicit client mode defaults", () => {
+    const preserving = createChatGPT();
+    const configured = createChatGPT({ defaults: { mode: { effort: "Thinking" } } });
+
+    expect(preserving.plan("new-ask-read", { prompt: "reply with hi" })?.steps.map(step => step.command)).toEqual([
+      "session.bootstrap",
+      "threads.new",
+      "messages.ask"
+    ]);
+
+    const configuredPlan = configured.plan("new-ask-read", { prompt: "reply with hi" });
+    expect(configuredPlan?.steps.map(step => step.command)).toEqual([
+      "session.bootstrap",
+      "threads.new",
+      "modes.set",
+      "messages.ask"
+    ]);
+    expect(configuredPlan?.steps[2]).toMatchObject({
+      command: "modes.set",
+      args: { effort: "Thinking" }
     });
   });
 
@@ -62,7 +80,6 @@ describe("createChatGPT", () => {
       "session.bootstrap",
       "threads.search",
       "threads.open",
-      "modes.set",
       "messages.ask"
     ]);
   });
@@ -175,13 +192,13 @@ describe("createChatGPT", () => {
         files: [
           {
             name: "private@example.com-contract.pdf",
-            path: "/example/secret/private@example.com-contract.pdf"
+            path: "/example/user/secret/private@example.com-contract.pdf"
           }
         ],
-        responseText: "private@example.com /example/secret token_12345678901234567890123456789012"
+        responseText: "private@example.com /example/user/secret token_12345678901234567890123456789012"
       },
       warnings: ["warning includes private@example.com"],
-      error: { name: "PrivateError", message: "/example/secret", recoverable: true },
+      error: { name: "PrivateError", message: "/example/user/secret", recoverable: true },
       blocker: { kind: "unknown", message: "token_12345678901234567890123456789012", visibleText: "private@example.com" },
       context: { timestamp: "2026-06-05T00:00:00.000Z", title: "private@example.com", url: "https://chatgpt.com/c/private" }
     };
@@ -192,7 +209,7 @@ describe("createChatGPT", () => {
     const body = await readFile(report.data!.path, "utf8");
     expect(body).toContain("[redacted:");
     expect(body).not.toContain("private@example.com");
-    expect(body).not.toContain("/example/secret");
+    expect(body).not.toContain("/example/user/secret");
     expect(body).not.toContain("token_12345678901234567890123456789012");
     expect(body).not.toContain("customer-contract-private.pdf");
     expect(body).not.toContain("private@example.com-contract.pdf");

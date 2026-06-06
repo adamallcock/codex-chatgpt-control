@@ -23,6 +23,9 @@ dependencies = [
   "pydantic>=2,<3"
 ]
 
+[project.scripts]
+chatgpt-thread = "codex_chatgpt_control.thread_entrypoint:main"
+
 [project.urls]
 Homepage = "https://github.com/adamallcock/codex-chatgpt-control"
 Issues = "https://github.com/adamallcock/codex-chatgpt-control/issues"

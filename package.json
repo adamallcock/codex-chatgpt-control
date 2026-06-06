@@ -8,7 +8,7 @@
     "node:test": "npm --prefix packages/node test",
     "node:build": "npm --prefix packages/node run build",
     "node:bundle": "npm --prefix packages/node run bundle && npm --prefix packages/node run bundle:backend && npm --prefix packages/node run bundle:live-smoke",
-    "node:contracts": "npm --prefix packages/node run contract:validate && npm --prefix packages/node run parity:fixtures",
+    "node:contracts": "npm --prefix packages/node run contract:validate && npm --prefix packages/node run parity:fixtures && npm --prefix packages/node run parity:suite",
     "python:test": "cd packages/python && python -m unittest discover -s tests",
     "python:compile": "cd packages/python && python -m compileall -q src examples",
     "release:check-names": "node scripts/check-release-names.mjs"

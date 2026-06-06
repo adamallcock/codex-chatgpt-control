@@ -46,6 +46,7 @@ export type ChatGPTVisibleToolPreference = SelectToolArgs & {
 
 export type ChatGPTRunDefaults = {
   thread?: ChatGPTThreadSelector | ThreadTarget;
+  mode?: ChatGPTVisibleModePreference;
   wait?: boolean | WaitArgs;
   read?: boolean | ReadLatestArgs;
   report?: boolean | RunReportOptions;

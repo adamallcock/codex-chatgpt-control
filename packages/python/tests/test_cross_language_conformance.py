@@ -174,7 +174,7 @@ class CrossLanguageConformanceTests(unittest.TestCase):
                     {
                         "value": {
                             "prompt": "private@example.com",
-                            "file": "/example/secret/contract.pdf",
+                            "file": "/example/user/secret/contract.pdf",
                             "token": "token_12345678901234567890123456789012",
                         }
                     },

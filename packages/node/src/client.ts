@@ -51,6 +51,7 @@ import { redactReportValue, type ReportRedactionOptions } from "./safety/report-
 
 export type ChatGPTClientOptions = RuntimeEnv & {
   defaults?: {
+    mode?: SetModeArgs;
     wait?: boolean | WaitArgs;
     read?: boolean | ReadLatestArgs;
   };
@@ -65,8 +66,6 @@ export type RunLimits = {
   maxReportBytesPerRun: number;
   maxReportPreviewChars: number;
 };
-
-const DEFAULT_VISIBLE_MODE: SetModeArgs = { effort: "Thinking" };
 
 export type ThreadSelector =
   | { type: "new" }
@@ -108,6 +107,7 @@ export type AskAndDownloadWorkflowArgs = AskWorkflowArgs & {
 
 export type RunMessagesArgs = {
   thread?: WorkflowThread;
+  mode?: SetModeArgs;
   messages: Array<{
     id?: string;
     prompt: string;
@@ -450,7 +450,10 @@ function planAgentWorkflowFromNormalized<TOutput>(
     ...threadSteps(input.thread ?? agent.defaults.thread ?? { type: "new" })
   ];
 
-  steps.push({ id: "mode", command: "modes.set", args: input.mode ?? defaultVisibleMode() });
+  const mode = input.mode ?? agent.defaults.mode ?? defaults.mode;
+  if (mode !== undefined) {
+    steps.push({ id: "mode", command: "modes.set", args: mode });
+  }
   for (const [index, tool] of input.tools.entries()) {
     steps.push({ id: `tool${index + 1}`, command: "tools.select", args: tool });
   }
@@ -558,10 +561,6 @@ function normalizeRunnerAttachments(attachments: ChatGPTAttachmentInput[] | unde
   return (attachments ?? []).map(attachment => attachment.path);
 }
 
-function defaultVisibleMode(): SetModeArgs {
-  return { ...DEFAULT_VISIBLE_MODE };
-}
-
 function renderRunnerPrompt<TOutput>(agent: ChatGPTAgent<TOutput>, prompt: string): string {
   if (agent.instructionsMode !== "visible_prefix" || !hasInstructions(agent)) {
     return prompt;
@@ -644,7 +643,10 @@ function planAskWorkflow(args: AskWorkflowArgs, defaults: ChatGPTClientOptions["
     ...threadSteps(args.thread ?? { type: "new" })
   ];
 
-  steps.push({ id: "mode", command: "modes.set", args: args.mode ?? defaultVisibleMode() });
+  const mode = args.mode ?? defaults.mode;
+  if (mode !== undefined) {
+    steps.push({ id: "mode", command: "modes.set", args: mode });
+  }
   for (const [index, tool] of (args.tools ?? []).entries()) {
     steps.push({ id: `tool${index + 1}`, command: "tools.select", args: tool });
   }
@@ -680,6 +682,11 @@ function planRunMessages(args: RunMessagesArgs, defaults: ChatGPTClientOptions["
     { id: "bootstrap", command: "session.bootstrap" },
     ...threadSteps(args.thread ?? { type: "new" })
   ];
+
+  const mode = args.mode ?? defaults.mode;
+  if (mode !== undefined) {
+    steps.push({ id: "mode", command: "modes.set", args: mode });
+  }
 
   args.messages.forEach((message, index) => {
     steps.push({

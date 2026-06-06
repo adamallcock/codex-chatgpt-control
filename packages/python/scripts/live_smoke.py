@@ -193,7 +193,7 @@ def run_plan_scenario(chatgpt: ChatGPT) -> dict[str, Any]:
 
 def report_redaction_scenario(chatgpt: ChatGPT, report_dir: Path) -> dict[str, Any]:
     secret = "pythonbrowserbridgesecret"
-    private_path = "/example/private/python-browser-bridge-smoke.txt"
+    private_path = "/example/user/private/python-browser-bridge-smoke.txt"
     private_email = "private@example.com"
     command = {
         "ok": True,

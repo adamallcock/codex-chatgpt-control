@@ -43,7 +43,7 @@ describe("backend conformance", () => {
     const { inProcess, backend } = createClientPair();
     const sensitiveValue = {
       prompt: "private@example.com",
-      file: "/example/private/report.txt",
+      file: "/example/user/private/report.txt",
       token: "token_12345678901234567890123456789012"
     };
     const blockedResult = {
@@ -58,8 +58,8 @@ describe("backend conformance", () => {
       context: { timestamp: "2026-06-06T00:00:00.000Z" }
     } satisfies CommandResult<unknown>;
 
-    await expect(backend.doctor({ check: ["bridge", "upload"] })).resolves.toEqual(
-      await inProcess.doctor({ check: ["bridge", "upload"] })
+    expect(normalizeDynamic(await backend.doctor({ check: ["bridge", "upload"] }))).toEqual(
+      normalizeDynamic(await inProcess.doctor({ check: ["bridge", "upload"] }))
     );
     await expect(backend.session.bootstrap()).resolves.toEqual(await inProcess.session.bootstrap());
     expect(normalizeDynamic(await backend.reports.redact(sensitiveValue))).toEqual(

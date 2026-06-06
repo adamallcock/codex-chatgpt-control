@@ -36,16 +36,11 @@ describe("ChatGPT runner facade", () => {
     expect(plan.steps.map(step => step.command)).toEqual([
       "session.bootstrap",
       "threads.open",
-      "modes.set",
       "messages.ask"
     ]);
     expect(plan.steps[1]).toMatchObject({
       command: "threads.open",
       args: { conversationId: "abc-123" }
-    });
-    expect(plan.steps[2]).toMatchObject({
-      command: "modes.set",
-      args: { effort: "Thinking" }
     });
 
     const ask = finalAsk(plan);
@@ -55,6 +50,49 @@ describe("ChatGPT runner facade", () => {
     expect(ask.args.text).toContain("<user_request>");
     expect(ask.args.text).toContain("Assess the SDK shape.");
     expect(ask.args.read).toEqual({ format: "markdown" });
+  });
+
+  it("sets visible mode only when run input or defaults explicitly request it", () => {
+    const chatgpt = createChatGPT();
+    const preservingAgent = chatgpt.agent({ name: "reviewer" });
+    const defaultedAgent = chatgpt.agent({
+      name: "configured-reviewer",
+      defaults: { mode: { effort: "Thinking" } }
+    });
+
+    const preservingPlan = chatgpt.runner.plan(preservingAgent, {
+      input: "Assess the SDK shape.",
+      thread: { type: "conversationId", conversationId: "abc-123" }
+    });
+    const explicitPlan = chatgpt.runner.plan(preservingAgent, {
+      input: "Assess the SDK shape.",
+      thread: { type: "conversationId", conversationId: "abc-123" },
+      mode: { model: "Pro" }
+    });
+    const defaultedPlan = chatgpt.runner.plan(defaultedAgent, {
+      input: "Assess the SDK shape.",
+      thread: { type: "conversationId", conversationId: "abc-123" }
+    });
+
+    expect(preservingPlan.steps.map(step => step.command)).toEqual([
+      "session.bootstrap",
+      "threads.open",
+      "messages.ask"
+    ]);
+    expect(explicitPlan.steps.map(step => step.command)).toEqual([
+      "session.bootstrap",
+      "threads.open",
+      "modes.set",
+      "messages.ask"
+    ]);
+    expect(explicitPlan.steps[2]).toMatchObject({
+      command: "modes.set",
+      args: { model: "Pro" }
+    });
+    expect(defaultedPlan.steps[2]).toMatchObject({
+      command: "modes.set",
+      args: { effort: "Thinking" }
+    });
   });
 
   it("does not leak metadata-only instructions into visible prompt text", () => {
@@ -92,21 +130,16 @@ describe("ChatGPT runner facade", () => {
     expect(plan.steps.map(step => step.command)).toEqual([
       "session.bootstrap",
       "threads.new",
-      "modes.set",
       "files.attach",
       "messages.ask",
       "messages.ask"
     ]);
     expect(plan.steps[2]).toMatchObject({
-      command: "modes.set",
-      args: { effort: "Thinking" }
-    });
-    expect(plan.steps[3]).toMatchObject({
       command: "files.attach",
       args: { paths: ["/tmp/plan.md", "/tmp/audit.md"] }
     });
 
-    const setup = plan.steps[4] as Extract<SequenceStep, { command: "messages.ask" }>;
+    const setup = plan.steps[3] as Extract<SequenceStep, { command: "messages.ask" }>;
     const ask = finalAsk(plan);
     expect(setup.id).toBe("agent_setup");
     expect(setup.args.text).toContain("Use the attached plan as source of truth.");

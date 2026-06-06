@@ -1,0 +1,635 @@
+{
+  "schemaVersion": "chatgpt.browser_control.parity_suite.v1",
+  "contractVersion": "0.1.0",
+  "surfaces": [
+    {
+      "id": "backend-protocol",
+      "summary": "Backend request, response, event, capability, and protocol-error envelopes.",
+      "fixtures": [
+        "backend-capabilities.json",
+        "backend-error-event-missing-stream-input.json",
+        "backend-error-missing-run-input.json",
+        "backend-runner-plan-request.json",
+        "backend-version.json"
+      ],
+      "sourceFiles": [
+        "src/backend/protocol.ts",
+        "src/backend/session.ts",
+        "src/backend/client.ts"
+      ],
+      "nodeTests": [
+        "tests/unit/backend-protocol.test.ts",
+        "tests/unit/backend-dispatch.test.ts",
+        "tests/unit/backend-client.test.ts",
+        "tests/unit/backend-stdio.test.ts",
+        "tests/unit/backend-conformance.test.ts"
+      ],
+      "pythonTests": [
+        "tests/test_backend_client.py",
+        "tests/test_backend_transport.py",
+        "tests/test_transport_sidecar.py",
+        "tests/test_cross_language_conformance.py",
+        "tests/test_live_backend_smoke.py"
+      ],
+      "docs": [
+        "references/backend-protocol.md",
+        "references/python-parity.md"
+      ]
+    },
+    {
+      "id": "command-discovery",
+      "summary": "Command registry, descriptors, help text, and source-free command discovery.",
+      "fixtures": [
+        "command-descriptors.json",
+        "describe-runner-run.json",
+        "help-root.json"
+      ],
+      "sourceFiles": [
+        "src/commands/registry.ts",
+        "src/client.ts",
+        "src/backend/session.ts"
+      ],
+      "nodeTests": [
+        "tests/unit/client.test.ts",
+        "tests/unit/backend-dispatch.test.ts",
+        "tests/unit/backend-conformance.test.ts"
+      ],
+      "pythonTests": [
+        "tests/test_commands.py",
+        "tests/test_async_client.py",
+        "tests/test_cross_language_conformance.py"
+      ],
+      "docs": [
+        "references/backend-protocol.md",
+        "references/python-parity.md",
+        "../../README.md"
+      ]
+    },
+    {
+      "id": "runner-agent-plans",
+      "summary": "Agents-style runner planning, instruction modes, full agent config, files, modes, and named plans.",
+      "fixtures": [
+        "named-plan-two-turn.json",
+        "runner-full-agent-config.json",
+        "runner-input-items-and-files-plan.json",
+        "runner-metadata-only-plan.json",
+        "runner-visible-prefix-plan.json",
+        "runner-visible-setup-plan.json"
+      ],
+      "sourceFiles": [
+        "src/client.ts",
+        "src/runner/types.ts",
+        "src/runner/agent.ts",
+        "src/commands/sequence.ts"
+      ],
+      "nodeTests": [
+        "tests/unit/runner.test.ts",
+        "tests/unit/runner-types.test.ts",
+        "tests/unit/sequence.test.ts",
+        "tests/unit/backend-conformance.test.ts"
+      ],
+      "pythonTests": [
+        "tests/test_agent.py",
+        "tests/test_runner.py",
+        "tests/test_runner_api.py",
+        "tests/test_cross_language_conformance.py",
+        "tests/test_parity_snapshots.py"
+      ],
+      "docs": [
+        "references/agents-runner.md",
+        "references/backend-protocol.md",
+        "references/python-parity.md"
+      ]
+    },
+    {
+      "id": "runner-results-streams",
+      "summary": "Run results, blockers, reports, structured output parsing, and milestone streams.",
+      "fixtures": [
+        "output-json-parse-success.json",
+        "run-basic-success.json",
+        "run-browser-bridge-blocker.json",
+        "run-file-attach-success.json",
+        "run-report-redacted.json",
+        "run-selector-drift-blocker.json",
+        "run-timeout-partial.json",
+        "run-two-turn-success.json",
+        "run-upload-permission-blocker.json",
+        "runner-budget-blocker.json",
+        "stream-basic.ndjson",
+        "stream-blocked.ndjson",
+        "stream-submitted-completed.ndjson"
+      ],
+      "sourceFiles": [
+        "src/client.ts",
+        "src/runner/result.ts",
+        "src/runner/stream.ts",
+        "src/runner/interruptions.ts",
+        "src/backend/session.ts"
+      ],
+      "nodeTests": [
+        "tests/unit/runner.test.ts",
+        "tests/unit/stream.test.ts",
+        "tests/unit/interruptions.test.ts",
+        "tests/unit/backend-stdio.test.ts",
+        "tests/unit/backend-conformance.test.ts"
+      ],
+      "pythonTests": [
+        "tests/test_runner.py",
+        "tests/test_runner_streamed.py",
+        "tests/test_streaming.py",
+        "tests/test_models_conformance.py",
+        "tests/test_cross_language_conformance.py"
+      ],
+      "docs": [
+        "references/agents-runner.md",
+        "references/streaming.md",
+        "references/python-parity.md"
+      ]
+    },
+    {
+      "id": "responses-adapter",
+      "summary": "Responses-shaped browser-control adapter and unsupported API-only field handling.",
+      "fixtures": [
+        "responses-basic-success.json",
+        "responses-hidden-instructions-unsupported.json",
+        "responses-unknown-field-unsupported.json",
+        "responses-unsupported-previous-response-id.json",
+        "responses-unsupported-temperature.json"
+      ],
+      "sourceFiles": [
+        "src/runner/responses.ts",
+        "src/client.ts",
+        "src/backend/session.ts"
+      ],
+      "nodeTests": [
+        "tests/unit/responses-adapter.test.ts",
+        "tests/unit/backend-dispatch.test.ts",
+        "tests/unit/backend-conformance.test.ts"
+      ],
+      "pythonTests": [
+        "tests/test_responses.py",
+        "tests/test_async_client.py",
+        "tests/test_cross_language_conformance.py",
+        "tests/test_models_complete.py"
+      ],
+      "docs": [
+        "references/responses-adapter.md",
+        "references/python-parity.md",
+        "../../README.md"
+      ]
+    },
+    {
+      "id": "workflows-primitives-diagnostics",
+      "summary": "High-level workflows, browser primitives, named macros, and doctor diagnostics.",
+      "fixtures": [
+        "doctor-bridge-upload.json",
+        "primitive-bootstrap-blocker.json",
+        "workflow-ask-success.json"
+      ],
+      "sourceFiles": [
+        "src/client.ts",
+        "src/commands/sequence.ts",
+        "src/commands/session.ts",
+        "src/commands/threads.ts",
+        "src/commands/messages.ts",
+        "src/commands/files.ts",
+        "src/commands/modes.ts",
+        "src/commands/response-actions.ts",
+        "src/commands/doctor.ts"
+      ],
+      "nodeTests": [
+        "tests/unit/client.test.ts",
+        "tests/unit/sequence.test.ts",
+        "tests/unit/messages.test.ts",
+        "tests/unit/files.test.ts",
+        "tests/unit/modes.test.ts",
+        "tests/unit/backend-conformance.test.ts"
+      ],
+      "pythonTests": [
+        "tests/test_workflows.py",
+        "tests/test_primitives.py",
+        "tests/test_commands.py",
+        "tests/test_thread_entrypoint.py",
+        "tests/test_async_client.py"
+      ],
+      "docs": [
+        "references/backend-protocol.md",
+        "references/troubleshooting.md",
+        "references/python-parity.md",
+        "../../README.md"
+      ]
+    },
+    {
+      "id": "reports-redaction",
+      "summary": "Redacted reports, report summaries, and sensitive-output handling.",
+      "fixtures": [
+        "report-redaction-default.json",
+        "reports-create-redacted.json",
+        "reports-summarize-redacted.json"
+      ],
+      "sourceFiles": [
+        "src/commands/reports.ts",
+        "src/safety/report-redaction.ts",
+        "src/safety/redaction.ts",
+        "src/client.ts"
+      ],
+      "nodeTests": [
+        "tests/unit/client.test.ts",
+        "tests/unit/safety.test.ts",
+        "tests/unit/live-smoke-harness.test.ts",
+        "tests/unit/backend-conformance.test.ts"
+      ],
+      "pythonTests": [
+        "tests/test_reports.py",
+        "tests/test_models_complete.py",
+        "tests/test_cross_language_conformance.py",
+        "tests/test_async_client.py"
+      ],
+      "docs": [
+        "references/safety.md",
+        "references/python-parity.md",
+        "../../README.md"
+      ]
+    }
+  ],
+  "backendCommands": {
+    "backend.version": {
+      "surface": "backend-protocol",
+      "fixtures": ["backend-version.json"],
+      "nodeTests": ["tests/unit/backend-dispatch.test.ts", "tests/unit/backend-protocol.test.ts"],
+      "pythonTests": ["tests/test_cross_language_conformance.py", "tests/test_backend_client.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "backend.health": {
+      "surface": "backend-protocol",
+      "fixtures": ["backend-capabilities.json"],
+      "nodeTests": ["tests/unit/backend-dispatch.test.ts"],
+      "pythonTests": ["tests/test_live_backend_smoke.py", "tests/test_backend_client.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "backend.capabilities": {
+      "surface": "backend-protocol",
+      "fixtures": ["backend-capabilities.json"],
+      "nodeTests": ["tests/unit/backend-dispatch.test.ts", "tests/unit/backend-client.test.ts"],
+      "pythonTests": ["tests/test_cross_language_conformance.py", "tests/test_backend_client.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "runner.run": {
+      "surface": "runner-results-streams",
+      "fixtures": ["run-basic-success.json", "runner-budget-blocker.json", "run-browser-bridge-blocker.json"],
+      "nodeTests": ["tests/unit/runner.test.ts", "tests/unit/backend-dispatch.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_runner.py", "tests/test_runner_api.py", "tests/test_backend_client.py", "tests/test_cross_language_conformance.py"],
+      "docs": ["references/agents-runner.md", "references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "runner.plan": {
+      "surface": "runner-agent-plans",
+      "fixtures": ["backend-runner-plan-request.json", "runner-visible-prefix-plan.json", "runner-input-items-and-files-plan.json"],
+      "nodeTests": ["tests/unit/runner.test.ts", "tests/unit/backend-dispatch.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_runner.py", "tests/test_async_client.py", "tests/test_cross_language_conformance.py"],
+      "docs": ["references/agents-runner.md", "references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "runner.stream": {
+      "surface": "runner-results-streams",
+      "fixtures": ["stream-blocked.ndjson", "stream-submitted-completed.ndjson"],
+      "nodeTests": ["tests/unit/stream.test.ts", "tests/unit/backend-stdio.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_runner_streamed.py", "tests/test_streaming.py", "tests/test_async_client.py", "tests/test_cross_language_conformance.py"],
+      "docs": ["references/streaming.md", "references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "responses.create": {
+      "surface": "responses-adapter",
+      "fixtures": ["responses-basic-success.json", "responses-hidden-instructions-unsupported.json", "responses-unknown-field-unsupported.json"],
+      "nodeTests": ["tests/unit/responses-adapter.test.ts", "tests/unit/backend-dispatch.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_responses.py", "tests/test_async_client.py", "tests/test_cross_language_conformance.py"],
+      "docs": ["references/responses-adapter.md", "references/python-parity.md"]
+    },
+    "ask": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["workflow-ask-success.json", "command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/sequence.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_workflows.py", "tests/test_async_client.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "askInThread": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/sequence.test.ts"],
+      "pythonTests": ["tests/test_workflows.py", "tests/test_thread_entrypoint.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "askWithFiles": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json", "run-file-attach-success.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/files.test.ts"],
+      "pythonTests": ["tests/test_workflows.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "askAndDownload": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/files.test.ts"],
+      "pythonTests": ["tests/test_workflows.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "runMessages": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json", "named-plan-two-turn.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/sequence.test.ts"],
+      "pythonTests": ["tests/test_workflows.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "openThread": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/sequence.test.ts"],
+      "pythonTests": ["tests/test_workflows.py", "tests/test_thread_entrypoint.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "../../README.md"]
+    },
+    "readLatest": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/messages.test.ts"],
+      "pythonTests": ["tests/test_workflows.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "copyLatest": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/messages.test.ts"],
+      "pythonTests": ["tests/test_workflows.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "downloadLatest": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/files.test.ts"],
+      "pythonTests": ["tests/test_workflows.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "../../README.md"]
+    },
+    "runPlan": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["named-plan-two-turn.json", "command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/sequence.test.ts"],
+      "pythonTests": ["tests/test_workflows.py", "tests/test_async_client.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "doctor": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["doctor-bridge-upload.json", "command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/backend-dispatch.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_workflows.py", "tests/test_cross_language_conformance.py"],
+      "docs": ["references/troubleshooting.md", "references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "createReport": {
+      "surface": "reports-redaction",
+      "fixtures": ["command-descriptors.json", "reports-create-redacted.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/safety.test.ts"],
+      "pythonTests": ["tests/test_workflows.py", "tests/test_reports.py"],
+      "docs": ["references/safety.md", "references/python-parity.md", "../../README.md"]
+    },
+    "reports.create": {
+      "surface": "reports-redaction",
+      "fixtures": ["reports-create-redacted.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_reports.py", "tests/test_async_client.py"],
+      "docs": ["references/safety.md", "references/python-parity.md"]
+    },
+    "reports.redact": {
+      "surface": "reports-redaction",
+      "fixtures": ["report-redaction-default.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/safety.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_reports.py", "tests/test_cross_language_conformance.py", "tests/test_async_client.py"],
+      "docs": ["references/safety.md", "references/python-parity.md"]
+    },
+    "reports.summarize": {
+      "surface": "reports-redaction",
+      "fixtures": ["reports-summarize-redacted.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_reports.py", "tests/test_cross_language_conformance.py"],
+      "docs": ["references/safety.md", "references/python-parity.md"]
+    },
+    "commands": {
+      "surface": "command-discovery",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/backend-dispatch.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_commands.py", "tests/test_async_client.py", "tests/test_cross_language_conformance.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "describe": {
+      "surface": "command-discovery",
+      "fixtures": ["describe-runner-run.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/backend-dispatch.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_commands.py", "tests/test_cross_language_conformance.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "help": {
+      "surface": "command-discovery",
+      "fixtures": ["help-root.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/backend-dispatch.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_commands.py", "tests/test_cross_language_conformance.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "session.bootstrap": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["primitive-bootstrap-blocker.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_cross_language_conformance.py", "tests/test_async_client.py"],
+      "docs": ["references/troubleshooting.md", "references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "threads.new": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/runner.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "../../README.md"]
+    },
+    "threads.search": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/selectors.test.ts", "tests/unit/sequence.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_thread_entrypoint.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "../../README.md"]
+    },
+    "threads.open": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/client.test.ts", "tests/unit/runner.test.ts", "tests/unit/sequence.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_thread_entrypoint.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "../../README.md"]
+    },
+    "messages.compose": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/client.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "messages.submit": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json", "stream-submitted-completed.ndjson"],
+      "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/stream.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/streaming.md", "references/python-parity.md"]
+    },
+    "messages.ask": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["workflow-ask-success.json", "command-descriptors.json"],
+      "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/sequence.test.ts", "tests/unit/client.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "messages.wait": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/polling.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "references/python-parity.md"]
+    },
+    "messages.readLatest": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json", "run-basic-success.json"],
+      "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/client.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "messages.waitAndRead": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json", "workflow-ask-success.json"],
+      "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/sequence.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "files.attach": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["run-file-attach-success.json", "command-descriptors.json"],
+      "nodeTests": ["tests/unit/files.test.ts", "tests/unit/runner.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "references/python-parity.md"]
+    },
+    "files.downloadLatest": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/files.test.ts", "tests/unit/client.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "references/python-parity.md"]
+    },
+    "modes.set": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/modes.test.ts", "tests/unit/client.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md"]
+    },
+    "tools.select": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/modes.test.ts", "tests/unit/client.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md"]
+    },
+    "response.copy": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/client.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md"]
+    }
+  },
+  "gates": [
+    {
+      "id": "node.test",
+      "cwd": "packages/node",
+      "command": "npm test",
+      "ciRequired": true
+    },
+    {
+      "id": "node.build",
+      "cwd": "packages/node",
+      "command": "npm run build",
+      "ciRequired": true
+    },
+    {
+      "id": "node.bundle",
+      "cwd": "packages/node",
+      "command": "npm run bundle",
+      "ciRequired": true
+    },
+    {
+      "id": "node.bundle-live-smoke",
+      "cwd": "packages/node",
+      "command": "npm run bundle:live-smoke",
+      "ciRequired": true
+    },
+    {
+      "id": "node.bundle-backend",
+      "cwd": "packages/node",
+      "command": "npm run bundle:backend",
+      "ciRequired": true
+    },
+    {
+      "id": "node.contract-validate",
+      "cwd": "packages/node",
+      "command": "npm run contract:validate",
+      "ciRequired": true
+    },
+    {
+      "id": "node.parity-fixtures",
+      "cwd": "packages/node",
+      "command": "npm run parity:fixtures",
+      "ciRequired": true
+    },
+    {
+      "id": "node.parity-suite",
+      "cwd": "packages/node",
+      "command": "npm run parity:suite",
+      "ciRequired": true
+    },
+    {
+      "id": "node.backend-conformance",
+      "cwd": "packages/node",
+      "command": "npm run test:backend-conformance",
+      "ciRequired": true
+    },
+    {
+      "id": "python.install-dev",
+      "cwd": "packages/python",
+      "command": "python -m pip install -e \".[dev]\"",
+      "ciRequired": true
+    },
+    {
+      "id": "python.unittest",
+      "cwd": "packages/python",
+      "command": "python -m unittest discover -s tests",
+      "ciRequired": true
+    },
+    {
+      "id": "python.compile-src",
+      "cwd": "packages/python",
+      "command": "python -m compileall -q src",
+      "ciRequired": true
+    },
+    {
+      "id": "python.compile-examples",
+      "cwd": "packages/python",
+      "command": "python -m compileall -q examples",
+      "ciRequired": true
+    },
+    {
+      "id": "python.pyright",
+      "cwd": "packages/python",
+      "command": "python -m pyright --pythonpath \"$(which python)\" src tests",
+      "ciRequired": true
+    },
+    {
+      "id": "python.ordinary-shell-smoke",
+      "cwd": "packages/python",
+      "command": "python scripts/live_smoke.py --mode ordinary-shell",
+      "ciRequired": true
+    },
+    {
+      "id": "node.audit",
+      "cwd": "packages/node",
+      "command": "npm audit",
+      "ciRequired": false
+    }
+  ]
+}

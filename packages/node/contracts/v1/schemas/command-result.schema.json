@@ -8,6 +8,7 @@
     "ok": { "type": "boolean" },
     "status": { "$ref": "#/$defs/commandStatus" },
     "data": {},
+    "output_text": { "type": "string" },
     "warnings": {
       "type": "array",
       "items": { "type": "string" }

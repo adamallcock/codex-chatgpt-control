@@ -7,6 +7,7 @@ import {
 import type {
   CommandContext,
   CommandResult,
+  ExistingTabPolicy,
   ReadLatestArgs,
   ResponseFormat,
   WaitArgs
@@ -29,19 +30,27 @@ export const CONTINUE_THREAD_USAGE = [
   "Usage:",
   "  npm run thread -- \"<ChatGPT thread URL or history search query>\"",
   "  npm run thread -- \"<target>\" --prompt \"Continue from the latest answer.\"",
+  "  npm run thread -- --existing selected",
+  "  npm run thread -- --existing-conversation-id \"<conversation-id>\" --prompt \"Continue.\"",
   "  CHATGPT_THREAD_TARGET=\"<target>\" CHATGPT_THREAD_PROMPT=\"<prompt>\" npm run thread",
   "",
   "Options:",
-  "  --target, -t       ChatGPT /c/... URL or history search query.",
-  "  --prompt, -p       Optional prompt to send after opening the thread. Omit to read only.",
-  "  --format           Response format for the read step. Default: markdown.",
-  "  --max-chars        Maximum response characters to return.",
-  "  --timeout-ms       Wait timeout for continue prompts.",
-  "  --stable-ms        Stable wait window for continue prompts."
+  "  --target, -t                  ChatGPT /c/... URL or history search query.",
+  "  --existing selected           Claim the selected open ChatGPT tab instead of opening/searching.",
+  "  --existing-url                Claim an open tab by exact ChatGPT thread URL.",
+  "  --existing-conversation-id    Claim an open tab by ChatGPT conversation id.",
+  "  --existing-tab-id             Claim an open user tab by browser bridge tab id.",
+  "  --open-if-missing             Open a URL/conversation target if no matching open tab exists.",
+  "  --prompt, -p                  Optional prompt to send after opening the thread. Omit to read only.",
+  "  --format                      Response format for the read step. Default: markdown.",
+  "  --max-chars                   Maximum response characters to return.",
+  "  --timeout-ms                  Wait timeout for continue prompts.",
+  "  --stable-ms                   Stable wait window for continue prompts."
 ].join("\n");
 
 export type ContinueThreadOptions = {
-  target: string;
+  target?: string;
+  existing?: ExistingTabPolicy;
   prompt?: string;
   format: ResponseFormat;
   maxChars?: number;
@@ -49,7 +58,7 @@ export type ContinueThreadOptions = {
   stableMs?: number;
 };
 
-export type ContinueThreadClient = Pick<ChatGPTClient, "askInThread" | "openThread" | "readLatest">;
+export type ContinueThreadClient = Pick<ChatGPTClient, "askInThread" | "openThread" | "readLatest" | "session">;
 export type ContinueThreadSelector = Exclude<WorkflowThread, { type: "new" }>;
 
 export class ContinueThreadUsageError extends Error {
@@ -69,6 +78,11 @@ export function parseContinueThreadCliArgs(
   let maxCharsFlag: string | undefined;
   let timeoutMsFlag: string | undefined;
   let stableMsFlag: string | undefined;
+  let existingFlag: string | undefined;
+  let existingUrlFlag: string | undefined;
+  let existingConversationIdFlag: string | undefined;
+  let existingTabIdFlag: string | undefined;
+  let openIfMissingFlag = false;
   const positionals: string[] = [];
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -98,6 +112,21 @@ export function parseContinueThreadCliArgs(
       case "--stable-ms":
         stableMsFlag = requiredValue(argv, ++index, arg);
         break;
+      case "--existing":
+        existingFlag = requiredValue(argv, ++index, arg);
+        break;
+      case "--existing-url":
+        existingUrlFlag = requiredValue(argv, ++index, arg);
+        break;
+      case "--existing-conversation-id":
+        existingConversationIdFlag = requiredValue(argv, ++index, arg);
+        break;
+      case "--existing-tab-id":
+        existingTabIdFlag = requiredValue(argv, ++index, arg);
+        break;
+      case "--open-if-missing":
+        openIfMissingFlag = true;
+        break;
       default:
         positionals.push(arg);
         break;
@@ -105,14 +134,25 @@ export function parseContinueThreadCliArgs(
   }
 
   const target = firstText(targetFlag, positionals.join(" "), env.CHATGPT_THREAD_TARGET);
-  if (target === undefined) {
-    throw new ContinueThreadUsageError(`Missing ChatGPT thread URL or search query.\n\n${CONTINUE_THREAD_USAGE}`);
+  const existing = parseExistingTabPolicy({
+    existing: firstText(existingFlag, env.CHATGPT_THREAD_EXISTING),
+    url: firstText(existingUrlFlag, env.CHATGPT_THREAD_EXISTING_URL),
+    conversationId: firstText(existingConversationIdFlag, env.CHATGPT_THREAD_EXISTING_CONVERSATION_ID),
+    tabId: firstText(existingTabIdFlag, env.CHATGPT_THREAD_EXISTING_TAB_ID),
+    openIfMissing: openIfMissingFlag || env.CHATGPT_THREAD_OPEN_IF_MISSING === "1" || env.CHATGPT_THREAD_OPEN_IF_MISSING === "true"
+  });
+  if (target === undefined && existing === undefined) {
+    throw new ContinueThreadUsageError(`Missing ChatGPT thread URL, search query, or existing-tab selector.\n\n${CONTINUE_THREAD_USAGE}`);
+  }
+  if (target !== undefined && existing !== undefined) {
+    throw new ContinueThreadUsageError(`Use either a target/search query or an existing-tab selector, not both.\n\n${CONTINUE_THREAD_USAGE}`);
   }
 
   const options: ContinueThreadOptions = {
-    target,
     format: parseResponseFormat(firstText(formatFlag, env.CHATGPT_THREAD_FORMAT) ?? DEFAULT_FORMAT)
   };
+  if (target !== undefined) options.target = target;
+  if (existing !== undefined) options.existing = existing;
 
   const prompt = firstText(promptFlag, env.CHATGPT_THREAD_PROMPT);
   if (prompt !== undefined) options.prompt = prompt;
@@ -155,10 +195,34 @@ export async function runContinueThread(
   client: ContinueThreadClient,
   options: ContinueThreadOptions
 ): Promise<CommandResult<unknown>> {
-  const thread = threadSelectorFromTarget(options.target);
   const read = readArgs(options);
   const prompt = options.prompt?.trim();
 
+  if (options.existing !== undefined) {
+    const bootstrapped = await client.session.bootstrap({ existingTab: options.existing });
+    if (!bootstrapped.ok) {
+      return bootstrapped;
+    }
+
+    if (prompt !== undefined && prompt.length > 0) {
+      const asked = await client.askInThread({
+        thread: { type: "current" },
+        prompt,
+        wait: waitArgs(options) ?? true,
+        read
+      });
+      return mergeOpenReadResult(bootstrapped, asked);
+    }
+
+    const latest = await client.readLatest(read);
+    return mergeOpenReadResult(bootstrapped, latest);
+  }
+
+  if (options.target === undefined) {
+    throw new ContinueThreadUsageError(`Missing ChatGPT thread URL, search query, or existing-tab selector.\n\n${CONTINUE_THREAD_USAGE}`);
+  }
+
+  const thread = threadSelectorFromTarget(options.target);
   if (prompt !== undefined && prompt.length > 0) {
     return client.askInThread({
       thread,
@@ -237,6 +301,51 @@ function parseResponseFormat(value: string): ResponseFormat {
     return value as ResponseFormat;
   }
   throw new ContinueThreadUsageError(`Unsupported response format "${value}". Use one of: ${Array.from(RESPONSE_FORMATS).join(", ")}.`);
+}
+
+function parseExistingTabPolicy(args: {
+  existing: string | undefined;
+  url: string | undefined;
+  conversationId: string | undefined;
+  tabId: string | undefined;
+  openIfMissing: boolean;
+}): ExistingTabPolicy | undefined {
+  const selectors = [
+    args.existing !== undefined ? "existing" : undefined,
+    args.url !== undefined ? "existing-url" : undefined,
+    args.conversationId !== undefined ? "existing-conversation-id" : undefined,
+    args.tabId !== undefined ? "existing-tab-id" : undefined
+  ].filter(Boolean);
+
+  if (selectors.length === 0) {
+    return undefined;
+  }
+  if (selectors.length > 1) {
+    throw new ContinueThreadUsageError(`Use only one existing-tab selector, not ${selectors.join(", ")}.\n\n${CONTINUE_THREAD_USAGE}`);
+  }
+
+  const ifMissing: ExistingTabPolicy["ifMissing"] = args.openIfMissing === true ? "open" : "block";
+  if (args.existing !== undefined) {
+    const mode = args.existing.trim().toLowerCase();
+    if (mode !== "selected") {
+      throw new ContinueThreadUsageError(`Unsupported --existing value "${args.existing}". Use: selected.`);
+    }
+    return { target: { type: "selected", host: "chatgpt" }, ifMissing };
+  }
+  if (args.url !== undefined) {
+    const url = chatgptUrlFromTarget(args.url);
+    if (url === undefined) {
+      throw new ContinueThreadUsageError("--existing-url must be a ChatGPT thread URL.");
+    }
+    return { target: { type: "url", url }, ifMissing };
+  }
+  if (args.conversationId !== undefined) {
+    return { target: { type: "conversationId", conversationId: args.conversationId }, ifMissing };
+  }
+  if (args.tabId !== undefined) {
+    return { target: { type: "tabId", tabId: args.tabId }, ifMissing };
+  }
+  return undefined;
 }
 
 function parsePositiveInteger(value: string | undefined, label: string): number | undefined {

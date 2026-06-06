@@ -15,13 +15,6 @@
     },
     {
       "args": {
-        "effort": "Thinking"
-      },
-      "command": "modes.set",
-      "id": "mode"
-    },
-    {
-      "args": {
         "read": {
           "format": "markdown"
         },

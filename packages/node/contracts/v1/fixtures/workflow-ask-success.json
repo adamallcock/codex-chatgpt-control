@@ -14,6 +14,7 @@
       "title": "ChatGPT"
     },
     "ok": true,
+    "output_text": "hi",
     "status": "ok",
     "steps": [
       {
@@ -39,23 +40,6 @@
         },
         "endedAt": "2026-06-06T00:00:00.000Z",
         "id": "new",
-        "ok": true,
-        "startedAt": "2026-06-06T00:00:00.000Z",
-        "status": "ok",
-        "warnings": []
-      },
-      {
-        "command": "modes.set",
-        "dataPreview": {
-          "candidates": [
-            "Thinking"
-          ],
-          "selected": [
-            "Thinking"
-          ]
-        },
-        "endedAt": "2026-06-06T00:00:00.000Z",
-        "id": "mode",
         "ok": true,
         "startedAt": "2026-06-06T00:00:00.000Z",
         "status": "ok",

@@ -157,7 +157,7 @@ export const requiredScenarios: LiveSmokeScenario[] = [
       ok: true,
       status: "ok",
       data: {
-        responseText: "private@example.com /example/private token_12345678901234567890123456789012"
+        responseText: "private@example.com /example/user/private token_12345678901234567890123456789012"
       },
       warnings: [],
       context: { timestamp: meta.startedAt, url: "https://chatgpt.com/c/redacted-smoke" }
@@ -168,7 +168,7 @@ export const requiredScenarios: LiveSmokeScenario[] = [
     return result.ok
       && body.includes("[redacted:")
       && !body.includes("private@example.com")
-      && !body.includes("/example/private")
+      && !body.includes("/example/user/private")
       ? pass(meta, result, { path })
       : fail(meta, result, { path, bodyPreview: body.slice(0, 500) });
   }),

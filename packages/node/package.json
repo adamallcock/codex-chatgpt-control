@@ -29,6 +29,7 @@
     "bundle:live-smoke": "esbuild src/scripts/live-smoke-module.ts --bundle --platform=node --format=esm --outfile=dist/codex-chatgpt-control-live-smoke.bundle.mjs",
     "contract:validate": "node scripts/validate-contract.mjs",
     "parity:fixtures": "node scripts/check-parity-fixtures.mjs",
+    "parity:suite": "tsx src/scripts/check-parity-suite.ts",
     "test:backend-conformance": "vitest run tests/unit/backend-conformance.test.ts",
     "test": "vitest run",
     "test:watch": "vitest",

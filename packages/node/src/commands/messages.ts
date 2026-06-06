@@ -20,6 +20,7 @@ import type {
   WaitData
 } from "../types.js";
 import { contextFromPage } from "./context.js";
+import { withCommandOutputText } from "./output.js";
 import { bootstrap } from "./session.js";
 
 export type CompletionSnapshot = {
@@ -188,17 +189,17 @@ export async function waitForMessage(
     };
 
     if (targetReached && isResponseComplete(snapshot)) {
-      return resultOk(
+      return withCommandOutputText(resultOk(
         { complete: true, responseText: latestText, assistantTurnCount: latestAssistantCount, elapsedMs: Date.now() - started },
         await contextFromPage(page)
-      );
+      ));
     }
 
     await sleep(page, pollMs);
   }
 
   if (lastTargetText.length > 0) {
-    return {
+    return withCommandOutputText({
       ok: false,
       status: "partial",
       data: {
@@ -209,7 +210,7 @@ export async function waitForMessage(
       },
       warnings: ["Timed out after receiving partial assistant text."],
       context: await contextFromPage(page)
-    };
+    } satisfies CommandResult<WaitData>);
   }
 
   return {
@@ -269,7 +270,7 @@ export async function readLatest(
   if (latest.thoughtDurationText !== undefined) data.thoughtDurationText = latest.thoughtDurationText;
   if (latest.sourcesAvailable !== undefined) data.sourcesAvailable = latest.sourcesAvailable;
 
-  return resultOk(data, await contextFromPage(page), data.warnings ?? []);
+  return withCommandOutputText(resultOk(data, await contextFromPage(page), data.warnings ?? []));
 }
 
 export async function askMessage(
@@ -305,7 +306,9 @@ export async function askMessage(
     return forwardFailure(submit);
   }
 
+  const readRequested = args.read === true || typeof args.read === "object";
   let waitResult: CommandResult<WaitData> | undefined;
+  let waitFailure: CommandResult<WaitData> | undefined;
   if (args.wait === true || typeof args.wait === "object") {
     const waitArgs: WaitArgs = typeof args.wait === "object" ? { ...args.wait } : {};
     if (beforeTurnCount !== undefined) {
@@ -316,18 +319,35 @@ export async function askMessage(
     }
     waitResult = await waitForMessage(env, waitArgs);
     if (!waitResult.ok && waitResult.status !== "partial") {
-      return forwardFailure(waitResult);
+      if (!readRequested || readRole(args.read) === "user") {
+        return forwardFailure(waitResult);
+      }
+      waitFailure = waitResult;
     }
   }
 
   let responseText = waitResult?.data?.responseText;
-  if (args.read === true || typeof args.read === "object") {
+  const warnings: string[] = [];
+  if (readRequested) {
     const read = await readLatest(env, typeof args.read === "object" ? args.read : {});
     if (read.ok) {
+      if (waitFailure !== undefined && !readCapturedNewAssistantTurn(read, beforeTurnCount, beforeAssistantTurnCount)) {
+        return forwardFailure(waitFailure);
+      }
       responseText = read.data?.text;
+      if (waitFailure !== undefined) {
+        warnings.push(
+          ...waitFailure.warnings,
+          `Assistant response was read after ${waitFailure.status}, but completion was not confirmed by the wait step.`
+        );
+      }
     } else if (responseText === undefined) {
-      return forwardFailure(read);
+      return forwardFailure(waitFailure ?? read);
     }
+  }
+
+  if (waitFailure !== undefined && responseText === undefined) {
+    return forwardFailure(waitFailure);
   }
 
   const state = await readPageState(page).catch(() => undefined);
@@ -346,7 +366,7 @@ export async function askMessage(
     data.title = state.title;
   }
 
-  return resultOk(data, await contextFromPage(page));
+  return withCommandOutputText(resultOk(data, await contextFromPage(page), warnings));
 }
 
 export async function waitAndRead(
@@ -361,7 +381,7 @@ export async function waitAndRead(
   const read = await readLatest(env, args);
   if (!read.ok) {
     if (wait.data?.responseText !== undefined) {
-      return {
+      return withCommandOutputText({
         ok: wait.ok,
         status: wait.status,
         data: {
@@ -371,12 +391,12 @@ export async function waitAndRead(
         },
         warnings: wait.warnings,
         context: wait.context
-      };
+      });
     }
     return forwardFailure(read);
   }
 
-  return resultOk(askReadData("", read.data?.text, wait.data?.complete), read.context, wait.warnings);
+  return withCommandOutputText(resultOk(askReadData("", read.data?.text, wait.data?.complete), read.context, wait.warnings));
 }
 
 async function ensurePage(env: RuntimeEnv): Promise<CommandResult<unknown>> {
@@ -602,6 +622,22 @@ function askReadData(prompt: string, responseText: string | undefined, complete:
     data.complete = complete;
   }
   return data;
+}
+
+function readRole(read: AskArgs["read"]): ReadLatestArgs["role"] | undefined {
+  return typeof read === "object" ? read.role : undefined;
+}
+
+function readCapturedNewAssistantTurn(
+  read: CommandResult<ReadLatestData>,
+  beforeTurnCount: number | undefined,
+  beforeAssistantTurnCount: number | undefined
+): boolean {
+  const assistantAdvanced = beforeAssistantTurnCount === undefined
+    || (read.context.assistantTurnCount !== undefined && read.context.assistantTurnCount > beforeAssistantTurnCount);
+  const turnAdvanced = beforeTurnCount === undefined
+    || (read.context.turnCount !== undefined && read.context.turnCount > beforeTurnCount);
+  return assistantAdvanced && turnAdvanced;
 }
 
 function forwardFailure<T>(result: CommandResult<unknown>): CommandResult<T> {

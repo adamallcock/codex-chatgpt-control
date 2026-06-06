@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { readLatest, submittedUserTurnMatches, waitForMessage } from "../../src/commands/messages.js";
+import { askMessage, readLatest, submittedUserTurnMatches, waitForMessage } from "../../src/commands/messages.js";
 import { copyResponse } from "../../src/commands/response-actions.js";
 import {
   countMessages,
@@ -155,6 +155,7 @@ describe("extractMessagesFromHtml", () => {
     });
 
     expect(result.ok).toBe(true);
+    expect(result.output_text).toBe("new answer");
     expect(result.data?.responseText).toBe("new answer");
     expect(result.data?.assistantTurnCount).toBe(2);
   });
@@ -195,8 +196,25 @@ describe("extractMessagesFromHtml", () => {
     });
 
     expect(result.ok).toBe(true);
+    expect(result.output_text).toBe("assistant answer after baseline");
     expect(result.data?.responseText).toBe("assistant answer after baseline");
     expect(result.data?.assistantTurnCount).toBe(2);
+  });
+
+  it("falls back to a guarded read when wait misses a submitted assistant turn", async () => {
+    const page = askWaitFallbackPage("Reply exactly fallback-ok.", "fallback-ok");
+
+    const result = await askMessage({ page }, {
+      text: "Reply exactly fallback-ok.",
+      wait: { timeoutMs: 5, stableMs: 0, pollMs: 1 },
+      read: { format: "normalized_text" }
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.output_text).toBe("fallback-ok");
+    expect(result.data?.responseText).toBe("fallback-ok");
+    expect(result.data?.complete).toBe(false);
+    expect(result.warnings.join(" ")).toContain("completion was not confirmed");
   });
 
   it("extracts assistant Markdown by default without flattening structure", () => {
@@ -307,6 +325,7 @@ describe("extractMessagesFromHtml", () => {
     expect(result.data?.warnings?.join(" ")).toContain("DOM semantics");
     expect(result.warnings.join(" ")).toContain("DOM semantics");
     expect(result.data?.markdown).toContain("## Design Proposal");
+    expect(result.output_text).toBe(result.data?.text);
     expect(result.data?.text).toBe(result.data?.markdown);
     expect(result.data?.branch?.label).toBe("2/2");
     expect(result.data?.actions?.some(action => action.type === "sources")).toBe(true);
@@ -322,6 +341,7 @@ describe("extractMessagesFromHtml", () => {
     expect(result.data?.source).toBe("dom");
     expect(result.data?.format).toBe("markdown");
     expect(result.data?.markdown).toContain("```ts");
+    expect(result.output_text).toBe(result.data?.text);
     expect(result.data?.branch?.canGoNext).toBe(false);
     expect(result.data?.sourcesAvailable).toBe(true);
     expect(result.warnings).toContain("Returned DOM-derived Markdown because clipboard copy was not requested.");
@@ -352,6 +372,7 @@ describe("extractMessagesFromHtml", () => {
     expect(result.data?.fidelity).toBe("clipboard_markdown");
     expect(result.data?.format).toBe("markdown");
     expect(result.data?.markdown).toContain("- Clipboard Markdown");
+    expect(result.output_text).toBe(result.data?.text);
     expect(result.data?.branch?.label).toBe("2/2");
     expect(result.data?.actions?.some(action => action.type === "sources")).toBe(true);
     expect(result.warnings).toEqual([]);
@@ -436,6 +457,116 @@ function contentPage(html: string, onClick?: () => void): PageLike {
     title: async () => "ChatGPT",
     url: () => "https://chatgpt.com/c/test"
   };
+}
+
+function askWaitFallbackPage(prompt: string, answer: string): PageLike {
+  let composerText = "";
+  let submitted = false;
+  const textbox: LocatorLike = {
+    click: async () => {},
+    fill: async text => {
+      composerText = text;
+    },
+    innerText: async () => composerText
+  };
+  const send: LocatorLike = {
+    click: async () => {
+      submitted = true;
+    }
+  };
+  const noResponseActions: LocatorLike = {
+    count: async () => 0,
+    isVisible: async () => false
+  };
+
+  return {
+    content: async () => chatHtml(fallbackTurns(submitted, prompt, answer)),
+    evaluate: async <T, A = unknown>(fn: (arg: A) => T | Promise<T>, arg?: A): Promise<T> => {
+      const source = String(fn);
+      const totalCount = submitted ? 4 : 2;
+      const assistantCount = submitted ? 2 : 1;
+      const userCount = submitted ? 2 : 1;
+
+      if (source.includes("document.querySelectorAll(selector).length")) {
+        if (arg === "assistant") return assistantCount as T;
+        if (arg === "user") return userCount as T;
+        return totalCount as T;
+      }
+      if (source.includes("roleNodes")) {
+        const snapshot: { latestText?: string; turnCount: number } = { turnCount: totalCount };
+        snapshot.latestText = arg === "user"
+          ? submitted ? prompt : "Earlier question."
+          : submitted ? answer : "Earlier answer.";
+        return snapshot as T;
+      }
+      if (source.includes("assistantNodes") && source.includes("latestAssistantTurnIndex")) {
+        return {
+          turnCount: totalCount,
+          assistantTurnCount: assistantCount,
+          latestAssistantTurnIndex: submitted ? 4 : 2
+        } as T;
+      }
+      if (source.includes("metadataHtml")) {
+        const role = arg === "user" ? "user" : "assistant";
+        const text = role === "user"
+          ? submitted ? prompt : "Earlier question."
+          : submitted ? answer : "Earlier answer.";
+        const html = `<p>${text}</p>`;
+        return { role, html, metadataHtml: html } as T;
+      }
+      if (source.includes("node?.innerText")) {
+        return (arg === "user"
+          ? submitted ? prompt : "Earlier question."
+          : submitted ? answer : "Earlier answer.") as T;
+      }
+      if (source.includes("stop generating")) {
+        return false as T;
+      }
+      if (source.includes("document.body?.innerText")) {
+        return "New chat Chat with ChatGPT" as T;
+      }
+
+      throw new Error(`Unexpected evaluate call: ${source}`);
+    },
+    getByRole: (role, options) => {
+      const name = String(options?.name ?? "");
+      if (role === "textbox") return textbox;
+      if (role === "button" && /Send prompt/.test(name)) return send;
+      if (role === "button" && /Copy response/.test(name)) return noResponseActions;
+      return noResponseActions;
+    },
+    title: async () => "ChatGPT",
+    url: () => "https://chatgpt.com/c/fallback",
+    waitForTimeout: async () => {}
+  };
+}
+
+function fallbackTurns(submitted: boolean, prompt: string, answer: string): Array<["user" | "assistant", string]> {
+  return submitted
+    ? [
+      ["user", "Earlier question."],
+      ["assistant", "Earlier answer."],
+      ["user", prompt],
+      ["assistant", answer]
+    ]
+    : [
+      ["user", "Earlier question."],
+      ["assistant", "Earlier answer."]
+    ];
+}
+
+function chatHtml(turns: Array<["user" | "assistant", string]>): string {
+  return [
+    "<main><nav>New chat</nav>",
+    ...turns.map(([role, text], index) => [
+      `<div data-testid="conversation-turn-${index + 1}">`,
+      `<div data-message-author-role="${role}">`,
+      text,
+      "</div>",
+      "</div>"
+    ].join("")),
+    "</main>"
+  ].join("");
 }
 
 type WaitSnapshot = {

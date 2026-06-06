@@ -2,7 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
-from codex_chatgpt_control import ChatGPTResponse, ChatGPTRunResult
+from codex_chatgpt_control import ChatGPTResponse, ChatGPTRunResult, CommandResult
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,6 +26,27 @@ class ModelConformanceTests(unittest.TestCase):
         self.assertEqual(result.new_items[0]["type"], "message.completed")
         self.assertEqual(result.active_agent_name, "reviewer")
         self.assertFalse(result.state.resumable)
+
+    def test_command_result_exposes_output_text_from_wire_contract(self) -> None:
+        payload = load_fixture("workflow-ask-success.json")
+
+        result = CommandResult.from_wire(payload["result"])
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(result.output_text, "hi")
+        self.assertEqual(result.to_wire()["output_text"], "hi")
+
+    def test_command_result_derives_output_text_from_legacy_response_data(self) -> None:
+        result = CommandResult.from_wire({
+            "ok": True,
+            "status": "ok",
+            "data": {"prompt": "hi", "responseText": "hello"},
+            "warnings": [],
+            "context": {"timestamp": "2026-06-06T00:00:00.000Z"},
+        })
+
+        self.assertEqual(result.output_text, "hello")
 
     def test_blocker_fixture_preserves_structured_browser_bridge_failure(self) -> None:
         payload = load_fixture("run-browser-bridge-blocker.json")

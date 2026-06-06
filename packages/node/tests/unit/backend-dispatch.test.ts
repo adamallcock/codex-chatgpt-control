@@ -59,7 +59,6 @@ describe("backend dispatch", () => {
       steps: [
         { command: "session.bootstrap" },
         { command: "threads.open", args: { conversationId: "abc-123" } },
-        { command: "modes.set", args: { effort: "Thinking" } },
         { command: "messages.ask" }
       ]
     });

@@ -9,7 +9,7 @@ The structured blocker should include `code: "codex_chrome_bridge_unavailable"` 
 Do not conclude that Chrome or the extension is broken from a plain shell result, or from checking `globalThis.agent` before the Chrome plugin runtime is initialized. For a true Codex Chrome-plugin live run, bootstrap the runtime first:
 
 ```js
-const { setupBrowserRuntime } = await import("/absolute/path/to/browser-client.mjs");
+const { setupBrowserRuntime } = await import("/example/user/.codex/plugins/cache/openai-bundled/chrome/26.602.40724/scripts/browser-client.mjs");
 await setupBrowserRuntime({ globals: globalThis });
 globalThis.browser = await agent.browsers.get("extension");
 ```

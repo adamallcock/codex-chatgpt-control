@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 
 TWireModel = TypeVar("TWireModel", bound="WireModel")
@@ -77,12 +77,19 @@ class CommandResult(WireModel):
     ok: bool
     status: CommandStatus
     data: Any = None
+    output_text: str | None = None
     warnings: list[str]
     context: dict[str, Any]
     report_path: str | None = Field(default=None, alias="reportPath")
     error: dict[str, Any] | None = None
     blocker: dict[str, Any] | None = None
     steps: list[SequenceStepResult] | None = None
+
+    @model_validator(mode="after")
+    def populate_output_text(self) -> "CommandResult":
+        if self.output_text is None:
+            self.output_text = _command_output_text(self.data)
+        return self
 
 
 class ChatGPTRunResult(WireModel):
@@ -208,3 +215,24 @@ class RunReportData(WireModel):
 
 class DoctorReport(WireModel):
     checks: dict[str, dict[str, Any]]
+
+
+def _command_output_text(data: Any) -> str | None:
+    if not isinstance(data, dict):
+        return None
+    response_text = data.get("responseText")
+    if isinstance(response_text, str):
+        return response_text
+    text = data.get("text")
+    if isinstance(text, str) and data.get("role") != "user":
+        return text
+    markdown = data.get("markdown")
+    if isinstance(markdown, str):
+        return markdown
+    for key, value in data.items():
+        if key in {"prompt", "input"}:
+            continue
+        nested = _command_output_text(value)
+        if nested is not None:
+            return nested
+    return None

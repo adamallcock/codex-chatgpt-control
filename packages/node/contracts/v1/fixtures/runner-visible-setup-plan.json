@@ -15,13 +15,6 @@
     },
     {
       "args": {
-        "effort": "Thinking"
-      },
-      "command": "modes.set",
-      "id": "mode"
-    },
-    {
-      "args": {
         "read": false,
         "text": "<chatgpt_browser_agent>\nAgent name: visible-setup-agent\nInstructions:\nMaintain a careful review checklist.\n</chatgpt_browser_agent>\n\nAcknowledge these visible setup instructions briefly, then wait for the next user request.",
         "wait": true

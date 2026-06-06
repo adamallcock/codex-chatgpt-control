@@ -61,7 +61,24 @@ function assertCommandResult(result, fixtureFile) {
   assert(typeof result.status === "string", `${fixtureFile} missing result.status.`);
   assert(Array.isArray(result.warnings), `${fixtureFile} missing result.warnings.`);
   assert(result.context && typeof result.context.timestamp === "string", `${fixtureFile} missing result.context.timestamp.`);
+  const outputText = commandOutputText(result.data);
+  if (outputText !== undefined) {
+    assert(result.output_text === outputText, `${fixtureFile} must expose result.output_text for assistant text.`);
+  }
   assertNoPythonSnakeCase(result, fixtureFile);
+}
+
+function commandOutputText(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return undefined;
+  if (typeof data.responseText === "string") return data.responseText;
+  if (typeof data.text === "string" && data.role !== "user") return data.text;
+  if (typeof data.markdown === "string") return data.markdown;
+  for (const [key, value] of Object.entries(data)) {
+    if (key === "prompt" || key === "input") continue;
+    const nested = commandOutputText(value);
+    if (nested !== undefined) return nested;
+  }
+  return undefined;
 }
 
 function assertResponse(response, fixtureFile) {

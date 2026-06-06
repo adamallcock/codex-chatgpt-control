@@ -41,7 +41,7 @@ def main() -> None:
             {
                 "ok": True,
                 "status": "ok",
-                "data": {"responseText": "private@example.com /example/private"},
+                "data": {"responseText": "private@example.com /example/user/private"},
                 "warnings": [],
                 "context": {"timestamp": "2026-06-06T00:00:00.000Z"},
             },

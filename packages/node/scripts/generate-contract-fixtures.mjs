@@ -281,7 +281,7 @@ await writeGeneratedFixture(
   commandResultFixture(await backendResult("reports.redact", {
     value: {
       prompt: "private@example.com",
-      file: "/example/secret/contract.pdf",
+      file: "/example/user/secret/contract.pdf",
       token: "token_12345678901234567890123456789012"
     }
   }))
@@ -296,7 +296,7 @@ await writeGeneratedFixture(
       ok: true,
       status: "ok",
       data: {
-        responseText: "private@example.com /example/private/report.txt token_12345678901234567890123456789012"
+        responseText: "private@example.com /example/user/private/report.txt token_12345678901234567890123456789012"
       },
       warnings: [],
       context: { timestamp: FIXED_ISO, url: "https://chatgpt.com/c/report-fixture" }

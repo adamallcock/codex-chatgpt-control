@@ -37,6 +37,7 @@ export type CommandResult<T = unknown> = {
   ok: boolean;
   status: CommandStatus;
   data?: T;
+  output_text?: string;
   warnings: string[];
   reportPath?: string;
   error?: {
@@ -80,7 +81,23 @@ export type ThreadTarget = {
   url?: string;
 };
 
+export type ExistingTabTarget =
+  | { type: "selected"; host?: "chatgpt" }
+  | { type: "tabId"; tabId: string }
+  | { type: "conversationId"; conversationId: string }
+  | { type: "conversation_id"; conversationId: string }
+  | { type: "url"; url: string }
+  | { type: "title"; title: string; exact?: boolean };
+
+export type ExistingTabPolicy = {
+  target?: ExistingTabTarget;
+  ifMissing?: "block" | "create" | "open";
+  ifMultiple?: "block" | "first";
+  requireChatGPT?: boolean;
+};
+
 export type BootstrapArgs = {
+  existingTab?: boolean | ExistingTabPolicy;
   preferExistingTab?: boolean;
   url?: string;
   timeoutMs?: number;
@@ -401,6 +418,10 @@ export type ClipboardLike = {
 
 export type BrowserLike = {
   name?: string;
+  user?: {
+    openTabs?: () => Promise<BrowserUserTabInfo[]> | BrowserUserTabInfo[];
+    claimTab?: (tab: string | BrowserUserTabInfo) => Promise<PageLike> | PageLike;
+  };
   tabs?: {
     create?: (url: string) => Promise<PageLike> | PageLike;
     new?: (url: string) => Promise<PageLike> | PageLike;
@@ -409,6 +430,14 @@ export type BrowserLike = {
     get?: (id: string) => Promise<PageLike> | PageLike;
   };
   newPage?: () => Promise<PageLike> | PageLike;
+};
+
+export type BrowserUserTabInfo = {
+  id: string;
+  lastOpened?: string;
+  tabGroup?: string;
+  title?: string;
+  url?: string;
 };
 
 export type LocatorLike = {

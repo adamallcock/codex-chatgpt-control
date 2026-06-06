@@ -38,6 +38,35 @@ describe("continue-thread entrypoint", () => {
     });
   });
 
+  it("parses selected existing-tab mode without a search target", () => {
+    expect(parseContinueThreadCliArgs([
+      "--existing",
+      "selected",
+      "--format",
+      "normalized_text"
+    ], {})).toEqual({
+      existing: {
+        target: { type: "selected", host: "chatgpt" },
+        ifMissing: "block"
+      },
+      format: "normalized_text"
+    });
+  });
+
+  it("parses existing conversation ids with explicit open-if-missing fallback", () => {
+    expect(parseContinueThreadCliArgs([
+      "--existing-conversation-id",
+      "abc-123",
+      "--open-if-missing"
+    ], {})).toEqual({
+      existing: {
+        target: { type: "conversationId", conversationId: "abc-123" },
+        ifMissing: "open"
+      },
+      format: "markdown"
+    });
+  });
+
   it("opens and reads when no prompt is supplied", async () => {
     const calls: string[] = [];
     const client = fakeClient(calls);
@@ -51,6 +80,45 @@ describe("continue-thread entrypoint", () => {
     expect(calls).toEqual([
       "open:https://chatgpt.com/c/6a20e900-4744-83ea-9b80-2c75fb85bd63",
       "read:normalized_text"
+    ]);
+  });
+
+  it("bootstraps and reads the current thread when selected existing-tab mode is supplied", async () => {
+    const calls: string[] = [];
+    const client = fakeClient(calls);
+
+    const result = await runContinueThread(client, {
+      existing: {
+        target: { type: "selected", host: "chatgpt" },
+        ifMissing: "block"
+      },
+      format: "markdown"
+    });
+
+    expect(result.ok).toBe(true);
+    expect(calls).toEqual([
+      "bootstrap:selected",
+      "read:markdown"
+    ]);
+  });
+
+  it("bootstraps and continues the current thread when existing-tab mode has a prompt", async () => {
+    const calls: string[] = [];
+    const client = fakeClient(calls);
+
+    const result = await runContinueThread(client, {
+      existing: {
+        target: { type: "selected", host: "chatgpt" },
+        ifMissing: "block"
+      },
+      prompt: "Continue.",
+      format: "markdown"
+    });
+
+    expect(result.ok).toBe(true);
+    expect(calls).toEqual([
+      "bootstrap:selected",
+      "askInThread:current:Continue."
     ]);
   });
 
@@ -71,11 +139,24 @@ describe("continue-thread entrypoint", () => {
   });
 });
 
-function fakeClient(calls: string[]): Pick<ChatGPTClient, "askInThread" | "openThread" | "readLatest"> {
+function fakeClient(calls: string[]): Pick<ChatGPTClient, "askInThread" | "openThread" | "readLatest" | "session"> {
   return {
+    session: {
+      bootstrap: async args => {
+        const target = args?.existingTab === true
+          ? "true"
+          : typeof args?.existingTab === "object" && args.existingTab.target?.type === "selected"
+            ? "selected"
+            : typeof args?.existingTab === "object" && args.existingTab.target?.type === "conversationId"
+              ? `conversation:${args.existingTab.target.conversationId}`
+              : "none";
+        calls.push(`bootstrap:${target}`);
+        return ok({});
+      }
+    },
     askInThread: async args => {
       const thread = args.thread as { query?: string; url?: string };
-      calls.push(`askInThread:${thread.query ?? thread.url}:${args.prompt}`);
+      calls.push(`askInThread:${thread.query ?? thread.url ?? ("type" in thread ? thread.type : undefined)}:${args.prompt}`);
       return ok({ responseText: "continued" });
     },
     openThread: async thread => {

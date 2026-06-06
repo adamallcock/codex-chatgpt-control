@@ -7,6 +7,7 @@ The Python package is a parity client over the TypeScript browser-control runtim
 - Shared fixtures live in `contracts/v1/fixtures/`.
 - `npm run contract:validate` validates every fixture against JSON Schema.
 - `npm run parity:fixtures` enforces fixture shape, stream settlement, and wire-field casing.
+- `npm run parity:suite` validates `contracts/v1/parity-suite.json`, which ties every public backend command and fixture to TypeScript tests, Python tests, docs, and deterministic CI gates.
 - Python tests load the same manifest and round-trip every JSON fixture through Pydantic models.
 
 Wire fields stay TypeScript-compatible. Python exposes idiomatic aliases:
@@ -77,6 +78,7 @@ Run from `packages/node`:
 npm run bundle:backend
 npm run contract:validate
 npm run parity:fixtures
+npm run parity:suite
 npm run test:backend-conformance
 npm test -- tests/unit/contract-fixtures.test.ts
 ```
@@ -84,7 +86,7 @@ npm test -- tests/unit/contract-fixtures.test.ts
 Run from `packages/python`:
 
 ```bash
-python -m pip install -e .[dev]
+python -m pip install -e ".[dev]"
 python -m unittest discover -s tests
 python -m compileall -q src
 python -m pyright --pythonpath "$(which python)" src tests
@@ -135,7 +137,7 @@ python scripts/live_smoke.py --mode browser-bridge
 When the live backend is hosted inside the Codex Chrome plugin runtime, do not test bridge availability from a normal shell or an unbootstrapped Node REPL. First initialize the Chrome runtime:
 
 ```js
-const { setupBrowserRuntime } = await import("/absolute/path/to/browser-client.mjs");
+const { setupBrowserRuntime } = await import("/example/user/.codex/plugins/cache/openai-bundled/chrome/26.602.40724/scripts/browser-client.mjs");
 await setupBrowserRuntime({ globals: globalThis });
 globalThis.browser = await agent.browsers.get("extension");
 ```
