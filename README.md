@@ -9,6 +9,12 @@
 
 Unofficial alpha SDK facade for Codex agents that need to run user-directed workflows in a visible ChatGPT web session.
 
+
+
+https://github.com/user-attachments/assets/6ca38f2d-6646-490d-8e4d-8a6dc21e926f
+
+
+
 ## Why This Exists
 
 This project exists because Codex and ChatGPT are useful in different parts of the same work loop. Codex is the execution environment: it can read and edit the local repo, run commands, test changes, and prepare branches. ChatGPT, meanwhile, may expose different frontier models, Pro-tier reasoning modes, larger context windows, canvases, connectors, browsing/research tools, memory, or company knowledge at any given time.
