@@ -2,7 +2,7 @@
 
 TypeScript runtime for Codex agents controlling visible ChatGPT web sessions through a compatible browser bridge.
 
-Unofficial project: not affiliated with, endorsed by, or sponsored by OpenAI. This is not an OpenAI API wrapper and does not call hidden or private ChatGPT endpoints. Browser-required calls need a visible session and should return structured blockers when the bridge is unavailable.
+Unofficial project: not affiliated with, endorsed by, or sponsored by OpenAI. This is not an OpenAI API wrapper and does not call hidden or private ChatGPT endpoints. Browser-required calls need a visible session and should fail with a clear machine-readable reason when the bridge is unavailable.
 
 ## Install
 
@@ -25,6 +25,18 @@ const result = await chatgpt.runner.run(reviewer, {
   input: "Review this design.",
   thread: { type: "new" },
   response: { format: "markdown" }
+});
+```
+
+Reuse a user-open ChatGPT thread without replacing the tab:
+
+```ts
+await chatgpt.askInThread({
+  thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" },
+  existingTab: true,
+  prompt: "Continue from the latest answer.",
+  wait: true,
+  read: { format: "markdown" }
 });
 ```
 

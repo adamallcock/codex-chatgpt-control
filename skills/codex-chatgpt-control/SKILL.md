@@ -115,11 +115,14 @@ Continue an existing thread:
 ```ts
 await chatgpt.askInThread({
   thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" },
+  existingTab: true,
   prompt: "Continue from the latest answer.",
   wait: true,
   read: { format: "markdown" }
 });
 ```
+
+When the user says the ChatGPT thread is already open, pass `existingTab: true` or an exact existing-tab policy such as `existingTab: { url: "https://chatgpt.com/c/<conversation-id>" }`. A `thread: { type: "url" }` selector by itself means "navigate to this URL"; it does not express "claim the user-open tab".
 
 Attach approved files:
 

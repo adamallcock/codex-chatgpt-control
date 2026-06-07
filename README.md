@@ -21,7 +21,7 @@ In practice, that means a user can end up doing real work by hand across two sur
 
 - **Keep Codex as home base:** preserve the local execution loop while optionally consulting ChatGPT web for planning or research-heavy steps.
 - **Visible-session only:** drive chatgpt.com through a compatible Codex/browser bridge and user-visible UI controls, including file uploads and visible downloads where available.
-- **Workflow primitives, not a ChatGPT API:** support prompts, thread workflows, response capture, structured blockers, and redacted run reports without private endpoint access.
+- **Workflow primitives, not a ChatGPT API:** support prompts, thread workflows, response capture, clear stop reasons, and privacy-preserving local reports without private endpoint access.
 - **Narrow by design:** built for Codex -> browser -> chatgpt.com workflows; it is not a generic browser automation framework, scraping tool, OpenAI API wrapper, or official OpenAI project.
 
 This project is not affiliated with, endorsed by, or sponsored by OpenAI.
@@ -34,8 +34,8 @@ Use `codex-chatgpt-control` when a Codex-style agent needs to work with the real
 - submit prompts and read Markdown responses
 - attach approved local files through visible upload controls
 - download visible generated files
-- return structured blockers for login, captcha, permissions, selector drift, or missing browser bridge
-- create redacted run reports
+- tell the agent exactly why it could not continue when ChatGPT needs login, captcha, permissions, or UI review
+- save local run reports that omit prompt and response content by default
 
 This project deliberately does not provide hidden ChatGPT access, account automation, or a replacement for the OpenAI API.
 
@@ -55,9 +55,9 @@ python -m pip install codex-chatgpt-control
 
 The Node package is the browser-control runtime authority. The Python package is a parity client over the same local backend protocol.
 
-## Bundled Codex Skill
+## Codex Desktop Setup
 
-This repo includes a public Codex skill at [skills/codex-chatgpt-control/SKILL.md](skills/codex-chatgpt-control/SKILL.md).
+This repo includes a public Codex skill at [skills/codex-chatgpt-control/SKILL.md](skills/codex-chatgpt-control/SKILL.md). It is the quickest way to make Codex Desktop agents use this SDK consistently instead of hand-rolling browser commands.
 
 Install it into a local Codex skills directory:
 
@@ -66,7 +66,18 @@ mkdir -p ~/.codex/skills/codex-chatgpt-control
 rsync -a skills/codex-chatgpt-control/ ~/.codex/skills/codex-chatgpt-control/
 ```
 
-The skill is an agent-facing operating guide. It does not bundle a private browser bridge or credentials. Install the npm package or build the Node runtime from source before using browser-control workflows.
+Then add a short instruction to any repo where agents should be allowed to consult ChatGPT web:
+
+```markdown
+When a task would benefit from the visible ChatGPT web product, use the
+codex-chatgpt-control skill and SDK. Keep the workflow visible and
+user-directed. If I say a ChatGPT thread is already open, reuse that tab with
+existingTab/existing_tab instead of opening a replacement. If the browser bridge
+or ChatGPT UI is unavailable, report the SDK stop reason and do not retry
+blindly.
+```
+
+The skill is an agent-facing operating guide. It does not bundle a browser bridge, credentials, or ChatGPT account access. Install the npm package or build the Node runtime from source before using browser-control workflows.
 
 ## Node Quick Start
 
@@ -170,15 +181,17 @@ The main Node entrypoint is `createChatGPT({ agent })`. It exposes:
 - `chatgpt.responses.create(...)` for a narrow Responses-shaped adapter over the same visible browser runner.
 - Primitive groups for `session`, `threads`, `messages`, `files`, `modes`, `tools`, and `response`.
 - Discovery helpers: `chatgpt.help()`, `chatgpt.commands()`, and `chatgpt.describe(name)`.
-- Redacted local reports through `chatgpt.createReport(...)` and `chatgpt.reports`.
+- Local run reports through `chatgpt.createReport(...)` and `chatgpt.reports`; prompt and response content is omitted unless explicitly enabled.
 
-Useful docs:
+Useful repo links:
 
+- [Bundled Codex skill](skills/codex-chatgpt-control/SKILL.md)
 - [Architecture](docs/architecture.md)
 - [Browser bridge](docs/browser-bridge.md)
 - [Safety model](docs/safety.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Release process](docs/release-process.md)
+- [Python examples](packages/python/examples/)
 
 ## Runtime Requirements
 
