@@ -1,7 +1,6 @@
 {
   "name": "codex-chatgpt-control",
   "version": "0.1.0-alpha.1",
-  "private": true,
   "description": "Unofficial SDK for Codex agents controlling visible ChatGPT web sessions.",
   "type": "module",
   "license": "MIT",

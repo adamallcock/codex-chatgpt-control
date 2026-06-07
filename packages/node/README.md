@@ -4,6 +4,14 @@ TypeScript runtime for Codex agents controlling visible ChatGPT web sessions thr
 
 Unofficial project: not affiliated with, endorsed by, or sponsored by OpenAI. This is not an OpenAI API wrapper and does not call hidden or private ChatGPT endpoints. Browser-required calls need a visible session and should return structured blockers when the bridge is unavailable.
 
+## Install
+
+```bash
+npm install codex-chatgpt-control
+```
+
+## Usage
+
 ```ts
 import { createChatGPT } from "codex-chatgpt-control";
 
@@ -19,6 +27,8 @@ const result = await chatgpt.runner.run(reviewer, {
   response: { format: "markdown" }
 });
 ```
+
+## Validation
 
 Run deterministic gates:
 

@@ -10,6 +10,18 @@ Python SDK -> backend protocol -> Node runtime -> browser bridge -> visible chat
 
 The current browser-control runtime is Node/TypeScript. Python talks to it through a long-lived local stdio backend service. This is intentionally not a pure-Python browser-control runtime yet.
 
+## Install
+
+```bash
+python -m pip install codex-chatgpt-control
+```
+
+The Python package needs a Node backend command for browser-control workflows. Install or build the Node package too:
+
+```bash
+npm install codex-chatgpt-control
+```
+
 ## Development Install
 
 Build the backend bundle first:

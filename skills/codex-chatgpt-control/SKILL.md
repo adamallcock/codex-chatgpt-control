@@ -65,7 +65,7 @@ import { createChatGPT } from "/absolute/path/to/codex-chatgpt-control/packages/
 const chatgpt = createChatGPT({ agent: globalThis.agent });
 ```
 
-When the npm package is published, prefer normal package imports in projects that depend on it:
+Prefer normal package imports in projects that depend on the published npm package:
 
 ```ts
 import { createChatGPT } from "codex-chatgpt-control";
