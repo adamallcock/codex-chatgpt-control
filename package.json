@@ -11,6 +11,9 @@
     "node:contracts": "npm --prefix packages/node run contract:validate && npm --prefix packages/node run parity:fixtures && npm --prefix packages/node run parity:suite",
     "python:test": "npm --prefix packages/node run bundle:backend && cd packages/python && python -m venv .venv && . .venv/bin/activate && python -m pip install -e \".[dev]\" && python -m unittest discover -s tests",
     "python:compile": "cd packages/python && python -m compileall -q src examples",
+    "plugin:build": "node scripts/build-plugin-runtime.mjs",
+    "plugin:check": "node scripts/check-plugin-runtime.mjs",
+    "plugin:validate": "node scripts/validate-plugin-layout.mjs",
     "release:check-names": "node scripts/check-release-names.mjs"
   },
   "license": "MIT"

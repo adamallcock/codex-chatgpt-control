@@ -1,15 +1,15 @@
 ---
 name: codex-chatgpt-control
-description: Use when Codex agents need to operate visible ChatGPT web sessions through the codex-chatgpt-control SDK, including prompts, threads, files, downloads, reports, browser bridge blockers, and local source smokes.
+description: Use when Codex agents need to operate visible ChatGPT web sessions through the codex-chatgpt-control plugin, including prompts, existing threads, files, downloads, reports, browser bridge blockers, live smokes, or SDK source work.
 ---
 
-# codex-chatgpt-control
+# Codex ChatGPT Control
 
-Use this skill when a user asks Codex to operate ChatGPT web through a visible browser session, or when a task involves the `codex-chatgpt-control` SDK.
+Use this skill when a user asks Codex to work with ChatGPT web through a visible browser session, or when a task involves the `codex-chatgpt-control` SDK/plugin.
 
 This skill is for visible, user-directed ChatGPT workflows only. It is not an OpenAI API wrapper, does not call hidden ChatGPT endpoints, and must not bypass login, captcha, product permissions, file permissions, or user confirmation.
 
-This root skill is a manual fallback for source or published-SDK users. The plugin skill is the primary Codex Desktop distribution path. Keep the shared safety contract below aligned with the plugin skill.
+This plugin skill is the primary Codex Desktop distribution path. Keep the shared safety contract below aligned with the root manual fallback skill.
 
 ## Shared Safety Contract
 
@@ -25,69 +25,52 @@ This root skill is a manual fallback for source or published-SDK users. The plug
 
 ## Required Posture
 
-1. Prefer the SDK facade from `createChatGPT({ agent })`.
+1. Prefer the plugin-bundled SDK facade from `createChatGPT({ agent })`.
 2. Use ChatGPT web through a compatible Codex/browser bridge. Do not use private ChatGPT network calls.
-3. Treat `globalThis.agent` as host-provided. If it is missing, report a bridge blocker rather than inventing browser state.
+3. Treat `globalThis.agent` as host-provided. If it is missing, bootstrap the Chrome plugin runtime when available; otherwise report a bridge blocker.
 4. Stop on login, captcha, rate-limit, selector-drift, upload/download permission, or ambiguous confirmation blockers.
 5. Ask for explicit user confirmation before public, destructive, third-party, paid, account-level, or externally visible actions.
 6. Redact run reports by default. Raw prompt/response content is opt-in only.
 7. Attach only files the user approved.
+8. Load reference files only for the issue at hand; do not read every reference by default.
 
-## Runtime Requirements
+## Plugin Runtime
 
-Deterministic local checks need:
+Resolve relative paths from this `SKILL.md` directory. The plugin runtime lives at:
 
-- Node.js 20 or newer
-- npm
-- a source checkout of `codex-chatgpt-control`
+```text
+../../runtime/import-chatgpt-control.mjs
+```
 
-Real browser-control runs also need:
+From a bridge-enabled Codex Node runtime:
 
-- Chrome with a signed-in visible ChatGPT web session
-- a compatible Codex/browser bridge exposing `globalThis.agent`
-- permission to use or open a visible ChatGPT tab
+```js
+const loaderUrl = new URL(
+  "../../runtime/import-chatgpt-control.mjs",
+  "file:///absolute/path/to/plugins/codex-chatgpt-control/skills/codex-chatgpt-control/SKILL.md"
+);
+const { importChatGPTControl } = await import(`${loaderUrl.href}?t=${Date.now()}`);
+const { createChatGPT } = await importChatGPTControl();
+
+const chatgpt = createChatGPT({
+  agent: globalThis.agent,
+  reporting: { enabled: true, includeContent: false }
+});
+```
+
+When using this installed plugin, do not import from an older manually installed skill runtime. Use the plugin-bundled runtime so the installed plugin and SDK stay in sync.
+
+## Bridge Bootstrap
 
 Ordinary shells should not have `globalThis.agent`. A `browser_bridge_unavailable` blocker from an ordinary shell is an expected safe result for browser-required calls.
 
-## File Upload Permissions
+For a true live Chrome bridge run from Codex, initialize the Chrome plugin runtime before using the SDK if `globalThis.agent` is missing. See `references/bridge-bootstrap.md` when bootstrap details are needed.
 
-File attachment workflows need two separate permission gates:
-
-1. Chrome extension gate: open `chrome://extensions`, choose the Codex/browser bridge extension, open **Details**, and enable **Allow access to file URLs**.
-2. Codex app gate: in Codex settings, allow Google Chrome uploads under **Computer Use > Google Chrome > Permissions > Uploads**. Use the narrowest setting that fits the workflow; unattended smoke tests may need the always-allow setting.
-
-If either gate is missing, stop with a permission blocker and tell the user which gate to check.
-
-## Source Setup
-
-From a source checkout:
-
-```bash
-cd packages/node
-npm ci
-npm test
-npm run build
-npm run bundle
-npm run bundle:backend
-```
-
-Then use the built bundle from a bridge-enabled host runtime:
-
-```ts
-import { createChatGPT } from "/absolute/path/to/codex-chatgpt-control/packages/node/dist/codex-chatgpt-control.bundle.mjs";
-
-const chatgpt = createChatGPT({ agent: globalThis.agent });
-```
-
-Prefer normal package imports in projects that depend on the published npm package:
-
-```ts
-import { createChatGPT } from "codex-chatgpt-control";
-```
+Do not diagnose user-open Chrome tab availability with `browser.tabs.list()` or `browser.tabs.selected()` alone. When the user says a ChatGPT thread is already open, use `existingTab: true`, an exact `existingTab` policy, or the SDK's existing-tab helpers.
 
 ## Basic Runner Flow
 
-```ts
+```js
 const reviewer = chatgpt.agent({
   name: "reviewer",
   instructions: "Review carefully and return Markdown."
@@ -116,7 +99,7 @@ Instructions are visible prompt text by default. Use `instructionsMode` intentio
 
 Ask in a new or selected thread:
 
-```ts
+```js
 await chatgpt.ask({
   prompt: "Reply with the word hi.",
   wait: true,
@@ -126,7 +109,7 @@ await chatgpt.ask({
 
 Continue an existing thread:
 
-```ts
+```js
 await chatgpt.askInThread({
   thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" },
   existingTab: true,
@@ -136,11 +119,9 @@ await chatgpt.askInThread({
 });
 ```
 
-When the user says the ChatGPT thread is already open, pass `existingTab: true` or an exact existing-tab policy such as `existingTab: { url: "https://chatgpt.com/c/<conversation-id>" }`. A `thread: { type: "url" }` selector by itself means "navigate to this URL"; it does not express "claim the user-open tab".
-
 Attach approved files:
 
-```ts
+```js
 await chatgpt.askWithFiles({
   thread: { type: "new" },
   files: ["/absolute/path/to/approved-file.pdf"],
@@ -153,7 +134,7 @@ await chatgpt.askWithFiles({
 
 Run a diagnostic before long workflows:
 
-```ts
+```js
 const diagnostic = await chatgpt.doctor({
   check: ["bridge", "login", "upload", "download", "clipboard"]
 });
@@ -163,7 +144,7 @@ const diagnostic = await chatgpt.doctor({
 
 Use Markdown by default for human-readable answers and saved artifacts:
 
-```ts
+```js
 const latest = await chatgpt.messages.waitAndRead({
   role: "assistant",
   format: "markdown"
@@ -172,32 +153,16 @@ const latest = await chatgpt.messages.waitAndRead({
 
 Use `format: "normalized_text"` only for compact assertions, polling checks, or simple exact-string smoke tests.
 
-## Python Client
+See `references/response-capture.md` for fidelity warnings and report handling.
 
-The Python package is a protocol client over the Node backend. Build the backend first:
+## File Upload Permissions
 
-```bash
-cd packages/node
-npm run bundle:backend
-```
+File attachment workflows need two separate permission gates:
 
-Then run Python from `packages/python`:
+1. Chrome extension gate: open `chrome://extensions`, choose the Codex/browser bridge extension, open Details, and enable `Allow access to file URLs`.
+2. Codex app gate: in Codex settings, allow Google Chrome uploads under `Computer Use > Google Chrome > Permissions > Uploads`.
 
-```bash
-python -m pip install -e .[dev]
-python scripts/live_smoke.py --mode ordinary-shell
-```
-
-Point Python at an explicit backend command:
-
-```python
-from codex_chatgpt_control import Agent, BackendClient, Runner, StdioBackendTransport
-
-backend = BackendClient(StdioBackendTransport(
-    command=["node", "../node/dist/codex-chatgpt-control-backend.mjs"]
-))
-runner = Runner(backend)
-```
+If either gate is missing, stop with a permission blocker and tell the user which gate to check. See `references/file-uploads.md`.
 
 ## Blocker Handling
 
@@ -211,26 +176,33 @@ Common blockers:
 - `permission`: upload/download/clipboard permission is missing.
 - `selector_drift`: ChatGPT UI changed and selectors need review.
 - `rate_limit`: wait or ask the user how to proceed.
+- `needs_confirmation`: the workflow requires explicit user confirmation.
+
+See `references/troubleshooting.md` before diagnosing selector, tab-claim, upload, or bridge issues.
 
 ## Validation
 
-For source changes, run:
+For source changes, run the smallest meaningful gate first. For shared SDK/protocol/plugin changes, broaden to:
 
 ```bash
 cd packages/node
-npm test
 npm run build
 npm run bundle
 npm run bundle:backend
+npm run bundle:live-smoke
 npm run contract:validate
 npm run parity:fixtures
+npm run test:backend-conformance
+npm test
 ```
 
-For Python parity changes, also run:
+Plugin packaging gates:
 
 ```bash
-cd packages/python
-python -m unittest discover -s tests
-python -m compileall -q src examples
-python scripts/live_smoke.py --mode ordinary-shell
+node tools/public-export/root/scripts/build-plugin-runtime.mjs --root .
+node tools/public-export/root/scripts/check-plugin-runtime.mjs --root .
+node tools/public-export/root/scripts/validate-plugin-layout.mjs --root .
+python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/codex-chatgpt-control
 ```
+
+Use public-export validation before claiming the public plugin package is release-ready.

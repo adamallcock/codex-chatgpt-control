@@ -7,13 +7,9 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Node](https://img.shields.io/badge/Node-20%2B-green)
 
+![codex-chatgpt-control visible-session bridge banner](assets/readme/codex-chatgpt-control-banner.svg)
+
 Unofficial alpha SDK facade for Codex agents that need to run user-directed workflows in a visible ChatGPT web session.
-
-
-
-https://github.com/user-attachments/assets/6ca38f2d-6646-490d-8e4d-8a6dc21e926f
-
-
 
 ## Why This Exists
 
@@ -63,9 +59,29 @@ The Node package is the browser-control runtime authority. The Python package is
 
 ## Codex Desktop Setup
 
-This repo includes a public Codex skill at [skills/codex-chatgpt-control/SKILL.md](skills/codex-chatgpt-control/SKILL.md). It is the quickest way to make Codex Desktop agents use this SDK consistently instead of hand-rolling browser commands.
+This repo includes a Codex plugin at [plugins/codex-chatgpt-control](plugins/codex-chatgpt-control). It is the easiest way to make Codex Desktop agents use this SDK consistently instead of hand-rolling browser commands.
 
-Install it into a local Codex skills directory:
+Install the repository as a Codex plugin marketplace and add the plugin:
+
+```bash
+codex plugin marketplace add adamallcock/codex-chatgpt-control --ref main
+codex plugin add codex-chatgpt-control@codex-chatgpt-control
+```
+
+When a new version ships, refresh the marketplace snapshot and reinstall the plugin, then start a new Codex thread so updated skill metadata is loaded:
+
+```bash
+codex plugin marketplace upgrade codex-chatgpt-control
+codex plugin add codex-chatgpt-control@codex-chatgpt-control
+```
+
+The plugin contains:
+
+- `codex-chatgpt-control`: the broad visible ChatGPT web workflow and diagnostics skill.
+- `chatgpt-pro-consult`: a focused ChatGPT Pro second-opinion workflow.
+- bundled Node runtime files for bridge-enabled imports.
+
+Manual skill-only install is still available as a fallback at [skills/codex-chatgpt-control/SKILL.md](skills/codex-chatgpt-control/SKILL.md):
 
 ```bash
 mkdir -p ~/.codex/skills/codex-chatgpt-control
@@ -83,7 +99,7 @@ or ChatGPT UI is unavailable, report the SDK stop reason and do not retry
 blindly.
 ```
 
-The skill is an agent-facing operating guide. It does not bundle a browser bridge, credentials, or ChatGPT account access. Install the npm package or build the Node runtime from source before using browser-control workflows.
+The plugin and skill are agent-facing operating guides plus local runtime bundles. They do not bundle a browser bridge, credentials, or ChatGPT account access. Real browser workflows still require a compatible Codex/browser bridge and a visible signed-in ChatGPT web session.
 
 ## Node Quick Start
 

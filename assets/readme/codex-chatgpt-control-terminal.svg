@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" role="img" aria-labelledby="title desc">
+  <title id="title">codex-chatgpt-control terminal banner</title>
+  <desc id="desc">A terminal-inspired banner for the codex-chatgpt-control developer tooling README.</desc>
+  <style>
+    :root {
+      --bg: #f7f7f4;
+      --ink: #17202a;
+      --muted: #64717f;
+      --panel: #ffffff;
+      --line: #d7dce2;
+      --line-2: #bcc6d1;
+      --teal: #2f9c95;
+      --green: #3f985a;
+      --gold: #c5891b;
+      --red: #c9574a;
+      --blue: #3e72b8;
+      --shadow: rgba(20, 30, 42, 0.12);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0e1116;
+        --ink: #eef2f6;
+        --muted: #9ba8b6;
+        --panel: #151b22;
+        --line: #303844;
+        --line-2: #506070;
+        --teal: #53c3b8;
+        --green: #70c985;
+        --gold: #d7aa4a;
+        --red: #e57569;
+        --blue: #82b5ff;
+        --shadow: rgba(0, 0, 0, 0.30);
+      }
+    }
+
+    .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .title { fill: var(--ink); font-size: 50px; font-weight: 760; letter-spacing: 0; }
+    .subtitle { fill: var(--muted); font-size: 23px; font-weight: 450; letter-spacing: 0; }
+    .code { fill: var(--ink); font-size: 22px; letter-spacing: 0; }
+    .comment { fill: var(--muted); font-size: 18px; letter-spacing: 0; }
+    .ok { fill: var(--green); }
+    .key { fill: var(--blue); }
+    .warn { fill: var(--gold); }
+  </style>
+
+  <rect width="1280" height="520" fill="var(--bg)" />
+  <g transform="translate(78 70)">
+    <text class="title sans" x="0" y="0" dominant-baseline="hanging">Visible bridge. Local protocol.</text>
+    <text class="subtitle sans" x="2" y="76">TypeScript runtime authority. Python parity client. Same local protocol.</text>
+  </g>
+
+  <g transform="translate(78 185)">
+    <rect x="0" y="0" width="728" height="260" rx="8" fill="var(--panel)" stroke="var(--line)" filter="drop-shadow(0 18px 36px var(--shadow))" />
+    <rect x="0" y="0" width="728" height="46" rx="8" fill="var(--panel)" stroke="var(--line)" />
+    <circle cx="28" cy="23" r="6.5" fill="var(--red)" />
+    <circle cx="52" cy="23" r="6.5" fill="var(--gold)" />
+    <circle cx="76" cy="23" r="6.5" fill="var(--green)" />
+    <text class="comment mono" x="104" y="29">codex-chatgpt-control</text>
+
+    <text class="code mono" x="34" y="89"><tspan class="ok">$</tspan> npm install codex-chatgpt-control</text>
+    <text class="code mono" x="34" y="129"><tspan class="key">const</tspan> chatgpt = createChatGPT({ agent })</text>
+    <text class="code mono" x="34" y="169">await chatgpt.askInThread({</text>
+    <text class="code mono" x="62" y="205">existingTab: <tspan class="warn">true</tspan>, wait: <tspan class="warn">true</tspan></text>
+    <text class="code mono" x="34" y="241">})</text>
+  </g>
+
+  <g transform="translate(870 192)">
+    <rect x="0" y="0" width="304" height="228" rx="8" fill="var(--panel)" stroke="var(--line)" filter="drop-shadow(0 18px 36px var(--shadow))" />
+    <text class="comment mono" x="30" y="47">stop_reason</text>
+    <text class="code mono" x="30" y="86">browser_bridge</text>
+    <text class="code mono" x="30" y="114">login_required</text>
+    <text class="code mono" x="30" y="142">needs_review</text>
+    <line x1="30" y1="171" x2="274" y2="171" stroke="var(--line)" />
+    <text class="comment mono" x="30" y="204">local report, redacted</text>
+  </g>
+
+  <path d="M821 316 C846 292 855 286 880 286" fill="none" stroke="var(--line-2)" stroke-width="2.6" stroke-linecap="round" />
+  <path d="M870 276 L882 286 L868 294" fill="none" stroke="var(--line-2)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
