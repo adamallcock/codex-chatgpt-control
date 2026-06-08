@@ -7,7 +7,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Node](https://img.shields.io/badge/Node-20%2B-green)
 
-![codex-chatgpt-control visible-session bridge banner](assets/readme/codex-chatgpt-control-banner.svg)
+https://github.com/user-attachments/assets/6ca38f2d-6646-490d-8e4d-8a6dc21e926f
 
 Unofficial alpha SDK facade for Codex agents that need to run user-directed workflows in a visible ChatGPT web session.
 

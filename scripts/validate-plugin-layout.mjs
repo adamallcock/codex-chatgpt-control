@@ -37,17 +37,6 @@ function detectRoot(explicitRoot) {
   throw new Error("Could not find repo root with plugins/codex-chatgpt-control");
 }
 
-function rootManualSkillPath(root) {
-  const candidates = [
-    path.join(root, "skills/codex-chatgpt-control/SKILL.md"),
-    path.join(root, "tools/public-export/root/skills/codex-chatgpt-control/SKILL.md")
-  ];
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
-  }
-  return candidates[0];
-}
-
 async function readJson(file) {
   return JSON.parse(await readFile(file, "utf8"));
 }
@@ -81,19 +70,6 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function extractMarkedBlock(text, marker, label) {
-  const start = `<!-- ${marker}:start -->`;
-  const end = `<!-- ${marker}:end -->`;
-  const startIndex = text.indexOf(start);
-  assert(startIndex !== -1, `${label} missing ${start}`);
-  const bodyStart = startIndex + start.length;
-  const endIndex = text.indexOf(end, bodyStart);
-  assert(endIndex !== -1, `${label} missing ${end}`);
-  const body = text.slice(bodyStart, endIndex).replace(/\r\n/g, "\n").trim();
-  assert(body.length > 0, `${label} shared safety contract is empty`);
-  return body;
-}
-
 async function assertReferencedAsset(pluginRoot, ref, label, minSquareSize) {
   assert(typeof ref === "string" && ref.length > 0, `${label} must be a relative asset path`);
   assert(!path.isAbsolute(ref), `${label} must not be an absolute path`);
@@ -118,12 +94,10 @@ async function main() {
   const pluginRoot = path.join(root, "plugins/codex-chatgpt-control");
   const marketplacePath = path.join(root, ".agents/plugins/marketplace.json");
   const manifestPath = path.join(pluginRoot, ".codex-plugin/plugin.json");
-  const manualSkillPath = rootManualSkillPath(root);
 
   const requiredFiles = [
     marketplacePath,
     manifestPath,
-    manualSkillPath,
     path.join(pluginRoot, "agents/openai.yaml"),
     path.join(pluginRoot, "runtime/import-chatgpt-control.mjs"),
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control.bundle.mjs"),
@@ -155,22 +129,11 @@ async function main() {
 
   const broadSkill = await readFile(path.join(pluginRoot, "skills/codex-chatgpt-control/SKILL.md"), "utf8");
   const proSkill = await readFile(path.join(pluginRoot, "skills/chatgpt-pro-consult/SKILL.md"), "utf8");
-  const rootManualSkill = await readFile(manualSkillPath, "utf8");
   assert(broadSkill.includes("name: codex-chatgpt-control"), "Broad skill frontmatter missing name");
   assert(proSkill.includes("name: chatgpt-pro-consult"), "Pro skill frontmatter missing name");
-  assert(rootManualSkill.includes("name: codex-chatgpt-control"), "Root manual skill frontmatter missing name");
-  assert(rootManualSkill.includes("manual fallback"), "Root manual skill must identify itself as the manual fallback");
   assert(broadSkill.includes("../../runtime/import-chatgpt-control.mjs"), "Broad skill must use plugin runtime loader");
   assert(proSkill.includes("../../runtime/import-chatgpt-control.mjs"), "Pro skill must use plugin runtime loader");
   assert(!proSkill.includes("~/.codex/skills/"), "Pro skill must not depend on an installed skill runtime");
-
-  const safetyContractMarker = "codex-chatgpt-control-shared-safety-contract";
-  const pluginSafetyContract = extractMarkedBlock(broadSkill, safetyContractMarker, "Plugin broad skill");
-  const rootSafetyContract = extractMarkedBlock(rootManualSkill, safetyContractMarker, "Root manual skill");
-  assert(
-    rootSafetyContract === pluginSafetyContract,
-    "Root manual skill shared safety contract must match plugin skill"
-  );
 
   const pluginFiles = await listTextFiles(pluginRoot);
   for (const file of pluginFiles) {

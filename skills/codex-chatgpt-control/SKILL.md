@@ -9,20 +9,6 @@ Use this skill when a user asks Codex to operate ChatGPT web through a visible b
 
 This skill is for visible, user-directed ChatGPT workflows only. It is not an OpenAI API wrapper, does not call hidden ChatGPT endpoints, and must not bypass login, captcha, product permissions, file permissions, or user confirmation.
 
-This root skill is a manual fallback for source or published-SDK users. The plugin skill is the primary Codex Desktop distribution path. Keep the shared safety contract below aligned with the plugin skill.
-
-## Shared Safety Contract
-
-<!-- codex-chatgpt-control-shared-safety-contract:start -->
-- Use visible, user-directed ChatGPT web sessions only.
-- Do not call hidden ChatGPT endpoints, inspect cookies, localStorage, sessionStorage, auth headers, or tokens.
-- Do not bypass login, captcha, account confirmation, rate limits, product permissions, file permissions, or user confirmation.
-- Attach only files the user approved.
-- Stop and report a structured blocker for login, captcha, rate-limit, selector-drift, upload/download permission, or ambiguous confirmation states.
-- Redact local run reports by default; raw prompt and response content is opt-in only.
-- Treat ChatGPT Pro output as another model's judgment, not verified truth.
-<!-- codex-chatgpt-control-shared-safety-contract:end -->
-
 ## Required Posture
 
 1. Prefer the SDK facade from `createChatGPT({ agent })`.
