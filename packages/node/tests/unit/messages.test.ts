@@ -251,6 +251,22 @@ describe("extractMessagesFromHtml", () => {
     expect(result.warnings.join(" ")).toContain("completion was not confirmed");
   });
 
+  it("composes and submits with localized ChatGPT composer labels", async () => {
+    const page = askWaitFallbackPage("Reply exactly fallback-ok.", "fallback-ok", {
+      textboxName: "与 ChatGPT 聊天",
+      sendButtonName: "发送提示"
+    });
+
+    const result = await askMessage({ page }, {
+      text: "Reply exactly fallback-ok.",
+      wait: { timeoutMs: 5, stableMs: 0, pollMs: 1 },
+      read: { format: "normalized_text" }
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.output_text).toBe("fallback-ok");
+  });
+
   it("extracts assistant Markdown by default without flattening structure", () => {
     const html = readFileSync("tests/fixtures/chat-rich-response.html", "utf8");
     const messages = extractMessagesFromHtml(html);
@@ -493,9 +509,15 @@ function contentPage(html: string, onClick?: () => void): PageLike {
   };
 }
 
-function askWaitFallbackPage(prompt: string, answer: string): PageLike {
+function askWaitFallbackPage(
+  prompt: string,
+  answer: string,
+  labels: { textboxName?: string; sendButtonName?: string } = {}
+): PageLike {
   let composerText = "";
   let submitted = false;
+  const textboxName = labels.textboxName ?? "Chat with ChatGPT";
+  const sendButtonName = labels.sendButtonName ?? "Send prompt";
   const textbox: LocatorLike = {
     click: async () => {},
     fill: async text => {
@@ -564,8 +586,8 @@ function askWaitFallbackPage(prompt: string, answer: string): PageLike {
     },
     getByRole: (role, options) => {
       const name = String(options?.name ?? "");
-      if (role === "textbox") return textbox;
-      if (role === "button" && /Send prompt/.test(name)) return send;
+      if (role === "textbox" && name === textboxName) return textbox;
+      if (role === "button" && name === sendButtonName) return send;
       if (role === "button" && /Copy response/.test(name)) return noResponseActions;
       return noResponseActions;
     },

@@ -20,14 +20,14 @@ export function composerTextbox(page: PageLike): LocatorLike {
   if (typeof page.getByRole !== "function") {
     return requiredLocator(page, "[contenteditable='true'], textarea");
   }
-  return page.getByRole("textbox", { name: "Chat with ChatGPT" });
+  return firstRoleLocator(page, "textbox", ["Chat with ChatGPT", "与 ChatGPT 聊天"]);
 }
 
 export function sendButton(page: PageLike): LocatorLike {
   if (typeof page.getByRole !== "function") {
     return requiredLocator(page, "button[aria-label*='Send']");
   }
-  return page.getByRole("button", { name: "Send prompt" });
+  return firstRoleLocator(page, "button", ["Send prompt", "发送提示"]);
 }
 
 export function searchChatsButton(page: PageLike): LocatorLike {
@@ -82,4 +82,64 @@ export function requiredLocator(page: PageLike, selector: string): LocatorLike {
     throw new Error(`Page does not support locator("${selector}")`);
   }
   return page.locator(selector);
+}
+
+function firstRoleLocator(page: PageLike, role: string, names: string[]): LocatorLike {
+  const locators = names.map(name => page.getByRole!(role, { name }));
+  return {
+    click: options => withFirstLocator(locators, locator => locator.click?.(options)),
+    fill: (value, options) => withFirstLocator(locators, locator => locator.fill?.(value, options)),
+    textContent: options => withFirstLocator(locators, locator => locator.textContent?.(options)),
+    innerText: options => withFirstLocator(locators, locator => locator.innerText?.(options)),
+    innerHTML: options => withFirstLocator(locators, locator => locator.innerHTML?.(options)),
+    count: async () => {
+      let total = 0;
+      for (const locator of locators) {
+        total += await locator.count?.().catch(() => 0) ?? 0;
+      }
+      return total;
+    },
+    first: () => firstRoleLocator(page, role, names).nth?.(0) ?? locators[0]!,
+    last: () => locators.at(-1)?.last?.() ?? locators.at(-1)!,
+    nth: index => locators[index]?.nth?.(index) ?? locators[index] ?? locators[0]!,
+    isVisible: options => withFirstLocator(locators, locator => locator.isVisible?.(options)),
+    evaluate: fn => withFirstLocator(locators, locator => locator.evaluate?.(fn)),
+    locator: selector => withFirstLocatorSync(locators, locator => locator.locator?.(selector)),
+    filter: options => withFirstLocatorSync(locators, locator => locator.filter?.(options)),
+    getByRole: (nestedRole, options) => withFirstLocatorSync(locators, locator => locator.getByRole?.(nestedRole, options)),
+    getByText: (text, options) => withFirstLocatorSync(locators, locator => locator.getByText?.(text, options)),
+    setInputFiles: paths => withFirstLocator(locators, locator => locator.setInputFiles?.(paths))
+  };
+}
+
+async function withFirstLocator<T>(
+  locators: LocatorLike[],
+  action: (locator: LocatorLike) => Promise<T> | undefined
+): Promise<T> {
+  const locator = await resolveFirstLocator(locators);
+  const result = action(locator);
+  if (result === undefined) {
+    throw new Error("Matched locator does not support the requested action.");
+  }
+  return result;
+}
+
+function withFirstLocatorSync(
+  locators: LocatorLike[],
+  action: (locator: LocatorLike) => LocatorLike | undefined
+): LocatorLike {
+  for (const locator of locators) {
+    const result = action(locator);
+    if (result !== undefined) return result;
+  }
+  return locators[0]!;
+}
+
+async function resolveFirstLocator(locators: LocatorLike[]): Promise<LocatorLike> {
+  for (const locator of locators) {
+    if (locator.count === undefined) return locator;
+    const count = await locator.count().catch(() => 0);
+    if (count > 0) return locator;
+  }
+  return locators[0]!;
 }
