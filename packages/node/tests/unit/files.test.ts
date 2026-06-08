@@ -6,8 +6,27 @@ import { attachFiles, downloadLatestFile, validateAttachPaths } from "../../src/
 import type { LocatorLike, PageLike } from "../../src/types.js";
 
 describe("validateAttachPaths", () => {
-  it("rejects relative paths", async () => {
+  it("rejects POSIX relative paths", async () => {
     await expect(validateAttachPaths(["notes.txt"])).rejects.toThrow(/absolute/);
+    await expect(validateAttachPaths(["notes/file.md"])).rejects.toThrow(/absolute/);
+  });
+
+  it("rejects Windows drive-relative paths", async () => {
+    await expect(validateAttachPaths(["C:Users\\notes.md"])).rejects.toThrow(/absolute/);
+  });
+
+  it("rejects empty paths", async () => {
+    await expect(validateAttachPaths([""])).rejects.toThrow(/absolute/);
+  });
+
+  it("accepts POSIX absolute paths for filesystem validation", async () => {
+    await expectPathPassesAbsoluteValidation("/home/codex/missing-file.md");
+    await expectPathPassesAbsoluteValidation("/mnt/d/WSL/missing-file.md");
+  });
+
+  it("accepts Windows drive absolute paths for filesystem validation", async () => {
+    await expectPathPassesAbsoluteValidation("C:\\Users\\codex\\missing-file.md");
+    await expectPathPassesAbsoluteValidation("D:\\WSL\\Codex\\missing-file.md");
   });
 
   it("returns file metadata for readable files", async () => {
@@ -20,6 +39,15 @@ describe("validateAttachPaths", () => {
     ]);
   });
 });
+
+async function expectPathPassesAbsoluteValidation(path: string): Promise<void> {
+  try {
+    await validateAttachPaths([path]);
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).not.toMatch(/must be absolute/);
+  }
+}
 
 describe("attachFiles", () => {
   it("uses ChatGPT's Add photos & files chooser when the file input is hidden", async () => {

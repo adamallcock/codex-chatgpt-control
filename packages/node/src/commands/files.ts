@@ -1,5 +1,5 @@
 import { access, readFile, stat } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { basename, posix, resolve, win32 } from "node:path";
 import { constants } from "node:fs";
 import { waitForDownloadFromClick } from "../browser/downloads.js";
 import { resultError, resultOk } from "../errors.js";
@@ -26,7 +26,7 @@ export async function validateAttachPaths(paths: string[]): Promise<AttachedFile
   const files: AttachedFile[] = [];
 
   for (const path of paths) {
-    if (!path.startsWith("/")) {
+    if (!isSupportedAbsolutePath(path)) {
       throw new Error(`File attachment path must be absolute: ${path}`);
     }
 
@@ -45,6 +45,10 @@ export async function validateAttachPaths(paths: string[]): Promise<AttachedFile
   }
 
   return files;
+}
+
+function isSupportedAbsolutePath(path: string): boolean {
+  return posix.isAbsolute(path) || win32.isAbsolute(path);
 }
 
 export async function attachFiles(
