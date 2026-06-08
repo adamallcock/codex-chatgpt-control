@@ -77,6 +77,14 @@ function sanitizeRuntime(text) {
     .replaceAll(PRIVATE_PY_PACKAGE, PUBLIC_PY_PACKAGE)
     .replaceAll(PRIVATE_DASH_PACKAGE, PUBLIC_DASH_PACKAGE)
     .replaceAll(PRIVATE_TITLE, PUBLIC_TITLE)
+    .replace(
+      /var PATH_RE = \/\\\/Users\\\/\[\^\\s"'<>\]\+\/g;/,
+      'var PATH_RE = /(?:\\/Users\\/|\\/home\\/|\\/example\\/user\\/)[^\\s"\'<>]+/g;'
+    )
+    .replace(
+      /\n\/\/ src\/backend\/protocol\.ts\nvar backendCommands = \[[\s\S]*?\];\nvar commandSet = new Set\(backendCommands\);\n/g,
+      ""
+    )
     .replace(/\/Users\/[^/\s"'<>]+/g, "/example/user");
 }
 
