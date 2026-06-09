@@ -30,6 +30,10 @@ claimed conversation in a temporary bridge-owned tab and exporting through
 `pageAssets`, Python observes the same command result through the backend
 protocol without any Python-side browser logic.
 
+## Host-Local Attachment Paths
+
+Python does not reinterpret attachment paths. It sends the path string to the Node backend, and the backend validates the path against its own host operating system. Attachment paths must be absolute on the backend host. On macOS/Linux/WSL backends, use POSIX paths such as `/example/user/file.pdf` or `/mnt/c/example/user/file.pdf`. On Windows backends, use fully qualified paths such as `C:\Users\you\file.pdf` or UNC paths such as `\\server\share\file.pdf`. Drive-relative paths, root-relative paths, and Windows-looking paths sent to a POSIX backend are rejected before filesystem access.
+
 ## Sync Python
 
 ```python
@@ -99,7 +103,7 @@ Run from `packages/python`:
 python -m pip install -e ".[dev]"
 python -m unittest discover -s tests
 python -m compileall -q src
-python -m pyright --pythonpath "$(which python)" src tests
+python -m pyright src tests
 python scripts/live_smoke.py --mode ordinary-shell
 ```
 

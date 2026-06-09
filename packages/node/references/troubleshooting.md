@@ -58,6 +58,10 @@ Agent-facing remediation text should name both settings:
 
 > File upload is blocked by Chrome/Codex permissions. Ask the user to enable both: Codex Settings > Computer Use > Chrome > Permissions > Uploads, and Chrome chrome://extensions > Codex extension > Details > Allow access to file URLs. Then retry.
 
+## Attachment Path Rejected
+
+Attachment paths are validated against the backend host's operating system. If a Windows-looking path is rejected on macOS/Linux, do not retry with the same string. Convert it to the backend host's real path, for example `/mnt/c/example/user/file.pdf` for a WSL/Linux backend. Drive-relative paths like `C:Users\you\file.pdf`, root-relative paths like `\tmp\file.pdf`, and empty or relative paths are always rejected.
+
 ## Clipboard Unavailable
 
 `response.copy` falls back to DOM text extraction when the macOS system clipboard does not change.

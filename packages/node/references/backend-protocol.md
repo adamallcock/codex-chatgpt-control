@@ -111,6 +111,10 @@ The backend must support:
 - command discovery: `commands`, `describe`, `help`
 - primitives: `session.bootstrap`, `threads.*`, `messages.*`, `artifacts.*`, `files.*`, `modes.set`, `tools.select`, `response.copy`
 
+## Host-Local Attachment Paths
+
+Attachment paths are interpreted on the machine running the Node backend. Use an absolute path in that host operating system's native form. On macOS/Linux/WSL, use paths such as `/example/user/file.pdf`, `/home/you/file.pdf`, or `/mnt/c/example/user/file.pdf`. On Windows backend hosts, use fully qualified paths such as `C:\Users\you\file.pdf` or UNC paths such as `\\server\share\file.pdf`. Drive-relative paths like `C:Users\you\file.pdf`, root-relative paths like `\tmp\file.pdf`, and Windows-looking paths sent to a POSIX backend are rejected before filesystem access.
+
 ## Generated Artifacts
 
 Generated images are represented as visible artifacts, not assistant text. A

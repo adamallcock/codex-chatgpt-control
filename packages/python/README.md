@@ -90,6 +90,10 @@ The `ChatGPT` facade exposes workflows and primitive command groups:
 
 Unsupported OpenAI API-only Responses fields, such as `model`, `temperature`, and `previous_response_id`, return explicit unsupported responses instead of silently submitting misleading prompts.
 
+## Host-Local Attachment Paths
+
+The Python client does not normalize attachment paths. It forwards them to the Node backend. Use the path form for the backend host, not necessarily the Python caller host. If Python is running on WSL but the backend is running in Windows, pass a Windows path. If the backend is running in WSL/Linux, pass a Linux path such as `/home/you/file.pdf`.
+
 ## Backend And Browser Bridge
 
 Ordinary shells can launch the backend and validate the protocol. Browser-required calls need a compatible browser bridge.
@@ -118,7 +122,7 @@ Run from `packages/python`:
 ```bash
 python -m unittest discover -s tests
 python -m compileall -q src examples
-python -m pyright --pythonpath "$(which python)" src tests
+python -m pyright src tests
 python scripts/live_smoke.py --mode ordinary-shell
 ```
 
