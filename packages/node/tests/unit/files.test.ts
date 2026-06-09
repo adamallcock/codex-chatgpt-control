@@ -51,6 +51,22 @@ describe("validateAttachPaths", () => {
       { path: file, name: "notes.txt", bytes: 5 }
     ]);
   });
+
+  it("rejects forward-slash UNC paths on POSIX (treated as relative-ish ambiguity by validateAttachPaths)", async () => {
+    // //server/share/file starts with / so POSIX isAbsolute accepts it.
+    // resolveForHostPath with the current platform (linux/darwin) would pass
+    // the isAbsolutePath check, then try fs.access on it — which will fail
+    // with ENOENT (not an "absolute" error).  This test documents that
+    // validateAttachPaths does NOT reject forward-slash UNC as non-absolute on
+    // POSIX; instead the guard is that the path simply does not exist.
+    // This is intentional: on POSIX, //server/share/ is a valid NFS/SMB mount.
+    if (process.platform === "win32") return;
+    // The path will pass the absolute check and fail at fs.access (ENOENT)
+    await expect(validateAttachPaths(["//server/share/missing-file.md"])).rejects.toThrow();
+    // Importantly, it does NOT throw /absolute/ — it gets past the path check
+    const rejection = validateAttachPaths(["//server/share/missing-file.md"]).catch(e => e);
+    await expect(rejection).resolves.not.toMatchObject({ message: expect.stringMatching(/absolute/) });
+  });
 });
 
 describe("attachFiles", () => {

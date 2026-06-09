@@ -101,5 +101,96 @@ def fake_backend_command(source: str) -> list[str]:
     return [sys.executable, "-c", textwrap.dedent(source)]
 
 
+class NodeSidecarReturncodeRegressionTests(unittest.TestCase):
+    """Regression tests for Bug 3: NodeSidecarTransport must propagate a non-None
+    returncode from BackendTransportError through to NodeSidecarError.
+
+    The wiring in NodeSidecarTransport.run is:
+        except BackendTransportError as exc:
+            raise NodeSidecarError(..., returncode=exc.returncode, ...) from exc
+
+    If exc.returncode is silently dropped (e.g. hard-coded to None), the caller
+    loses the ability to distinguish a clean exit from an error exit.
+    """
+
+    def test_non_none_returncode_propagated_from_backend_transport_error(self) -> None:
+        """REGRESSION for Bug 3.
+
+        A BackendTransportError(returncode=7) raised by the underlying transport must
+        surface as NodeSidecarError(returncode=7), not returncode=None.
+        """
+        # Drive this through a real subprocess that exits non-zero so the entire
+        # wiring (StdioBackendTransport -> BackendTransportError -> NodeSidecarTransport
+        # -> NodeSidecarError) is exercised end-to-end.
+        with self.assertRaises(NodeSidecarError) as ctx:
+            NodeSidecarTransport(
+                command=fake_backend_command(
+                    """
+                    import sys
+                    sys.stdin.readline()
+                    sys.stderr.write("backend exploded with code 7")
+                    sys.exit(7)
+                    """
+                )
+            ).run({"agent": {"name": "reviewer"}, "input": "hi"})
+
+        exc = ctx.exception
+        self.assertEqual(
+            exc.returncode,
+            7,
+            f"Expected returncode=7 propagated through NodeSidecarError, got {exc.returncode!r}",
+        )
+        self.assertIn("backend exploded", exc.stderr)
+
+    def test_returncode_none_when_backend_protocol_error(self) -> None:
+        """A BackendProtocolError (logical error, not a crash) surfaces with returncode=None."""
+        with self.assertRaises(NodeSidecarError) as ctx:
+            NodeSidecarTransport(
+                command=fake_backend_command(
+                    f"""
+                    import json, sys
+                    request = json.loads(sys.stdin.readline())
+                    print(json.dumps({{
+                        "schemaVersion": {BACKEND_RESPONSE_SCHEMA_VERSION!r},
+                        "requestId": request.get("requestId"),
+                        "ok": False,
+                        "error": {{
+                            "code": "unknown_command",
+                            "message": "No such command.",
+                            "recoverable": False,
+                        }},
+                    }}), flush=True)
+                    """
+                )
+            ).run({"agent": {"name": "reviewer"}, "input": "hi"})
+
+        exc = ctx.exception
+        self.assertIsNone(
+            exc.returncode,
+            f"Protocol errors should have returncode=None, got {exc.returncode!r}",
+        )
+
+    def test_returncode_propagated_for_various_exit_codes(self) -> None:
+        """Different non-zero exit codes are each propagated faithfully."""
+        for exit_code in (1, 2, 42, 127):
+            with self.subTest(exit_code=exit_code):
+                with self.assertRaises(NodeSidecarError) as ctx:
+                    NodeSidecarTransport(
+                        command=fake_backend_command(
+                            f"""
+                            import sys
+                            sys.stdin.readline()
+                            sys.exit({exit_code})
+                            """
+                        )
+                    ).run({"agent": {"name": "reviewer"}, "input": "hi"})
+
+                self.assertEqual(
+                    ctx.exception.returncode,
+                    exit_code,
+                    f"returncode should be {exit_code}, got {ctx.exception.returncode!r}",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
