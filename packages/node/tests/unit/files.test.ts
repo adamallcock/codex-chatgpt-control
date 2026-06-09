@@ -214,4 +214,34 @@ describe("downloadLatestFile", () => {
     expect(downloadOptions).toEqual({ timeout: 45000, timeoutMs: 45000 });
     await expect(stat(join(dest, "answer.txt"))).resolves.toBeTruthy();
   });
+
+  it("returns a classified blocker quickly when locating download controls stalls", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-download-stall-"));
+    const dest = join(dir, "out");
+    await mkdir(dest);
+
+    const stalledLocator: LocatorLike = {
+      count: async () => new Promise<number>(() => {})
+    };
+    const page: PageLike = {
+      locator: () => stalledLocator,
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/c/mock"
+    };
+
+    const result = await Promise.race([
+      downloadLatestFile({ page }, { destDir: dest, timeoutMs: 20 }),
+      new Promise<"hung">(resolve => setTimeout(() => resolve("hung"), 75))
+    ]);
+
+    expect(result).not.toBe("hung");
+    expect(result).toMatchObject({
+      ok: false,
+      status: "unsupported",
+      blocker: {
+        kind: "download_unavailable",
+        code: "download_control_timeout"
+      }
+    });
+  });
 });

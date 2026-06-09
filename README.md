@@ -37,6 +37,7 @@ Use `codex-chatgpt-control` when a Codex-style agent needs to work with the real
 - submit prompts and read Markdown responses
 - attach approved local files through visible upload controls
 - download visible generated files
+- wait for and download image-only generated artifacts
 - tell the agent exactly why it could not continue when ChatGPT needs login, captcha, permissions, or UI review
 - save local run reports that omit prompt and response content by default
 
@@ -140,6 +141,27 @@ await chatgpt.askInThread({
 
 If you run browser-required commands from an ordinary shell, the safe expected result is a structured `browser_bridge_unavailable` blocker. That means the protocol path is working, but no visible browser bridge was available to the process.
 
+Download an image-only generation through the artifact primitives:
+
+```ts
+await chatgpt.artifacts.wait({
+  kind: "image",
+  requireDownload: true
+});
+
+const downloaded = await chatgpt.artifacts.downloadLatest({
+  destDir: "/absolute/output/dir"
+});
+```
+
+Generated images are artifacts, not assistant text. `messages.readLatest()` can
+correctly return `not_found` for an image-only result while
+`artifacts.downloadLatest()` still saves the image. If a claimed user-open tab's
+bridge session is stale, artifact export may recover by reopening the same saved
+`https://chatgpt.com/c/...` conversation in a temporary bridge-owned tab and
+using the bridge page-assets inventory. This recovery is fallback-only; normal
+text/thread commands do not automatically replace the user's tab.
+
 ## Python Quick Start
 
 The Python package talks to the Node backend. Build or install a backend command first, then point Python at it:
@@ -208,7 +230,7 @@ The main Node entrypoint is `createChatGPT({ agent })`. It exposes:
 - `chatgpt.agent(...)` and `chatgpt.runner.run(...)` for Agents-style visible-session workflows.
 - `chatgpt.ask(...)`, `askInThread(...)`, `askWithFiles(...)`, and `askAndDownload(...)` for common task flows.
 - `chatgpt.responses.create(...)` for a narrow Responses-shaped adapter over the same visible browser runner.
-- Primitive groups for `session`, `threads`, `messages`, `files`, `modes`, `tools`, and `response`.
+- Primitive groups for `session`, `threads`, `messages`, `artifacts`, `files`, `modes`, `tools`, and `response`.
 - Discovery helpers: `chatgpt.help()`, `chatgpt.commands()`, and `chatgpt.describe(name)`.
 - Local run reports through `chatgpt.createReport(...)` and `chatgpt.reports`; prompt and response content is omitted unless explicitly enabled.
 

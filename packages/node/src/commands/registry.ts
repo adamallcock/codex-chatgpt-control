@@ -85,6 +85,9 @@ const descriptors: CommandDescriptor[] = [
   primitive("messages.wait", "Wait for the latest assistant response to stabilize.", 120000),
   primitive("messages.readLatest", "Read the latest message as Markdown, normalized text, blocks, or HTML.", 30000),
   primitive("messages.waitAndRead", "Wait for completion and read the latest message.", 120000),
+  primitive("artifacts.listLatest", "Detect the latest visible generated ChatGPT artifact, such as an image-only result.", 30000),
+  primitive("artifacts.wait", "Wait for a visible generated ChatGPT artifact to appear and stabilize.", 120000),
+  primitive("artifacts.downloadLatest", "Download or save the latest visible generated ChatGPT artifact.", 120000),
   primitive("files.attach", "Attach absolute local file paths through visible ChatGPT upload controls.", 180000),
   primitive("files.downloadLatest", "Download the latest visible ChatGPT file affordance.", 120000),
   primitive("response.copy", "Click Copy response and return clipboard Markdown, with DOM fallback.", 5000),
@@ -235,6 +238,9 @@ function reportArgs(name: string): Record<string, string> {
 
 function primitiveArgs(name: string): Record<string, string> {
   if (name === "messages.readLatest") return { role: "assistant or user", format: "markdown, normalized_text, visible_text, html, blocks, or all" };
+  if (name === "artifacts.listLatest") return { kind: "artifact kind; currently image", max: "maximum artifacts to return" };
+  if (name === "artifacts.wait") return { kind: "artifact kind; currently image", afterArtifactCount: "baseline artifact count", requireDownload: "wait until a download affordance is visible" };
+  if (name === "artifacts.downloadLatest") return { destDir: "download destination directory", prefer: "download_control or visible_image_source" };
   if (name === "response.copy") return { prefer: "clipboard or dom", format: "markdown, normalized_text, visible_text, html, blocks, or all" };
   if (name.startsWith("threads.search")) return { query: "history search query" };
   if (name.startsWith("files.attach")) return { paths: "absolute local file paths" };
@@ -258,12 +264,16 @@ function primitiveExamples(name: string): string[] {
   if (name === "files.attach") {
     return [`await chatgpt.files.attach({ paths: ["/absolute/path.jpg"] });`];
   }
+  if (name.startsWith("artifacts.")) {
+    return [`await chatgpt.artifacts.downloadLatest({ destDir: "/tmp/out" });`];
+  }
   return [];
 }
 
 function primitiveBlockers(name: string): string[] {
   if (name.startsWith("files.attach")) return ["browser_bridge_unavailable", "login_required", "permission", "upload_failed"];
   if (name.startsWith("files.download")) return ["browser_bridge_unavailable", "login_required", "download_unavailable"];
+  if (name.startsWith("artifacts.")) return ["browser_bridge_unavailable", "login_required", "artifact_unavailable", "artifact_selector_drift", "artifact_download_unavailable"];
   if (name.startsWith("modes.") || name.startsWith("tools.")) return ["browser_bridge_unavailable", "login_required", "selector_drift"];
   return commonBlockers();
 }

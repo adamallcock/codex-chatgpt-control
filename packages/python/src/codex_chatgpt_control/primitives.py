@@ -69,6 +69,20 @@ class FilesClient:
         return command_result(self._backend, "files.downloadLatest", wire_kwargs(**kwargs))
 
 
+class ArtifactsClient:
+    def __init__(self, backend: Any) -> None:
+        self._backend = backend
+
+    def list_latest(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "artifacts.listLatest", wire_kwargs(**kwargs))
+
+    def wait(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "artifacts.wait", wire_kwargs(**kwargs))
+
+    def download_latest(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "artifacts.downloadLatest", wire_kwargs(**kwargs))
+
+
 class ModesClient:
     def __init__(self, backend: Any) -> None:
         self._backend = backend

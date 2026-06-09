@@ -228,6 +228,24 @@ function classifyVisibleText(text) {
   return void 0;
 }
 
+// src/commands/timeouts.ts
+async function withTimeout(promise, timeoutMs, message) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_resolve, reject) => {
+        timeout = setTimeout(() => reject(new Error(message)), Math.max(0, timeoutMs));
+      })
+    ]);
+  } finally {
+    if (timeout !== void 0) clearTimeout(timeout);
+  }
+}
+function localGuardTimeout(timeoutMs, capMs) {
+  return Math.max(1, Math.min(timeoutMs ?? capMs, capMs));
+}
+
 // src/browser/page-state.ts
 function parseConversationId(url) {
   const match = /\/c\/([A-Za-z0-9-]+)/.exec(url);
@@ -261,13 +279,21 @@ async function readPageState(page) {
 async function readVisibleText(page) {
   if (typeof page.evaluate === "function") {
     try {
-      return await page.evaluate(() => document.body?.innerText ?? "");
+      return await withTimeout(
+        page.evaluate(() => document.body?.innerText ?? ""),
+        1e3,
+        "Timed out while reading visible page text."
+      );
     } catch {
     }
   }
   if (typeof page.content === "function") {
     try {
-      const html = await page.content();
+      const html = await withTimeout(
+        page.content(),
+        1e3,
+        "Timed out while reading page content."
+      );
       return htmlToText(html);
     } catch {
       return "";
@@ -729,7 +755,7 @@ async function waitForClipboardChange(before, timeoutMs, pollMs = 150) {
     if (current !== void 0 && current.length > 0 && current !== before) {
       return current;
     }
-    await new Promise((resolve4) => setTimeout(resolve4, pollMs));
+    await new Promise((resolve5) => setTimeout(resolve5, pollMs));
   }
   return void 0;
 }
@@ -1371,6 +1397,173 @@ function normalizeExtractedMessage(message, args = {}) {
   return { role: message.role, ...content };
 }
 
+// src/dom/artifacts.ts
+async function listPageArtifacts(page, args = {}) {
+  const timeoutMs = localGuardTimeout(args.timeoutMs, 5e3);
+  let artifacts;
+  let evaluateError;
+  if (typeof page.evaluate === "function") {
+    artifacts = await withTimeout(
+      page.evaluate(() => {
+        const images = Array.from(document.querySelectorAll("main img"));
+        return images.map((image, index) => {
+          const rect = image.getBoundingClientRect();
+          const style = window.getComputedStyle(image);
+          const width = Math.round(rect.width || image.naturalWidth || image.width || 0);
+          const height = Math.round(rect.height || image.naturalHeight || image.height || 0);
+          const alt = image.getAttribute("alt") ?? void 0;
+          const src = image.currentSrc || image.src || void 0;
+          const ariaLabel = image.getAttribute("aria-label") ?? image.closest("[aria-label]")?.getAttribute("aria-label") ?? void 0;
+          const visible = width > 0 && height > 0 && style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || "1") > 0;
+          const likelyGenerated = visible && !image.closest("nav, aside, header, footer, form, [contenteditable='true'], textarea") && (width >= 96 || height >= 96 || /^data:image\//i.test(src ?? "") || /^blob:/i.test(src ?? "") || /\b(generated|image|photo|picture)\b/i.test(`${alt ?? ""} ${ariaLabel ?? ""}`));
+          if (!likelyGenerated) return void 0;
+          const container = image.closest("figure, [data-testid*='image' i], [aria-label*='image' i], [role='group'], [data-testid^='conversation-turn']") ?? image.parentElement;
+          const scopedDownload = container?.querySelector("a[download], button[aria-label*='Download' i], a[aria-label*='Download' i]");
+          const globalDownload = document.querySelector("main button[aria-label*='Download image' i], main a[aria-label*='Download image' i]");
+          const turnNode = image.closest("[data-testid^='conversation-turn']");
+          const artifact = {
+            kind: "image",
+            index,
+            visible,
+            width,
+            height,
+            downloadAvailable: Boolean(scopedDownload ?? globalDownload),
+            selectorProvenance: "main generated image"
+          };
+          if (alt !== void 0) artifact.alt = alt;
+          if (ariaLabel !== void 0) artifact.ariaLabel = ariaLabel;
+          const safeSrc = safeArtifactSrc(src);
+          if (safeSrc !== void 0) artifact.src = safeSrc;
+          const turnId = turnNode?.getAttribute("data-testid") ?? void 0;
+          if (turnId !== void 0) artifact.turnId = turnId;
+          return artifact;
+        }).filter((artifact) => artifact !== void 0);
+      }),
+      timeoutMs,
+      "Timed out while inspecting visible ChatGPT artifacts."
+    ).catch((error) => {
+      evaluateError = error;
+      return void 0;
+    });
+  }
+  if (artifacts === void 0 && typeof page.content !== "function" && evaluateError !== void 0) {
+    throw evaluateError;
+  }
+  const filtered = filterArtifacts(artifacts ?? await listArtifactsFromContent(page, timeoutMs), args);
+  return filtered.map((artifact, index) => ({ ...artifact, index }));
+}
+async function countPageArtifacts(page, args = {}) {
+  return listPageArtifacts(page, args).then((artifacts) => artifacts.length);
+}
+async function readLatestImageDataUrl(page, timeoutMs) {
+  const guardMs = localGuardTimeout(timeoutMs, 5e3);
+  if (typeof page.evaluate === "function") {
+    const fromDom = await withTimeout(
+      page.evaluate(async () => {
+        const images = Array.from(document.querySelectorAll("main img"));
+        const candidates = images.filter((image2) => {
+          const rect = image2.getBoundingClientRect();
+          const width = rect.width || image2.naturalWidth || image2.width || 0;
+          const height = rect.height || image2.naturalHeight || image2.height || 0;
+          const src2 = image2.currentSrc || image2.src || "";
+          const label = `${image2.getAttribute("alt") ?? ""} ${image2.closest("[aria-label]")?.getAttribute("aria-label") ?? ""}`;
+          return !image2.closest("nav, aside, header, footer, form, [contenteditable='true'], textarea") && (width >= 96 || height >= 96 || /^data:image\//i.test(src2) || /^blob:/i.test(src2) || /\b(generated|image|photo|picture)\b/i.test(label));
+        });
+        const image = candidates.at(-1);
+        if (image === void 0) return void 0;
+        const src = image.currentSrc || image.src;
+        if (/^data:image\//i.test(src)) {
+          const alt = image.getAttribute("alt") ?? void 0;
+          return alt === void 0 ? { dataUrl: src } : { dataUrl: src, alt };
+        }
+        if (/^(blob:|https?:)/i.test(src)) {
+          const response = await fetch(src);
+          const blob = await response.blob();
+          const dataUrl = await new Promise((resolve5, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve5(String(reader.result));
+            reader.onerror = () => reject(reader.error ?? new Error("FileReader failed."));
+            reader.readAsDataURL(blob);
+          });
+          const alt = image.getAttribute("alt") ?? void 0;
+          return alt === void 0 ? { dataUrl } : { dataUrl, alt };
+        }
+        return void 0;
+      }),
+      guardMs,
+      "Timed out while reading the visible generated image source."
+    ).catch(() => void 0);
+    if (fromDom !== void 0) return fromDom;
+  }
+  const html = await readContentWithTimeout(page, guardMs).catch(() => void 0);
+  if (html === void 0) return void 0;
+  const artifact = parseArtifactsFromHtml(html).at(-1);
+  if (artifact?.src === void 0 || !/^data:image\//i.test(artifact.src)) return void 0;
+  return artifact.alt === void 0 ? { dataUrl: artifact.src } : { dataUrl: artifact.src, alt: artifact.alt };
+}
+async function listArtifactsFromContent(page, timeoutMs) {
+  const html = await readContentWithTimeout(page, timeoutMs).catch(() => void 0);
+  return html === void 0 ? [] : parseArtifactsFromHtml(html);
+}
+function parseArtifactsFromHtml(html) {
+  const hasDownload = /<a\b[^>]*\sdownload(?:\s|=|>)/i.test(html) || /\baria-label=["'][^"']*download[^"']*["']/i.test(html);
+  const artifacts = [];
+  const imagePattern = /<img\b[^>]*>/gi;
+  let match;
+  while ((match = imagePattern.exec(html)) !== null) {
+    const tag = match[0] ?? "";
+    const src = attr(tag, "src");
+    const alt = attr(tag, "alt");
+    const ariaLabel = attr(tag, "aria-label");
+    const width = numberAttr(tag, "width");
+    const height = numberAttr(tag, "height");
+    const label = `${alt ?? ""} ${ariaLabel ?? ""}`;
+    const likelyGenerated = (width ?? 0) >= 96 || (height ?? 0) >= 96 || /^data:image\//i.test(src ?? "") || /^blob:/i.test(src ?? "") || /\b(generated|image|photo|picture)\b/i.test(label);
+    if (!likelyGenerated) continue;
+    const artifact = {
+      kind: "image",
+      index: artifacts.length,
+      visible: true,
+      downloadAvailable: hasDownload,
+      selectorProvenance: "main generated image"
+    };
+    const safeSrc = safeArtifactSrc(src);
+    if (safeSrc !== void 0) artifact.src = safeSrc;
+    if (alt !== void 0) artifact.alt = alt;
+    if (ariaLabel !== void 0) artifact.ariaLabel = ariaLabel;
+    if (width !== void 0) artifact.width = width;
+    if (height !== void 0) artifact.height = height;
+    artifacts.push(artifact);
+  }
+  return artifacts;
+}
+function filterArtifacts(artifacts, args) {
+  const kind = args.kind ?? "image";
+  const max = args.max ?? artifacts.length;
+  return artifacts.filter((artifact) => artifact.kind === kind).slice(-max);
+}
+async function readContentWithTimeout(page, timeoutMs) {
+  if (typeof page.content !== "function") return "";
+  return withTimeout(page.content(), timeoutMs, "Timed out while reading ChatGPT page content.");
+}
+function attr(tag, name) {
+  const match = new RegExp(`\\b${name}=(["'])(.*?)\\1`, "i").exec(tag);
+  return match?.[2];
+}
+function numberAttr(tag, name) {
+  const value = attr(tag, name);
+  if (value === void 0) return void 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : void 0;
+}
+function safeArtifactSrc(src) {
+  if (src === void 0) return void 0;
+  if (/^https:\/\/chatgpt\.com\/backend-api\/estuary\/content\b/i.test(src)) {
+    return void 0;
+  }
+  return src;
+}
+
 // src/dom/selectors.ts
 var cssSelectors = {
   assistantMessages: "[data-message-author-role='assistant']",
@@ -1385,6 +1578,18 @@ var cssSelectors = {
     "main [data-message-author-role='assistant'] a[aria-label*='Download']",
     "main a[download]",
     "main a[href*='/backend-api/files/']"
+  ].join(", "),
+  generatedArtifactDownloadControls: [
+    "main figure button[aria-label*='Download' i]",
+    "main figure a[aria-label*='Download' i]",
+    "main [data-testid*='image' i] button[aria-label*='Download' i]",
+    "main [data-testid*='image' i] a[aria-label*='Download' i]",
+    "main [aria-label*='image' i] button[aria-label*='Download' i]",
+    "main [aria-label*='image' i] a[aria-label*='Download' i]",
+    "main button[aria-label='Download image' i]",
+    "main a[aria-label='Download image' i]",
+    "main a[download][href^='blob:']",
+    "main a[download][href^='data:image/']"
   ].join(", ")
 };
 function composerTextbox(page) {
@@ -1528,8 +1733,10 @@ async function contextFromPage(page, partial = {}) {
   }
   const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => partial.url) : partial.url;
   const title = typeof page.title === "function" ? await page.title().catch(() => void 0) : partial.title;
-  const turnCount = await countPageMessages(page).catch(() => partial.turnCount);
-  const assistantTurnCount = await countPageMessages(page, "assistant").catch(() => partial.assistantTurnCount);
+  const [turnCount, assistantTurnCount] = await Promise.all([
+    withTimeout(countPageMessages(page), 1e3, "Timed out while counting page messages.").catch(() => partial.turnCount),
+    withTimeout(countPageMessages(page, "assistant"), 1e3, "Timed out while counting assistant messages.").catch(() => partial.assistantTurnCount)
+  ]);
   const conversationId = url !== void 0 ? parseConversationId(url) : partial.conversationId;
   const context = {
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
@@ -2329,7 +2536,7 @@ async function sleep(page, ms) {
     await page.waitForTimeout(ms);
     return;
   }
-  await new Promise((resolve4) => setTimeout(resolve4, ms));
+  await new Promise((resolve5) => setTimeout(resolve5, ms));
 }
 function submitData(userTurnText, turnCount) {
   const data = { submitted: true };
@@ -2378,10 +2585,9 @@ function forwardFailure(result) {
   return forwarded;
 }
 
-// src/commands/files.ts
-import { access, readFile as readFile2, stat as stat2 } from "node:fs/promises";
-import { basename as basename2, resolve as resolve3 } from "node:path";
-import { constants } from "node:fs";
+// src/commands/artifacts.ts
+import { copyFile, mkdir as mkdir2, stat as stat2, writeFile } from "node:fs/promises";
+import { basename as basename2, join as join2, resolve as resolve3 } from "node:path";
 
 // src/browser/downloads.ts
 import { mkdir, stat } from "node:fs/promises";
@@ -2393,7 +2599,11 @@ async function waitForDownloadFromClick(page, click, destDir, timeoutMs) {
   if (downloadPromise === void 0) {
     throw new Error("The active browser page does not expose download events.");
   }
-  await click();
+  await withTimeout(
+    click(),
+    localGuardTimeout(timeoutMs, 1e4),
+    "Download control click did not complete before the local guard timeout."
+  );
   const download = await downloadPromise;
   const suggestedFilename = download.suggestedFilename?.() ?? `chatgpt-download-${Date.now()}`;
   const targetPath = join(absoluteDest, basename(suggestedFilename));
@@ -2413,7 +2623,415 @@ async function waitForDownloadFromClick(page, click, destDir, timeoutMs) {
   };
 }
 
+// src/commands/artifacts.ts
+async function listLatestArtifacts(env, args = {}) {
+  const boot = await ensurePage3(env);
+  if (!boot.ok) {
+    return boot;
+  }
+  const page = env.page;
+  try {
+    const artifacts = await listPageArtifactsWithBridgeFallback(env, page, args);
+    return resultOk(artifactListData(artifacts), await contextFromPage(page));
+  } catch (error) {
+    return artifactSelectorBlocker(error, await contextFromPage(page));
+  }
+}
+async function waitForArtifact(env, args = {}) {
+  const boot = await ensurePage3(env);
+  if (!boot.ok) {
+    return boot;
+  }
+  const page = env.page;
+  const timeoutMs = args.timeoutMs ?? 12e4;
+  const stableMs = args.stableMs ?? 1e3;
+  const pollMs = args.pollMs ?? 750;
+  const started = Date.now();
+  const afterArtifactCount = args.afterArtifactCount ?? 0;
+  let lastSignature = "";
+  let lastChangedAt = Date.now();
+  let latestArtifacts = [];
+  while (Date.now() - started < timeoutMs) {
+    const state = await withTimeout(readPageState(page), localGuardTimeout(timeoutMs, 5e3), "Timed out while reading ChatGPT page state.").catch(() => void 0);
+    if (state?.blocker !== void 0 && state.blocker.kind !== "modal") {
+      return {
+        ok: false,
+        status: "blocked",
+        warnings: [],
+        blocker: state.blocker,
+        context: await contextFromPage(page)
+      };
+    }
+    try {
+      latestArtifacts = await listPageArtifactsWithBridgeFallback(env, page, args);
+    } catch (error) {
+      return artifactSelectorBlocker(error, await contextFromPage(page));
+    }
+    const latest2 = latestArtifacts.at(-1);
+    const signature = JSON.stringify({
+      count: latestArtifacts.length,
+      src: latest2?.src,
+      width: latest2?.width,
+      height: latest2?.height,
+      downloadAvailable: latest2?.downloadAvailable
+    });
+    if (signature !== lastSignature) {
+      lastSignature = signature;
+      lastChangedAt = Date.now();
+    }
+    const targetReached = latestArtifacts.length > afterArtifactCount && latest2 !== void 0 && (args.requireDownload !== true || latest2.downloadAvailable);
+    if (targetReached && Date.now() - lastChangedAt >= stableMs && !await hasStopControl2(page, timeoutMs)) {
+      return resultOk(
+        {
+          complete: true,
+          count: latestArtifacts.length,
+          latest: latest2,
+          elapsedMs: Date.now() - started
+        },
+        await contextFromPage(page)
+      );
+    }
+    await sleep2(page, pollMs);
+  }
+  const data = {
+    complete: false,
+    count: latestArtifacts.length,
+    elapsedMs: Date.now() - started
+  };
+  const latest = latestArtifacts.at(-1);
+  if (latest !== void 0) data.latest = latest;
+  return {
+    ok: false,
+    status: "timeout",
+    data,
+    warnings: [],
+    blocker: {
+      kind: "artifact_unavailable",
+      code: args.requireDownload === true ? "artifact_download_not_ready" : "artifact_not_ready",
+      message: args.requireDownload === true ? "No generated artifact with a visible download affordance appeared before the timeout." : "No generated artifact appeared before the timeout.",
+      resumable: true
+    },
+    context: await contextFromPage(page)
+  };
+}
+async function downloadLatestArtifact(env, args) {
+  const boot = await ensurePage3(env);
+  if (!boot.ok) {
+    return boot;
+  }
+  const page = env.page;
+  const timeoutMs = args.timeoutMs ?? 12e4;
+  if (args.prefer !== "visible_image_source") {
+    const byDownload = await tryDownloadControl(page, args, timeoutMs);
+    if (byDownload.ok || args.prefer === "download_control") {
+      return byDownload;
+    }
+  }
+  try {
+    const byImageSource = await saveLatestVisibleImageSource(page, args.destDir, timeoutMs);
+    if (byImageSource !== void 0) {
+      return resultOk(byImageSource, await contextFromPage(page));
+    }
+  } catch (error) {
+    return artifactDownloadBlocker(error, await contextFromPage(page));
+  }
+  try {
+    const byPageAssets = await saveLatestPageAssetImage(env, page, args.destDir, timeoutMs);
+    if (byPageAssets !== void 0) {
+      return resultOk(byPageAssets, await contextFromPage(page));
+    }
+  } catch (error) {
+    return artifactDownloadBlocker(error, await contextFromPage(page));
+  }
+  return artifactDownloadBlocker(
+    new Error("No visible generated image source was available to save."),
+    await contextFromPage(page)
+  );
+}
+async function locatorCountWithTimeout(locator, timeoutMs, code) {
+  if (locator === void 0 || typeof locator.count !== "function") {
+    return 0;
+  }
+  return withTimeout(
+    locator.count(),
+    timeoutMs,
+    `${code}: locator count did not complete before the local guard timeout.`
+  );
+}
+async function tryDownloadControl(page, args, timeoutMs) {
+  try {
+    const controls = requiredLocator(page, cssSelectors.generatedArtifactDownloadControls);
+    const count = await locatorCountWithTimeout(controls, localGuardTimeout(timeoutMs, 5e3), "artifact_download_control_timeout");
+    if (count === 0) {
+      return artifactDownloadBlocker(new Error("No visible generated-image download control was found."), await contextFromPage(page));
+    }
+    const target = controls.last?.() ?? controls;
+    const downloaded = await waitForDownloadFromClick(
+      page,
+      async () => {
+        await target.click?.({ timeoutMs: localGuardTimeout(timeoutMs, 1e4) });
+      },
+      args.destDir,
+      timeoutMs
+    );
+    return resultOk(downloaded, await contextFromPage(page));
+  } catch (error) {
+    return artifactDownloadBlocker(error, await contextFromPage(page));
+  }
+}
+async function saveLatestVisibleImageSource(page, destDir, timeoutMs) {
+  const source = await readLatestImageDataUrl(page, timeoutMs);
+  if (source === void 0) return void 0;
+  const parsed = parseDataUrl(source.dataUrl);
+  if (parsed === void 0) return void 0;
+  const absoluteDest = resolve3(destDir);
+  await mkdir2(absoluteDest, { recursive: true });
+  const suggestedFilename = `generated-image-${Date.now()}.${extensionForMime(parsed.mimeType)}`;
+  const path = join2(absoluteDest, suggestedFilename);
+  await writeFile(path, parsed.bytes);
+  const saved = await stat2(path);
+  if (saved.size <= 0) {
+    throw new Error(`Generated image artifact file is empty: ${path}`);
+  }
+  return { path, suggestedFilename, bytes: saved.size };
+}
+async function listPageArtifactsWithBridgeFallback(env, page, args) {
+  try {
+    const artifacts = await listPageArtifacts(page, args);
+    if (artifacts.length > 0) {
+      return artifacts;
+    }
+    const fromAssets = await listPageAssetArtifacts(env, page, args, args.timeoutMs).catch(() => []);
+    return fromAssets.length > 0 ? fromAssets : artifacts;
+  } catch (error) {
+    const fromAssets = await listPageAssetArtifacts(env, page, args, args.timeoutMs).catch(() => []);
+    if (fromAssets.length > 0) {
+      return fromAssets;
+    }
+    throw error;
+  }
+}
+async function listPageAssetArtifacts(env, page, args, timeoutMs) {
+  const inventory = await readPageAssetsInventory(page, timeoutMs).catch(() => void 0) ?? await withTemporaryBridgeOwnedPage(env, page, timeoutMs, async (freshPage) => {
+    return await readPageAssetsInventory(freshPage, timeoutMs).catch(() => void 0);
+  });
+  if (inventory === void 0) return [];
+  const artifacts = inventory.assets.filter((asset) => asset.kind === "image").filter((asset) => !isInlineSvgAsset(asset) && isLikelyRasterImageAsset(asset)).map((asset, index) => {
+    const artifact = {
+      kind: "image",
+      index,
+      visible: true,
+      downloadAvailable: true,
+      selectorProvenance: "pageAssets image inventory"
+    };
+    const src = safeArtifactSrc2(asset.url);
+    if (src !== void 0) artifact.src = src;
+    return artifact;
+  });
+  const max = args.max ?? artifacts.length;
+  return artifacts.filter((artifact) => artifact.kind === (args.kind ?? "image")).slice(-max).map((artifact, index) => ({ ...artifact, index }));
+}
+async function saveLatestPageAssetImage(env, page, destDir, timeoutMs) {
+  return await saveLatestPageAssetImageFromPage(page, destDir, timeoutMs).catch(() => void 0) ?? await withTemporaryBridgeOwnedPage(env, page, timeoutMs, async (freshPage) => {
+    return await saveLatestPageAssetImageFromPage(freshPage, destDir, timeoutMs).catch(() => void 0);
+  });
+}
+async function saveLatestPageAssetImageFromPage(page, destDir, timeoutMs) {
+  const capability = await getPageAssetsCapability(page);
+  if (capability === void 0) return void 0;
+  const inventory = await withTimeout(
+    capability.list(),
+    localGuardTimeout(timeoutMs, 15e3),
+    "Timed out while listing page assets for generated image download."
+  );
+  const candidateIds = inventory.assets.filter((asset2) => asset2.kind === "image").filter((asset2) => !isInlineSvgAsset(asset2) && isLikelyRasterImageAsset(asset2)).map((asset2) => asset2.id);
+  if (candidateIds.length === 0) return void 0;
+  const bundled = await withTimeout(
+    capability.bundle({ assetIds: candidateIds, inventoryId: inventory.id, kinds: ["image"] }),
+    localGuardTimeout(timeoutMs, 3e4),
+    "Timed out while bundling generated image page asset."
+  );
+  const asset = bundled.assets.filter((item) => !isInlineSvgAsset(item) && isLikelyRasterImageAsset(item)).at(-1);
+  if (asset === void 0) return void 0;
+  const absoluteDest = resolve3(destDir);
+  await mkdir2(absoluteDest, { recursive: true });
+  const suggestedFilename = `generated-image-${Date.now()}.${extensionForMime(asset.contentType ?? "image/png")}`;
+  const path = join2(absoluteDest, suggestedFilename);
+  await copyFile(asset.path, path);
+  const saved = await stat2(path);
+  if (saved.size <= 0) {
+    throw new Error(`Generated image artifact file is empty: ${path}`);
+  }
+  return { path, suggestedFilename, bytes: saved.size };
+}
+async function readPageAssetsInventory(page, timeoutMs) {
+  const capability = await getPageAssetsCapability(page);
+  if (capability === void 0) return void 0;
+  return await withTimeout(
+    capability.list(),
+    localGuardTimeout(timeoutMs, 15e3),
+    "Timed out while listing page assets for generated artifacts."
+  );
+}
+async function getPageAssetsCapability(page) {
+  const capabilities = page.capabilities;
+  const get = capabilities?.get;
+  if (typeof get !== "function") return void 0;
+  const capability = await get.call(capabilities, "pageAssets");
+  if (!isPageAssetsCapability(capability)) return void 0;
+  return capability;
+}
+async function withTemporaryBridgeOwnedPage(env, currentPage, timeoutMs, callback) {
+  const url = await currentPageUrl(currentPage);
+  if (url === void 0 || !/^https:\/\/chatgpt\.com\/c\//i.test(url)) return void 0;
+  const freshPage = await openTemporaryPage(env, url, timeoutMs);
+  if (freshPage === void 0) return void 0;
+  try {
+    await settlePage(freshPage, localGuardTimeout(timeoutMs, 5e3));
+    return await callback(freshPage);
+  } finally {
+    await closeTemporaryPage(freshPage).catch(() => void 0);
+  }
+}
+async function openTemporaryPage(env, url, timeoutMs) {
+  const browser = env.browser;
+  if (browser === void 0) return void 0;
+  let page;
+  if (typeof browser.tabs?.create === "function") {
+    page = await Promise.resolve(browser.tabs.create.call(browser.tabs, url));
+  } else if (typeof browser.tabs?.new === "function") {
+    page = await Promise.resolve(browser.tabs.new.call(browser.tabs));
+    if (typeof page?.goto === "function") {
+      await withTimeout(
+        page.goto(url),
+        localGuardTimeout(timeoutMs, 2e4),
+        "Timed out while opening generated image conversation in a temporary bridge tab."
+      ).catch(() => void 0);
+    }
+  } else if (typeof browser.newPage === "function") {
+    page = await Promise.resolve(browser.newPage.call(browser));
+    if (typeof page?.goto === "function") {
+      await withTimeout(
+        page.goto(url),
+        localGuardTimeout(timeoutMs, 2e4),
+        "Timed out while opening generated image conversation in a temporary bridge page."
+      ).catch(() => void 0);
+    }
+  }
+  return page;
+}
+async function settlePage(page, timeoutMs) {
+  const waitForTimeout = page.waitForTimeout ?? page.playwright?.waitForTimeout;
+  if (typeof waitForTimeout !== "function") return;
+  await withTimeout(
+    waitForTimeout.call(page.waitForTimeout === waitForTimeout ? page : page.playwright, Math.min(timeoutMs, 5e3)),
+    timeoutMs,
+    "Timed out while waiting for temporary bridge tab to settle."
+  ).catch(() => void 0);
+}
+async function closeTemporaryPage(page) {
+  if (typeof page.close === "function") {
+    await page.close();
+  }
+}
+async function currentPageUrl(page) {
+  const value = await Promise.resolve(page.url?.()).catch(() => void 0);
+  return typeof value === "string" && value.length > 0 ? value : void 0;
+}
+function isPageAssetsCapability(value) {
+  return typeof value === "object" && value !== null && typeof value.list === "function" && typeof value.bundle === "function";
+}
+function isLikelyRasterImageAsset(asset) {
+  const contentType = asset.contentType ?? "";
+  if (/^image\/(png|jpe?g|webp|gif|avif)$/i.test(contentType)) return true;
+  const name = asset.name ?? basename2(asset.path ?? "");
+  const url = asset.url ?? "";
+  return /\.(png|jpe?g|webp|gif|avif)(?:$|[?#])/i.test(name) || /\.(png|jpe?g|webp|gif|avif)(?:$|[?#])/i.test(url) || contentType === "" && !isInlineSvgAsset(asset);
+}
+function isInlineSvgAsset(asset) {
+  return /^inline-svg:/i.test(asset.url ?? "") || /svg/i.test(asset.contentType ?? "") || /\.svg(?:$|[?#])/i.test(asset.name ?? "") || /\.svg(?:$|[?#])/i.test(asset.path ?? "");
+}
+function safeArtifactSrc2(src) {
+  if (src === void 0) return void 0;
+  if (/^https:\/\/chatgpt\.com\/backend-api\/estuary\/content\b/i.test(src)) {
+    return void 0;
+  }
+  return src;
+}
+function parseDataUrl(dataUrl) {
+  const match = /^data:([^;,]+);base64,(.*)$/i.exec(dataUrl);
+  if (match === null || match[1] === void 0 || match[2] === void 0) return void 0;
+  return { mimeType: match[1], bytes: Buffer.from(match[2], "base64") };
+}
+function extensionForMime(mimeType) {
+  if (/jpeg|jpg/i.test(mimeType)) return "jpg";
+  if (/webp/i.test(mimeType)) return "webp";
+  if (/gif/i.test(mimeType)) return "gif";
+  return "png";
+}
+function artifactListData(artifacts) {
+  const data = {
+    count: artifacts.length,
+    artifacts
+  };
+  const latest = artifacts.at(-1);
+  if (latest !== void 0) data.latest = latest;
+  return data;
+}
+function artifactSelectorBlocker(error, context) {
+  return {
+    ok: false,
+    status: "blocked",
+    warnings: [],
+    blocker: {
+      kind: "artifact_selector_drift",
+      code: "artifact_dom_timeout",
+      message: `Generated artifact detection could not inspect the ChatGPT page: ${error instanceof Error ? error.message : String(error)}`,
+      resumable: true
+    },
+    context
+  };
+}
+function artifactDownloadBlocker(error, context) {
+  return {
+    ok: false,
+    status: "unsupported",
+    warnings: [],
+    blocker: {
+      kind: "artifact_download_unavailable",
+      code: "artifact_download_unavailable",
+      message: `No downloadable generated artifact could be saved from the visible ChatGPT page: ${error instanceof Error ? error.message : String(error)}`,
+      resumable: true
+    },
+    context
+  };
+}
+async function ensurePage3(env) {
+  if (env.page !== void 0) {
+    return resultOk({}, await contextFromPage(env.page));
+  }
+  return bootstrap(env, { preferExistingTab: true });
+}
+async function hasStopControl2(page, timeoutMs) {
+  if (typeof page.evaluate !== "function") return false;
+  return withTimeout(
+    page.evaluate(() => /\b(stop generating|stop streaming|cancel)\b/i.test(document.body?.innerText ?? "")),
+    localGuardTimeout(timeoutMs, 2e3),
+    "Timed out while checking ChatGPT stop controls."
+  ).catch(() => false);
+}
+async function sleep2(page, ms) {
+  if (typeof page.waitForTimeout === "function") {
+    await page.waitForTimeout(ms);
+    return;
+  }
+  await new Promise((resolve5) => setTimeout(resolve5, ms));
+}
+
 // src/commands/files.ts
+import { access, readFile as readFile2, stat as stat3 } from "node:fs/promises";
+import { basename as basename3, resolve as resolve4 } from "node:path";
+import { constants } from "node:fs";
 var CODEX_UPLOAD_PERMISSION_FIX = "Codex Settings > Computer Use > Chrome > Permissions > Uploads: set to Always allow, or add chatgpt.com to the allowed upload domains.";
 var CHROME_FILE_URL_PERMISSION_FIX = "Chrome chrome://extensions > Codex extension > Details: enable Allow access to file URLs.";
 async function validateAttachPaths(paths) {
@@ -2422,22 +3040,22 @@ async function validateAttachPaths(paths) {
     if (!path.startsWith("/")) {
       throw new Error(`File attachment path must be absolute: ${path}`);
     }
-    const absolute = resolve3(path);
+    const absolute = resolve4(path);
     await access(absolute, constants.R_OK);
-    const fileStat = await stat2(absolute);
+    const fileStat = await stat3(absolute);
     if (!fileStat.isFile()) {
       throw new Error(`Attachment path is not a file: ${absolute}`);
     }
     files.push({
       path: absolute,
-      name: basename2(absolute),
+      name: basename3(absolute),
       bytes: fileStat.size
     });
   }
   return files;
 }
 async function attachFiles(env, args) {
-  const boot = await ensurePage3(env);
+  const boot = await ensurePage4(env);
   if (!boot.ok) {
     return boot;
   }
@@ -2584,15 +3202,35 @@ async function locatorCount(locator) {
   return locator.count();
 }
 async function downloadLatestFile(env, args) {
-  const boot = await ensurePage3(env);
+  const boot = await ensurePage4(env);
   if (!boot.ok) {
     return boot;
   }
   const page = env.page;
   try {
     const controls = requiredLocator(page, cssSelectors.downloadControls);
-    const count = await controls.count?.();
+    let count;
+    try {
+      count = await locatorCountWithTimeout(controls, localGuardTimeout(args.timeoutMs, 5e3), "download_control_timeout");
+    } catch (error) {
+      return {
+        ok: false,
+        status: "unsupported",
+        warnings: [],
+        blocker: {
+          kind: "download_unavailable",
+          code: "download_control_timeout",
+          message: `No visible ChatGPT download control could be counted before the local guard timeout: ${error instanceof Error ? error.message : String(error)}`,
+          resumable: true
+        },
+        context: await contextFromPage(page)
+      };
+    }
     if (count === 0) {
+      const artifactDownload = await downloadLatestArtifact(env, args);
+      if (artifactDownload.ok) {
+        return artifactDownload;
+      }
       return {
         ok: false,
         status: "unsupported",
@@ -2629,7 +3267,7 @@ async function setHiddenFileInput(page, files) {
   }
   await input.setInputFiles(files.map((file) => file.path));
 }
-async function ensurePage3(env) {
+async function ensurePage4(env) {
   if (env.page !== void 0) {
     return resultOk({}, await contextFromPage(env.page));
   }
@@ -2720,7 +3358,7 @@ function uploadPermissionRemediation() {
 
 // src/commands/response-actions.ts
 async function copyResponse(env, args = {}) {
-  const boot = await ensurePage4(env);
+  const boot = await ensurePage5(env);
   if (!boot.ok) {
     return boot;
   }
@@ -2833,7 +3471,7 @@ function mergeResponseMetadata(data, latest) {
   if (latest.thoughtDurationText !== void 0) data.thoughtDurationText = latest.thoughtDurationText;
   if (latest.sourcesAvailable !== void 0) data.sourcesAvailable = latest.sourcesAvailable;
 }
-async function ensurePage4(env) {
+async function ensurePage5(env) {
   if (env.page !== void 0) {
     return resultOk({}, await contextFromPage(env.page));
   }
@@ -2873,7 +3511,7 @@ var DEFAULT_MODE_EFFORT = "Thinking";
 var CURRENT_MODE_LABELS = ["Latest", "Instant", "Thinking", "Extended", "Pro"];
 var MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter((label) => label !== "Pro"), "Configure"];
 async function setMode(env, args) {
-  const boot = await ensurePage5(env);
+  const boot = await ensurePage6(env);
   if (!boot.ok) {
     return boot;
   }
@@ -2936,7 +3574,7 @@ async function waitForModeMenu(page, requested, timeoutMs) {
   return { opened: false, alreadySelected: [], modeButtons };
 }
 async function selectTool(env, args) {
-  const boot = await ensurePage5(env);
+  const boot = await ensurePage6(env);
   if (!boot.ok) {
     return boot;
   }
@@ -2968,7 +3606,7 @@ async function selectTool(env, args) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
 }
-async function ensurePage5(env) {
+async function ensurePage6(env) {
   if (env.page !== void 0) {
     return resultOk({}, await contextFromPage(env.page));
   }
@@ -3223,6 +3861,12 @@ async function executeStep(step, env, previousResults) {
       return readLatest(env, step.args);
     case "messages.waitAndRead":
       return waitAndRead(env, step.args);
+    case "artifacts.listLatest":
+      return listLatestArtifacts(env, step.args);
+    case "artifacts.wait":
+      return waitForArtifact(env, step.args);
+    case "artifacts.downloadLatest":
+      return downloadLatestArtifact(env, step.args);
     case "files.attach":
       return attachFiles(env, step.args);
     case "files.downloadLatest":
@@ -3664,15 +4308,15 @@ function unknown(message, remediation) {
 }
 
 // src/commands/reports.ts
-import { mkdir as mkdir2, stat as stat3, writeFile } from "node:fs/promises";
-import { join as join2 } from "node:path";
+import { mkdir as mkdir3, stat as stat4, writeFile as writeFile2 } from "node:fs/promises";
+import { join as join3 } from "node:path";
 async function createRunReport(env, result, options = {}) {
   try {
     const destDir = options.destDir ?? "reports/runs";
-    await mkdir2(destDir, { recursive: true });
+    await mkdir3(destDir, { recursive: true });
     const stamp = (/* @__PURE__ */ new Date()).toISOString().replaceAll(":", "-").replaceAll(".", "-");
     const safeBase = sanitizeBasename(options.basename ?? "chatgpt-run-report");
-    const path = join2(destDir, `${stamp}-${safeBase}.json`);
+    const path = join3(destDir, `${stamp}-${safeBase}.json`);
     const includeContent = options.includeContent === true;
     const summary = redactReportValue({
       ok: result.ok,
@@ -3694,9 +4338,9 @@ async function createRunReport(env, result, options = {}) {
       })),
       data: redactReportValue(result.data, options)
     };
-    await writeFile(path, `${JSON.stringify(report2, null, 2)}
+    await writeFile2(path, `${JSON.stringify(report2, null, 2)}
 `, "utf8");
-    const saved = await stat3(path);
+    const saved = await stat4(path);
     return resultOk({ path, bytes: saved.size, includeContent }, await contextFromPage(env.page));
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(env.page));
@@ -3718,6 +4362,9 @@ var commandRisk = {
   "messages.wait": "low",
   "messages.readLatest": "medium",
   "messages.waitAndRead": "medium",
+  "artifacts.listLatest": "medium",
+  "artifacts.wait": "low",
+  "artifacts.downloadLatest": "medium",
   "files.attach": "medium",
   "files.downloadLatest": "medium",
   "response.copy": "medium",
@@ -3807,6 +4454,9 @@ var descriptors = [
   primitive("messages.wait", "Wait for the latest assistant response to stabilize.", 12e4),
   primitive("messages.readLatest", "Read the latest message as Markdown, normalized text, blocks, or HTML.", 3e4),
   primitive("messages.waitAndRead", "Wait for completion and read the latest message.", 12e4),
+  primitive("artifacts.listLatest", "Detect the latest visible generated ChatGPT artifact, such as an image-only result.", 3e4),
+  primitive("artifacts.wait", "Wait for a visible generated ChatGPT artifact to appear and stabilize.", 12e4),
+  primitive("artifacts.downloadLatest", "Download or save the latest visible generated ChatGPT artifact.", 12e4),
   primitive("files.attach", "Attach absolute local file paths through visible ChatGPT upload controls.", 18e4),
   primitive("files.downloadLatest", "Download the latest visible ChatGPT file affordance.", 12e4),
   primitive("response.copy", "Click Copy response and return clipboard Markdown, with DOM fallback.", 5e3),
@@ -3943,6 +4593,9 @@ function reportArgs(name) {
 }
 function primitiveArgs(name) {
   if (name === "messages.readLatest") return { role: "assistant or user", format: "markdown, normalized_text, visible_text, html, blocks, or all" };
+  if (name === "artifacts.listLatest") return { kind: "artifact kind; currently image", max: "maximum artifacts to return" };
+  if (name === "artifacts.wait") return { kind: "artifact kind; currently image", afterArtifactCount: "baseline artifact count", requireDownload: "wait until a download affordance is visible" };
+  if (name === "artifacts.downloadLatest") return { destDir: "download destination directory", prefer: "download_control or visible_image_source" };
   if (name === "response.copy") return { prefer: "clipboard or dom", format: "markdown, normalized_text, visible_text, html, blocks, or all" };
   if (name.startsWith("threads.search")) return { query: "history search query" };
   if (name.startsWith("files.attach")) return { paths: "absolute local file paths" };
@@ -3965,11 +4618,15 @@ function primitiveExamples(name) {
   if (name === "files.attach") {
     return [`await chatgpt.files.attach({ paths: ["/absolute/path.jpg"] });`];
   }
+  if (name.startsWith("artifacts.")) {
+    return [`await chatgpt.artifacts.downloadLatest({ destDir: "/tmp/out" });`];
+  }
   return [];
 }
 function primitiveBlockers(name) {
   if (name.startsWith("files.attach")) return ["browser_bridge_unavailable", "login_required", "permission", "upload_failed"];
   if (name.startsWith("files.download")) return ["browser_bridge_unavailable", "login_required", "download_unavailable"];
+  if (name.startsWith("artifacts.")) return ["browser_bridge_unavailable", "login_required", "artifact_unavailable", "artifact_selector_drift", "artifact_download_unavailable"];
   if (name.startsWith("modes.") || name.startsWith("tools.")) return ["browser_bridge_unavailable", "login_required", "selector_drift"];
   return commonBlockers();
 }
@@ -4394,8 +5051,8 @@ function createMilestoneStream(run) {
           yield next;
           continue;
         }
-        await new Promise((resolve4) => {
-          resolveNext = resolve4;
+        await new Promise((resolve5) => {
+          resolveNext = resolve5;
         });
       }
     }
@@ -4498,6 +5155,11 @@ function createChatGPT(options = {}) {
     files: {
       attach: (args) => attachFiles(env, args),
       downloadLatest: (args) => downloadLatestFile(env, args)
+    },
+    artifacts: {
+      listLatest: (args) => listLatestArtifacts(env, args),
+      wait: (args) => waitForArtifact(env, args),
+      downloadLatest: (args) => downloadLatestArtifact(env, args)
     },
     modes: {
       set: (args) => setMode(env, args)
@@ -4646,6 +5308,7 @@ function planAgentWorkflowFromNormalized(agent, input, defaults = {}) {
   const wait = input.wait ?? agent.defaults.wait ?? defaults.wait ?? true;
   const read = input.read ?? agent.defaults.read ?? defaults.read ?? { format: "markdown" };
   const thread = input.thread ?? agent.defaults.thread ?? { type: "new" };
+  const artifactDownload = input.download !== void 0 && input.download !== false && usesCreateImageTool(input.tools);
   const steps = [
     bootstrapStepForWorkflow(
       thread,
@@ -4664,6 +5327,9 @@ function planAgentWorkflowFromNormalized(agent, input, defaults = {}) {
   if (input.files.length > 0) {
     steps.push({ id: "attach", command: "files.attach", args: { paths: input.files } });
   }
+  if (artifactDownload) {
+    steps.push({ id: "artifactBaseline", command: "artifacts.listLatest", args: { kind: "image" } });
+  }
   if (agent.instructionsMode === "visible_setup_message" && hasInstructions(agent)) {
     steps.push({
       id: "agent_setup",
@@ -4680,15 +5346,22 @@ function planAgentWorkflowFromNormalized(agent, input, defaults = {}) {
     command: "messages.ask",
     args: {
       text: renderRunnerPrompt(agent, input.prompt),
-      wait,
-      read
+      wait: artifactDownload ? false : wait,
+      read: artifactDownload ? false : read
     }
   });
+  if (artifactDownload) {
+    steps.push({
+      id: "artifact",
+      command: "artifacts.wait",
+      args: artifactWaitArgs(wait, input.download === false ? void 0 : input.download)
+    });
+  }
   if (input.copy !== void 0 && input.copy !== false) {
     steps.push({ id: "copy", command: "response.copy", args: input.copy });
   }
   if (input.download !== void 0 && input.download !== false) {
-    steps.push({ id: "download", command: "files.downloadLatest", args: input.download });
+    steps.push({ id: "download", command: artifactDownload ? "artifacts.downloadLatest" : "files.downloadLatest", args: input.download });
   }
   return {
     name: `agent-run:${agent.name}`,
@@ -4839,23 +5512,56 @@ function planAskWorkflow(args, defaults = {}) {
   if (files.length > 0) {
     steps.push({ id: "attach", command: "files.attach", args: { paths: files } });
   }
+  const artifactDownload = args.download !== void 0 && usesCreateImageTool(args.tools ?? []);
+  if (artifactDownload) {
+    steps.push({ id: "artifactBaseline", command: "artifacts.listLatest", args: { kind: "image" } });
+  }
   steps.push({
     id: "ask",
     command: "messages.ask",
     args: {
       text: args.prompt,
-      wait: args.wait ?? defaults.wait ?? true,
-      read: args.read ?? defaults.read ?? { format: "markdown" }
+      wait: artifactDownload ? false : args.wait ?? defaults.wait ?? true,
+      read: artifactDownload ? false : args.read ?? defaults.read ?? { format: "markdown" }
     }
   });
   if (args.download !== void 0) {
-    steps.push({ id: "download", command: "files.downloadLatest", args: args.download });
+    if (artifactDownload) {
+      steps.push({
+        id: "artifact",
+        command: "artifacts.wait",
+        args: artifactWaitArgs(args.wait ?? defaults.wait ?? true, args.download)
+      });
+    }
+    steps.push({ id: "download", command: artifactDownload ? "artifacts.downloadLatest" : "files.downloadLatest", args: args.download });
   }
   return {
     name: args.download === void 0 ? "ask" : "ask-and-download",
     policy: { stopOnError: true, returnPartial: true },
     steps
   };
+}
+function usesCreateImageTool(tools) {
+  return tools.some((tool) => normalizeToolName(tool.tool) === "create_image");
+}
+function normalizeToolName(tool) {
+  return tool.trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+function artifactWaitArgs(wait, download) {
+  const args = {
+    kind: "image",
+    afterArtifactCount: "${artifactBaseline.data.count}",
+    requireDownload: true
+  };
+  if (typeof wait === "object") {
+    if (wait.timeoutMs !== void 0) args.timeoutMs = wait.timeoutMs;
+    if (wait.stableMs !== void 0) args.stableMs = wait.stableMs;
+    if (wait.pollMs !== void 0) args.pollMs = wait.pollMs;
+  }
+  if (args.timeoutMs === void 0 && download?.timeoutMs !== void 0) {
+    args.timeoutMs = download.timeoutMs;
+  }
+  return args;
 }
 function planRunMessages(args, defaults = {}) {
   const thread = args.thread ?? { type: "new" };
@@ -5115,6 +5821,9 @@ var backendCommands = [
   "messages.wait",
   "messages.readLatest",
   "messages.waitAndRead",
+  "artifacts.listLatest",
+  "artifacts.wait",
+  "artifacts.downloadLatest",
   "files.attach",
   "files.downloadLatest",
   "modes.set",
@@ -5280,6 +5989,11 @@ function createChatGPTBackendClient(transport) {
       readLatest: (args) => request("messages.readLatest", args ?? {}),
       waitAndRead: (args) => request("messages.waitAndRead", args)
     },
+    artifacts: {
+      listLatest: (args) => request("artifacts.listLatest", args ?? {}),
+      wait: (args) => request("artifacts.wait", args ?? {}),
+      downloadLatest: (args) => request("artifacts.downloadLatest", args)
+    },
     files: {
       attach: (args) => request("files.attach", args),
       downloadLatest: (args) => request("files.downloadLatest", args)
@@ -5312,9 +6026,9 @@ var StdioBackendTransport = class {
   async request(request) {
     const requestId = requireRequestId(request);
     this.start();
-    return new Promise((resolve4, reject) => {
+    return new Promise((resolve5, reject) => {
       const timeout = this.createDeadline(requestId);
-      this.pendingResponses.set(requestId, { resolve: resolve4, reject, timeout });
+      this.pendingResponses.set(requestId, { resolve: resolve5, reject, timeout });
       this.write(request, (error) => {
         this.clearResponse(requestId);
         reject(error);
@@ -5563,8 +6277,8 @@ function streamFromBackendEvents(events) {
   const queue = new AsyncQueue();
   let resolveCompleted;
   let rejectCompleted;
-  const completed = new Promise((resolve4, reject) => {
-    resolveCompleted = resolve4;
+  const completed = new Promise((resolve5, reject) => {
+    resolveCompleted = resolve5;
     rejectCompleted = reject;
   });
   void (async () => {
@@ -5631,8 +6345,8 @@ var AsyncQueue = class {
       }
       if (this.error !== void 0) throw this.error;
       if (this.done) return;
-      await new Promise((resolve4) => {
-        this.waiters.push(resolve4);
+      await new Promise((resolve5) => {
+        this.waiters.push(resolve5);
       });
     }
   }
@@ -5794,6 +6508,12 @@ async function dispatchBackendCommand(client, request) {
       return client.messages.readLatest(emptyToUndefined(payload));
     case "messages.waitAndRead":
       return client.messages.waitAndRead(payload);
+    case "artifacts.listLatest":
+      return client.artifacts.listLatest(emptyToUndefined(payload));
+    case "artifacts.wait":
+      return client.artifacts.wait(emptyToUndefined(payload));
+    case "artifacts.downloadLatest":
+      return client.artifacts.downloadLatest(payload);
     case "files.attach":
       return client.files.attach(payload);
     case "files.downloadLatest":
@@ -5911,6 +6631,7 @@ export {
   copyResponse,
   copyResponseButtons,
   countMessages,
+  countPageArtifacts,
   countPageMessages,
   createChatGPT,
   createChatGPTAgent,
@@ -5923,6 +6644,7 @@ export {
   defaultSequencePolicy,
   describeCommand,
   doctor,
+  downloadLatestArtifact,
   downloadLatestAttachment,
   downloadLatestFile,
   enumerateVisibleMenuItems,
@@ -5941,6 +6663,9 @@ export {
   isHighRiskCommand,
   isResponseComplete,
   isTransientAssistantText,
+  listLatestArtifacts,
+  listPageArtifacts,
+  locatorCountWithTimeout,
   newChatButton,
   newThread,
   normalizeLabel,
@@ -5959,6 +6684,7 @@ export {
   planTwoTurnExchange,
   readFixture,
   readLatest,
+  readLatestImageDataUrl,
   readLatestMessage,
   readLatestMessageText,
   readLatestMessageTextSnapshot,
@@ -6007,6 +6733,7 @@ export {
   validateAttachPaths,
   validateResponsesCreateArgs,
   waitAndRead,
+  waitForArtifact,
   waitForClipboardChange,
   waitForDownloadFromClick,
   waitForMessage

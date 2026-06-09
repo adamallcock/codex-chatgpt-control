@@ -17,6 +17,9 @@ export type BlockerKind =
   | "permission"
   | "confirmation"
   | "selector_drift"
+  | "artifact_unavailable"
+  | "artifact_selector_drift"
+  | "artifact_download_unavailable"
   | "download_unavailable"
   | "upload_failed"
   | "not_found"
@@ -329,6 +332,54 @@ export type DownloadedFile = {
   bytes: number;
 };
 
+export type ArtifactKind = "image";
+
+export type GeneratedArtifact = {
+  kind: ArtifactKind;
+  index: number;
+  visible: boolean;
+  width?: number;
+  height?: number;
+  alt?: string;
+  ariaLabel?: string;
+  src?: string;
+  turnId?: string;
+  downloadAvailable: boolean;
+  selectorProvenance: string;
+};
+
+export type ListArtifactsArgs = {
+  kind?: ArtifactKind;
+  max?: number;
+  timeoutMs?: number;
+};
+
+export type ArtifactListData = {
+  count: number;
+  artifacts: GeneratedArtifact[];
+  latest?: GeneratedArtifact;
+};
+
+export type ArtifactWaitArgs = ListArtifactsArgs & {
+  afterArtifactCount?: number;
+  requireDownload?: boolean;
+  timeoutMs?: number;
+  stableMs?: number;
+  pollMs?: number;
+};
+
+export type ArtifactWaitData = {
+  complete: boolean;
+  count: number;
+  latest?: GeneratedArtifact;
+  elapsedMs: number;
+};
+
+export type ArtifactDownloadArgs = DownloadLatestArgs & {
+  kind?: ArtifactKind;
+  prefer?: "download_control" | "visible_image_source";
+};
+
 export type CopyResponseArgs = {
   which?: "latest" | { assistantIndex: number };
   prefer?: "clipboard" | "dom";
@@ -379,6 +430,9 @@ export type SequenceStep =
   | { id: string; command: "messages.wait"; args: WaitArgs }
   | { id: string; command: "messages.readLatest"; args?: ReadLatestArgs }
   | { id: string; command: "messages.waitAndRead"; args: WaitAndReadArgs }
+  | { id: string; command: "artifacts.listLatest"; args?: ListArtifactsArgs }
+  | { id: string; command: "artifacts.wait"; args?: ArtifactWaitArgs }
+  | { id: string; command: "artifacts.downloadLatest"; args: ArtifactDownloadArgs }
   | { id: string; command: "files.attach"; args: AttachFilesArgs }
   | { id: string; command: "files.downloadLatest"; args: DownloadLatestArgs }
   | { id: string; command: "response.copy"; args?: CopyResponseArgs }
@@ -424,10 +478,11 @@ export type BrowserLike = {
   };
   tabs?: {
     create?: (url: string) => Promise<PageLike> | PageLike;
-    new?: (url: string) => Promise<PageLike> | PageLike;
+    new?: (url?: string) => Promise<PageLike> | PageLike;
     selected?: () => Promise<PageLike | undefined> | PageLike | undefined;
     list?: () => Promise<PageLike[]> | PageLike[];
     get?: (id: string) => Promise<PageLike> | PageLike;
+    finalize?: (options: { keep?: unknown[] }) => Promise<void>;
   };
   newPage?: () => Promise<PageLike> | PageLike;
 };
@@ -484,6 +539,14 @@ export type PageLike = {
   waitForEvent?: (event: string, optionsOrCallback?: WaitForEventOptions | unknown) => Promise<unknown>;
   evaluate?: <T, A = unknown>(fn: (arg: A) => T | Promise<T>, arg?: A) => Promise<T>;
   content?: () => Promise<string>;
+  close?: () => Promise<void>;
+  capabilities?: {
+    get?: (id: string) => Promise<unknown> | unknown;
+  };
+  playwright?: {
+    waitForTimeout?: (ms: number) => Promise<void>;
+    [key: string]: unknown;
+  };
 };
 
 export type AskHelperArgs = AskArgs & {

@@ -20,6 +20,16 @@ Wire fields stay TypeScript-compatible. Python exposes idiomatic aliases:
 | `lastAgentName` | `last_agent_name` |
 | `nextStepId` | `next_step_id` |
 
+Generated-image behavior stays owned by the TypeScript runtime. Python exposes
+the same backend commands through `chatgpt.artifacts.list_latest(...)`,
+`chatgpt.artifacts.wait(...)`, and `chatgpt.artifacts.download_latest(...)`.
+Those methods forward to `artifacts.listLatest`, `artifacts.wait`, and
+`artifacts.downloadLatest`; they do not duplicate DOM or selector logic.
+If the TypeScript runtime recovers a generated image by reopening a stalled
+claimed conversation in a temporary bridge-owned tab and exporting through
+`pageAssets`, Python observes the same command result through the backend
+protocol without any Python-side browser logic.
+
 ## Sync Python
 
 ```python

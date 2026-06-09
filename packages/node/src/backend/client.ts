@@ -24,10 +24,13 @@ import type {
 } from "../runner/types.js";
 import type { ReportRedactionOptions } from "../safety/report-redaction.js";
 import type {
+  ArtifactDownloadArgs,
+  ArtifactWaitArgs,
   BootstrapArgs,
   CommandResult,
   CopyResponseArgs,
   DownloadLatestArgs,
+  ListArtifactsArgs,
   NewThreadArgs,
   OpenThreadArgs,
   ReadLatestArgs,
@@ -89,6 +92,11 @@ export type ChatGPTBackendClient = {
   readLatest(args?: ReadLatestArgs): Promise<CommandResult<unknown>>;
   copyLatest(args?: CopyResponseArgs): Promise<CommandResult<unknown>>;
   downloadLatest(args: DownloadLatestArgs): Promise<CommandResult<unknown>>;
+  artifacts: {
+    listLatest(args?: ListArtifactsArgs): Promise<CommandResult<unknown>>;
+    wait(args?: ArtifactWaitArgs): Promise<CommandResult<unknown>>;
+    downloadLatest(args: ArtifactDownloadArgs): Promise<CommandResult<unknown>>;
+  };
   runPlan(plan: SequencePlan | NamedWorkflowInvocation): Promise<CommandResult<unknown>>;
   doctor(args?: DoctorArgs): Promise<CommandResult<DoctorReport>>;
   createReport(result: CommandResult<unknown>, args?: RunReportOptions): Promise<CommandResult<RunReportData>>;
@@ -195,6 +203,11 @@ export function createChatGPTBackendClient(transport: BackendTransport): ChatGPT
       wait: args => request("messages.wait", args as Record<string, unknown> | undefined ?? {}),
       readLatest: args => request("messages.readLatest", args as Record<string, unknown> | undefined ?? {}),
       waitAndRead: args => request("messages.waitAndRead", args as Record<string, unknown>)
+    },
+    artifacts: {
+      listLatest: args => request("artifacts.listLatest", args as Record<string, unknown> | undefined ?? {}),
+      wait: args => request("artifacts.wait", args as Record<string, unknown> | undefined ?? {}),
+      downloadLatest: args => request("artifacts.downloadLatest", args as unknown as Record<string, unknown>)
     },
     files: {
       attach: args => request("files.attach", args),

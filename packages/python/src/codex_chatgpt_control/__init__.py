@@ -40,7 +40,7 @@ from .models import (
 from .transport import NodeSidecarError, NodeSidecarTransport
 from .runner import RunResult, RunResultStreaming, RunState, Runner
 from .responses import ResponsesClient, ResponsesValidationResult
-from .primitives import FilesClient, MessagesClient, ModesClient, ResponseClient, SessionClient, ThreadsClient, ToolsClient
+from .primitives import ArtifactsClient, FilesClient, MessagesClient, ModesClient, ResponseClient, SessionClient, ThreadsClient, ToolsClient
 from .reports import ReportsClient
 from .workflows import WorkflowClient
 
@@ -55,6 +55,7 @@ __all__ = [
     "AsyncResponsesClient",
     "AsyncRunResultStreaming",
     "AsyncWorkflowClient",
+    "ArtifactsClient",
     "BACKEND_EVENT_SCHEMA_VERSION",
     "BACKEND_REQUEST_SCHEMA_VERSION",
     "BACKEND_RESPONSE_SCHEMA_VERSION",

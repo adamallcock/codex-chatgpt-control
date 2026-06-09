@@ -1,6 +1,7 @@
 import type { BlockerKind, PageLike } from "../types.js";
 import { classifyVisibleText } from "../safety/blockers.js";
 import { compactVisibleText } from "../safety/redaction.js";
+import { withTimeout } from "../commands/timeouts.js";
 
 export type PageState = {
   url: string;
@@ -50,7 +51,11 @@ export async function readPageState(page: PageLike): Promise<PageState> {
 export async function readVisibleText(page: PageLike): Promise<string> {
   if (typeof page.evaluate === "function") {
     try {
-      return await page.evaluate(() => document.body?.innerText ?? "");
+      return await withTimeout(
+        page.evaluate(() => document.body?.innerText ?? ""),
+        1000,
+        "Timed out while reading visible page text."
+      );
     } catch {
       // Fall back to content parsing below.
     }
@@ -58,7 +63,11 @@ export async function readVisibleText(page: PageLike): Promise<string> {
 
   if (typeof page.content === "function") {
     try {
-      const html = await page.content();
+      const html = await withTimeout(
+        page.content(),
+        1000,
+        "Timed out while reading page content."
+      );
       return htmlToText(html);
     } catch {
       return "";

@@ -1,6 +1,7 @@
 import { mkdir, stat } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import type { DownloadedFile, PageLike } from "../types.js";
+import { localGuardTimeout, withTimeout } from "../commands/timeouts.js";
 
 export type DownloadLike = {
   suggestedFilename?: () => string;
@@ -22,7 +23,11 @@ export async function waitForDownloadFromClick(
     throw new Error("The active browser page does not expose download events.");
   }
 
-  await click();
+  await withTimeout(
+    click(),
+    localGuardTimeout(timeoutMs, 10000),
+    "Download control click did not complete before the local guard timeout."
+  );
   const download = await downloadPromise;
   const suggestedFilename = download.suggestedFilename?.() ?? `chatgpt-download-${Date.now()}`;
   const targetPath = join(absoluteDest, basename(suggestedFilename));

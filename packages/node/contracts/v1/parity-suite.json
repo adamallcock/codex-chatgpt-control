@@ -192,6 +192,8 @@
         "src/commands/session.ts",
         "src/commands/threads.ts",
         "src/commands/messages.ts",
+        "src/commands/artifacts.ts",
+        "src/dom/artifacts.ts",
         "src/commands/files.ts",
         "src/commands/modes.ts",
         "src/commands/response-actions.ts",
@@ -201,6 +203,7 @@
         "tests/unit/client.test.ts",
         "tests/unit/sequence.test.ts",
         "tests/unit/messages.test.ts",
+        "tests/unit/artifacts.test.ts",
         "tests/unit/files.test.ts",
         "tests/unit/modes.test.ts",
         "tests/unit/backend-conformance.test.ts"
@@ -496,6 +499,27 @@
       "fixtures": ["command-descriptors.json", "workflow-ask-success.json"],
       "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/sequence.test.ts"],
       "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "artifacts.listLatest": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/artifacts.test.ts", "tests/unit/client.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "artifacts.wait": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/artifacts.test.ts", "tests/unit/sequence.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md"]
+    },
+    "artifacts.downloadLatest": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/artifacts.test.ts", "tests/unit/files.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py"],
       "docs": ["references/backend-protocol.md", "references/python-parity.md"]
     },
     "files.attach": {

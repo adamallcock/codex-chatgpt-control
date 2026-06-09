@@ -6,6 +6,7 @@ from .agent import Agent
 from .commands import CommandClient
 from .models import ChatGPTRunResult, SequencePlan
 from .primitives import (
+    ArtifactsClient,
     FilesClient,
     MessagesClient,
     ModesClient,
@@ -75,6 +76,7 @@ class ChatGPT:
         self.threads = ThreadsClient(self._transport)
         self.messages = MessagesClient(self._transport)
         self.files = FilesClient(self._transport)
+        self.artifacts = ArtifactsClient(self._transport)
         self.modes = ModesClient(self._transport)
         self.tools = ToolsClient(self._transport)
         self.response = ResponseClient(self._transport)

@@ -13,6 +13,18 @@ export const cssSelectors = {
     "main [data-message-author-role='assistant'] a[aria-label*='Download']",
     "main a[download]",
     "main a[href*='/backend-api/files/']"
+  ].join(", "),
+  generatedArtifactDownloadControls: [
+    "main figure button[aria-label*='Download' i]",
+    "main figure a[aria-label*='Download' i]",
+    "main [data-testid*='image' i] button[aria-label*='Download' i]",
+    "main [data-testid*='image' i] a[aria-label*='Download' i]",
+    "main [aria-label*='image' i] button[aria-label*='Download' i]",
+    "main [aria-label*='image' i] a[aria-label*='Download' i]",
+    "main button[aria-label='Download image' i]",
+    "main a[aria-label='Download image' i]",
+    "main a[download][href^='blob:']",
+    "main a[download][href^='data:image/']"
   ].join(", ")
 } as const;
 

@@ -132,8 +132,51 @@ describe("createChatGPT", () => {
     expect(typeof chatgpt.session.bootstrap).toBe("function");
     expect(typeof chatgpt.threads.search).toBe("function");
     expect(typeof chatgpt.messages.readLatest).toBe("function");
+    expect(typeof chatgpt.artifacts.downloadLatest).toBe("function");
     expect(typeof chatgpt.files.attach).toBe("function");
     expect(typeof chatgpt.response.copy).toBe("function");
+  });
+
+  it("plans create-image downloads through artifact primitives", () => {
+    const chatgpt = createChatGPT();
+    const agent = chatgpt.agent({
+      name: "image-agent",
+      defaults: { wait: { timeoutMs: 120000, stableMs: 0, pollMs: 1 } }
+    });
+
+    const plan = chatgpt.runner.plan(agent, {
+      input: "Create an image of a golden dog on grass.",
+      tools: [{ tool: "create_image" }],
+      download: { destDir: "/tmp/generated" }
+    });
+
+    expect(plan.steps.map(step => step.command)).toEqual([
+      "session.bootstrap",
+      "threads.new",
+      "tools.select",
+      "artifacts.listLatest",
+      "messages.ask",
+      "artifacts.wait",
+      "artifacts.downloadLatest"
+    ]);
+    expect(plan.steps.find(step => step.id === "ask")).toMatchObject({
+      command: "messages.ask",
+      args: {
+        wait: false,
+        read: false
+      }
+    });
+    expect(plan.steps.find(step => step.id === "artifact")).toMatchObject({
+      command: "artifacts.wait",
+      args: {
+        kind: "image",
+        afterArtifactCount: "${artifactBaseline.data.count}",
+        requireDownload: true,
+        timeoutMs: 120000,
+        stableMs: 0,
+        pollMs: 1
+      }
+    });
   });
 
   it("blocks workflows that exceed run budgets before opening the browser", async () => {

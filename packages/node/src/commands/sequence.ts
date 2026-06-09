@@ -1,4 +1,5 @@
 import type { CommandResult, RuntimeEnv, SequencePlan, SequencePolicy, SequenceStep, SequenceStepResult } from "../types.js";
+import { downloadLatestArtifact, listLatestArtifacts, waitForArtifact } from "./artifacts.js";
 import { attachFiles, downloadLatestFile } from "./files.js";
 import { askMessage, composeMessage, readLatest, submitMessage, waitAndRead, waitForMessage } from "./messages.js";
 import { copyResponse } from "./response-actions.js";
@@ -85,6 +86,12 @@ export async function executeStep(
       return readLatest(env, step.args);
     case "messages.waitAndRead":
       return waitAndRead(env, step.args);
+    case "artifacts.listLatest":
+      return listLatestArtifacts(env, step.args);
+    case "artifacts.wait":
+      return waitForArtifact(env, step.args);
+    case "artifacts.downloadLatest":
+      return downloadLatestArtifact(env, step.args);
     case "files.attach":
       return attachFiles(env, step.args);
     case "files.downloadLatest":
