@@ -89,7 +89,7 @@
       },
       "defaultTimeoutMs": 120000,
       "examples": [
-        "await chatgpt.askWithFiles({ thread: { type: \"url\", url: \"https://chatgpt.com/c/<conversation-id>\" }, existingTab: true, mode: { effort: \"Thinking\" }, files: [\"/absolute/path/brief.md\"], prompt: \"Summarize this.\", wait: true, read: { format: \"markdown\" } });"
+        "await chatgpt.askWithFiles({ thread: { type: \"url\", url: \"https://chatgpt.com/c/<conversation-id>\" }, existingTab: true, mode: { effort: \"Thinking\" }, files: [\"/absolute/host/path/brief.md\"], prompt: \"Summarize this.\", wait: true, read: { format: \"markdown\" } });"
       ],
       "layer": "workflow",
       "name": "askWithFiles",
@@ -119,7 +119,7 @@
       },
       "defaultTimeoutMs": 120000,
       "examples": [
-        "await chatgpt.askAndDownload({ prompt: \"Create a CSV.\", download: { destDir: \"/tmp/out\" }, wait: true });"
+        "await chatgpt.askAndDownload({ prompt: \"Create a CSV.\", download: { destDir: \"/absolute/host/output\" }, wait: true });"
       ],
       "layer": "workflow",
       "name": "askAndDownload",
@@ -371,7 +371,7 @@
       },
       "defaultTimeoutMs": 120000,
       "examples": [
-        "await chatgpt.runPlan({ name: \"attach-ask-read\", input: { files: [\"/absolute/path.md\"], prompt: \"Summarize.\" } });"
+        "await chatgpt.runPlan({ name: \"attach-ask-read\", input: { files: [\"/absolute/host/path.md\"], prompt: \"Summarize.\" } });"
       ],
       "layer": "workflow",
       "name": "attach-ask-read",
@@ -399,7 +399,7 @@
       },
       "defaultTimeoutMs": 120000,
       "examples": [
-        "await chatgpt.runPlan({ name: \"ask-and-download\", input: { prompt: \"Create a CSV.\", destDir: \"/tmp/out\" } });"
+        "await chatgpt.runPlan({ name: \"ask-and-download\", input: { prompt: \"Create a CSV.\", destDir: \"/absolute/host/output\" } });"
       ],
       "layer": "workflow",
       "name": "ask-and-download",
@@ -508,7 +508,7 @@
       },
       "defaultTimeoutMs": 5000,
       "examples": [
-        "await chatgpt.createReport(result, { destDir: \"/tmp/reports\" });"
+        "await chatgpt.createReport(result, { destDir: \"/absolute/host/reports\" });"
       ],
       "layer": "report",
       "name": "createReport",
@@ -716,7 +716,7 @@
       "defaults": {},
       "defaultTimeoutMs": 30000,
       "examples": [
-        "await chatgpt.artifacts.downloadLatest({ destDir: \"/tmp/out\" });"
+        "await chatgpt.artifacts.downloadLatest({ destDir: \"/absolute/host/output\" });"
       ],
       "layer": "primitive",
       "name": "artifacts.listLatest",
@@ -740,7 +740,7 @@
       "defaults": {},
       "defaultTimeoutMs": 120000,
       "examples": [
-        "await chatgpt.artifacts.downloadLatest({ destDir: \"/tmp/out\" });"
+        "await chatgpt.artifacts.downloadLatest({ destDir: \"/absolute/host/output\" });"
       ],
       "layer": "primitive",
       "name": "artifacts.wait",
@@ -763,7 +763,7 @@
       "defaults": {},
       "defaultTimeoutMs": 120000,
       "examples": [
-        "await chatgpt.artifacts.downloadLatest({ destDir: \"/tmp/out\" });"
+        "await chatgpt.artifacts.downloadLatest({ destDir: \"/absolute/host/output\" });"
       ],
       "layer": "primitive",
       "name": "artifacts.downloadLatest",
@@ -784,7 +784,8 @@
       "defaults": {},
       "defaultTimeoutMs": 180000,
       "examples": [
-        "await chatgpt.files.attach({ paths: [\"/absolute/path.jpg\"] });"
+        "await chatgpt.files.attach({ paths: [\"/absolute/host/path.jpg\"] });",
+        "// On Windows backend hosts, use paths such as C:\\Users\\you\\Pictures\\image.jpg."
       ],
       "layer": "primitive",
       "name": "files.attach",
@@ -844,7 +845,7 @@
       "defaultTimeoutMs": 30000,
       "examples": [
         "await chatgpt.modes.set({ effort: \"Thinking\" });",
-        "await chatgpt.askWithFiles({ mode: { effort: \"Thinking\" }, files: [\"/absolute/path.jpg\"], prompt: \"Describe this image.\", wait: true });"
+        "await chatgpt.askWithFiles({ mode: { effort: \"Thinking\" }, files: [\"/absolute/host/path.jpg\"], prompt: \"Describe this image.\", wait: true });"
       ],
       "layer": "primitive",
       "name": "modes.set",

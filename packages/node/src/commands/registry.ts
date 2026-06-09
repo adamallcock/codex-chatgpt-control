@@ -24,10 +24,10 @@ const descriptors: CommandDescriptor[] = [
     `await chatgpt.askInThread({ thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true, prompt: "Continue." });`
   ]),
   workflow("askWithFiles", "Attach absolute local file paths, optionally set mode, ask, wait, and read.", [
-    `await chatgpt.askWithFiles({ thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true, mode: { effort: "Thinking" }, files: ["/absolute/path/brief.md"], prompt: "Summarize this.", wait: true, read: { format: "markdown" } });`
+    `await chatgpt.askWithFiles({ thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true, mode: { effort: "Thinking" }, files: ["/absolute/host/path/brief.md"], prompt: "Summarize this.", wait: true, read: { format: "markdown" } });`
   ]),
   workflow("askAndDownload", "Ask ChatGPT to produce a visible downloadable output and save the latest exposed file.", [
-    `await chatgpt.askAndDownload({ prompt: "Create a CSV.", download: { destDir: "/tmp/out" }, wait: true });`
+    `await chatgpt.askAndDownload({ prompt: "Create a CSV.", download: { destDir: "/absolute/host/output" }, wait: true });`
   ]),
   workflow("runMessages", "Run sequential prompts where later prompts can use earlier step data.", [
     `await chatgpt.runMessages({ messages: [{ id: "first", prompt: "alpha" }, { id: "second", prompt: "beta" }] });`
@@ -55,10 +55,10 @@ const descriptors: CommandDescriptor[] = [
     `await chatgpt.runPlan({ name: "find-open-copy-latest", input: { query: "SDK Design Proposal" } });`
   ]),
   workflow("attach-ask-read", "Named macro: open a new thread, attach files, ask, wait, and read Markdown.", [
-    `await chatgpt.runPlan({ name: "attach-ask-read", input: { files: ["/absolute/path.md"], prompt: "Summarize." } });`
+    `await chatgpt.runPlan({ name: "attach-ask-read", input: { files: ["/absolute/host/path.md"], prompt: "Summarize." } });`
   ]),
   workflow("ask-and-download", "Named macro: ask in a new thread and download the latest file affordance.", [
-    `await chatgpt.runPlan({ name: "ask-and-download", input: { prompt: "Create a CSV.", destDir: "/tmp/out" } });`
+    `await chatgpt.runPlan({ name: "ask-and-download", input: { prompt: "Create a CSV.", destDir: "/absolute/host/output" } });`
   ]),
   workflow("two-turn", "Named macro: run two sequential prompts in a new thread.", [
     `await chatgpt.runPlan({ name: "two-turn", input: { first: "alpha", second: "beta" } });`
@@ -73,7 +73,7 @@ const descriptors: CommandDescriptor[] = [
     `await chatgpt.doctor({ check: ["bridge", "login", "upload"] });`
   ]),
   report("createReport", "Write a durable redacted run report for a command result.", [
-    `await chatgpt.createReport(result, { destDir: "/tmp/reports" });`
+    `await chatgpt.createReport(result, { destDir: "/absolute/host/reports" });`
   ]),
   primitive("session.bootstrap", "Attach to ChatGPT in Chrome and detect login/blocker state.", 30000),
   primitive("threads.new", "Open a new ChatGPT thread.", 30000),
@@ -258,14 +258,17 @@ function primitiveExamples(name: string): string[] {
   if (name === "modes.set") {
     return [
       `await chatgpt.modes.set({ effort: "Thinking" });`,
-      `await chatgpt.askWithFiles({ mode: { effort: "Thinking" }, files: ["/absolute/path.jpg"], prompt: "Describe this image.", wait: true });`
+      `await chatgpt.askWithFiles({ mode: { effort: "Thinking" }, files: ["/absolute/host/path.jpg"], prompt: "Describe this image.", wait: true });`
     ];
   }
   if (name === "files.attach") {
-    return [`await chatgpt.files.attach({ paths: ["/absolute/path.jpg"] });`];
+    return [
+      `await chatgpt.files.attach({ paths: ["/absolute/host/path.jpg"] });`,
+      String.raw`// On Windows backend hosts, use paths such as C:\Users\you\Pictures\image.jpg.`
+    ];
   }
   if (name.startsWith("artifacts.")) {
-    return [`await chatgpt.artifacts.downloadLatest({ destDir: "/tmp/out" });`];
+    return [`await chatgpt.artifacts.downloadLatest({ destDir: "/absolute/host/output" });`];
   }
   return [];
 }
