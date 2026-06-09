@@ -1,6 +1,7 @@
 import type { BlockerKind, PageLike } from "../types.js";
 import { classifyVisibleText } from "../safety/blockers.js";
 import { compactVisibleText } from "../safety/redaction.js";
+import { withTimeout } from "./evaluate.js";
 
 export type PageState = {
   url: string;
@@ -19,7 +20,9 @@ export function parseConversationId(url: string): string | undefined {
 export async function readPageState(page: PageLike): Promise<PageState> {
   const rawUrl = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
   const url = typeof rawUrl === "string" ? rawUrl : "";
-  const rawTitle = typeof page.title === "function" ? await page.title().catch(() => undefined) : undefined;
+  const rawTitle = typeof page.title === "function"
+    ? await withTimeout(page.title(), 3000, "Timed out reading page title.").catch(() => undefined)
+    : undefined;
   const title = typeof rawTitle === "string" ? rawTitle : undefined;
   const visibleText = await readVisibleText(page);
   const blocker = classifyVisibleText(visibleText);
@@ -50,7 +53,11 @@ export async function readPageState(page: PageLike): Promise<PageState> {
 export async function readVisibleText(page: PageLike): Promise<string> {
   if (typeof page.evaluate === "function") {
     try {
-      return await page.evaluate(() => document.body?.innerText ?? "");
+      return await withTimeout(
+        page.evaluate(() => document.body?.innerText ?? ""),
+        3000,
+        "Timed out reading visible page text."
+      );
     } catch {
       // Fall back to content parsing below.
     }
@@ -82,5 +89,6 @@ export function htmlToText(html: string): string {
 }
 
 function isLikelySignedIn(visibleText: string): boolean {
-  return /\b(New chat|Search chats|Chat with ChatGPT|Recents|Projects)\b/i.test(visibleText);
+  return /\b(New chat|Search chats|Chat with ChatGPT|Recents|Projects|Library)\b/i.test(visibleText)
+    || /(新しいチャット|チャットを検索|ChatGPT とチャット|最近|プロジェクト|ライブラリ)/.test(visibleText);
 }

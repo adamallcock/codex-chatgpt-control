@@ -161,6 +161,14 @@ export type SubmitArgs = {
   text?: string;
   previousTurnCount?: number;
   timeoutMs?: number;
+  submitMode?: "buttonOrEnter" | "buttonOnly";
+  requireChatGPTHost?: boolean;
+  requireTemporary?: boolean;
+  expectedPromptSha256?: string;
+  expectedAttachmentName?: string;
+  expectedAttachmentBytes?: number;
+  expectedAttachmentSha256?: string;
+  expectedAttachmentPath?: string;
 };
 
 export type SubmitData = {
@@ -316,6 +324,24 @@ export type AttachFilesData = {
   files: AttachedFile[];
 };
 
+export type VerifyAttachedArgs = {
+  expectedName: string;
+  expectedBytes?: number;
+  expectedSha256?: string;
+  expectedPath?: string;
+  timeoutMs?: number;
+};
+
+export type VerifyAttachedData = {
+  verified: true;
+  expectedName: string;
+  expectedBytes?: number;
+  expectedSha256?: string;
+  localSourceBytes?: number;
+  localSourceSha256?: string;
+  visibleAttachments: string[];
+};
+
 export type DownloadLatestArgs = {
   destDir: string;
   filenamePattern?: string;
@@ -368,19 +394,70 @@ export type SelectToolArgs = {
   timeoutMs?: number;
 };
 
+export type TemporaryChatEvidence = {
+  label: string;
+  source: string;
+};
+
+export type TemporaryChatData =
+  | { state: "on"; confidence: "verified"; evidence: TemporaryChatEvidence[]; candidates: string[] }
+  | { state: "off"; evidence: TemporaryChatEvidence[]; candidates: string[] }
+  | { state: "unknown"; evidence: TemporaryChatEvidence[]; candidates: string[] };
+
+export type InspectComposerArgs = {
+  expectedText?: string;
+  expectedSha256?: string;
+};
+
+export type InspectComposerData = {
+  text: string;
+  sha256: string;
+  length: number;
+  matchesExpected?: boolean;
+  sendButtonCount: number;
+  sendButtonEnabled: boolean;
+};
+
+export type AssertChatGPTHostData = {
+  url: string;
+  hostname: string;
+};
+
+export type AssertSafeToSubmitArgs = {
+  expectedPromptSha256: string;
+  expectedAttachmentName: string;
+  expectedAttachmentBytes?: number;
+  expectedAttachmentSha256?: string;
+  expectedAttachmentPath?: string;
+  runId?: string;
+  mode?: SetModeArgs;
+};
+
+export type AssertSafeToSubmitData = {
+  verified: true;
+  checks: string[];
+};
+
 export type SequenceStep =
   | { id: string; command: "session.bootstrap"; args?: BootstrapArgs }
+  | { id: string; command: "session.assertChatGPTHost"; args?: Record<string, never> }
   | { id: string; command: "threads.search"; args: SearchThreadsArgs }
   | { id: string; command: "threads.open"; args: OpenThreadArgs }
   | { id: string; command: "threads.new"; args?: NewThreadArgs }
+  | { id: string; command: "temporary.readState"; args?: Record<string, never> }
+  | { id: string; command: "temporary.ensureOn"; args?: Record<string, never> }
+  | { id: string; command: "temporary.assertVerifiedOn"; args?: Record<string, never> }
   | { id: string; command: "messages.compose"; args: ComposeArgs }
+  | { id: string; command: "messages.inspectComposer"; args?: InspectComposerArgs }
   | { id: string; command: "messages.submit"; args?: SubmitArgs }
   | { id: string; command: "messages.ask"; args: AskArgs }
   | { id: string; command: "messages.wait"; args: WaitArgs }
   | { id: string; command: "messages.readLatest"; args?: ReadLatestArgs }
   | { id: string; command: "messages.waitAndRead"; args: WaitAndReadArgs }
   | { id: string; command: "files.attach"; args: AttachFilesArgs }
+  | { id: string; command: "files.verifyAttached"; args: VerifyAttachedArgs }
   | { id: string; command: "files.downloadLatest"; args: DownloadLatestArgs }
+  | { id: string; command: "guards.assertSafeToSubmit"; args: AssertSafeToSubmitArgs }
   | { id: string; command: "response.copy"; args?: CopyResponseArgs }
   | { id: string; command: "modes.set"; args: SetModeArgs }
   | { id: string; command: "tools.select"; args: SelectToolArgs };
@@ -470,6 +547,10 @@ export type WaitForEventOptions = {
 };
 
 export type PageLike = {
+  clipboard?: {
+    readText?: () => Promise<string>;
+    read?: () => Promise<Array<{ entries?: Array<{ text?: string; mimeType?: string }> }>>;
+  };
   url?: () => string | Promise<string>;
   goto?: (url: string, options?: unknown) => Promise<unknown>;
   title?: () => Promise<string>;

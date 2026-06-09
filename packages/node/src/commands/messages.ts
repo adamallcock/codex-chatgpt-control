@@ -1,14 +1,18 @@
+import { createHash } from "node:crypto";
 import { readPageState } from "../browser/page-state.js";
+import { withTimeout } from "../browser/evaluate.js";
 import { resultError, resultOk } from "../errors.js";
 import { countPageMessages, isTransientAssistantText, readLatestMessage, readLatestMessageText, readLatestMessageTextSnapshot, readMessages } from "../dom/messages.js";
 import { composerTextbox, copyResponseButtons, sendButton } from "../dom/selectors.js";
-import { normalizeLineBreaks, normalizeWhitespace } from "../dom/visible-text.js";
+import { normalizeLineBreaks, normalizePromptForHash, normalizeWhitespace } from "../dom/visible-text.js";
 import type {
   AskArgs,
   AskReadData,
   CommandResult,
   ComposeArgs,
   ComposeData,
+  InspectComposerArgs,
+  InspectComposerData,
   PageLike,
   ReadLatestArgs,
   ReadLatestData,
@@ -20,8 +24,10 @@ import type {
   WaitData
 } from "../types.js";
 import { contextFromPage } from "./context.js";
+import { verifyAttachedFiles } from "./files.js";
 import { withCommandOutputText } from "./output.js";
-import { bootstrap } from "./session.js";
+import { assertChatGPTHost, bootstrap } from "./session.js";
+import { assertTemporaryChatVerifiedOn } from "./temporary.js";
 
 export type CompletionSnapshot = {
   textStableForMs: number;
@@ -88,6 +94,71 @@ export async function composeMessage(
   }
 }
 
+export async function inspectComposer(
+  env: RuntimeEnv,
+  args: InspectComposerArgs = {}
+): Promise<CommandResult<InspectComposerData>> {
+  const boot = await ensurePage(env);
+  if (!boot.ok) {
+    return boot as CommandResult<InspectComposerData>;
+  }
+
+  const page = env.page!;
+
+  try {
+    const text = normalizeLineBreaks(await readLocatorText(composerTextbox(page)));
+    const sha256 = sha256Text(normalizePromptForHash(text));
+    const sendState = await waitForSendButtonReady(page);
+    const data: InspectComposerData = {
+      text,
+      sha256,
+      length: text.length,
+      sendButtonCount: sendState.count,
+      sendButtonEnabled: sendState.enabled
+    };
+
+    const expectedSha256 = args.expectedSha256 ?? (args.expectedText === undefined ? undefined : sha256Text(normalizePromptForHash(args.expectedText)));
+    if (expectedSha256 !== undefined) {
+      data.matchesExpected = sha256 === expectedSha256;
+      if (!data.matchesExpected) {
+        return {
+          ok: false,
+          status: "blocked",
+          warnings: [],
+          data,
+          blocker: {
+            kind: "confirmation",
+            code: "composer_prompt_mismatch",
+            message: "Composer text does not match the expected prompt hash.",
+            resumable: true
+          },
+          context: await contextFromPage(page)
+        };
+      }
+    }
+
+    if (sendState.count !== 1 || !sendState.enabled) {
+      return {
+        ok: false,
+        status: "blocked",
+        warnings: [],
+        data,
+        blocker: {
+          kind: "selector_drift",
+          code: "send_button_not_unique_enabled",
+          message: "Send button must be unique and enabled before safe submission.",
+          resumable: true
+        },
+        context: await contextFromPage(page)
+      };
+    }
+
+    return resultOk(data, await contextFromPage(page));
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+
 export async function submitMessage(
   env: RuntimeEnv,
   args: SubmitArgs = {}
@@ -98,13 +169,34 @@ export async function submitMessage(
   }
 
   const page = env.page!;
-  const previousTurnCount = args.previousTurnCount ?? await countPageMessages(page).catch(() => undefined);
 
   try {
+    const preflight = await assertSubmitPreconditions(env, args);
+    if (preflight !== undefined) {
+      return preflight as CommandResult<SubmitData>;
+    }
+
+    const previousTurnCount = args.previousTurnCount ?? await countPageMessages(page).catch(() => undefined);
+    const target = sendButton(page);
     try {
-      await sendButton(page).click?.();
+      if (typeof target.click !== "function") {
+        throw new Error("Send button locator does not expose click().");
+      }
+      await withTimeout(
+        target.click({ timeoutMs: 10000 }),
+        12000,
+        "Timed out clicking send button."
+      );
     } catch {
-      await page.keyboard?.press?.("Enter");
+      if (args.submitMode === "buttonOnly") {
+        const clickedByLocator = await clickSendButtonByLocatorEvaluate(target).catch(() => false);
+        const clickedByDom = clickedByLocator ? true : await clickUniqueSendButtonByDom(page).catch(() => false);
+        if (!clickedByDom) {
+          throw new Error("Send button click failed and submitMode=buttonOnly forbids Enter fallback.");
+        }
+      } else {
+        await page.keyboard?.press?.("Enter");
+      }
     }
 
     const userTurn = await waitForSubmittedUserTurn(page, args.text, previousTurnCount, args.timeoutMs ?? 30000);
@@ -137,6 +229,111 @@ export async function submitMessage(
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
+}
+
+async function assertSubmitPreconditions(
+  env: RuntimeEnv,
+  args: SubmitArgs
+): Promise<CommandResult<unknown> | undefined> {
+  if (args.requireChatGPTHost === true) {
+    const host = await assertChatGPTHost(env);
+    if (!host.ok) return host;
+  }
+
+  if (args.requireTemporary === true) {
+    const temporary = await assertTemporaryChatVerifiedOn(env);
+    if (!temporary.ok) return temporary;
+  }
+
+  if (args.expectedAttachmentName !== undefined) {
+    const attachmentArgs: Parameters<typeof verifyAttachedFiles>[1] = {
+      expectedName: args.expectedAttachmentName
+    };
+    if (args.expectedAttachmentBytes !== undefined) attachmentArgs.expectedBytes = args.expectedAttachmentBytes;
+    if (args.expectedAttachmentSha256 !== undefined) attachmentArgs.expectedSha256 = args.expectedAttachmentSha256;
+    if (args.expectedAttachmentPath !== undefined) attachmentArgs.expectedPath = args.expectedAttachmentPath;
+    const attachment = await verifyAttachedFiles(env, attachmentArgs);
+    if (!attachment.ok) return attachment;
+  }
+
+  if (args.expectedPromptSha256 !== undefined) {
+    const composer = await inspectComposer(env, { expectedSha256: args.expectedPromptSha256 });
+    if (!composer.ok) return composer;
+  }
+
+  return undefined;
+}
+
+async function clickSendButtonByLocatorEvaluate(locator: ReturnType<typeof sendButton>): Promise<boolean> {
+  if (typeof locator.evaluate !== "function") {
+    return false;
+  }
+  const count = await locator.count?.().catch(() => undefined);
+  if (count !== undefined && count !== 1) {
+    return false;
+  }
+  return withTimeout(locator.evaluate(element => {
+    const button = element as HTMLButtonElement;
+    if (button.disabled || button.getAttribute("aria-disabled") === "true") {
+      return false;
+    }
+    button.click();
+    return true;
+  }), 5000, "Timed out clicking send button by locator evaluate.");
+}
+
+async function clickUniqueSendButtonByDom(page: PageLike): Promise<boolean> {
+  if (typeof page.evaluate !== "function") {
+    return false;
+  }
+  return withTimeout(page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll("button, [role='button']"))
+      .filter(node => {
+        const element = node as HTMLElement;
+        const label = `${element.getAttribute("aria-label") ?? ""} ${element.innerText ?? ""} ${element.textContent ?? ""}`;
+        return /send prompt|send message|\bsend\b|送信/i.test(label);
+      });
+    if (buttons.length !== 1) {
+      return false;
+    }
+    const button = buttons[0] as HTMLButtonElement;
+    if (button.disabled || button.getAttribute("aria-disabled") === "true") {
+      return false;
+    }
+    button.click();
+    return true;
+  }), 5000, "Timed out clicking unique send button by DOM.");
+}
+
+async function readSendButtonState(page: PageLike): Promise<{ count: number; enabled: boolean }> {
+  if (typeof page.evaluate === "function") {
+    const state = await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll("button, [role='button']"))
+        .filter(node => {
+          const element = node as HTMLElement;
+          const label = `${element.getAttribute("aria-label") ?? ""} ${element.innerText ?? ""} ${element.textContent ?? ""}`;
+          return /send prompt|send message|\bsend\b|送信/i.test(label);
+        });
+      const enabled = buttons.length === 1
+        && !(buttons[0] as HTMLButtonElement).disabled
+        && buttons[0]?.getAttribute("aria-disabled") !== "true";
+      return { count: buttons.length, enabled };
+    }).catch(() => undefined);
+    if (state !== undefined) return state;
+  }
+
+  const locator = sendButton(page);
+  const count = await locator.count?.().catch(() => 0) ?? 0;
+  return { count, enabled: count === 1 };
+}
+
+async function waitForSendButtonReady(page: PageLike): Promise<{ count: number; enabled: boolean }> {
+  let state = await readSendButtonState(page);
+  for (let attempt = 0; state.count === 1 && !state.enabled && attempt < 20; attempt += 1) {
+    await page.waitForTimeout?.(500);
+    state = await readSendButtonState(page);
+  }
+  return state;
 }
 
 export async function waitForMessage(
@@ -185,7 +382,7 @@ export async function waitForMessage(
       stableMs,
       textStableForMs: Date.now() - lastChangedAt,
       hasStopButton: await hasStopControl(page),
-      hasResponseActions: await hasResponseActions(page)
+      hasResponseActions: await hasLatestAssistantResponseActions(page)
     };
 
     if (targetReached && isResponseComplete(snapshot)) {
@@ -491,13 +688,56 @@ async function hasStopControl(page: PageLike): Promise<boolean> {
   if (typeof page.evaluate === "function") {
     return page.evaluate(() => {
       const text = document.body?.innerText ?? "";
-      return /\b(stop generating|stop streaming|cancel)\b/i.test(text);
+      if (/\b(stop generating|stop streaming|cancel)\b/i.test(text)) {
+        return true;
+      }
+
+      const controls = Array.from(document.querySelectorAll("button, [role='button']"));
+      return controls.some(control => {
+        const label = [
+          control.getAttribute("aria-label"),
+          control.getAttribute("title"),
+          control.getAttribute("data-testid"),
+          control.textContent
+        ].filter(Boolean).join(" ");
+        return /\b(stop|cancel)\b|停止|中止|キャンセル/i.test(label);
+      });
     }).catch(() => false);
   }
   return false;
 }
 
-async function hasResponseActions(page: PageLike): Promise<boolean> {
+async function hasLatestAssistantResponseActions(page: PageLike): Promise<boolean> {
+  if (typeof page.evaluate === "function") {
+    const latestScoped = await page.evaluate(() => {
+      const assistantNodes = Array.from(document.querySelectorAll("[data-message-author-role='assistant']"));
+      const latest = assistantNodes.at(-1) as HTMLElement | undefined;
+      if (latest === undefined) {
+        return undefined;
+      }
+
+      const turn = latest.closest("[data-testid^='conversation-turn'], article, [data-testid*='turn']");
+      const scope = turn ?? latest.parentElement;
+      if (scope === null) {
+        return undefined;
+      }
+
+      const actions = Array.from(scope.querySelectorAll("button, [role='button']"));
+      return actions.some(action => {
+        const label = [
+          action.getAttribute("data-testid"),
+          action.getAttribute("aria-label"),
+          action.getAttribute("title"),
+          action.textContent
+        ].filter(Boolean).join(" ");
+        return /copy-turn-action-button|Copy response|回答をコピー|応答をコピー|レスポンスをコピー/i.test(label);
+      });
+    }).catch(() => undefined);
+    if (typeof latestScoped === "boolean") {
+      return latestScoped;
+    }
+  }
+
   try {
     const copyButtons = copyResponseButtons(page);
     const count = await copyButtons.count?.();
@@ -638,6 +878,10 @@ function readCapturedNewAssistantTurn(
   const turnAdvanced = beforeTurnCount === undefined
     || (read.context.turnCount !== undefined && read.context.turnCount > beforeTurnCount);
   return assistantAdvanced && turnAdvanced;
+}
+
+function sha256Text(text: string): string {
+  return createHash("sha256").update(text).digest("hex");
 }
 
 function forwardFailure<T>(result: CommandResult<unknown>): CommandResult<T> {

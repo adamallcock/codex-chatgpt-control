@@ -58,7 +58,9 @@ export type ContinueThreadOptions = {
   stableMs?: number;
 };
 
-export type ContinueThreadClient = Pick<ChatGPTClient, "askInThread" | "openThread" | "readLatest" | "session">;
+export type ContinueThreadClient = Pick<ChatGPTClient, "askInThread" | "openThread" | "readLatest"> & {
+  session: Pick<ChatGPTClient["session"], "bootstrap">;
+};
 export type ContinueThreadSelector = Exclude<WorkflowThread, { type: "new" }>;
 
 export class ContinueThreadUsageError extends Error {

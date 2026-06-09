@@ -60,6 +60,56 @@ describe("existing Chrome tab bootstrap", () => {
     ]);
   });
 
+  it("opens a new ChatGPT tab when preferExistingTab is false", async () => {
+    const claimed: unknown[] = [];
+    const created: string[] = [];
+    const browser: BrowserLike = {
+      name: "chrome",
+      user: {
+        openTabs: async () => [
+          { id: "user-tab-1", url: "https://chatgpt.com/c/abc-123", title: "SDK Review" }
+        ],
+        claimTab: async tab => {
+          claimed.push(tab);
+          return fakeChatGPTPage("user-tab-1", "https://chatgpt.com/c/abc-123", "SDK Review");
+        }
+      },
+      tabs: {
+        create: async url => {
+          created.push(url);
+          return fakeChatGPTPage("created-tab", url, "ChatGPT");
+        }
+      }
+    };
+
+    const result = await bootstrap({ browser }, { preferExistingTab: false });
+
+    expect(result.ok).toBe(true);
+    expect(result.context.tabId).toBe("created-tab");
+    expect(claimed).toEqual([]);
+    expect(created).toEqual(["https://chatgpt.com/"]);
+  });
+
+  it("does not reuse a cached page when preferExistingTab is false", async () => {
+    const created: string[] = [];
+    const cachedPage = fakeChatGPTPage("cached", "https://chatgpt.com/c/abc-123", "SDK Review");
+    const browser: BrowserLike = {
+      name: "chrome",
+      tabs: {
+        create: async url => {
+          created.push(url);
+          return fakeChatGPTPage("created-tab", url, "ChatGPT");
+        }
+      }
+    };
+
+    const result = await bootstrap({ browser, page: cachedPage }, { preferExistingTab: false });
+
+    expect(result.ok).toBe(true);
+    expect(result.context.tabId).toBe("created-tab");
+    expect(created).toEqual(["https://chatgpt.com/"]);
+  });
+
   it("claims an exact open user ChatGPT tab by conversation id without navigating", async () => {
     const claimed: unknown[] = [];
     const browser: BrowserLike = {

@@ -32,6 +32,12 @@ const descriptors: CommandDescriptor[] = [
   workflow("runMessages", "Run sequential prompts where later prompts can use earlier step data.", [
     `await chatgpt.runMessages({ messages: [{ id: "first", prompt: "alpha" }, { id: "second", prompt: "beta" }] });`
   ]),
+  workflow("proReview.dryRun", "Prepare a guarded ChatGPT Pro review in Temporary Chat and stop before submitting.", [
+    `await chatgpt.proReview.dryRun({ zipPath: "/absolute/path/review.zip", prompt: "Review the attached zip.", mode: { model: "Pro" } });`
+  ]),
+  workflow("proReview.submitAndRead", "Submit a guarded ChatGPT Pro review only after all dry-run safety checks pass.", [
+    `await chatgpt.proReview.submitAndRead({ zipPath: "/absolute/path/review.zip", prompt: "Review the attached zip.", mode: { model: "Pro" }, autoSubmit: true, response: { timeoutMs: 600000, format: "markdown" } });`
+  ]),
   workflow("runner.run", "Agents-style facade: run a visible ChatGPT browser-control agent against input, files, thread, existing-tab, mode, and response options.", [
     `const agent = chatgpt.agent({ name: "reviewer", instructions: "Review deeply." }); await chatgpt.runner.run(agent, { input: "Review this.", thread: { type: "new" } });`,
     `await chatgpt.runner.run(agent, { input: "Continue.", thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true });`
@@ -76,17 +82,24 @@ const descriptors: CommandDescriptor[] = [
     `await chatgpt.createReport(result, { destDir: "/tmp/reports" });`
   ]),
   primitive("session.bootstrap", "Attach to ChatGPT in Chrome and detect login/blocker state.", 30000),
+  primitive("session.assertChatGPTHost", "Require the visible page hostname to be a recognized ChatGPT host.", 5000),
+  primitive("temporary.readState", "Read visible Temporary Chat state without toggling it.", 5000),
+  primitive("temporary.ensureOn", "Turn on Temporary Chat only when the visible toggle is unambiguous and verifiable.", 30000),
+  primitive("temporary.assertVerifiedOn", "Require Temporary Chat to be verified on before continuing.", 5000),
   primitive("threads.new", "Open a new ChatGPT thread.", 30000),
   primitive("threads.search", "Search visible ChatGPT history by query.", 30000),
   primitive("threads.open", "Open a thread by URL, conversation id, title, or search result.", 30000),
   primitive("messages.compose", "Fill the composer without submitting.", 30000),
+  primitive("messages.inspectComposer", "Read composer text, hash it, and verify the send button is unique and enabled.", 5000),
   primitive("messages.submit", "Submit the current composer contents.", 30000),
   primitive("messages.ask", "Compose, submit, optionally wait, and optionally read.", 120000),
   primitive("messages.wait", "Wait for the latest assistant response to stabilize.", 120000),
   primitive("messages.readLatest", "Read the latest message as Markdown, normalized text, blocks, or HTML.", 30000),
   primitive("messages.waitAndRead", "Wait for completion and read the latest message.", 120000),
   primitive("files.attach", "Attach absolute local file paths through visible ChatGPT upload controls.", 180000),
+  primitive("files.verifyAttached", "Verify exactly one expected visible attachment before safe submission.", 30000),
   primitive("files.downloadLatest", "Download the latest visible ChatGPT file affordance.", 120000),
+  primitive("guards.assertSafeToSubmit", "Require host, login, empty chat, Temporary Chat, attachment, composer, and duplicate guards before submission.", 30000),
   primitive("response.copy", "Click Copy response and return clipboard Markdown, with DOM fallback.", 5000),
   primitive("modes.set", "Select a visible model or effort candidate when unambiguous.", 30000),
   primitive("tools.select", "Select a visible ChatGPT tool when unambiguous.", 30000)
@@ -209,6 +222,16 @@ function workflowArgs(name: string): Record<string, string> {
       report: "optional redacted report settings"
     };
   }
+  if (name.startsWith("proReview.")) {
+    return {
+      zipPath: "absolute local review zip path",
+      prompt: "message to compose for ChatGPT Pro",
+      mode: "optional visible mode selection, e.g. { model: \"Pro\" }",
+      autoSubmit: "required true only for submitAndRead; dryRun always stops before submit",
+      runId: "optional duplicate-submission guard marker",
+      response: "optional wait/copy args used only after guarded submit"
+    };
+  }
   return {
     prompt: "message to send or workflow-specific input",
     thread: "optional thread selector",
@@ -234,10 +257,15 @@ function reportArgs(name: string): Record<string, string> {
 }
 
 function primitiveArgs(name: string): Record<string, string> {
+  if (name === "session.assertChatGPTHost") return {};
+  if (name.startsWith("temporary.")) return {};
   if (name === "messages.readLatest") return { role: "assistant or user", format: "markdown, normalized_text, visible_text, html, blocks, or all" };
+  if (name === "messages.inspectComposer") return { expectedSha256: "optional expected composer SHA-256", expectedText: "optional expected composer text" };
   if (name === "response.copy") return { prefer: "clipboard or dom", format: "markdown, normalized_text, visible_text, html, blocks, or all" };
   if (name.startsWith("threads.search")) return { query: "history search query" };
   if (name.startsWith("files.attach")) return { paths: "absolute local file paths" };
+  if (name.startsWith("files.verifyAttached")) return { expectedName: "expected visible attachment basename", expectedBytes: "optional expected size", expectedSha256: "optional expected SHA-256" };
+  if (name === "guards.assertSafeToSubmit") return { expectedPromptSha256: "expected composer prompt SHA-256", expectedAttachmentName: "expected visible attachment basename" };
   if (name === "modes.set") {
     return {
       effort: "visible effort label such as Thinking or Extended",
@@ -258,12 +286,17 @@ function primitiveExamples(name: string): string[] {
   if (name === "files.attach") {
     return [`await chatgpt.files.attach({ paths: ["/absolute/path.jpg"] });`];
   }
+  if (name === "temporary.ensureOn") {
+    return [`await chatgpt.temporary.ensureOn();`];
+  }
   return [];
 }
 
 function primitiveBlockers(name: string): string[] {
   if (name.startsWith("files.attach")) return ["browser_bridge_unavailable", "login_required", "permission", "upload_failed"];
+  if (name.startsWith("files.verify")) return ["browser_bridge_unavailable", "login_required", "selector_drift"];
   if (name.startsWith("files.download")) return ["browser_bridge_unavailable", "login_required", "download_unavailable"];
+  if (name.startsWith("temporary.") || name.startsWith("guards.") || name.startsWith("session.assert")) return ["browser_bridge_unavailable", "login_required", "selector_drift", "confirmation"];
   if (name.startsWith("modes.") || name.startsWith("tools.")) return ["browser_bridge_unavailable", "login_required", "selector_drift"];
   return commonBlockers();
 }

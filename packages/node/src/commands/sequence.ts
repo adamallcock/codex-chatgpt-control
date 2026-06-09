@@ -1,11 +1,14 @@
 import type { CommandResult, RuntimeEnv, SequencePlan, SequencePolicy, SequenceStep, SequenceStepResult } from "../types.js";
-import { attachFiles, downloadLatestFile } from "./files.js";
-import { askMessage, composeMessage, readLatest, submitMessage, waitAndRead, waitForMessage } from "./messages.js";
+import { assertSafeToSubmit } from "./guards.js";
+import { attachFiles, downloadLatestFile, verifyAttachedFiles } from "./files.js";
+import { askMessage, composeMessage, inspectComposer, readLatest, submitMessage, waitAndRead, waitForMessage } from "./messages.js";
 import { copyResponse } from "./response-actions.js";
-import { bootstrap } from "./session.js";
+import { assertChatGPTHost, bootstrap } from "./session.js";
 import { newThread, openThread, searchThreads } from "./threads.js";
 import { setMode, selectTool } from "./modes.js";
+import { assertTemporaryChatVerifiedOn, ensureTemporaryChatOn, readTemporaryChatState } from "./temporary.js";
 import { withCommandOutputText } from "./output.js";
+import { withTimeout } from "../browser/evaluate.js";
 
 export type SequenceExecutor = (
   step: SequenceStep,
@@ -42,7 +45,7 @@ export async function runSequenceWithExecutor(
   for (const step of plan.steps) {
     const startedAt = new Date().toISOString();
     const resolvedStep = resolveStepArgs(step, values, input);
-    const result = await executor(resolvedStep, env, values, policy);
+    const result = await executeStepWithTimeout(resolvedStep, executor, env, values, policy);
     values.set(step.id, result);
     stepResults.push(toStepResult(step, result, startedAt));
 
@@ -59,6 +62,42 @@ export async function runSequenceWithExecutor(
   return withCommandOutputText({ ...finalResult, steps: stepResults });
 }
 
+async function executeStepWithTimeout(
+  step: SequenceStep,
+  executor: SequenceExecutor,
+  env: RuntimeEnv,
+  previousResults: Map<string, CommandResult<unknown>>,
+  policy: SequencePolicy
+): Promise<CommandResult<unknown>> {
+  const timeoutMs = stepTimeoutMs(step, policy);
+  try {
+    return await withTimeout(
+      executor(step, env, previousResults, policy),
+      timeoutMs,
+      `Sequence step "${step.id}" (${step.command}) timed out after ${timeoutMs} ms.`
+    );
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      ok: false,
+      status: "timeout",
+      warnings: [],
+      error: {
+        name: err.name,
+        message: err.message,
+        recoverable: true
+      },
+      blocker: {
+        kind: "unknown",
+        code: "sequence_step_timeout",
+        message: err.message,
+        resumable: true
+      },
+      context: { timestamp: new Date().toISOString() }
+    };
+  }
+}
+
 export async function executeStep(
   step: SequenceStep,
   env: RuntimeEnv,
@@ -67,14 +106,24 @@ export async function executeStep(
   switch (step.command) {
     case "session.bootstrap":
       return bootstrap(env, step.args);
+    case "session.assertChatGPTHost":
+      return assertChatGPTHost(env);
     case "threads.search":
       return searchThreads(env, step.args);
     case "threads.open":
       return openThread(env, step.args, previousResults);
     case "threads.new":
       return newThread(env, step.args);
+    case "temporary.readState":
+      return readTemporaryChatState(env);
+    case "temporary.ensureOn":
+      return ensureTemporaryChatOn(env);
+    case "temporary.assertVerifiedOn":
+      return assertTemporaryChatVerifiedOn(env);
     case "messages.compose":
       return composeMessage(env, step.args);
+    case "messages.inspectComposer":
+      return inspectComposer(env, step.args);
     case "messages.submit":
       return submitMessage(env, step.args);
     case "messages.ask":
@@ -87,8 +136,12 @@ export async function executeStep(
       return waitAndRead(env, step.args);
     case "files.attach":
       return attachFiles(env, step.args);
+    case "files.verifyAttached":
+      return verifyAttachedFiles(env, step.args);
     case "files.downloadLatest":
       return downloadLatestFile(env, step.args);
+    case "guards.assertSafeToSubmit":
+      return assertSafeToSubmit(env, step.args);
     case "response.copy":
       return copyResponse(env, step.args);
     case "modes.set":
@@ -96,6 +149,17 @@ export async function executeStep(
     case "tools.select":
       return selectTool(env, step.args);
   }
+}
+
+function stepTimeoutMs(step: SequenceStep, policy: SequencePolicy): number {
+  const args = "args" in step ? step.args : undefined;
+  if (args !== undefined && typeof args === "object" && args !== null && "timeoutMs" in args) {
+    const timeout = (args as { timeoutMs?: unknown }).timeoutMs;
+    if (typeof timeout === "number" && Number.isFinite(timeout) && timeout > 0) {
+      return timeout;
+    }
+  }
+  return policy.defaultTimeoutMs;
 }
 
 export function normalizePolicy(policy: Partial<SequencePolicy> | undefined): SequencePolicy {

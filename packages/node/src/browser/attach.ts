@@ -181,6 +181,10 @@ async function cachedPageMatchesBootstrapArgs(
     return pageMatchesExistingTarget(page, explicitExistingPolicy);
   }
 
+  if (args.preferExistingTab === false && args.url === undefined) {
+    return false;
+  }
+
   if (args.url !== undefined) {
     const currentUrl = await Promise.resolve(page.url?.()).catch(() => undefined);
     return urlMatches(currentUrl, args.url);
@@ -315,7 +319,7 @@ async function findExistingChatGPTTab(browser: BrowserLike): Promise<PageLike | 
       if (current !== undefined) {
         const normalized = normalizePage(current);
         try {
-          if ((await normalized.url?.())?.includes("chatgpt.com") === true) {
+          if (isChatGPTUrl(await normalized.url?.())) {
             return normalized;
           }
         } catch {
@@ -336,7 +340,7 @@ async function findExistingChatGPTTab(browser: BrowserLike): Promise<PageLike | 
   const normalized = await Promise.all(tabs.map(tab => hydrateTab(browser, tab)));
   for (const tab of normalized) {
     try {
-      if ((await tab.url?.())?.includes("chatgpt.com") === true) {
+      if (isChatGPTUrl(await tab.url?.())) {
         return tab;
       }
     } catch {

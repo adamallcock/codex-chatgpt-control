@@ -6,7 +6,7 @@ import { contextFromPage } from "./context.js";
 import { bootstrap } from "./session.js";
 
 const DEFAULT_MODE_EFFORT = "Thinking";
-const CURRENT_MODE_LABELS = ["Latest", "Instant", "Thinking", "Extended", "Pro"];
+const CURRENT_MODE_LABELS = ["Latest", "最新", "Instant", "Thinking", "シンキング", "Extended", "拡張", "Standard", "標準", "Pro", "プロ"];
 const MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter(label => label !== "Pro"), "Configure"];
 
 export async function setMode(
@@ -23,25 +23,42 @@ export async function setMode(
   try {
     const requested = requestedModeLabels(args);
     const opened = await waitForModeMenu(page, requested, args.timeoutMs ?? 30000);
-    if (opened.alreadySelected.length === requested.length) {
+    if (modeSelectionSatisfied(opened.modeButtons, requested)) {
       return resultOk({ selected: opened.alreadySelected, candidates: opened.modeButtons }, await contextFromPage(page));
     }
     if (!opened.opened) {
       return selectorDrift(page, "No unique ChatGPT mode menu opener was found.");
     }
     await page.waitForTimeout?.(250);
-    const candidates = await enumerateVisibleMenuItems(page);
+    let candidates = await enumerateVisibleMenuItems(page);
+    const candidateLabels = new Set(candidates.map(candidate => candidate.label));
     const selected: string[] = [];
+    const combined = findCombinedModeMenuItem(candidates, args);
+    if (combined !== undefined) {
+      if (!await clickMenuItem(page, combined.label)) {
+        return selectorDrift(page, `Mode option "${combined.label}" was visible but could not be clicked.`, candidates.map(candidate => candidate.label));
+      }
+      selected.push(combined.label);
+    }
 
-    for (const item of requested) {
+    for (const item of combined === undefined ? requested : []) {
       const match = findUniqueMenuItem(candidates, item);
       if (match === undefined) {
-        const candidateLabels = candidates.map(candidate => candidate.label);
+        if (await selectEffortFromConfigureModal(page, item)) {
+          selected.push(item);
+          await page.waitForTimeout?.(250);
+          candidates = await enumerateVisibleMenuItems(page);
+          for (const candidate of candidates) {
+            candidateLabels.add(candidate.label);
+          }
+          continue;
+        }
+        const visibleCandidateLabels = [...candidateLabels];
         return {
           ok: false,
           status: "unsupported",
           warnings: [],
-          blocker: selectorDriftBlocker(`Mode option "${item}" was not found or was ambiguous.`, candidateLabels),
+          blocker: selectorDriftBlocker(`Mode option "${item}" was not found or was ambiguous.`, visibleCandidateLabels),
           context: await contextFromPage(page)
         };
       }
@@ -49,9 +66,24 @@ export async function setMode(
         return selectorDrift(page, `Mode option "${match.label}" was visible but could not be clicked.`, candidates.map(candidate => candidate.label));
       }
       selected.push(match.label);
+      await page.waitForTimeout?.(250);
+      candidates = await enumerateVisibleMenuItems(page);
+      for (const candidate of candidates) {
+        candidateLabels.add(candidate.label);
+      }
     }
 
-    return resultOk({ selected, candidates: candidates.map(candidate => candidate.label) }, await contextFromPage(page));
+    const verified = await waitForSelectedModes(page, requested, Math.min(args.timeoutMs ?? 30000, 5000));
+    if (!modeSelectionSatisfied(verified, requested)) {
+      const finalButtons = await visibleModeButtonLabelList(page);
+      return selectorDrift(
+        page,
+        "Requested ChatGPT mode was clicked, but the final selected mode could not be verified.",
+        [...new Set([...candidateLabels, ...finalButtons])]
+      );
+    }
+
+    return resultOk({ selected: verified, candidates: [...candidateLabels] }, await contextFromPage(page));
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
@@ -70,7 +102,7 @@ async function waitForModeMenu(page: PageLike, requested: string[], timeoutMs: n
   do {
     modeButtons = await visibleModeButtonLabelList(page);
     const alreadySelected = findAlreadySelectedModes(modeButtons, requested);
-    if (alreadySelected.length === requested.length) {
+    if (modeSelectionSatisfied(modeButtons, requested)) {
       return { opened: false, alreadySelected, modeButtons };
     }
 
@@ -161,7 +193,44 @@ async function clickModeOpener(page: PageLike, modeButtons: string[]): Promise<b
     return true;
   }
 
+  if (await clickModeOpenerByDom(page)) {
+    return true;
+  }
+
   return clickFirstUniqueButton(page, MODE_OPENER_LABELS);
+}
+
+async function clickModeOpenerByDom(page: PageLike): Promise<boolean> {
+  if (typeof page.evaluate !== "function") {
+    return false;
+  }
+
+  return page.evaluate((modeLabels: string[]) => {
+    const normalizedModeLabels = modeLabels.map(label => label.toLowerCase());
+    const tokenMatches = (text: string, token: string) => {
+      if (token === "プロ") {
+        return /(^|[\s・･•|/()（）-])プロ($|[\s・･•|/()（）-])/.test(text);
+      }
+      if (token.length <= 3 && /^[a-z0-9]+$/i.test(token)) {
+        return new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`, "i").test(text);
+      }
+      return text.includes(token);
+    };
+    const candidates = Array.from(document.querySelectorAll("button, [role='button']"))
+      .filter(node => {
+        const element = node as HTMLElement;
+        if (element.getAttribute("data-testid") === "accounts-profile-button") return false;
+        const aria = (element.getAttribute("aria-label") ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+        if (/profile|プロファイル|conversation options|dismiss|feedback|send prompt|プロンプトを送信/i.test(aria)) return false;
+        const text = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+        if (text.length === 0) return false;
+        if (/プロンプト|プロジェクト|プロファイル/.test(text)) return false;
+        return normalizedModeLabels.some(label => tokenMatches(text, label));
+      });
+    if (candidates.length !== 1) return false;
+    (candidates[0] as HTMLElement).click();
+    return true;
+  }, CURRENT_MODE_LABELS).catch(() => false);
 }
 
 function looksLikeModeMenu(labels: string[]): boolean {
@@ -237,6 +306,111 @@ async function clickMenuItemByDom(page: PageLike, label: string): Promise<boolea
   }, label).catch(() => false);
 }
 
+async function selectEffortFromConfigureModal(page: PageLike, effort: string): Promise<boolean> {
+  if (!isEffortLabel(effort)) {
+    return false;
+  }
+
+  if (!await openConfigureModal(page)) {
+    return false;
+  }
+
+  if (await effortAlreadySelectedInConfigureModal(page, effort)) {
+    await closeConfigureModal(page);
+    return true;
+  }
+
+  const combo = page.locator?.("[role='combobox']")?.filter?.({ hasText: effortCurrentSelectionPattern() });
+  if (!await clickIfUnique(combo)) {
+    return false;
+  }
+  await page.waitForTimeout?.(250);
+
+  const wanted = effortAliasPattern(effort);
+  const option = page.locator?.("[role='option'], [role='menuitem'], [role='menuitemradio']")?.filter?.({ hasText: wanted });
+  if (!await clickIfUnique(option)) {
+    return false;
+  }
+  await page.waitForTimeout?.(250);
+
+  const selected = await effortAlreadySelectedInConfigureModal(page, effort);
+  await closeConfigureModal(page);
+  return selected;
+}
+
+async function openConfigureModal(page: PageLike): Promise<boolean> {
+  if (await configureModalVisible(page)) {
+    return true;
+  }
+
+  if (await clickModelConfigureMenuItem(page)) {
+    await page.waitForTimeout?.(250);
+    return configureModalVisible(page);
+  }
+
+  return false;
+}
+
+async function clickModelConfigureMenuItem(page: PageLike): Promise<boolean> {
+  if (typeof page.locator === "function") {
+    const testId = page.locator("[data-testid='model-configure-modal']");
+    if (await clickIfUnique(testId)) {
+      return true;
+    }
+  }
+  return clickMenuItem(page, "設定する...");
+}
+
+async function configureModalVisible(page: PageLike): Promise<boolean> {
+  if (typeof page.evaluate !== "function") {
+    return false;
+  }
+  return page.evaluate(() => {
+    return Array.from(document.querySelectorAll("[role='dialog'], [aria-modal='true'], header, h2"))
+      .some(node => ((node as HTMLElement).innerText ?? node.textContent ?? "").includes("インテリジェンス"));
+  }).catch(() => false);
+}
+
+async function effortAlreadySelectedInConfigureModal(page: PageLike, effort: string): Promise<boolean> {
+  if (typeof page.evaluate !== "function") {
+    return false;
+  }
+  return page.evaluate((aliases: string[]) => {
+    const comboTexts = Array.from(document.querySelectorAll("[role='combobox']"))
+      .map(node => ((node as HTMLElement).innerText ?? node.textContent ?? "").replace(/\s+/g, " ").trim());
+    return comboTexts.some(text => aliases.some(alias => text === alias));
+  }, effortAliases(effort)).catch(() => false);
+}
+
+async function closeConfigureModal(page: PageLike): Promise<void> {
+  const closeByTestId = page.locator?.("[data-testid='close-button']");
+  if (await clickIfUnique(closeByTestId)) {
+    await page.waitForTimeout?.(250);
+    return;
+  }
+  const closeByRole = page.getByRole?.("button", { name: "閉じる", exact: true });
+  if (await clickIfUnique(closeByRole)) {
+    await page.waitForTimeout?.(250);
+  }
+}
+
+function isEffortLabel(label: string): boolean {
+  const normalized = normalizeLabel(label);
+  return ["extended", "拡張", "standard", "標準", "thinking", "シンキング"].includes(normalized);
+}
+
+function effortAliases(label: string): string[] {
+  return labelAliases(label).filter(alias => ["extended", "拡張", "じっくり思考", "standard", "標準", "thinking", "シンキング"].includes(alias));
+}
+
+function effortAliasPattern(label: string): RegExp {
+  return new RegExp(effortAliases(label).map(escapeRegExp).join("|"), "i");
+}
+
+function effortCurrentSelectionPattern(): RegExp {
+  return /^(標準|拡張|Standard|Extended)$/i;
+}
+
 async function clickIfUnique(locator: LocatorLike | undefined): Promise<boolean> {
   if (locator === undefined || typeof locator.count !== "function" || typeof locator.click !== "function") {
     return false;
@@ -281,10 +455,57 @@ function findUniqueVisibleLabel(labels: string[], wanted: string): string | unde
 }
 
 function visibleLabelMatches(label: string, wanted: string): boolean {
-  if (wanted.length <= 3) {
+  return labelAliases(wanted).some(alias => visibleLabelMatchesOne(label, alias));
+}
+
+function visibleLabelMatchesOne(label: string, wanted: string): boolean {
+  if (wanted === "プロ") {
+    return /(^|[\s・･•|/()（）-])プロ($|[\s・･•|/()（）-])/.test(label);
+  }
+  if (wanted.length <= 3 && /^[a-z0-9]+$/i.test(wanted)) {
     return new RegExp(`(^|[^a-z0-9])${escapeRegExp(wanted)}([^a-z0-9]|$)`, "i").test(label);
   }
   return label.includes(wanted);
+}
+
+function labelAliases(label: string): string[] {
+  const normalized = normalizeLabel(label);
+  const aliases = new Set([normalized]);
+  switch (normalized) {
+    case "extended":
+    case "拡張":
+      aliases.add("extended");
+      aliases.add("拡張");
+      aliases.add("じっくり思考");
+      break;
+    case "standard":
+    case "標準":
+      aliases.add("standard");
+      aliases.add("標準");
+      break;
+    case "pro":
+    case "プロ":
+      aliases.add("pro");
+      aliases.add("プロ");
+      break;
+    case "thinking":
+    case "シンキング":
+      aliases.add("thinking");
+      aliases.add("シンキング");
+      break;
+  }
+  return [...aliases];
+}
+
+function findCombinedModeMenuItem(items: Array<{ label: string; normalized: string }>, args: SetModeArgs): { label: string } | undefined {
+  if (args.model === undefined || args.effort === undefined) {
+    return undefined;
+  }
+  const matches = items.filter(item =>
+    visibleLabelMatches(item.normalized, normalizeLabel(args.model!))
+    && visibleLabelMatches(item.normalized, normalizeLabel(args.effort!))
+  );
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 function escapeRegExp(value: string): string {
@@ -296,9 +517,30 @@ function escapeAttributeValue(value: string): string {
 }
 
 function findAlreadySelectedModes(visibleButtons: string[], requested: string[]): string[] {
-  return requested
+  return [...new Set(requested
     .map(label => findUniqueVisibleLabel(visibleButtons, label))
-    .filter((label): label is string => label !== undefined);
+    .filter((label): label is string => label !== undefined))];
+}
+
+function modeSelectionSatisfied(visibleButtons: string[], requested: string[]): boolean {
+  return requested.every(label => findUniqueVisibleLabel(visibleButtons, label) !== undefined);
+}
+
+async function waitForSelectedModes(page: PageLike, requested: string[], timeoutMs: number): Promise<string[]> {
+  const deadline = Date.now() + timeoutMs;
+
+  do {
+    const visibleButtons = await visibleModeButtonLabelList(page);
+    const selected = findAlreadySelectedModes(visibleButtons, requested);
+    if (modeSelectionSatisfied(visibleButtons, requested)) {
+      return selected;
+    }
+
+    if (Date.now() >= deadline) {
+      return selected;
+    }
+    await page.waitForTimeout?.(250);
+  } while (true);
 }
 
 async function selectorDrift<T>(
@@ -364,6 +606,9 @@ async function visibleModeButtonLabelList(page: PageLike): Promise<string[]> {
   return page.evaluate((modeLabels: string[]) => {
     const normalizedModeLabels = modeLabels.map(label => label.toLowerCase());
     const tokenMatches = (text: string, token: string) => {
+      if (token === "プロ") {
+        return /(^|[\s・･•|/()（）-])プロ($|[\s・･•|/()（）-])/.test(text);
+      }
       if (token.length <= 3) {
         return new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`, "i").test(text);
       }
@@ -378,6 +623,8 @@ async function visibleModeButtonLabelList(page: PageLike): Promise<string[]> {
         const testId = element.getAttribute("data-testid") ?? "";
         if (testId === "accounts-profile-button") return "";
         if (/open profile menu/i.test(label)) return "";
+        if (/profile|プロファイル|send prompt|プロンプトを送信/i.test(ariaLabel)) return "";
+        if (/プロンプト|プロジェクト|プロファイル/.test(visibleText)) return "";
         if (visibleText.length === 0 && /feedback|conversation options|dismiss/i.test(ariaLabel)) return "";
         const normalized = label.toLowerCase();
         if (!normalizedModeLabels.some(modeLabel => tokenMatches(normalized, modeLabel))) return "";

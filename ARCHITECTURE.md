@@ -14,10 +14,10 @@ This repository is an unofficial SDK for user-directed workflows in visible Chat
 
 The guarded Pro review flow is intentionally split into small steps:
 
-1. Attach to a visible ChatGPT tab through the browser bridge.
+1. Attach to a visible ChatGPT tab through the browser bridge, starting from `https://chatgpt.com/?temporary-chat=true` for Pro review.
 2. Verify the current host is a real ChatGPT host.
-3. Open a new empty chat.
-4. Ensure Temporary Chat is verified on.
+3. Ensure the starting tab is an empty chat.
+4. Ensure Temporary Chat is verified on. When the visible toggle is hidden, the workflow may treat `temporary-chat=true` plus zero user/assistant turns as verified Temporary Chat evidence.
 5. Select the requested visible mode. Pro review defaults to visible `Pro` with effort `拡張`; it must not rely on ChatGPT's default `Thinking` mode. Japanese ChatGPT UI may require selecting `Pro`, opening the intelligence/settings modal, and changing `Pro の思考の労力` from `標準` to `拡張`. After that, the selected state may show as `じっくり思考 Pro`, and this is treated as the same verified mode.
 6. Attach the expected zip.
 7. Verify exactly the expected attachment name is visible.
@@ -44,7 +44,7 @@ npm --prefix packages/node run pro-review-return -- --meta <answer.meta.json> --
 npm --prefix packages/node run pro-review-return -- --meta <answer.meta.json> --confirm-sent --post-send-thread-json <thread-read-after-send.json> --attempt-id <attemptId>
 ```
 
-Dry-run is the default. `--submit` only requests submission; the same host, Temporary Chat, attachment, prompt hash, mode, blocker, and unique send-button guards still decide whether the message may be sent. The CLI uses the existing Pro review workflow, defaults to `Pro` + `拡張`, starts from a new ChatGPT tab by default, and does not use OS cursor control. Submit waits up to 10 minutes by default before copying the latest assistant answer.
+Dry-run is the default. `--submit` only requests submission; the same host, Temporary Chat, attachment, prompt hash, mode, blocker, and unique send-button guards still decide whether the message may be sent. The CLI uses the existing Pro review workflow, defaults to `Pro` + `拡張`, starts from a new `temporary-chat=true` ChatGPT tab by default, and does not use OS cursor control. Submit waits up to 10 minutes by default before copying the latest assistant answer.
 
 When `--output answer.md` is supplied, the CLI writes schema v2 `answer.md`, `answer.meta.json`, `.pro-review-runs/<runId>/input-prompt.md`, `.pro-review-runs/<runId>/return-ledger.json`, and `.pro-review-runs/<runId>/return-prompt.md` atomically. Callers should check `ok`, `status`, `runId`, `codex.threadId`, `codex.sessionId`, `codex.cwd`, `codex.projectRoot`, `codex.git`, `prompt.path`, `prompt.sha256`, `zip.sha256`, `answer.sha256`, `answer.source`, and `answer.format` before treating the Markdown body as a completed Pro review. The v2 generator records git worktree root, branch, and head SHA; it does not read raw git remote URLs because remote URLs can contain credential-adjacent userinfo or tokens.
 
@@ -74,6 +74,7 @@ No 1Password, SOPS, age, or plaintext secret cache is required for the v1 guarde
 - Automatic submission requires an explicit `autoSubmit: true` request and the same guard checks used by dry-run.
 - Pro review attachments must be `.zip` files, non-empty, no larger than 100 MB, and have a basic ZIP signature before upload is attempted.
 - Attachment SHA-256 and byte counts are local source metadata. The visible ChatGPT UI can confirm the attachment name and absence of extra visible attachments, but it cannot prove that ChatGPT received identical bytes.
+- Attachment verification normalizes delete-button labels such as `ファイル 1 を削除：review.zip` and invisible label characters so the delete affordance is not treated as a second attachment.
 - Composer prompt verification hashes a normalized prompt form that removes blank-only lines and trailing line whitespace. This preserves non-empty line content and order while tolerating extra blank lines inserted by ChatGPT's composer DOM for long Markdown prompts.
 - ChatGPT output is returned as review input for Codex; executing suggested changes is a separate decision.
 - The bridge does not paste the Pro answer into the Codex Desktop UI. It saves the answer to the current run's output file and prepares a return prompt tied to the detected Codex thread id when available.
