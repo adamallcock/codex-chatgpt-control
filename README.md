@@ -7,11 +7,10 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Node](https://img.shields.io/badge/Node-20%2B-green)
 
-![codex-chatgpt-control visible-session bridge banner](assets/readme/codex-chatgpt-control-readme-banner.png)
+Unofficial alpha SDK facade for Codex agents that need to run user-directed workflows in a visible ChatGPT web session.
 
 https://github.com/user-attachments/assets/6ca38f2d-6646-490d-8e4d-8a6dc21e926f
 
-Unofficial alpha SDK facade for Codex agents that need to run user-directed workflows in a visible ChatGPT web session.
 
 ## Why This Exists
 
@@ -42,6 +41,8 @@ Use `codex-chatgpt-control` when a Codex-style agent needs to work with the real
 - save local run reports that omit prompt and response content by default
 
 This project deliberately does not provide hidden ChatGPT access, account automation, or a replacement for the OpenAI API.
+
+-----
 
 ## Install
 
@@ -196,6 +197,10 @@ import { createChatGPT } from "./dist/codex-chatgpt-control.bundle.mjs";
 const chatgpt = createChatGPT({ agent: globalThis.agent });
 ```
 
+-----
+
+![codex-chatgpt-control visible-session bridge banner](assets/readme/codex-chatgpt-control-readme-banner.png)
+
 ## SDK Shape
 
 The main Node entrypoint is `createChatGPT({ agent })`. It exposes:
@@ -253,6 +258,8 @@ packages/python/    Python parity client, examples, tests
 docs/               Public architecture, safety, bridge, and release notes
 .github/workflows/  Deterministic CI gates
 ```
+
+-----
 
 ## Development
 
