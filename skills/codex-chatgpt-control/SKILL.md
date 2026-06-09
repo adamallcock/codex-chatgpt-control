@@ -44,6 +44,10 @@ File attachment workflows need two separate permission gates:
 
 If either gate is missing, stop with a permission blocker and tell the user which gate to check.
 
+## Host-Local Attachment Paths
+
+Attachment paths must be absolute on the machine running the Node backend. Use the path form for that host operating system. On Linux/WSL backends, use paths such as `/home/you/file.pdf` or `/mnt/c/work/file.pdf`. On Windows backends, use fully qualified paths such as `C:\Users\you\file.pdf`. If a Windows-looking path is rejected on macOS/Linux, do not retry with the same string. Convert it to the backend host's real path, for example `/home/you/file.pdf` for a Linux/WSL backend.
+
 ## Source Setup
 
 From a source checkout:
@@ -129,7 +133,7 @@ Attach approved files:
 ```ts
 await chatgpt.askWithFiles({
   thread: { type: "new" },
-  files: ["/absolute/path/to/approved-file.pdf"],
+  files: ["/absolute/host/path/to/approved-file.pdf"],
   prompt: "Summarize this file.",
   wait: true,
   read: { format: "markdown" },

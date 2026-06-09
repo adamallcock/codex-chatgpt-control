@@ -30,6 +30,10 @@ Real ChatGPT control additionally needs:
 
 `globalThis.agent` is host-provided. The SDK does not create or fake a browser bridge from an ordinary shell.
 
+## Host-Local Attachment Paths
+
+Attachment paths must be absolute on the machine running the Node backend. On Linux/WSL backends, use paths such as `/home/you/file.pdf` or `/mnt/c/work/file.pdf`. On Windows backends, use fully qualified paths such as `C:\Users\you\file.pdf` or UNC paths such as `\\server\share\file.pdf`. The backend rejects ambiguous Windows forms and rejects Windows-looking paths when the backend host is POSIX.
+
 ## File Upload Permissions
 
 File attachments require both permission gates:

@@ -16,7 +16,12 @@ on:
 
 jobs:
   node-backend-contracts:
-    runs-on: ubuntu-latest
+    name: node backend contracts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     defaults:
       run:
         working-directory: packages/node
@@ -39,7 +44,12 @@ jobs:
       - run: npm run test:backend-conformance
 
   python-parity:
-    runs-on: ubuntu-latest
+    name: python parity (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     defaults:
       run:
         working-directory: packages/python
@@ -63,5 +73,5 @@ jobs:
       - run: python -m unittest discover -s tests
       - run: python -m compileall -q src
       - run: python -m compileall -q examples
-      - run: python -m pyright --pythonpath "$(which python)" src tests
+      - run: python -m pyright src tests
       - run: python scripts/live_smoke.py --mode ordinary-shell

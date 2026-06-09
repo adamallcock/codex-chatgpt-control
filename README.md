@@ -264,6 +264,8 @@ For real ChatGPT browser control:
 
 ### Local File Upload Requirements
 
+Attachment paths must be absolute on the machine running the Node backend. Use `/home/you/file.pdf` or `/mnt/c/work/file.pdf` for Linux/WSL backends. Use `C:\Users\you\file.pdf` or `\\server\share\file.pdf` for Windows backends. The backend rejects ambiguous Windows forms such as `C:Users\you\file.pdf` and rejects Windows-looking paths when the backend host is POSIX.
+
 File attachments need two separate permission gates:
 
 1. **Chrome extension gate:** open `chrome://extensions`, choose the Codex/browser bridge extension, open **Details**, and enable **Allow access to file URLs**.
@@ -305,7 +307,7 @@ cd packages/python
 python -m pip install -e .[dev]
 python -m unittest discover -s tests
 python -m compileall -q src examples
-python -m pyright --pythonpath "$(which python)" src tests
+python -m pyright src tests
 python scripts/live_smoke.py --mode ordinary-shell
 ```
 

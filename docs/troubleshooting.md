@@ -32,6 +32,10 @@ Then rerun the Python smoke from `packages/python`.
 
 Treat selector drift as a product-change blocker. Capture the smallest public-safe reproduction and update selectors/tests together.
 
+## Attachment Path Rejected
+
+If a Windows-looking path is rejected on macOS/Linux, do not retry with the same string. Convert it to the backend host's real path, for example `/home/you/file.pdf` for a Linux/WSL backend. The backend rejects ambiguous Windows forms such as `C:Users\you\file.pdf`, root-relative paths like `\tmp\file.pdf`, and empty or relative paths.
+
 ## File Upload Blocked
 
 Check both permission gates:

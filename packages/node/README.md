@@ -40,6 +40,26 @@ await chatgpt.askInThread({
 });
 ```
 
+Attach local files with host-local absolute paths:
+
+```ts
+await chatgpt.askWithFiles({
+  files: ["/absolute/host/path/to/report.pdf"],
+  prompt: "Summarize this report.",
+  wait: true,
+  read: { format: "markdown" }
+});
+
+await chatgpt.askWithFiles({
+  files: [String.raw`C:\Users\you\Documents\report.pdf`],
+  prompt: "Summarize this report.",
+  wait: true,
+  read: { format: "markdown" }
+});
+```
+
+Use the second example only when the backend process itself is running on Windows. If the backend runs in WSL/Linux, pass the WSL/Linux path, such as `/home/you/Documents/report.pdf`.
+
 ## Validation
 
 Run deterministic gates:

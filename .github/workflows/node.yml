@@ -14,7 +14,12 @@ on:
 
 jobs:
   deterministic-gates:
-    runs-on: ubuntu-latest
+    name: node deterministic gates (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     defaults:
       run:
         working-directory: packages/node
