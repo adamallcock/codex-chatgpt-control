@@ -640,7 +640,7 @@
     {
       "id": "python.pyright",
       "cwd": "packages/python",
-      "command": "python -m pyright --pythonpath \"$(which python)\" src tests",
+      "command": "python -m pyright src tests",
       "ciRequired": true
     },
     {
