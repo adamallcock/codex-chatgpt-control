@@ -238,6 +238,14 @@ class StdioBackendTransport:
     def _process_error(self, message: str) -> BackendTransportError:
         process = self._process
         returncode = process.poll() if process is not None else None
+        if process is not None and returncode is None:
+            try:
+                returncode = process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                returncode = None
+        stderr_thread = self._stderr_thread
+        if stderr_thread is not None and stderr_thread.is_alive():
+            stderr_thread.join(timeout=0.5)
         stderr = self._read_stderr(process)
         if returncode is not None:
             return BackendTransportError(

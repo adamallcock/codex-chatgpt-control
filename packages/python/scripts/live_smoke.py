@@ -331,11 +331,11 @@ def normalized_text(value: str) -> str:
 
 def resolve_backend_command(backend_command: str | None) -> tuple[list[str], str]:
     if backend_command is not None:
-        return shlex.split(backend_command), "cli"
+        return shlex.split(backend_command, posix=sys.platform != "win32"), "cli"
 
     env_command = os.environ.get(BACKEND_COMMAND_ENV)
     if env_command:
-        return shlex.split(env_command), BACKEND_COMMAND_ENV
+        return shlex.split(env_command, posix=sys.platform != "win32"), BACKEND_COMMAND_ENV
 
     return ["node", str(BACKEND_BUNDLE)], "default-node-bundle"
 
