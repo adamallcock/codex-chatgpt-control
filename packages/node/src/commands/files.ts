@@ -1,6 +1,7 @@
 import { access, readFile, stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { constants } from "node:fs";
+import { downloadLatestArtifact, locatorCountWithTimeout } from "./artifacts.js";
 import { waitForDownloadFromClick } from "../browser/downloads.js";
 import { resultError, resultOk } from "../errors.js";
 import { addFilesButton, cssSelectors, requiredLocator } from "../dom/selectors.js";
@@ -18,6 +19,7 @@ import type {
 } from "../types.js";
 import { contextFromPage } from "./context.js";
 import { bootstrap } from "./session.js";
+import { localGuardTimeout } from "./timeouts.js";
 
 const CODEX_UPLOAD_PERMISSION_FIX = "Codex Settings > Computer Use > Chrome > Permissions > Uploads: set to Always allow, or add chatgpt.com to the allowed upload domains.";
 const CHROME_FILE_URL_PERMISSION_FIX = "Chrome chrome://extensions > Codex extension > Details: enable Allow access to file URLs.";
@@ -249,8 +251,28 @@ export async function downloadLatestFile(
 
   try {
     const controls = requiredLocator(page, cssSelectors.downloadControls);
-    const count = await controls.count?.();
+    let count: number;
+    try {
+      count = await locatorCountWithTimeout(controls, localGuardTimeout(args.timeoutMs, 5000), "download_control_timeout");
+    } catch (error) {
+      return {
+        ok: false,
+        status: "unsupported",
+        warnings: [],
+        blocker: {
+          kind: "download_unavailable",
+          code: "download_control_timeout",
+          message: `No visible ChatGPT download control could be counted before the local guard timeout: ${error instanceof Error ? error.message : String(error)}`,
+          resumable: true
+        },
+        context: await contextFromPage(page)
+      };
+    }
     if (count === 0) {
+      const artifactDownload = await downloadLatestArtifact(env, args);
+      if (artifactDownload.ok) {
+        return artifactDownload;
+      }
       return {
         ok: false,
         status: "unsupported",

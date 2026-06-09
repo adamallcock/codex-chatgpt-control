@@ -1,11 +1,14 @@
 import type {
   AskArgs,
+  ArtifactDownloadArgs,
+  ArtifactWaitArgs,
   AttachFilesArgs,
   BootstrapArgs,
   CommandResult,
   CopyResponseArgs,
   DownloadLatestArgs,
   ExistingTabPolicy,
+  ListArtifactsArgs,
   NewThreadArgs,
   OpenThreadArgs,
   ReadLatestArgs,
@@ -17,6 +20,7 @@ import type {
   ThreadTarget,
   WaitArgs
 } from "./types.js";
+import { downloadLatestArtifact, listLatestArtifacts, waitForArtifact } from "./commands/artifacts.js";
 import { attachFiles, downloadLatestFile } from "./commands/files.js";
 import { doctor, type DoctorArgs, type DoctorReport } from "./commands/doctor.js";
 import { askMessage, composeMessage, readLatest, submitMessage, waitAndRead, waitForMessage } from "./commands/messages.js";
@@ -146,6 +150,11 @@ export type ChatGPTClient = {
   readLatest(args?: ReadLatestArgs): Promise<CommandResult<unknown>>;
   copyLatest(args?: CopyResponseArgs): Promise<CommandResult<unknown>>;
   downloadLatest(args: DownloadLatestArgs): Promise<CommandResult<unknown>>;
+  artifacts: {
+    listLatest(args?: ListArtifactsArgs): Promise<CommandResult<unknown>>;
+    wait(args?: ArtifactWaitArgs): Promise<CommandResult<unknown>>;
+    downloadLatest(args: ArtifactDownloadArgs): Promise<CommandResult<unknown>>;
+  };
   runPlan(plan: SequencePlan | NamedWorkflowInvocation): Promise<CommandResult<unknown>>;
   doctor(args?: DoctorArgs): Promise<CommandResult<DoctorReport>>;
   createReport(result: CommandResult<unknown>, args?: RunReportOptions): Promise<CommandResult<RunReportData>>;
@@ -248,6 +257,11 @@ export function createChatGPT(options: ChatGPTClientOptions = {}): ChatGPTClient
     files: {
       attach: args => attachFiles(env, args),
       downloadLatest: args => downloadLatestFile(env, args)
+    },
+    artifacts: {
+      listLatest: args => listLatestArtifacts(env, args),
+      wait: args => waitForArtifact(env, args),
+      downloadLatest: args => downloadLatestArtifact(env, args)
     },
     modes: {
       set: args => setMode(env, args)
@@ -455,6 +469,7 @@ function planAgentWorkflowFromNormalized<TOutput>(
   const wait = input.wait ?? agent.defaults.wait ?? defaults.wait ?? true;
   const read = input.read ?? agent.defaults.read ?? defaults.read ?? { format: "markdown" };
   const thread = input.thread ?? agent.defaults.thread ?? { type: "new" };
+  const artifactDownload = input.download !== undefined && input.download !== false && usesCreateImageTool(input.tools);
   const steps: SequencePlan["steps"] = [
     bootstrapStepForWorkflow(
       thread,
@@ -474,6 +489,9 @@ function planAgentWorkflowFromNormalized<TOutput>(
   if (input.files.length > 0) {
     steps.push({ id: "attach", command: "files.attach", args: { paths: input.files } });
   }
+  if (artifactDownload) {
+    steps.push({ id: "artifactBaseline", command: "artifacts.listLatest", args: { kind: "image" } });
+  }
 
   if (agent.instructionsMode === "visible_setup_message" && hasInstructions(agent)) {
     steps.push({
@@ -492,16 +510,24 @@ function planAgentWorkflowFromNormalized<TOutput>(
     command: "messages.ask",
     args: {
       text: renderRunnerPrompt(agent, input.prompt),
-      wait,
-      read
+      wait: artifactDownload ? false : wait,
+      read: artifactDownload ? false : read
     }
   });
+
+  if (artifactDownload) {
+    steps.push({
+      id: "artifact",
+      command: "artifacts.wait",
+      args: artifactWaitArgs(wait, input.download === false ? undefined : input.download)
+    });
+  }
 
   if (input.copy !== undefined && input.copy !== false) {
     steps.push({ id: "copy", command: "response.copy", args: input.copy });
   }
   if (input.download !== undefined && input.download !== false) {
-    steps.push({ id: "download", command: "files.downloadLatest", args: input.download });
+    steps.push({ id: "download", command: artifactDownload ? "artifacts.downloadLatest" : "files.downloadLatest", args: input.download });
   }
 
   return {
@@ -676,19 +702,30 @@ function planAskWorkflow(args: AskWorkflowArgs, defaults: ChatGPTClientOptions["
   if (files.length > 0) {
     steps.push({ id: "attach", command: "files.attach", args: { paths: files } });
   }
+  const artifactDownload = args.download !== undefined && usesCreateImageTool(args.tools ?? []);
+  if (artifactDownload) {
+    steps.push({ id: "artifactBaseline", command: "artifacts.listLatest", args: { kind: "image" } });
+  }
 
   steps.push({
     id: "ask",
     command: "messages.ask",
     args: {
       text: args.prompt,
-      wait: args.wait ?? defaults.wait ?? true,
-      read: args.read ?? defaults.read ?? { format: "markdown" }
+      wait: artifactDownload ? false : args.wait ?? defaults.wait ?? true,
+      read: artifactDownload ? false : args.read ?? defaults.read ?? { format: "markdown" }
     }
   });
 
   if (args.download !== undefined) {
-    steps.push({ id: "download", command: "files.downloadLatest", args: args.download });
+    if (artifactDownload) {
+      steps.push({
+        id: "artifact",
+        command: "artifacts.wait",
+        args: artifactWaitArgs(args.wait ?? defaults.wait ?? true, args.download)
+      });
+    }
+    steps.push({ id: "download", command: artifactDownload ? "artifacts.downloadLatest" : "files.downloadLatest", args: args.download });
   }
 
   return {
@@ -696,6 +733,31 @@ function planAskWorkflow(args: AskWorkflowArgs, defaults: ChatGPTClientOptions["
     policy: { stopOnError: true, returnPartial: true },
     steps
   };
+}
+
+function usesCreateImageTool(tools: SelectToolArgs[]): boolean {
+  return tools.some(tool => normalizeToolName(tool.tool) === "create_image");
+}
+
+function normalizeToolName(tool: string): string {
+  return tool.trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+function artifactWaitArgs(wait: boolean | WaitArgs | undefined, download: DownloadLatestArgs | undefined): ArtifactWaitArgs {
+  const args: ArtifactWaitArgs = {
+    kind: "image",
+    afterArtifactCount: "${artifactBaseline.data.count}" as unknown as number,
+    requireDownload: true
+  };
+  if (typeof wait === "object") {
+    if (wait.timeoutMs !== undefined) args.timeoutMs = wait.timeoutMs;
+    if (wait.stableMs !== undefined) args.stableMs = wait.stableMs;
+    if (wait.pollMs !== undefined) args.pollMs = wait.pollMs;
+  }
+  if (args.timeoutMs === undefined && download?.timeoutMs !== undefined) {
+    args.timeoutMs = download.timeoutMs;
+  }
+  return args;
 }
 
 function planRunMessages(args: RunMessagesArgs, defaults: ChatGPTClientOptions["defaults"] = {}): SequencePlan {

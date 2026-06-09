@@ -1,9 +1,12 @@
 import { createChatGPT, type ChatGPTClient, type ChatGPTClientOptions } from "../client.js";
 import type { ChatGPTAgentConfig, ChatGPTRunInput } from "../runner/types.js";
 import type {
+  ArtifactDownloadArgs,
+  ArtifactWaitArgs,
   CopyResponseArgs,
   CommandResult,
   DownloadLatestArgs,
+  ListArtifactsArgs,
   ReadLatestArgs,
   SequencePlan
 } from "../types.js";
@@ -177,6 +180,12 @@ async function dispatchBackendCommand(client: ChatGPTClient, request: BackendReq
       return client.messages.readLatest(emptyToUndefined(payload));
     case "messages.waitAndRead":
       return client.messages.waitAndRead(payload as Parameters<ChatGPTClient["messages"]["waitAndRead"]>[0]);
+    case "artifacts.listLatest":
+      return client.artifacts.listLatest(emptyToUndefined(payload) as ListArtifactsArgs | undefined);
+    case "artifacts.wait":
+      return client.artifacts.wait(emptyToUndefined(payload) as ArtifactWaitArgs | undefined);
+    case "artifacts.downloadLatest":
+      return client.artifacts.downloadLatest(payload as ArtifactDownloadArgs);
     case "files.attach":
       return client.files.attach(payload as Parameters<ChatGPTClient["files"]["attach"]>[0]);
     case "files.downloadLatest":

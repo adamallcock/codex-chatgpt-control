@@ -1,0 +1,45 @@
+{
+  "name": "codex-chatgpt-control",
+  "version": "0.1.0-alpha.1+codex.20260608.1",
+  "description": "Use visible ChatGPT web from Codex for threads, files, Pro review, response capture, and safe blocker reporting.",
+  "author": {
+    "name": "Adam Allcock",
+    "url": "https://github.com/adamallcock"
+  },
+  "homepage": "https://github.com/adamallcock/codex-chatgpt-control",
+  "repository": "https://github.com/adamallcock/codex-chatgpt-control",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "chatgpt",
+    "browser",
+    "visible-ui",
+    "agents",
+    "pro-consult"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ChatGPT Control for Codex",
+    "shortDescription": "Use visible ChatGPT web from Codex for threads, files, Pro review, response capture, and blockers",
+    "longDescription": "ChatGPT Control for Codex lets Codex agents work with the ChatGPT web product the user can see. It supports user-directed prompts, thread reuse, file attachments, visible downloads, Markdown response capture, redacted reports, Pro consultation workflows, and structured blockers for login, captcha, permissions, selector drift, rate limits, and missing browser bridge state. It does not bypass ChatGPT login, call hidden endpoints, read cookies, or replace the OpenAI API.",
+    "developerName": "Adam Allcock",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/adamallcock/codex-chatgpt-control",
+    "privacyPolicyURL": "https://github.com/adamallcock/codex-chatgpt-control/blob/main/docs/plugin-privacy.md",
+    "termsOfServiceURL": "https://github.com/adamallcock/codex-chatgpt-control/blob/main/docs/plugin-terms.md",
+    "defaultPrompt": [
+      "Use ChatGPT Pro to critique this plan.",
+      "Continue the ChatGPT thread open in Chrome.",
+      "Diagnose ChatGPT file upload from Codex."
+    ],
+    "brandColor": "#10A37F",
+    "composerIcon": "./assets/composer-icon.png",
+    "logo": "./assets/app-icon.png",
+    "screenshots": []
+  }
+}

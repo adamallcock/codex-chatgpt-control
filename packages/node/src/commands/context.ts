@@ -1,6 +1,7 @@
 import type { CommandContext, PageLike } from "../types.js";
 import { countPageMessages } from "../dom/messages.js";
 import { parseConversationId } from "../browser/page-state.js";
+import { withTimeout } from "./timeouts.js";
 
 export async function contextFromPage(
   page: PageLike | undefined,
@@ -12,8 +13,10 @@ export async function contextFromPage(
 
   const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => partial.url) : partial.url;
   const title = typeof page.title === "function" ? await page.title().catch(() => undefined) : partial.title;
-  const turnCount = await countPageMessages(page).catch(() => partial.turnCount);
-  const assistantTurnCount = await countPageMessages(page, "assistant").catch(() => partial.assistantTurnCount);
+  const [turnCount, assistantTurnCount] = await Promise.all([
+    withTimeout(countPageMessages(page), 1000, "Timed out while counting page messages.").catch(() => partial.turnCount),
+    withTimeout(countPageMessages(page, "assistant"), 1000, "Timed out while counting assistant messages.").catch(() => partial.assistantTurnCount)
+  ]);
   const conversationId = url !== undefined ? parseConversationId(url) : partial.conversationId;
 
   const context: CommandContext = {

@@ -1,0 +1,5 @@
+interface:
+  display_name: "ChatGPT Control for Codex"
+  short_description: "Visible ChatGPT web workflows for Codex"
+  brand_color: "#10A37F"
+  default_prompt: "Use ChatGPT Control for Codex to ask ChatGPT Pro to critique this plan."

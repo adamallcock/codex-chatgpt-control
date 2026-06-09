@@ -114,6 +114,48 @@ describe("existing Chrome tab bootstrap", () => {
     expect(result.data?.loggedIn).toBe(false);
   });
 
+  it("does not hang when a claimed user tab exposes a stalled DOM evaluator", async () => {
+    const browser: BrowserLike = {
+      name: "chrome",
+      user: {
+        openTabs: async () => [
+          { id: "image-tab", url: "https://chatgpt.com/c/abc-123", title: "Image Request" }
+        ],
+        claimTab: async () => ({
+          id: "image-tab",
+          url: () => "https://chatgpt.com/c/abc-123",
+          title: async () => "Image Request",
+          playwright: {
+            evaluate: async () => new Promise(() => {})
+          }
+        })
+      }
+    };
+
+    const result = await Promise.race([
+      bootstrap({ browser }, {
+        existingTab: {
+          target: { type: "conversationId", conversationId: "abc-123" },
+          ifMissing: "block"
+        }
+      }),
+      new Promise<"hung">(resolve => setTimeout(() => resolve("hung"), 3500))
+    ]);
+
+    expect(result).not.toBe("hung");
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        tabId: "image-tab",
+        url: "https://chatgpt.com/c/abc-123"
+      },
+      context: {
+        conversationId: "abc-123",
+        tabId: "image-tab"
+      }
+    });
+  });
+
   it("does not let a stale cached page bypass an explicit existing-tab claim", async () => {
     const claimed: unknown[] = [];
     const stalePage = {

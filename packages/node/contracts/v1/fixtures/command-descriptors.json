@@ -703,6 +703,76 @@
     },
     {
       "args": {
+        "kind": "artifact kind; currently image",
+        "max": "maximum artifacts to return"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "artifact_unavailable",
+        "artifact_selector_drift",
+        "artifact_download_unavailable"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 30000,
+      "examples": [
+        "await chatgpt.artifacts.downloadLatest({ destDir: \"/tmp/out\" });"
+      ],
+      "layer": "primitive",
+      "name": "artifacts.listLatest",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "medium",
+      "summary": "Detect the latest visible generated ChatGPT artifact, such as an image-only result."
+    },
+    {
+      "args": {
+        "afterArtifactCount": "baseline artifact count",
+        "kind": "artifact kind; currently image",
+        "requireDownload": "wait until a download affordance is visible"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "artifact_unavailable",
+        "artifact_selector_drift",
+        "artifact_download_unavailable"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 120000,
+      "examples": [
+        "await chatgpt.artifacts.downloadLatest({ destDir: \"/tmp/out\" });"
+      ],
+      "layer": "primitive",
+      "name": "artifacts.wait",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "low",
+      "summary": "Wait for a visible generated ChatGPT artifact to appear and stabilize."
+    },
+    {
+      "args": {
+        "destDir": "download destination directory",
+        "prefer": "download_control or visible_image_source"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "artifact_unavailable",
+        "artifact_selector_drift",
+        "artifact_download_unavailable"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 120000,
+      "examples": [
+        "await chatgpt.artifacts.downloadLatest({ destDir: \"/tmp/out\" });"
+      ],
+      "layer": "primitive",
+      "name": "artifacts.downloadLatest",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "medium",
+      "summary": "Download or save the latest visible generated ChatGPT artifact."
+    },
+    {
+      "args": {
         "paths": "absolute local file paths"
       },
       "blockers": [

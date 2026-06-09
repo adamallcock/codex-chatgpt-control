@@ -11,7 +11,38 @@ status: draft
 
 1. Keep the repository public and packages unpublished.
 2. Run deterministic Node and Python parity gates.
-3. Verify no live reports, thread URLs, credentials, or local paths are committed.
+3. Build and validate the Codex plugin runtime:
+
+   ```bash
+   npm run plugin:build
+   npm run plugin:check
+   npm run plugin:validate
+   ```
+
+4. Verify no live reports, thread URLs, credentials, or local paths are committed.
+
+## Codex Plugin Alpha
+
+1. Confirm the marketplace file is present at `.agents/plugins/marketplace.json`.
+2. Confirm the plugin manifest is present at `plugins/codex-chatgpt-control/.codex-plugin/plugin.json`.
+3. Confirm the plugin exposes exactly two V1 skills:
+   - `codex-chatgpt-control`
+   - `chatgpt-pro-consult`
+4. Install locally from the checkout:
+
+   ```bash
+   codex plugin marketplace add .
+   codex plugin add codex-chatgpt-control@codex-chatgpt-control
+   ```
+
+   If the marketplace already exists under a different local name, use
+   `codex plugin marketplace list` and reinstall from that configured name.
+
+5. Start a new Codex thread and verify the plugin skills are discoverable.
+6. In an ordinary shell, browser-required commands should return a structured
+   `browser_bridge_unavailable` blocker rather than faking browser access.
+7. Run live ChatGPT smoke tests only with explicit approval and non-sensitive
+   prompts.
 
 ## npm Alpha
 

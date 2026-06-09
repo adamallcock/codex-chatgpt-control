@@ -109,7 +109,33 @@ The backend must support:
 - workflows: `ask`, `askInThread`, `askWithFiles`, `askAndDownload`, `runMessages`, `openThread`, `runPlan`
 - reports: `createReport`, `reports.create`, `reports.redact`, `reports.summarize`
 - command discovery: `commands`, `describe`, `help`
-- primitives: `session.bootstrap`, `threads.*`, `messages.*`, `files.*`, `modes.set`, `tools.select`, `response.copy`
+- primitives: `session.bootstrap`, `threads.*`, `messages.*`, `artifacts.*`, `files.*`, `modes.set`, `tools.select`, `response.copy`
+
+## Generated Artifacts
+
+Generated images are represented as visible artifacts, not assistant text. A
+ChatGPT image-only result can be complete even when `messages.readLatest` returns
+`not_found` and `assistantTurnCount` is `0`.
+
+Use the artifact primitives for this surface:
+
+- `artifacts.listLatest` detects visible generated artifacts.
+- `artifacts.wait` waits for a generated artifact to appear and stabilize.
+- `artifacts.downloadLatest` downloads via a visible artifact affordance, or
+  saves a visible image source when no browser download event fires.
+
+When a claimed user-open ChatGPT tab stalls bridge page inspection, artifact
+commands may recover by opening the same saved `https://chatgpt.com/c/...`
+conversation in a temporary bridge-owned tab and using the bridge `pageAssets`
+capability to inventory and bundle the latest non-SVG image asset. This is an
+implementation detail of the TypeScript runtime; the wire command and result
+shape are unchanged.
+
+`files.downloadLatest` preserves the existing file-link behavior and falls back
+to generated-artifact download only when no conventional ChatGPT file affordance
+is visible. Artifact failures are reported as structured blockers such as
+`artifact_unavailable`, `artifact_selector_drift`, or
+`artifact_download_unavailable`, not protocol errors.
 
 `session.bootstrap` accepts `existingTab` for explicit reuse of a user-open Chrome tab before any read or prompt step. The wire shape is shared by TypeScript and Python:
 

@@ -9,10 +9,7 @@
 
 Unofficial alpha SDK facade for Codex agents that need to run user-directed workflows in a visible ChatGPT web session.
 
-
-
 https://github.com/user-attachments/assets/6ca38f2d-6646-490d-8e4d-8a6dc21e926f
-
 
 
 ## Why This Exists
@@ -40,10 +37,13 @@ Use `codex-chatgpt-control` when a Codex-style agent needs to work with the real
 - submit prompts and read Markdown responses
 - attach approved local files through visible upload controls
 - download visible generated files
+- wait for and download image-only generated artifacts
 - tell the agent exactly why it could not continue when ChatGPT needs login, captcha, permissions, or UI review
 - save local run reports that omit prompt and response content by default
 
 This project deliberately does not provide hidden ChatGPT access, account automation, or a replacement for the OpenAI API.
+
+-----
 
 ## Install
 
@@ -63,9 +63,29 @@ The Node package is the browser-control runtime authority. The Python package is
 
 ## Codex Desktop Setup
 
-This repo includes a public Codex skill at [skills/codex-chatgpt-control/SKILL.md](skills/codex-chatgpt-control/SKILL.md). It is the quickest way to make Codex Desktop agents use this SDK consistently instead of hand-rolling browser commands.
+This repo includes a Codex plugin at [plugins/codex-chatgpt-control](plugins/codex-chatgpt-control). It is the easiest way to make Codex Desktop agents use this SDK consistently instead of hand-rolling browser commands.
 
-Install it into a local Codex skills directory:
+Install the repository as a Codex plugin marketplace and add the plugin:
+
+```bash
+codex plugin marketplace add adamallcock/codex-chatgpt-control --ref main
+codex plugin add codex-chatgpt-control@codex-chatgpt-control
+```
+
+When a new version ships, refresh the marketplace snapshot and reinstall the plugin, then start a new Codex thread so updated skill metadata is loaded:
+
+```bash
+codex plugin marketplace upgrade codex-chatgpt-control
+codex plugin add codex-chatgpt-control@codex-chatgpt-control
+```
+
+The plugin contains:
+
+- `codex-chatgpt-control`: the broad visible ChatGPT web workflow and diagnostics skill.
+- `chatgpt-pro-consult`: a focused ChatGPT Pro second-opinion workflow.
+- bundled Node runtime files for bridge-enabled imports.
+
+Manual skill-only install is still available as a fallback at [skills/codex-chatgpt-control/SKILL.md](skills/codex-chatgpt-control/SKILL.md):
 
 ```bash
 mkdir -p ~/.codex/skills/codex-chatgpt-control
@@ -83,7 +103,7 @@ or ChatGPT UI is unavailable, report the SDK stop reason and do not retry
 blindly.
 ```
 
-The skill is an agent-facing operating guide. It does not bundle a browser bridge, credentials, or ChatGPT account access. Install the npm package or build the Node runtime from source before using browser-control workflows.
+The plugin and skill are agent-facing operating guides plus local runtime bundles. They do not bundle a browser bridge, credentials, or ChatGPT account access. Real browser workflows still require a compatible Codex/browser bridge and a visible signed-in ChatGPT web session.
 
 ## Node Quick Start
 
@@ -120,6 +140,27 @@ await chatgpt.askInThread({
 ```
 
 If you run browser-required commands from an ordinary shell, the safe expected result is a structured `browser_bridge_unavailable` blocker. That means the protocol path is working, but no visible browser bridge was available to the process.
+
+Download an image-only generation through the artifact primitives:
+
+```ts
+await chatgpt.artifacts.wait({
+  kind: "image",
+  requireDownload: true
+});
+
+const downloaded = await chatgpt.artifacts.downloadLatest({
+  destDir: "/absolute/output/dir"
+});
+```
+
+Generated images are artifacts, not assistant text. `messages.readLatest()` can
+correctly return `not_found` for an image-only result while
+`artifacts.downloadLatest()` still saves the image. If a claimed user-open tab's
+bridge session is stale, artifact export may recover by reopening the same saved
+`https://chatgpt.com/c/...` conversation in a temporary bridge-owned tab and
+using the bridge page-assets inventory. This recovery is fallback-only; normal
+text/thread commands do not automatically replace the user's tab.
 
 ## Python Quick Start
 
@@ -178,6 +219,10 @@ import { createChatGPT } from "./dist/codex-chatgpt-control.bundle.mjs";
 const chatgpt = createChatGPT({ agent: globalThis.agent });
 ```
 
+-----
+
+![codex-chatgpt-control visible-session bridge banner](assets/readme/codex-chatgpt-control-readme-banner.png)
+
 ## SDK Shape
 
 The main Node entrypoint is `createChatGPT({ agent })`. It exposes:
@@ -185,7 +230,7 @@ The main Node entrypoint is `createChatGPT({ agent })`. It exposes:
 - `chatgpt.agent(...)` and `chatgpt.runner.run(...)` for Agents-style visible-session workflows.
 - `chatgpt.ask(...)`, `askInThread(...)`, `askWithFiles(...)`, and `askAndDownload(...)` for common task flows.
 - `chatgpt.responses.create(...)` for a narrow Responses-shaped adapter over the same visible browser runner.
-- Primitive groups for `session`, `threads`, `messages`, `files`, `modes`, `tools`, and `response`.
+- Primitive groups for `session`, `threads`, `messages`, `artifacts`, `files`, `modes`, `tools`, and `response`.
 - Discovery helpers: `chatgpt.help()`, `chatgpt.commands()`, and `chatgpt.describe(name)`.
 - Local run reports through `chatgpt.createReport(...)` and `chatgpt.reports`; prompt and response content is omitted unless explicitly enabled.
 
@@ -235,6 +280,8 @@ packages/python/    Python parity client, examples, tests
 docs/               Public architecture, safety, bridge, and release notes
 .github/workflows/  Deterministic CI gates
 ```
+
+-----
 
 ## Development
 

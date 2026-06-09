@@ -1,0 +1,20 @@
+{
+  "name": "codex-chatgpt-control",
+  "interface": {
+    "displayName": "Codex ChatGPT Control"
+  },
+  "plugins": [
+    {
+      "name": "codex-chatgpt-control",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-chatgpt-control"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

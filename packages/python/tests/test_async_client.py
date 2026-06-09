@@ -145,6 +145,7 @@ class AsyncClientTests(unittest.IsolatedAsyncioTestCase):
 
         ask = await chatgpt.ask(prompt="hi")
         bootstrap = await chatgpt.session.bootstrap(prefer_existing_tab=False)
+        artifact = await chatgpt.artifacts.wait(kind="image", require_download=True)
         report = await chatgpt.reports.redact({"prompt": "private"})
         commands = await chatgpt.commands()
         described = await chatgpt.describe("runner.run")
@@ -152,6 +153,7 @@ class AsyncClientTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(ask.data["command"], "ask")
         self.assertEqual(bootstrap.data["command"], "session.bootstrap")
+        self.assertEqual(artifact.data["command"], "artifacts.wait")
         self.assertEqual(report.data["command"], "reports.redact")
         self.assertEqual(commands[0].name, "runner.run")
         self.assertEqual(described.name, "runner.run")
@@ -159,6 +161,7 @@ class AsyncClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([request[0] for request in backend.requests], [
             "ask",
             "session.bootstrap",
+            "artifacts.wait",
             "reports.redact",
             "commands",
             "describe",
