@@ -1,10 +1,10 @@
 import { access, readFile, stat } from "node:fs/promises";
-import { basename, resolve } from "node:path";
 import { constants } from "node:fs";
 import { downloadLatestArtifact, locatorCountWithTimeout } from "./artifacts.js";
 import { waitForDownloadFromClick } from "../browser/downloads.js";
 import { resultError, resultOk } from "../errors.js";
 import { addFilesButton, cssSelectors, requiredLocator } from "../dom/selectors.js";
+import { basenameForHostPath, resolveForHostPath } from "../platform/local-paths.js";
 import type {
   AttachedFile,
   AttachFilesArgs,
@@ -28,11 +28,7 @@ export async function validateAttachPaths(paths: string[]): Promise<AttachedFile
   const files: AttachedFile[] = [];
 
   for (const path of paths) {
-    if (!path.startsWith("/")) {
-      throw new Error(`File attachment path must be absolute: ${path}`);
-    }
-
-    const absolute = resolve(path);
+    const absolute = resolveForHostPath(path);
     await access(absolute, constants.R_OK);
     const fileStat = await stat(absolute);
     if (!fileStat.isFile()) {
@@ -41,7 +37,7 @@ export async function validateAttachPaths(paths: string[]): Promise<AttachedFile
 
     files.push({
       path: absolute,
-      name: basename(absolute),
+      name: basenameForHostPath(absolute),
       bytes: fileStat.size
     });
   }

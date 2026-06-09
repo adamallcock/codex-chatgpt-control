@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import process from "node:process";
 import { describe, expect, it } from "vitest";
 import { attachFiles, downloadLatestFile, validateAttachPaths } from "../../src/commands/files.js";
 import type { LocatorLike, PageLike } from "../../src/types.js";
@@ -8,6 +9,37 @@ import type { LocatorLike, PageLike } from "../../src/types.js";
 describe("validateAttachPaths", () => {
   it("rejects relative paths", async () => {
     await expect(validateAttachPaths(["notes.txt"])).rejects.toThrow(/absolute/);
+  });
+
+  it("rejects empty and nested relative paths", async () => {
+    await expect(validateAttachPaths([""])).rejects.toThrow(/absolute/);
+    await expect(validateAttachPaths(["notes/file.md"])).rejects.toThrow(/absolute/);
+  });
+
+  it("rejects ambiguous Windows paths", async () => {
+    await expect(validateAttachPaths([String.raw`C:Users\notes.md`])).rejects.toThrow(/absolute/);
+    await expect(validateAttachPaths([String.raw`\tmp\notes.md`])).rejects.toThrow(/absolute/);
+  });
+
+  it("rejects foreign Windows absolute syntax on POSIX hosts", async () => {
+    if (process.platform === "win32") return;
+
+    await expect(validateAttachPaths([String.raw`C:\Users\codex\missing-file.md`])).rejects.toThrow(/absolute/);
+    await expect(validateAttachPaths([String.raw`\\server\share\missing-file.md`])).rejects.toThrow(/absolute/);
+  });
+
+  it("does not validate a POSIX literal filename that looks like a Windows path", async () => {
+    if (process.platform === "win32") return;
+
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-literal-winpath-"));
+    const cwd = process.cwd();
+    try {
+      process.chdir(dir);
+      await writeFile(String.raw`C:\Users\codex\literal.md`, "literal filename");
+      await expect(validateAttachPaths([String.raw`C:\Users\codex\literal.md`])).rejects.toThrow(/absolute/);
+    } finally {
+      process.chdir(cwd);
+    }
   });
 
   it("returns file metadata for readable files", async () => {
