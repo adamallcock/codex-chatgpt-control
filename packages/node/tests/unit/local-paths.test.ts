@@ -1,6 +1,7 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import process from "node:process";
 import { describe, expect, it } from "vitest";
 import {
   basenameForHostPath,
@@ -46,6 +47,7 @@ describe("local path platform semantics", () => {
   });
 
   it("documents the POSIX literal-filename bypass case", async () => {
+    if (process.platform === "win32") return;
     const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-winpath-bypass-"));
     await writeFile(join(dir, String.raw`C:\Users\example\file.md`), "literal POSIX filename");
 
