@@ -331,13 +331,29 @@ def normalized_text(value: str) -> str:
 
 def resolve_backend_command(backend_command: str | None) -> tuple[list[str], str]:
     if backend_command is not None:
-        return shlex.split(backend_command, posix=sys.platform != "win32"), "cli"
+        return split_backend_command(backend_command), "cli"
 
     env_command = os.environ.get(BACKEND_COMMAND_ENV)
     if env_command:
-        return shlex.split(env_command, posix=sys.platform != "win32"), BACKEND_COMMAND_ENV
+        return split_backend_command(env_command), BACKEND_COMMAND_ENV
 
     return ["node", str(BACKEND_BUNDLE)], "default-node-bundle"
+
+
+def split_backend_command(command: str) -> list[str]:
+    # On POSIX, shlex's default handling is correct. On Windows, POSIX mode
+    # eats backslashes (mangling "C:\\node.exe" into "C:node.exe"), so split in
+    # non-POSIX mode and strip the surrounding quotes that mode leaves behind so
+    # quoted paths with spaces (e.g. "C:\\Program Files\\nodejs\\node.exe") work.
+    if sys.platform != "win32":
+        return shlex.split(command)
+    return [strip_matching_quotes(token) for token in shlex.split(command, posix=False)]
+
+
+def strip_matching_quotes(token: str) -> str:
+    if len(token) >= 2 and token[0] == token[-1] and token[0] in ('"', "'"):
+        return token[1:-1]
+    return token
 
 
 def main() -> int:

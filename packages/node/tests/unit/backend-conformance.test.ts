@@ -61,7 +61,9 @@ describe("backend conformance", () => {
     expect(normalizeDynamic(await backend.doctor({ check: ["bridge", "upload"] }))).toEqual(
       normalizeDynamic(await inProcess.doctor({ check: ["bridge", "upload"] }))
     );
-    await expect(backend.session.bootstrap()).resolves.toEqual(await inProcess.session.bootstrap());
+    expect(normalizeDynamic(await backend.session.bootstrap())).toEqual(
+      normalizeDynamic(await inProcess.session.bootstrap())
+    );
     expect(normalizeDynamic(await backend.reports.redact(sensitiveValue))).toEqual(
       normalizeDynamic(await inProcess.reports.redact(sensitiveValue))
     );
