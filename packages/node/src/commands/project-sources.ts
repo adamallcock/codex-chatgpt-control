@@ -220,13 +220,15 @@ export function extractProjectSourcesFromHtml(html: string): ProjectSource[] {
   for (const match of html.matchAll(sourceBlockPattern)) {
     const body = match.groups?.body ?? "";
     const texts = extractChildTexts(body, ["span", "td", "button", "a"]);
-    const name = texts.find(text => looksLikeSourceName(text));
+    const name = texts.map(sourceNameFromCandidateText).find((text): text is string => text !== undefined);
     if (name === undefined) {
       continue;
     }
     const statusText = texts.find(text => text !== name && normalizeProjectSourceStatus(text) !== "unknown");
     sources.push({ name, status: normalizeProjectSourceStatus(statusText ?? "") });
   }
+
+  sources.push(...extractSourcesSectionRowsFromHtml(html));
 
   return dedupeAdjacentSources(sources);
 }
@@ -352,9 +354,13 @@ async function readProjectSourcesSnapshot(page: PageLike): Promise<ProjectSource
           if (/\b(failed|error|unsupported)\b/i.test(text)) return "failed";
           return "unknown";
         };
-        const looksLikeName = (text: string) => text.length > 0
-          && text.length <= 160
-          && !/^(ready|processing|uploading|failed|error|add source|sources?)$/i.test(text);
+        const excludedLabel = (text: string) => /^(ready|processing|uploading|failed|error|add sources?|sources?|newest|all|source actions)$/i.test(text)
+          || /^(sort|filter) sources?:/i.test(text);
+        const sourceNameFromCandidate = (text: string) => {
+          const normalized = normalize(text).replace(/\s+(Document|File|PDF|Image|Spreadsheet|Text|Code|CSV|Markdown)\s+·.*$/i, "");
+          if (normalized.length === 0 || normalized.length > 160 || excludedLabel(normalized)) return undefined;
+          return normalized;
+        };
         const sourceNodes = Array.from(document.querySelectorAll([
           "li[data-testid*='source' i]",
           "article[data-testid*='source' i]",
@@ -371,17 +377,33 @@ async function readProjectSourcesSnapshot(page: PageLike): Promise<ProjectSource
         ].join(", "))).filter(node => {
           const tag = node.tagName.toLowerCase();
           const role = node.getAttribute("role") ?? "";
-          return tag !== "button" && tag !== "a" && !/^(button|tab|menuitem|option)$/i.test(role);
+          return tag !== "button"
+            && tag !== "a"
+            && !/^(button|tab|menuitem|option|dialog|menu)$/i.test(role)
+            && node.closest("[role='dialog'], [role='menu']") === null;
         });
-        const sources = sourceNodes.flatMap(node => {
+        const sourcesFromNodes = sourceNodes.flatMap(node => {
           const children = Array.from(node.querySelectorAll("span, td, button, a"))
             .map(textOf)
             .filter(Boolean);
-          const name = children.find(looksLikeName);
+          const name = children.map(sourceNameFromCandidate).find(Boolean);
           if (!name) return [];
           const statusText = children.find(child => child !== name && statusFor(child) !== "unknown") ?? "";
           return [{ name, status: statusFor(statusText) }];
         });
+        const sourcesFromSection = Array.from(document.querySelectorAll("section[aria-label]"))
+          .filter(section => /sources?/i.test(section.getAttribute("aria-label") ?? "") && section.closest("[role='dialog'], [role='menu']") === null)
+          .flatMap(section => Array.from(section.querySelectorAll("[aria-label], button")).flatMap(element => {
+            const role = element.getAttribute("role") ?? "";
+            if (/^(tab|menuitem|option)$/i.test(role)) return [];
+            const aria = normalize(element.getAttribute("aria-label") ?? "");
+            const text = textOf(element);
+            const name = sourceNameFromCandidate(aria) ?? sourceNameFromCandidate(text);
+            if (!name) return [];
+            const status = statusFor(text);
+            return [{ name, status }];
+          }));
+        const sources = [...sourcesFromNodes, ...sourcesFromSection];
         const candidates = Array.from(document.querySelectorAll("[role='tab'], button, a"))
           .map(element => {
             const label = normalize(element.getAttribute("aria-label") ?? element.getAttribute("title") ?? textOf(element));
@@ -471,11 +493,12 @@ async function uploadProjectSourceBatch(
       throw new Error("The active Project Sources page does not expose file chooser events.");
     }
 
-    const chooserPromise = waitForFileChooser(page, timeoutMs);
+    let chooserPromise = waitForFileChooser(page, timeoutMs);
     await clickProjectSourceControl(page, localeLabels.projectSourcesAddSource, "button", timeoutMs);
     const opened = await raceFileChooserOpen(chooserPromise, page, 300);
     if (!opened) {
-      await clickProjectSourceControl(page, localeLabels.projectSourcesUploadFiles, "button", timeoutMs).catch(() => undefined);
+      chooserPromise = waitForFileChooser(page, timeoutMs);
+      await clickProjectSourceControl(page, localeLabels.projectSourcesUploadFiles, "button", timeoutMs);
     }
     const chooser = await chooserPromise;
     await chooser.setFiles(paths);
@@ -612,10 +635,43 @@ function extractChildTexts(html: string, tags: string[]): string[] {
     .filter(Boolean);
 }
 
+function extractAttrValues(html: string, name: string): string[] {
+  const pattern = new RegExp(`${name}=["']([^"']+)["']`, "gi");
+  return Array.from(html.matchAll(pattern))
+    .map(match => normalizeText(match[1] ?? ""))
+    .filter(Boolean);
+}
+
 function looksLikeSourceName(text: string): boolean {
   return text.length > 0
     && text.length <= 160
-    && !/^(ready|processing|uploading|failed|error|add source|sources?)$/i.test(text);
+    && !/^(ready|processing|uploading|failed|error|add sources?|sources?|newest|all|source actions)$/i.test(text)
+    && !/^(sort|filter) sources?:/i.test(text);
+}
+
+function sourceNameFromCandidateText(text: string): string | undefined {
+  const name = normalizeText(text)
+    .replace(/\s+(Document|File|PDF|Image|Spreadsheet|Text|Code|CSV|Markdown)\s+·.*$/i, "");
+  return looksLikeSourceName(name) ? name : undefined;
+}
+
+function extractSourcesSectionRowsFromHtml(html: string): ProjectSource[] {
+  const sources: ProjectSource[] = [];
+  const sectionPattern = /<section\b(?<attrs>[^>]*aria-label=["']Sources["'][^>]*)>(?<body>[\s\S]*?)<\/section>/gi;
+  for (const match of html.matchAll(sectionPattern)) {
+    const body = match.groups?.body ?? "";
+    const texts = [
+      ...extractAttrValues(body, "aria-label"),
+      ...extractChildTexts(body, ["button"])
+    ];
+    for (const text of texts) {
+      const name = sourceNameFromCandidateText(text);
+      if (name !== undefined) {
+        sources.push({ name, status: normalizeProjectSourceStatus(text) });
+      }
+    }
+  }
+  return dedupeAdjacentSources(sources);
 }
 
 function normalizeProjectSourceStatus(value: string): ProjectSource["status"] {

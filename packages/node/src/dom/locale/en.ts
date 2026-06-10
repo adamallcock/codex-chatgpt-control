@@ -19,8 +19,8 @@ export const en = {
   addFilesOpenerCandidates: ["Add files and more", "Add files", "Add photos"],
   addPhotosFilesMenuItem: ["Add photos & files"],
   projectSourcesTab: ["Sources"],
-  projectSourcesAddSource: ["Add source"],
-  projectSourcesUploadFiles: ["Upload files", "Upload file", "Add files"],
+  projectSourcesAddSource: ["Add source", "Add sources"],
+  projectSourcesUploadFiles: ["Upload files", "Upload file", "Upload", "Add files"],
   copyResponse: ["Copy response"],
 
   // --- Download affordances (matched as `aria-label` substrings) ---

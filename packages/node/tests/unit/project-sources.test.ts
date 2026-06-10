@@ -11,7 +11,7 @@ import {
   normalizeProjectSourcesUrl,
   safeProjectSourceCandidatesFromHtml
 } from "../../src/commands/project-sources.js";
-import type { LocatorLike, PageLike } from "../../src/types.js";
+import type { FileChooserLike, LocatorLike, PageLike } from "../../src/types.js";
 
 const PROJECT_URL = "https://chatgpt.com/g/g-p-69f7590a9a188191a7356459c924eaf9-diy-wifi/project";
 
@@ -128,6 +128,32 @@ describe("Project Sources browser commands", () => {
     expect(JSON.stringify(result)).not.toContain("hello");
   });
 
+  it("uploads through the Add sources menu Upload option after confirmation", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-project-source-upload-"));
+    const file = join(dir, "smoke.txt");
+    await writeFile(file, "hello");
+    const page = projectSourcesUploadMenuPage("smoke.txt");
+    const chatgpt = createChatGPT({ page });
+
+    const result = await chatgpt.projects.sources.add({
+      projectUrl: PROJECT_URL,
+      files: [file],
+      confirmMutation: true,
+      batchSize: 1
+    });
+
+    expect(result.ok).toBe(true);
+    expect(page.clicks).toEqual(["Sources", "Add sources", "Upload"]);
+    expect(page.uploadedPaths).toEqual([file]);
+    expect(result.data?.dryRun).toBe(false);
+    if (result.data === undefined || result.data.dryRun !== false) {
+      throw new Error("Expected confirmed Project Sources add data.");
+    }
+    expect(result.data.before).toEqual([]);
+    expect(result.data.after).toEqual([{ name: "smoke.txt", status: "processing" }]);
+    expect(result.data.added).toEqual([{ name: "smoke.txt", status: "processing" }]);
+  });
+
   it("extracts source names and statuses from a fixture list without source content", () => {
     const html = `
       <main>
@@ -212,6 +238,25 @@ describe("Project Sources browser commands", () => {
     expect(result.data?.sources).toEqual([]);
   });
 
+  it("extracts live Sources section filename rows without content", () => {
+    const sources = extractProjectSourcesFromHtml(`
+      <section aria-label="Sources">
+        <button>Add sources</button>
+        <button class="w-full cursor-pointer text-start">
+          chatgpt-project-sources-stage4-smoke.txt Document · Jun 10, 2026
+        </button>
+        <div aria-label="chatgpt-project-sources-stage4-smoke.txt">
+          chatgpt-project-sources-stage4-smoke.txt
+        </div>
+        <button aria-label="Source actions"></button>
+      </section>
+    `);
+
+    expect(sources).toEqual([
+      { name: "chatgpt-project-sources-stage4-smoke.txt", status: "unknown" }
+    ]);
+  });
+
   it("navigates nested project chat pages to the normalized project page before listing", async () => {
     let currentUrl = "https://chatgpt.com/g/g-p-69f7590a9a188191a7356459c924eaf9-diy-wifi/c/abc-123";
     const navigations: string[] = [];
@@ -292,5 +337,70 @@ function mutationFailingPage(): PageLike & { mutationCalls: string[] } {
       mutationCalls.push("waitForEvent");
       throw new Error("dry-run should not wait for file chooser");
     }
+  };
+}
+
+function projectSourcesUploadMenuPage(uploadedName: string): PageLike & { clicks: string[]; uploadedPaths: string[] } {
+  const clicks: string[] = [];
+  const uploadedPaths: string[] = [];
+  let menuOpen = false;
+  const chooserResolvers: Array<(chooser: FileChooserLike) => void> = [];
+  const chooser: FileChooserLike = {
+    setFiles: async paths => {
+      uploadedPaths.push(...paths);
+    }
+  };
+
+  const locatorFor = (label: string, count: () => number, onClick?: () => void): LocatorLike => {
+    const locator: LocatorLike = {
+      count: async () => count(),
+      click: async () => {
+        clicks.push(label);
+        onClick?.();
+      }
+    };
+    locator.first = () => locator;
+    return locator;
+  };
+
+  return {
+    clicks,
+    uploadedPaths,
+    url: () => PROJECT_URL,
+    title: async () => "ChatGPT Project",
+    content: async () => uploadedPaths.length === 0
+      ? `<main><button role="tab" aria-selected="true">Sources</button></main>`
+      : `<main><button role="tab" aria-selected="true">Sources</button><div data-testid="project-source"><span>${uploadedName}</span><span>Processing</span></div></main>`,
+    locator: selector => selector === "input[type='file']"
+      ? locatorFor("input[type='file']", () => 0)
+      : locatorFor(selector, () => 0),
+    getByRole: (role, options) => {
+      const pattern = options?.name instanceof RegExp ? options.name : undefined;
+      if (role === "tab" && pattern?.test("Sources")) {
+        return locatorFor("Sources", () => 1);
+      }
+      if (role === "button" && pattern?.test("Add sources")) {
+        return locatorFor("Add sources", () => 1, () => {
+          menuOpen = true;
+        });
+      }
+      if (role === "button" && pattern?.test("Upload")) {
+        return locatorFor("Upload", () => menuOpen ? 1 : 0, () => {
+          for (const resolve of chooserResolvers.splice(0)) {
+            resolve(chooser);
+          }
+        });
+      }
+      return locatorFor(role, () => 0);
+    },
+    waitForEvent: async event => {
+      if (event !== "filechooser") {
+        throw new Error(`Unexpected event: ${event}`);
+      }
+      return new Promise(resolve => {
+        chooserResolvers.push(resolve);
+      });
+    },
+    waitForTimeout: async () => undefined
   };
 }
