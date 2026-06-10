@@ -66,6 +66,17 @@ class ModelConformanceTests(unittest.TestCase):
         self.assertEqual(result.interruptions[0]["type"], "unsupported")
         self.assertEqual(result.interruptions[0]["status"], "partial")
 
+    def test_partial_run_fixture_preserves_partial_interruption_status(self) -> None:
+        payload = load_fixture("run-timeout-partial.json")
+
+        result = ChatGPTRunResult.from_wire(payload["result"])
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.status, "partial")
+        self.assertEqual(result.output_text, "Partial assistant text captured before timeout.")
+        self.assertEqual(result.interruptions[0]["type"], "timeout")
+        self.assertEqual(result.interruptions[0]["status"], "partial")
+
     def test_response_adapter_preserves_unsupported_field_details(self) -> None:
         payload = load_fixture("responses-unsupported-temperature.json")
 

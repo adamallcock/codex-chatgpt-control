@@ -67,6 +67,8 @@ Current protocol error codes are:
 
 Browser-control blockers are not protocol errors. They are normal command or runner results with `status: "blocked"`, `status: "partial"`, or `status: "needs_confirmation"` plus blocker/interruption details.
 
+`status: "partial"` is the required result for incomplete response capture. A partial result may still include `output_text` and `data.responseText`, but consumers must treat that text as incomplete until a later wait confirms completion. Common causes are wait timeout after partial assistant text, active generation controls such as `Stop answering`, stopped-generation markers such as `Stopped thinking`, or a read fallback after the wait step could not confirm completion. Intentional capture clipping uses `data.captureLimit` plus warnings; it is separate from ChatGPT generation length.
+
 ## Streaming
 
 Streaming commands emit backend event lines until `completed` or `error`.
@@ -319,7 +321,9 @@ Required gates:
 
 ```bash
 npm run contract:validate
+npm run docs:drift
 npm run parity:fixtures
+npm run parity:suite
 npm run test:backend-conformance
 ```
 

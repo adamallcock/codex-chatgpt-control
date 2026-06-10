@@ -3,6 +3,7 @@ import type {
   ResponseAction,
   ResponseBlock,
   ResponseBranchState,
+  ResponseCaptureLimit,
   ResponseCaptureFidelity,
   ResponseCaptureSource,
   ResponseCitation,
@@ -22,6 +23,7 @@ export type ExtractedMessage = {
   format: Exclude<ResponseFormat, "text">;
   source?: ResponseCaptureSource;
   fidelity?: ResponseCaptureFidelity;
+  captureLimit?: ResponseCaptureLimit;
   warnings?: string[];
   markdown?: string;
   visibleText?: string;

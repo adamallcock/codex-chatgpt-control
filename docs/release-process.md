@@ -9,7 +9,8 @@ status: draft
 
 ## Source Alpha
 
-1. Keep the repository public and packages unpublished.
+1. Keep the private repository as the source of truth and publish only from the
+   generated public repository.
 2. Run deterministic Node and Python parity gates.
 3. Build and validate the Codex plugin runtime:
 
@@ -89,18 +90,78 @@ contributors can review the public-facing history.
 7. Run live ChatGPT smoke tests only with explicit approval and non-sensitive
    prompts.
 
+## Trusted Publishing
+
+npm and PyPI releases are published from `.github/workflows/release.yml` using
+GitHub Actions OIDC trusted publishing. Do not store npm or PyPI API tokens in
+GitHub secrets for this workflow.
+
+The registry-side trusted publisher configuration must match the public
+repository exactly:
+
+- Repository: `adamallcock/codex-chatgpt-control`
+- Workflow filename: `release.yml`
+- Environment: `release`
+- npm package: `codex-chatgpt-control`
+- PyPI project: `codex-chatgpt-control`
+
+The `release` GitHub environment should require human approval. That keeps tag
+creation reversible until the protected publish jobs start, while still making
+the package upload itself reproducible and tokenless.
+
+## Release Tag Flow
+
+1. Merge the generated public PR after required public checks pass.
+2. Confirm versions and registry availability on public `main`:
+
+   ```bash
+   npm run release:check-version
+   npm run release:check-names
+   ```
+
+3. Create and push a `v*` tag that matches the Node package version:
+
+   ```bash
+   git tag v0.2.0-alpha.1
+   git push origin v0.2.0-alpha.1
+   ```
+
+4. Approve the `release` environment deployment in GitHub Actions.
+5. Let the workflow publish npm and PyPI independently. If one registry publish
+   succeeds and the other fails, rerun only the failed job.
+6. Verify the published packages:
+
+   ```bash
+   npm view codex-chatgpt-control version dist-tags --json
+   python - <<'PY'
+   import json, urllib.request
+   with urllib.request.urlopen("https://pypi.org/pypi/codex-chatgpt-control/json", timeout=10) as r:
+       data = json.load(r)
+   print(data["info"]["version"])
+   PY
+   ```
+
 ## npm Alpha
 
 1. Recheck registry state immediately before publishing:
 
    ```bash
+   npm run release:check-version
    npm run release:check-names
    ```
 
-2. Remove `"private": true` from `packages/node/package.json`.
-3. Run `npm pack --dry-run --json` and inspect the allowlist.
-4. Install the packed tarball in a fresh temp project.
-5. Publish with an alpha tag only after trusted publishing or login is ready.
+2. Build and inspect the package allowlist:
+
+   ```bash
+   npm --prefix packages/node ci
+   npm run node:build
+   npm run node:bundle
+   npm run release:check-node-pack
+   ```
+
+3. Publish through the release workflow with `--tag next`; do not publish local
+   shells unless the trusted-publishing path is unavailable and the release
+   owner explicitly approves a one-off fallback.
 
 ## PyPI Alpha
 
@@ -109,10 +170,19 @@ Best-practice backend story: keep the Node runtime as the authoritative browser 
 1. Recheck registry state immediately before publishing:
 
    ```bash
+   npm run release:check-version
    npm run release:check-names
    ```
 
 2. Build wheel and sdist from `packages/python`.
-3. Run `twine check`.
+3. Run `twine check`:
+
+   ```bash
+   python -m pip install --upgrade build twine
+   rm -rf dist/python
+   npm run release:build-python
+   npm run release:check-python
+   ```
+
 4. Install the wheel in a fresh virtual environment.
-5. Publish only after the backend distribution story is documented and tested.
+5. Publish through the release workflow using PyPI trusted publishing.

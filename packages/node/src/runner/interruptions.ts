@@ -47,6 +47,7 @@ function isInterruptingResult(result: CommandResult<unknown>): boolean {
   return result.blocker !== undefined
     || result.status === "needs_confirmation"
     || result.status === "unsupported"
+    || result.status === "partial"
     || result.status === "timeout";
 }
 
@@ -78,6 +79,7 @@ function interruptionType(
   }
 
   if (result.status === "needs_confirmation") return "approval_required";
+  if (result.status === "partial") return "timeout";
   if (result.status === "timeout") return "timeout";
   return "unsupported";
 }

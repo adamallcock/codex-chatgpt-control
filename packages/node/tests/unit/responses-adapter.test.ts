@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createChatGPT } from "../../src/client.js";
-import { responsesCreateArgsToRunInput, validateResponsesCreateArgs } from "../../src/runner/responses.js";
+import { toRunResult } from "../../src/runner/result.js";
+import { responseFromRunResult, responsesCreateArgsToRunInput, validateResponsesCreateArgs } from "../../src/runner/responses.js";
 
 describe("Responses adapter validation", () => {
   it("accepts browser-compatible response fields", () => {
@@ -128,5 +129,31 @@ describe("Responses adapter validation", () => {
       type: "run.blocked",
       blocker: expect.objectContaining({ code: "run_budget_exceeded" })
     });
+  });
+
+  it("maps partial runner results through the response shape", () => {
+    const chatgpt = createChatGPT();
+    const agent = chatgpt.agent({ name: "reviewer" });
+    const runResult = toRunResult(agent, {
+      ok: false,
+      status: "partial",
+      data: {
+        prompt: "Write 500 numbered items.",
+        responseText: "I will now produce the list.",
+        complete: false
+      },
+      warnings: ["Timed out after receiving partial assistant text."],
+      context: {
+        timestamp: "2026-06-10T00:00:00.000Z",
+        conversationId: "fixture-partial"
+      }
+    });
+
+    const response = responseFromRunResult(runResult, new Date("2026-06-10T00:00:00.000Z"));
+
+    expect(response.status).toBe("partial");
+    expect(response.output_text).toBe("I will now produce the list.");
+    expect(response.browser_control.resultStatus).toBe("partial");
+    expect(response.browser_control.thread?.conversationId).toBe("fixture-partial");
   });
 });

@@ -57,6 +57,27 @@ describe("runSequence", () => {
     expect((result.data as { responseText?: string }).responseText).toBe("hello");
   });
 
+  it("preserves partial assistant response text when a step stops early", async () => {
+    const result = await runSequenceWithExecutor({
+      name: "partial-ask-example",
+      steps: [
+        { id: "ask", command: "messages.ask", args: { text: "hi" } }
+      ]
+    }, async () => ({
+      ok: false,
+      status: "partial",
+      data: { prompt: "hi", responseText: "I will now produce the list.", complete: false },
+      warnings: ["Timed out after receiving partial assistant text."],
+      context: { timestamp: "t" }
+    }));
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("partial");
+    expect(result.output_text).toBe("I will now produce the list.");
+    expect((result.data as { ask?: { responseText?: string } }).ask?.responseText).toBe("I will now produce the list.");
+    expect(result.steps?.[0]?.status).toBe("partial");
+  });
+
   it("rejects unsafe variable paths", () => {
     expect(() => resolveVariableReference("${input.__proto__.polluted}", new Map(), {})).toThrow("Unsafe");
   });

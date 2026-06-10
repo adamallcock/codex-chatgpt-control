@@ -39,7 +39,9 @@ npm run node:bundle
 npm run node:contracts
 npm run python:test
 npm run python:compile
+npm run release:check-version
 npm run release:check-names
+npm run release:check-node-pack
 ```
 
 For Node package work:
@@ -51,7 +53,9 @@ npm run build
 npm run bundle
 npm run bundle:backend
 npm run contract:validate
+npm run docs:drift
 npm run parity:fixtures
+npm run parity:suite
 npm run test:backend-conformance
 ```
 

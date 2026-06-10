@@ -1,4 +1,5 @@
 import { readSystemClipboard, waitForClipboardChange } from "../browser/clipboard.js";
+import { readAssistantGenerationState } from "../dom/generation-state.js";
 import { formatClipboardMarkdown, normalizeResponseFormat } from "../dom/message-format.js";
 import { resultError, resultOk } from "../errors.js";
 import { readLatestMessage, readMessages, type ExtractedMessage } from "../dom/messages.js";
@@ -20,6 +21,31 @@ export async function copyResponse(
   const page = env.page!;
 
   try {
+    if (isLatestSelection(args.which)) {
+      const generation = await readAssistantGenerationState(page);
+      if (generation.active || generation.stopped) {
+        const latest = await readSelectedAssistantMessage(page, args.which, args.format ?? "markdown").catch(() => undefined);
+        const warning = generation.active
+          ? "Response is still generating; copied content may be partial."
+          : "Response appears to have been stopped before completion; copied content may be partial.";
+        const fallbackReason = generation.active
+          ? "Response is still generating; returned DOM-derived partial content."
+          : "Response appears to have been stopped before completion; returned DOM-derived partial content.";
+        const data = latest === undefined ? undefined : copiedResponseFromExtracted(latest, "dom", fallbackReason);
+        const result: CommandResult<CopiedResponse> = {
+          ok: false,
+          status: "partial",
+          warnings: [
+            warning,
+            ...generation.signals.map(signal => `Generation state signal: ${signal}`)
+          ],
+          context: await contextFromPage(page)
+        };
+        if (data !== undefined) result.data = data;
+        return withCommandOutputText(result);
+      }
+    }
+
     if (args.prefer !== "dom") {
       const before = await readClipboard(env);
       const buttons = copyResponseButtons(page);
@@ -92,6 +118,10 @@ export async function copyResponse(
   }
 }
 
+function isLatestSelection(which: CopyResponseArgs["which"]): boolean {
+  return which === undefined || which === "latest";
+}
+
 function readClipboard(env: RuntimeEnv): Promise<string | undefined> {
   return env.clipboard?.read() ?? readSystemClipboard();
 }
@@ -128,6 +158,7 @@ function copiedResponseFromExtracted(
     source
   };
   if (latest.fidelity !== undefined) data.fidelity = latest.fidelity;
+  if (latest.captureLimit !== undefined) data.captureLimit = latest.captureLimit;
   if (latest.warnings !== undefined || fallbackReason !== undefined) {
     data.warnings = [...(latest.warnings ?? []), ...(fallbackReason === undefined ? [] : [fallbackReason])];
   }
@@ -142,6 +173,7 @@ function mergeResponseMetadata(
 ): void {
   if (latest === undefined) return;
   if (latest.markdown !== undefined && data.markdown === undefined) data.markdown = latest.markdown;
+  if (latest.captureLimit !== undefined) data.captureLimit = latest.captureLimit;
   if (latest.visibleText !== undefined) data.visibleText = latest.visibleText;
   if (latest.normalizedText !== undefined) data.normalizedText = latest.normalizedText;
   if (latest.html !== undefined) data.html = latest.html;

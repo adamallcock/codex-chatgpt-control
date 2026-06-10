@@ -46,8 +46,10 @@ export const en = {
   signedInMarkers: ["New chat", "Search chats", "Chat with ChatGPT", "Recents", "Projects"],
   /** Exact-match transient assistant placeholders filtered out of captured responses. */
   transientAssistant: ["thinking", "reasoning", "searching", "searching the web"],
-  /** Streaming "stop" control text, matched as whole words while a response generates. */
-  stopControl: ["stop generating", "stop streaming", "cancel"],
+  /** Streaming "stop" control text, matched while a response generates. */
+  stopControl: ["stop generating", "stop streaming", "stop answering", "cancel"],
+  /** Interrupted generation markers shown after the assistant stops before completion. */
+  stoppedAssistant: ["stopped thinking", "stopped answering", "generation stopped"],
   /** Response-action affordance text (fallback to the structural copy-button locator). */
   responseActions: ["Copy response", "More actions"],
 

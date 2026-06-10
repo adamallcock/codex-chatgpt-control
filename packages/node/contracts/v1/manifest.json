@@ -87,6 +87,11 @@
       "schema": "commandResult"
     },
     {
+      "case": "read_latest_clipped",
+      "file": "read-latest-clipped.json",
+      "schema": "commandResult"
+    },
+    {
       "case": "report_redaction_default",
       "file": "report-redaction-default.json",
       "schema": "commandResult"

@@ -1,5 +1,27 @@
 # Troubleshooting
 
+<!-- surface-drift:blocker-kind-coverage:start -->
+## Blocker Kind Coverage
+
+This section is checked by `npm run docs:drift`. Keep it aligned with `BlockerKind`, `explainCommandBlocker(...)`, command descriptors, and public troubleshooting coverage.
+
+- `browser_bridge_unavailable`: Browser bridge unavailable (category: `environment`, severity: `blocked`, user action: no)
+- `login_required`: Login required (category: `auth`, severity: `action_required`, user action: yes)
+- `captcha`: Captcha or human verification required (category: `auth`, severity: `action_required`, user action: yes)
+- `rate_limit`: Rate limited (category: `auth`, severity: `action_required`, user action: yes)
+- `modal`: Modal is blocking the page (category: `runtime`, severity: `action_required`, user action: yes)
+- `permission`: Permission required (category: `permission`, severity: `action_required`, user action: yes)
+- `confirmation`: Confirmation required (category: `user_confirmation`, severity: `action_required`, user action: yes)
+- `selector_drift`: Selector drift (category: `ui_drift`, severity: `blocked`, user action: no)
+- `artifact_unavailable`: Artifact unavailable (category: `artifact`, severity: `warning`, user action: no)
+- `artifact_selector_drift`: Artifact selector drift (category: `ui_drift`, severity: `blocked`, user action: no)
+- `artifact_download_unavailable`: Artifact download unavailable (category: `download`, severity: `warning`, user action: no)
+- `download_unavailable`: Download unavailable (category: `download`, severity: `warning`, user action: no)
+- `upload_failed`: Upload failed (category: `upload`, severity: `action_required`, user action: yes)
+- `not_found`: Target not found (category: `not_found`, severity: `warning`, user action: no)
+- `unknown`: Unknown blocker (category: `unknown`, severity: `blocked`, user action: no)
+<!-- surface-drift:blocker-kind-coverage:end -->
+
 ## `browser_bridge_unavailable`
 
 The backend process does not have access to a browser bridge. This is expected when a live-smoke command runs from an ordinary shell: it proves the protocol stayed alive and surfaced a structured blocker.
@@ -75,6 +97,20 @@ Attachment paths are validated against the backend host's operating system. If a
 ## Flattened Or Unreadable Response Capture
 
 Use `readLatest({ format: "markdown" })`, `copyLatest()`, or the default SDK `read: true` path for human-readable responses. Use `format: "normalized_text"` only for exact-string assertions or polling. Check `data.source`, `data.fidelity`, and `data.warnings`: clipboard output is highest fidelity, while DOM Markdown is semantic reconstruction. If Markdown capture degrades, return the command warning and save the structured `blocks` or diagnostic `html` representation instead of silently writing flattened text as a Markdown report.
+
+## Long Responses Return `partial`
+
+Long Pro, Thinking, Deep Research, or file-backed answers can take longer than the default wait window. Treat `status: "partial"` and `data.complete: false` as an incomplete capture even when `output_text` is non-empty. Re-run `messages.wait(...)` on the same thread with a larger timeout, then call `readLatest(...)` or `copyLatest(...)` only after completion is confirmed.
+
+Recommended long-answer wait:
+
+```ts
+wait: { timeoutMs: 600000, stableMs: 8000, pollMs: 1000 }
+```
+
+Active generation may appear as a visible or accessible-name control such as `Stop answering`, `Stop generating`, or `Stop streaming`. Stopped generation may appear as `Stopped thinking`. Treat all of those as incomplete states.
+
+`maxChars` limits captured text returned by the SDK. It does not control ChatGPT generation. When set and clipping occurs, inspect result warnings and `data.captureLimit`, then rerun without `maxChars` for full capture.
 
 ## Response Branch Ambiguity
 

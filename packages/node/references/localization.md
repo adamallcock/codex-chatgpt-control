@@ -81,6 +81,7 @@ Localized — lives in `src/dom/locale/en.ts` (English) and per-locale files, sa
 | `signedInMarkers` | signed-in detection | sidebar/shell words |
 | `transientAssistant` | streaming placeholder filter | assistant streaming text ("Thinking", etc.) |
 | `stopControl` | "still generating" detection | stop-button text |
+| `stoppedAssistant` | interrupted-response detection | stopped assistant text ("Stopped thinking", etc.) |
 | `responseActions` | response-complete fallback | action-bar text |
 | `loginBlocker` / `captchaBlocker` / `rateLimitBlocker` | blocker classification | wall/challenge/limit copy |
 

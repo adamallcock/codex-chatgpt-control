@@ -8,7 +8,7 @@
     "node:test": "npm --prefix packages/node test",
     "node:build": "npm --prefix packages/node run build",
     "node:bundle": "npm --prefix packages/node run bundle && npm --prefix packages/node run bundle:backend && npm --prefix packages/node run bundle:live-smoke",
-    "node:contracts": "npm --prefix packages/node run contract:validate && npm --prefix packages/node run parity:fixtures && npm --prefix packages/node run parity:suite",
+    "node:contracts": "npm --prefix packages/node run contract:validate && npm --prefix packages/node run docs:drift && npm --prefix packages/node run parity:fixtures && npm --prefix packages/node run parity:suite",
     "python:test": "node scripts/run-python-gate.mjs test",
     "python:compile": "node scripts/run-python-gate.mjs compile",
     "python:pyright": "node scripts/run-python-gate.mjs pyright",
@@ -16,7 +16,11 @@
     "plugin:build": "node scripts/build-plugin-runtime.mjs",
     "plugin:check": "node scripts/check-plugin-runtime.mjs",
     "plugin:validate": "node scripts/validate-plugin-layout.mjs",
-    "release:check-names": "node scripts/check-release-names.mjs"
+    "release:check-version": "node scripts/check-release-version.mjs",
+    "release:check-names": "node scripts/check-release-names.mjs",
+    "release:check-node-pack": "node scripts/check-node-pack.mjs",
+    "release:build-python": "python -m build --sdist --wheel --outdir dist/python packages/python",
+    "release:check-python": "python -m twine check dist/python/*"
   },
   "license": "MIT"
 }

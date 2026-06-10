@@ -22,6 +22,7 @@ import {
   waitAndRead,
   waitForMessage
 } from "../../index.js";
+import { readAssistantGenerationState } from "../../dom/generation-state.js";
 import type {
   AskReadData,
   CommandResult,
@@ -461,6 +462,51 @@ export const requiredScenarios: LiveSmokeScenario[] = [
 ];
 
 export const optionalScenarios: LiveSmokeScenario[] = [
+  scenario("long-response-partial-short-timeout", false, context => contextEnvFlag(context, "CHATGPT_E2E_LONG_PARTIAL"), async (context, meta) => {
+    const env = await bootNewThread(context, meta);
+    if ("status" in env) return env;
+    const result = await askMessage(env, {
+      text: [
+        "Live capture stress test. Write exactly 180 numbered items.",
+        "Each item should be a complete sentence. Continue until item 180."
+      ].join("\n"),
+      wait: { timeoutMs: 30000, stableMs: 2000, pollMs: 750 },
+      read: { format: "markdown" }
+    });
+    const output = result.output_text ?? "";
+    const details = partialCaptureDetails(result, output);
+    return !result.ok && result.status === "partial" && result.data?.complete === false
+      ? pass(meta, result, details)
+      : fail(meta, result, details);
+  }),
+  scenario("stop-control-detection", false, context => contextEnvFlag(context, "CHATGPT_E2E_STOP_CONTROL"), async (context, meta) => {
+    const env = await bootNewThread(context, meta);
+    if ("status" in env) return env;
+    const asked = await askMessage(env, {
+      text: [
+        "Live stop-control stress test. Write exactly 400 numbered items.",
+        "Each item should be a complete sentence. Continue until item 400."
+      ].join("\n"),
+      wait: false,
+      read: false
+    });
+    if (!asked.ok) return fail(meta, asked);
+    const generation = await waitForGenerationSignal(env, 30000);
+    const waited = await waitForMessage(env, { timeoutMs: 1000, stableMs: 0, pollMs: 250 });
+    await stopGenerationIfVisible(env);
+    const output = waited.output_text ?? "";
+    const details = {
+      generationActive: generation.active,
+      generationStopped: generation.stopped,
+      generationSignals: generation.signals,
+      waitStatus: waited.status,
+      outputChars: output.length,
+      outputHash: hashPreview(output)
+    };
+    return generation.active && !(waited.ok && waited.data?.complete === true)
+      ? pass(meta, waited, details)
+      : fail(meta, waited, details);
+  }),
   scenario("download-generated-file", false, context => contextEnvFlag(context, "CHATGPT_E2E_DOWNLOAD"), async (context, meta) => {
     const env = await bootNewThread(context, meta);
     if ("status" in env) return env;
@@ -685,6 +731,45 @@ function responseCommand(response: ChatGPTResponse): CommandResult<unknown> {
     warnings: [],
     context: { timestamp: new Date(response.created_at * 1000).toISOString() }
   };
+}
+
+function partialCaptureDetails(result: CommandResult<AskReadData>, output: string): Record<string, unknown> {
+  return {
+    resultStatus: result.status,
+    complete: result.data?.complete,
+    outputChars: output.length,
+    outputHash: hashPreview(output)
+  };
+}
+
+async function waitForGenerationSignal(env: RuntimeEnv, timeoutMs: number): Promise<Awaited<ReturnType<typeof readAssistantGenerationState>>> {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (env.page !== undefined) {
+      const state = await readAssistantGenerationState(env.page).catch(() => ({ active: false, stopped: false, signals: [] }));
+      if (state.active || state.stopped) {
+        return state;
+      }
+    }
+    await env.page?.waitForTimeout?.(500);
+  }
+  return { active: false, stopped: false, signals: [] };
+}
+
+async function stopGenerationIfVisible(env: RuntimeEnv): Promise<void> {
+  const stop = env.page?.getByRole?.("button", { name: /Stop answering|Stop generating|Stop streaming|Cancel/i });
+  const clicked = stop?.click?.({ timeoutMs: 5000 });
+  if (clicked !== undefined) {
+    await clicked.catch(() => undefined);
+  }
+}
+
+function hashPreview(text: string): string {
+  let hash = 0;
+  for (const char of text) {
+    hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0;
+  }
+  return Math.abs(hash).toString(16);
 }
 
 async function tempFile(name: string, body: string): Promise<string> {

@@ -2,6 +2,7 @@ import type {
   ResponseAction,
   ResponseBlock,
   ResponseBranchState,
+  ResponseCaptureLimit,
   ResponseCaptureFidelity,
   ResponseCaptureSource,
   ResponseCitation,
@@ -18,6 +19,7 @@ export type FormattedMessageContent = {
   format: NormalizedResponseFormat;
   source?: ResponseCaptureSource;
   fidelity?: ResponseCaptureFidelity;
+  captureLimit?: ResponseCaptureLimit;
   warnings?: string[];
   markdown?: string;
   visibleText?: string;
@@ -111,13 +113,25 @@ export function formatMessageHtml(
   const root = parseHtmlFragment(html);
   const meaningfulChildren = stripIgnorableNodes(root.children);
   const blocks = extractBlocks(meaningfulChildren);
-  const markdown = clamp(blocksToMarkdown(blocks), maxChars);
-  const visibleText = clamp(blocksToPlainText(blocks), maxChars);
-  const normalizedText = clamp(normalizeWhitespace(visibleText), maxChars);
+  const rawMarkdown = blocksToMarkdown(blocks);
+  const rawVisibleText = blocksToPlainText(blocks);
+  const rawNormalizedText = normalizeWhitespace(rawVisibleText);
+  const markdownCapture = applyCaptureLimit(rawMarkdown, maxChars);
+  const visibleTextCapture = applyCaptureLimit(rawVisibleText, maxChars);
+  const normalizedTextCapture = applyCaptureLimit(rawNormalizedText, maxChars);
+  const markdown = markdownCapture.text;
+  const visibleText = visibleTextCapture.text;
+  const normalizedText = normalizedTextCapture.text;
   const citations = collectCitations(meaningfulChildren);
   const codeBlocks = blocks.flatMap(block => block.type === "code" ? [codeBlockFromBlock(block)] : []);
   const tables = blocks.flatMap(block => block.type === "table" ? [tableFromBlock(block)] : []);
   const metadata = extractResponseMetadata(metadataHtml ?? html);
+  const captureLimit = captureLimitForFormat(format, {
+    markdown: markdownCapture.captureLimit,
+    visibleText: visibleTextCapture.captureLimit,
+    normalizedText: normalizedTextCapture.captureLimit,
+    html: applyCaptureLimit(html, maxChars).captureLimit
+  });
 
   const content: FormattedMessageContent = {
     text: textForFormat(format, { markdown, visibleText, normalizedText, html }),
@@ -125,7 +139,9 @@ export function formatMessageHtml(
     source: "semantic_dom",
     fidelity: fidelityForDomFormat(format)
   };
+  if (captureLimit !== undefined) content.captureLimit = captureLimit;
   const warnings = warningsForDomFormat(format);
+  if (captureLimit?.clipped === true) warnings.push(captureLimitWarning(captureLimit));
   if (warnings.length > 0) content.warnings = warnings;
 
   if (format === "markdown" || format === "all") content.markdown = markdown;
@@ -156,15 +172,27 @@ export function formatClipboardMarkdown(
   requestedFormat: ResponseFormat | undefined = "markdown"
 ): FormattedMessageContent {
   const format = normalizeResponseFormat(requestedFormat);
-  const markdown = clamp(normalizeLineBreaks(text).trim(), maxChars);
+  const rawMarkdown = normalizeLineBreaks(text).trim();
+  const rawNormalizedText = normalizeWhitespace(rawMarkdown);
+  const markdownCapture = applyCaptureLimit(rawMarkdown, maxChars);
+  const normalizedTextCapture = applyCaptureLimit(rawNormalizedText, maxChars);
+  const markdown = markdownCapture.text;
   const visibleText = markdown;
-  const normalizedText = clamp(normalizeWhitespace(markdown), maxChars);
+  const normalizedText = normalizedTextCapture.text;
+  const captureLimit = captureLimitForFormat(format, {
+    markdown: markdownCapture.captureLimit,
+    visibleText: markdownCapture.captureLimit,
+    normalizedText: normalizedTextCapture.captureLimit,
+    html: markdownCapture.captureLimit
+  });
   const content: FormattedMessageContent = {
     text: textForFormat(format, { markdown, visibleText, normalizedText, html: markdown }),
     format,
     source: "clipboard",
     fidelity: "clipboard_markdown"
   };
+  if (captureLimit !== undefined) content.captureLimit = captureLimit;
+  if (captureLimit?.clipped === true) content.warnings = [captureLimitWarning(captureLimit)];
   if (format === "markdown" || format === "all") content.markdown = markdown;
   if (format === "visible_text" || format === "all") content.visibleText = visibleText;
   if (format === "normalized_text" || format === "all") content.normalizedText = normalizedText;
@@ -193,6 +221,49 @@ function warningsForDomFormat(format: NormalizedResponseFormat): string[] {
     return [];
   }
   return ["Markdown was reconstructed from visible DOM semantics; use response.copy for clipboard Markdown when exact copy fidelity is required."];
+}
+
+function applyCaptureLimit(text: string, maxChars: number | undefined): { text: string; captureLimit?: ResponseCaptureLimit } {
+  if (maxChars === undefined) {
+    return { text };
+  }
+  const captureLimit: ResponseCaptureLimit = {
+    maxChars,
+    originalChars: text.length,
+    clipped: text.length > maxChars
+  };
+  return {
+    text: captureLimit.clipped ? text.slice(0, maxChars) : text,
+    captureLimit
+  };
+}
+
+function captureLimitForFormat(
+  format: NormalizedResponseFormat,
+  limits: {
+    markdown?: ResponseCaptureLimit | undefined;
+    visibleText?: ResponseCaptureLimit | undefined;
+    normalizedText?: ResponseCaptureLimit | undefined;
+    html?: ResponseCaptureLimit | undefined;
+  }
+): ResponseCaptureLimit | undefined {
+  switch (format) {
+    case "markdown":
+      return limits.markdown;
+    case "visible_text":
+      return limits.visibleText;
+    case "normalized_text":
+      return limits.normalizedText;
+    case "html":
+      return limits.html;
+    case "blocks":
+    case "all":
+      return limits.markdown;
+  }
+}
+
+function captureLimitWarning(captureLimit: ResponseCaptureLimit): string {
+  return `Response captured text was clipped by maxChars=${captureLimit.maxChars} from ${captureLimit.originalChars} characters.`;
 }
 
 function textForFormat(
@@ -648,11 +719,6 @@ function normalizeInline(text: string): string {
     .replace(/[ \t\r\n]+/g, " ")
     .replace(/\s+([.,;:!?])/g, "$1")
     .trim();
-}
-
-function clamp(text: string, maxChars: number | undefined): string {
-  if (maxChars === undefined || text.length <= maxChars) return text;
-  return text.slice(0, Math.max(0, maxChars));
 }
 
 function escapeMarkdownLinkText(text: string): string {

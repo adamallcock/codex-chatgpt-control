@@ -235,6 +235,90 @@ describe("extractMessagesFromHtml", () => {
     expect(result.data?.responseText).toBe("Napoleon is adorable.");
   });
 
+  it("does not complete while the latest assistant turn exposes Stop answering by aria-label", async () => {
+    const page = scriptedWaitPage([
+      {
+        totalCount: 2,
+        assistantCount: 1,
+        latestAssistantTurnIndex: 2,
+        latestAssistantText: "I will now produce the list.",
+        hasStopControl: false,
+        stopButtonAria: "Stop answering",
+        hasResponseActions: true
+      },
+      {
+        totalCount: 2,
+        assistantCount: 1,
+        latestAssistantTurnIndex: 2,
+        latestAssistantText: "I will now produce the list.",
+        hasStopControl: false,
+        stopButtonAria: "Stop answering",
+        hasResponseActions: true
+      }
+    ]);
+
+    const result = await waitForMessage({ page }, {
+      afterAssistantTurnCount: 0,
+      timeoutMs: 5,
+      stableMs: 0,
+      pollMs: 1
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("partial");
+    expect(result.data?.complete).toBe(false);
+  });
+
+  it("treats stopped thinking as interrupted partial output, not complete output", async () => {
+    const page = scriptedWaitPage([
+      {
+        totalCount: 2,
+        assistantCount: 1,
+        latestAssistantTurnIndex: 2,
+        latestAssistantText: "I will now produce the list.",
+        hasStopControl: false,
+        stoppedText: "Stopped thinking",
+        hasResponseActions: true
+      }
+    ]);
+
+    const result = await waitForMessage({ page }, {
+      afterAssistantTurnCount: 0,
+      timeoutMs: 5,
+      stableMs: 0,
+      pollMs: 1
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("partial");
+    expect(result.warnings.join(" ")).toMatch(/stopped|interrupted/i);
+  });
+
+  it("does not use an older assistant turn copy action to complete a new generating answer", async () => {
+    const page = scriptedWaitPage([
+      {
+        totalCount: 4,
+        assistantCount: 2,
+        latestAssistantTurnIndex: 4,
+        latestAssistantText: "New answer preamble.",
+        hasStopControl: false,
+        stopButtonAria: "Stop answering",
+        hasResponseActions: true,
+        latestTurnHasResponseActions: false
+      }
+    ]);
+
+    const result = await waitForMessage({ page }, {
+      afterAssistantTurnCount: 1,
+      timeoutMs: 5,
+      stableMs: 0,
+      pollMs: 1
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("partial");
+  });
+
   it("falls back to a guarded read when wait misses a submitted assistant turn", async () => {
     const page = askWaitFallbackPage("Reply exactly fallback-ok.", "fallback-ok");
 
@@ -244,10 +328,29 @@ describe("extractMessagesFromHtml", () => {
       read: { format: "normalized_text" }
     });
 
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("partial");
     expect(result.output_text).toBe("fallback-ok");
     expect(result.data?.responseText).toBe("fallback-ok");
     expect(result.data?.complete).toBe(false);
+    expect(result.warnings.join(" ")).toContain("Timed out after receiving partial assistant text.");
+    expect(result.warnings.join(" ")).toContain("completion was not confirmed");
+  });
+
+  it("surfaces a partial status when ask reads after a partial wait", async () => {
+    const page = askWaitFallbackPage("Write 500 numbered items.", "I will now produce the list.");
+
+    const result = await askMessage({ page }, {
+      text: "Write 500 numbered items.",
+      wait: { timeoutMs: 5, stableMs: 0, pollMs: 1 },
+      read: { format: "normalized_text" }
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("partial");
+    expect(result.output_text).toBe("I will now produce the list.");
+    expect(result.data?.complete).toBe(false);
+    expect(result.warnings.join(" ")).toContain("Timed out after receiving partial assistant text.");
     expect(result.warnings.join(" ")).toContain("completion was not confirmed");
   });
 
@@ -492,6 +595,22 @@ describe("extractMessagesFromHtml", () => {
     expect(result.data?.actions?.some(action => action.type === "sources")).toBe(true);
   });
 
+  it("warns when readLatest intentionally clips response text with maxChars", async () => {
+    const html = [
+      "<main>",
+      "<div data-message-author-role=\"assistant\"><p>abcdefghijklmnopqrstuvwxyz</p></div>",
+      "</main>"
+    ].join("");
+
+    const result = await readLatest({ page: contentPage(html) }, { format: "markdown", maxChars: 10 });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.text).toBe("abcdefghij");
+    expect(result.warnings.join(" ")).toContain("maxChars");
+    expect(result.warnings.join(" ")).toContain("captured text was clipped");
+    expect(result.data?.warnings?.join(" ")).toContain("captured text was clipped");
+  });
+
   it("copyResponse can intentionally use DOM Markdown fallback", async () => {
     const html = readFileSync("tests/fixtures/chat-rich-response.html", "utf8");
     const result = await copyResponse({
@@ -602,6 +721,31 @@ describe("extractMessagesFromHtml", () => {
     expect(result.data?.markdown).not.toContain("## Second Response");
     expect(result.data?.branch?.label).toBe("1/2");
   });
+
+  it("does not silently copy a response while generation is active", async () => {
+    const html = [
+      "<main>",
+      "<div data-testid=\"conversation-turn-1\">",
+      "<div data-message-author-role=\"assistant\"><p>Partial preamble.</p></div>",
+      "<button aria-label=\"Stop answering\"></button>",
+      "<button aria-label=\"Copy response\"></button>",
+      "</div>",
+      "</main>"
+    ].join("");
+
+    const result = await copyResponse({
+      page: contentPage(html),
+      clipboard: {
+        read: async () => "before",
+        waitForChange: async () => "Partial preamble."
+      }
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("partial");
+    expect(result.output_text).toBe("Partial preamble.");
+    expect(result.warnings.join(" ")).toContain("still generating");
+  });
 });
 
 function contentPage(html: string, onClick?: () => void): PageLike {
@@ -662,6 +806,7 @@ function askWaitFallbackPage(prompt: string, answer: string): PageLike {
       }
       if (source.includes("assistantNodes") && source.includes("latestAssistantTurnIndex")) {
         return {
+          latestText: submitted ? answer : "Earlier answer.",
           turnCount: totalCount,
           assistantTurnCount: assistantCount,
           latestAssistantTurnIndex: submitted ? 4 : 2
@@ -736,7 +881,10 @@ type WaitSnapshot = {
   latestAssistantTurnIndex?: number;
   latestAssistantText: string;
   hasStopControl: boolean;
+  stopButtonAria?: string;
+  stoppedText?: string;
   hasResponseActions: boolean;
+  latestTurnHasResponseActions?: boolean;
 };
 
 function scriptedWaitPage(snapshots: WaitSnapshot[]): PageLike {
@@ -750,6 +898,9 @@ function scriptedWaitPage(snapshots: WaitSnapshot[]): PageLike {
 
       if (Array.isArray(arg) && arg.includes("stop generating")) {
         return snapshot.hasStopControl as T;
+      }
+      if (Array.isArray(arg) && arg.includes("stopped thinking")) {
+        return (snapshot.stoppedText !== undefined) as T;
       }
       if (source.includes("latestAssistantTurnIndex")) {
         const progress: {
@@ -765,6 +916,18 @@ function scriptedWaitPage(snapshots: WaitSnapshot[]): PageLike {
         progress.latestAssistantTurnIndex = snapshot.latestAssistantTurnIndex ?? snapshot.totalCount;
         return progress as T;
       }
+      if (source.includes("data-testid^='conversation-turn'") && source.includes("latestTurn")) {
+        return (snapshot.latestTurnHasResponseActions ?? snapshot.hasResponseActions) as T;
+      }
+      if (source.includes("document.querySelectorAll(\"button\")")) {
+        const active = snapshot.hasStopControl || snapshot.stopButtonAria?.toLowerCase().includes("stop") === true;
+        const stopped = snapshot.stoppedText !== undefined;
+        const signals = [
+          snapshot.stopButtonAria,
+          snapshot.stoppedText
+        ].filter((value): value is string => value !== undefined);
+        return { active, stopped, signals } as T;
+      }
       if (source.includes("node?.innerText")) {
         return snapshot.latestAssistantText as T;
       }
@@ -774,7 +937,12 @@ function scriptedWaitPage(snapshots: WaitSnapshot[]): PageLike {
         return snapshot.totalCount as T;
       }
       if (source.includes("document.body?.innerText")) {
-        const text = snapshot.hasStopControl ? "New chat Stop generating Copy response" : "New chat Copy response";
+        const text = [
+          "New chat",
+          snapshot.hasStopControl ? "Stop generating" : undefined,
+          snapshot.stoppedText,
+          "Copy response"
+        ].filter(Boolean).join(" ");
         return text as T;
       }
 
