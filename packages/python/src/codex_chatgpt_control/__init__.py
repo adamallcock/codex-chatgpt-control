@@ -26,6 +26,7 @@ from .models import (
     BackendCapabilities,
     BackendEvent,
     BackendResponse,
+    CapabilityCheck,
     ChatGPTAgentModel,
     ChatGPTResponse,
     ChatGPTRunInput,
@@ -43,6 +44,17 @@ from .runner import RunResult, RunResultStreaming, RunState, Runner
 from .responses import ResponsesClient, ResponsesValidationResult
 from .primitives import ArtifactsClient, FilesClient, MessagesClient, ModesClient, ResponseClient, SessionClient, ThreadsClient, ToolsClient
 from .reports import ReportsClient
+from .untrusted_output import (
+    INTEGRITY_SCHEMA_VERSION,
+    UNTRUSTED_OUTPUT_INLINE_LIMIT_BYTES,
+    UNTRUSTED_OUTPUT_SCHEMA_VERSION,
+    fenced_text_block,
+    normalize_prompt_for_integrity,
+    render_untrusted_output_return_envelope,
+    sha256_file,
+    sha256_text,
+    verify_integrity_sidecar,
+)
 from .workflows import WorkflowClient
 
 __all__ = [
@@ -67,6 +79,7 @@ __all__ = [
     "BackendCapabilities",
     "BackendEvent",
     "BackendResponse",
+    "CapabilityCheck",
     "ChatGPT",
     "ChatGPTAgentModel",
     "ChatGPTAgent",
@@ -82,6 +95,7 @@ __all__ = [
     "DoctorReport",
     "explain_blocker",
     "FilesClient",
+    "INTEGRITY_SCHEMA_VERSION",
     "MessagesClient",
     "ModesClient",
     "NodeSidecarError",
@@ -100,5 +114,13 @@ __all__ = [
     "StdioBackendTransport",
     "ThreadsClient",
     "ToolsClient",
+    "UNTRUSTED_OUTPUT_INLINE_LIMIT_BYTES",
+    "UNTRUSTED_OUTPUT_SCHEMA_VERSION",
     "WorkflowClient",
+    "fenced_text_block",
+    "normalize_prompt_for_integrity",
+    "render_untrusted_output_return_envelope",
+    "sha256_file",
+    "sha256_text",
+    "verify_integrity_sidecar",
 ]

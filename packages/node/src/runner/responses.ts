@@ -1,4 +1,5 @@
 import type { RunReportOptions } from "../commands/reports.js";
+import { renderUntrustedOutputReturnEnvelope } from "../safety/untrusted-output.js";
 import type { BootstrapArgs, ResponseFormat } from "../types.js";
 import type {
   ChatGPTAttachmentInput,
@@ -164,6 +165,7 @@ export function responseFromRunResult<TOutput>(
   result: ChatGPTRunResult<TOutput>,
   now: Date = new Date()
 ): ChatGPTResponse {
+  const id = responseId(now);
   const browserControl: ChatGPTResponse["browser_control"] = {
     visibleUi: true,
     resultStatus: result.status
@@ -171,9 +173,23 @@ export function responseFromRunResult<TOutput>(
   if (result.data?.thread !== undefined) browserControl.thread = result.data.thread;
   const reportPath = result.data?.reportPath ?? result.reportPath;
   if (reportPath !== undefined) browserControl.reportPath = reportPath;
+  if (result.output_text.length > 0) {
+    const envelopeArgs: Parameters<typeof renderUntrustedOutputReturnEnvelope>[0] = {
+      outputText: result.output_text,
+      source: "chatgpt",
+      capturedAt: now.toISOString(),
+      metadata: {
+        response_id: id,
+        result_status: result.status,
+        report_path: reportPath
+      }
+    };
+    if (reportPath !== undefined) envelopeArgs.outputPath = reportPath;
+    browserControl.untrustedOutput = renderUntrustedOutputReturnEnvelope(envelopeArgs);
+  }
 
   return {
-    id: responseId(now),
+    id,
     object: "chatgpt.browser.response",
     created_at: Math.floor(now.getTime() / 1000),
     status: result.status,

@@ -6,6 +6,21 @@
     "data": {
       "bytes": 335,
       "includeContent": false,
+      "integrity": {
+        "inputs": [],
+        "output": {
+          "bytes": 96,
+          "sha256": "850670117a5a33720b6f91ac79ce20cefe23ed760d6c47ec78f71cac06eba360",
+          "untrusted": true
+        },
+        "schemaVersion": "chatgpt.browser_control.integrity.v1",
+        "target": {
+          "bytes": 335,
+          "path": "/tmp/codex-chatgpt-control/reports/contract-fixtures/fixed-contract-report.json",
+          "sha256": "870d54cb554836cd6368dd3e5f21ee50f81653d6f48564cfd1b593f72008dd1e"
+        }
+      },
+      "metaPath": "/tmp/codex-chatgpt-control/reports/contract-fixtures/fixed-contract-report.json.meta.json",
       "path": "/tmp/codex-chatgpt-control/reports/contract-fixtures/fixed-contract-report.json"
     },
     "ok": true,

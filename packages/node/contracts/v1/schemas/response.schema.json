@@ -26,6 +26,7 @@
           "additionalProperties": true
         },
         "reportPath": { "type": "string" },
+        "untrustedOutput": { "$ref": "#/$defs/untrustedOutputReturnEnvelope" },
         "unsupported": {
           "type": "array",
           "items": { "$ref": "#/$defs/unsupportedField" }
@@ -45,6 +46,33 @@
         "path": { "type": "string", "minLength": 1 },
         "reason": { "type": "string", "minLength": 1 },
         "alternative": { "type": "string" }
+      }
+    },
+    "untrustedOutputReturnEnvelope": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "trusted",
+        "source",
+        "capturedAt",
+        "contentSha256",
+        "contentBytes",
+        "inline",
+        "maxInlineBytes",
+        "rendered"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "schemaVersion": { "const": "chatgpt.browser_control.untrusted_output_return.v1" },
+        "trusted": { "const": false },
+        "source": { "type": "string", "minLength": 1 },
+        "capturedAt": { "type": "string", "minLength": 1 },
+        "contentSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "contentBytes": { "type": "integer", "minimum": 0 },
+        "inline": { "type": "boolean" },
+        "maxInlineBytes": { "type": "integer", "minimum": 1 },
+        "outputPath": { "type": "string" },
+        "rendered": { "type": "string", "minLength": 1 }
       }
     }
   }

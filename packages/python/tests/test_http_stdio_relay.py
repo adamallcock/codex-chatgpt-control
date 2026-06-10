@@ -90,6 +90,27 @@ class HttpStdioRelayTests(unittest.TestCase):
         self.assertEqual(value["error"]["code"], "backend_relay_error")
         self.assertIn("empty stream body", value["error"]["message"])
 
+    def test_relay_harness_closes_subprocess_pipes(self) -> None:
+        def handler(request: dict[str, Any], path: str, writer: Callable[[str], None]) -> None:
+            self.assertEqual(path, "/request")
+            writer(json.dumps(response(request, {"ok": True})) + "\n")
+
+        harness = RelayHarness(handler)
+        with harness:
+            process = harness.process
+            harness.send({"requestId": "req_close", "command": "backend.health", "payload": {}})
+            harness.read_json()
+
+        stdin = process.stdin
+        stdout = process.stdout
+        stderr = process.stderr
+        assert stdin is not None
+        assert stdout is not None
+        assert stderr is not None
+        self.assertTrue(stdin.closed)
+        self.assertTrue(stdout.closed)
+        self.assertTrue(stderr.closed)
+
 
 class RelayHarness:
     def __init__(self, handler: Callable[[dict[str, Any], str, Callable[[str], None]], None]) -> None:
@@ -99,6 +120,12 @@ class RelayHarness:
         self._process: subprocess.Popen[str] | None = None
         self._stdout: queue.Queue[str] = queue.Queue()
         self._stdout_thread: threading.Thread | None = None
+
+    @property
+    def process(self) -> subprocess.Popen[str]:
+        if self._process is None:
+            raise AssertionError("relay subprocess has not started")
+        return self._process
 
     def __enter__(self) -> "RelayHarness":
         outer = self
@@ -143,14 +170,20 @@ class RelayHarness:
         return self
 
     def __exit__(self, _exc_type: Any, _exc: Any, _tb: Any) -> None:
-        if self._process is not None:
-            if self._process.stdin is not None:
-                self._process.stdin.close()
+        process = self._process
+        if process is not None:
+            if process.stdin is not None and not process.stdin.closed:
+                process.stdin.close()
             try:
-                self._process.wait(timeout=2)
+                process.wait(timeout=2)
             except subprocess.TimeoutExpired:
-                self._process.kill()
-                self._process.wait(timeout=2)
+                process.kill()
+                process.wait(timeout=2)
+            if self._stdout_thread is not None and self._stdout_thread.is_alive():
+                self._stdout_thread.join(timeout=2)
+            for stream in (process.stdout, process.stderr):
+                if stream is not None and not stream.closed:
+                    stream.close()
         if self._server is not None:
             self._server.shutdown()
             self._server.server_close()
@@ -178,8 +211,11 @@ class RelayHarness:
     def _read_stdout(self) -> None:
         assert self._process is not None
         assert self._process.stdout is not None
-        for line in self._process.stdout:
-            self._stdout.put(line)
+        try:
+            for line in self._process.stdout:
+                self._stdout.put(line)
+        except ValueError:
+            return
 
 
 def response(request: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
