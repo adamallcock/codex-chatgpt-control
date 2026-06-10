@@ -29,6 +29,14 @@ describe("local path platform semantics", () => {
     expect(isHostAbsolutePath(String.raw`\\server\share\file.md`, "win32")).toBe(true);
   });
 
+  it("infers Windows semantics for fully qualified paths in browser bridge runtimes", () => {
+    const filePath = String.raw`C:\Users\example\file.md`;
+    expect(isHostAbsolutePath(filePath, "browser")).toBe(true);
+    expect(isHostAbsolutePath(filePath, "unknown")).toBe(true);
+    expect(resolveForHostPath(filePath, "browser")).toBe(filePath);
+    expect(basenameForHostPath(filePath, "unknown")).toBe("file.md");
+  });
+
   it("rejects ambiguous Windows paths", () => {
     expect(isHostAbsolutePath(String.raw`C:Users\example\file.md`, "win32")).toBe(false);
     expect(isHostAbsolutePath(String.raw`\tmp\file.md`, "win32")).toBe(false);
