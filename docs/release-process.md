@@ -21,6 +21,51 @@ status: draft
 
 4. Verify no live reports, thread URLs, credentials, or local paths are committed.
 
+## Public Mirror Regeneration
+
+The public repository is generated from the private source tree. Regenerate it
+from the private repository and land changes through a public pull request so
+contributors can review the public-facing history.
+
+1. In the private repository, confirm source changes are merged and clean.
+2. Rebuild plugin runtime bundles before export when runtime code changed:
+
+   ```bash
+   node tools/public-export/root/scripts/build-plugin-runtime.mjs --root .
+   node tools/public-export/root/scripts/check-plugin-runtime.mjs --root .
+   ```
+
+3. Run the exporter check:
+
+   ```bash
+   node tools/public-export/export-public.mjs --check
+   ```
+
+4. Generate into a public branch, not public `main`:
+
+   ```bash
+   git switch -c codex/public-export-<topic>
+   node /path/to/private/tools/public-export/export-public.mjs --write
+   ```
+
+5. Split the generated public diff into public-readable commits. Prefer
+   feature groups such as runtime behavior, localization, diagnostics,
+   contracts, docs, and plugin runtime bundles. Avoid one opaque `chore`
+   commit when public contributors cannot see the private source commits.
+6. Validate the public branch:
+
+   ```bash
+   npm run node:build
+   npm run python:compile
+   npm run node:contracts
+   npm run plugin:validate
+   npm run node:bundle
+   npm run plugin:check
+   ```
+
+7. Open a public PR with a self-contained summary and merge with a normal merge
+   commit when the split commit stack should remain visible.
+
 ## Codex Plugin Alpha
 
 1. Confirm the marketplace file is present at `.agents/plugins/marketplace.json`.
