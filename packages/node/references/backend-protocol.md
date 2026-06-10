@@ -110,13 +110,15 @@ The backend must support:
 - diagnostics: `doctor`
 - reports: `createReport`, `reports.create`, `reports.redact`, `reports.summarize`
 - command discovery: `commands`, `describe`, `help`
-- primitives: `session.bootstrap`, `threads.*`, `messages.*`, `artifacts.*`, `files.*`, `modes.set`, `tools.select`, `response.copy`
+- primitives: `session.bootstrap`, `threads.*`, `messages.*`, `artifacts.*`, `files.preflight`, `files.attach`, `files.downloadLatest`, `modes.set`, `tools.select`, `response.copy`
 
 `doctor` returns a normal `CommandResult` whose `data.checks` map is extensible. Scenario checks such as `existing_tab`, `artifacts`, `file_preflight`, `localization`, and `reports` may add optional `code`, `blockerKind`, `nextCommand`, and JSON `details` fields to individual check entries while preserving the existing `status`, `message`, and `remediation` fields.
 
 ## Host-Local Attachment Paths
 
 Attachment paths are interpreted on the machine running the Node backend. Use an absolute path in that host operating system's native form. On macOS/Linux/WSL, use paths such as `/example/user/file.pdf`, `/home/you/file.pdf`, or `/mnt/c/example/user/file.pdf`. On Windows backend hosts, use fully qualified paths such as `C:\Users\you\file.pdf` or UNC paths such as `\\server\share\file.pdf`. Drive-relative paths like `C:Users\you\file.pdf`, root-relative paths like `\tmp\file.pdf`, and Windows-looking paths sent to a POSIX backend are rejected before filesystem access.
+
+Use `files.preflight` for non-mutating local validation before browser upload workflows. It validates absolute paths, existence, readability, file-vs-directory status, configurable per-file and total byte limits, duplicate basenames, duplicate resolved paths, zero-byte files, and extension-based MIME/category guesses. It does not open ChatGPT, perform a live upload, or read file contents for MIME detection. `askWithFiles` and `files.attach` run the same preflight before upload attempts so obvious local file failures stop before browser interaction.
 
 ## Generated Artifacts
 

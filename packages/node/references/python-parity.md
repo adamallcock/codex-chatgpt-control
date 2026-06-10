@@ -21,6 +21,8 @@ Wire fields stay TypeScript-compatible. Python exposes idiomatic aliases:
 | `nextStepId` | `next_step_id` |
 | `browser_control.untrustedOutput` | `response.untrusted_output` |
 | `metaPath` | `meta_path` |
+| `mimeType` | `mime_type` |
+| `totalBytes` | `total_bytes` |
 
 Generated-image behavior stays owned by the TypeScript runtime. Python exposes
 the same backend commands through `chatgpt.artifacts.list_latest(...)`,
@@ -41,6 +43,8 @@ the shared `blocker-explanation-profiles.json` and
 ## Host-Local Attachment Paths
 
 Python does not reinterpret attachment paths. It sends the path string to the Node backend, and the backend validates the path against its own host operating system. Attachment paths must be absolute on the backend host. On macOS/Linux/WSL backends, use POSIX paths such as `/example/user/file.pdf` or `/mnt/c/example/user/file.pdf`. On Windows backends, use fully qualified paths such as `C:\Users\you\file.pdf` or UNC paths such as `\\server\share\file.pdf`. Drive-relative paths, root-relative paths, and Windows-looking paths sent to a POSIX backend are rejected before filesystem access.
+
+Python exposes the backend-visible `files.preflight` command as `chatgpt.files.preflight(...)`. It returns the same `CommandResult` as TypeScript and can be decoded with `FilePreflightData` when callers want typed metadata. The command validates paths, readability, file-vs-directory status, size limits, duplicate basenames, duplicate resolved paths, zero-byte files, and extension-based MIME/category guesses without opening ChatGPT or reading file contents for MIME detection.
 
 ## Sync Python
 

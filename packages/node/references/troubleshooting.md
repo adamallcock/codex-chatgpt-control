@@ -108,6 +108,6 @@ Doctor also supports opt-in scenario checks:
 
 - `existing_tab`: claims only the requested already-open tab target by default and reports `existing_tab_not_found` / `existing_tab_ambiguous` diagnostics without opening a replacement tab unless `existingTab.ifMissing` explicitly allows that.
 - `artifacts`: verifies current-page artifact selector/download/asset support without requesting generation.
-- `file_preflight`: Stage 2 scaffold only; full local file validation belongs to the file-preflight command workstream.
+- `file_preflight`: validates supplied local file paths without opening ChatGPT or attempting upload. It reports path count, total bytes, duplicate/zero-byte warnings, and extension-based MIME/category metadata; fatal local file problems map to the same structured blockers as `files.preflight`.
 - `localization`: checks locale-label registry readiness and English canonical labels without changing the ChatGPT account language; it is not yet proof of full localized selector coverage.
 - `reports`: checks redacted-report policy and existing destination writability when possible without writing a report.

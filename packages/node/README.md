@@ -43,6 +43,10 @@ await chatgpt.askInThread({
 Attach local files with host-local absolute paths:
 
 ```ts
+const preflight = await chatgpt.files.preflight({
+  paths: ["/absolute/host/path/to/report.pdf"]
+});
+
 await chatgpt.askWithFiles({
   files: ["/absolute/host/path/to/report.pdf"],
   prompt: "Summarize this report.",

@@ -48,6 +48,8 @@ If either gate is missing, stop with a permission blocker and tell the user whic
 
 Attachment paths must be absolute on the machine running the Node backend. Use the path form for that host operating system. On Linux/WSL backends, use paths such as `/home/you/file.pdf` or `/mnt/c/work/file.pdf`. On Windows backends, use fully qualified paths such as `C:\Users\you\file.pdf`. If a Windows-looking path is rejected on macOS/Linux, do not retry with the same string. Convert it to the backend host's real path, for example `/home/you/file.pdf` for a Linux/WSL backend.
 
+Use `chatgpt.files.preflight({ paths })` before long file workflows when local path validity is uncertain. It does not open ChatGPT or upload files; it validates host-local file metadata and returns structured blockers/warnings.
+
 ## Source Setup
 
 From a source checkout:
@@ -131,6 +133,10 @@ When the user says the ChatGPT thread is already open, pass `existingTab: true` 
 Attach approved files:
 
 ```ts
+const preflight = await chatgpt.files.preflight({
+  paths: ["/absolute/host/path/to/approved-file.pdf"]
+});
+
 await chatgpt.askWithFiles({
   thread: { type: "new" },
   files: ["/absolute/host/path/to/approved-file.pdf"],
@@ -145,7 +151,8 @@ Run a diagnostic before long workflows:
 
 ```ts
 const diagnostic = await chatgpt.doctor({
-  check: ["bridge", "login", "upload", "download", "clipboard"]
+  check: ["bridge", "login", "upload", "download", "clipboard", "file_preflight"],
+  files: ["/absolute/host/path/to/approved-file.pdf"]
 });
 ```
 

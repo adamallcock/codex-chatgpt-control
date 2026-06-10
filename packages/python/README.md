@@ -108,6 +108,14 @@ Existing-tab blockers expose only safe metadata: requested target, candidate tab
 
 The Python client does not normalize attachment paths. It forwards them to the Node backend. Use the path form for the backend host, not necessarily the Python caller host. If Python is running on WSL but the backend is running in Windows, pass a Windows path. If the backend is running in WSL/Linux, pass a Linux path such as `/home/you/file.pdf`.
 
+Validate local file metadata without opening ChatGPT:
+
+```python
+preflight = chatgpt.files.preflight(paths=["/absolute/host/path/to/report.pdf"])
+if not preflight.ok:
+    print(preflight.blocker)
+```
+
 ## Backend And Browser Bridge
 
 Ordinary shells can launch the backend and validate the protocol. Browser-required calls need a compatible browser bridge.
