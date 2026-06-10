@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Malayalam (ml). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=ml, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const ml = {
   composerTextbox: ["എന്തും ചോദിക്കുക"],
@@ -19,6 +18,7 @@ export const ml = {
   addFilesOpenerCandidates: ["ഫയലുകളും മറ്റും ചേർക്കുക"],
   addPhotosFilesMenuItem: ["ഫോട്ടോകളും ഫയലുകളും അപ്‌ലോഡ് ചെയ്യുക"],
   copyResponse: ["മറുപടി കോപ്പി ചെയ്യുക"],
+  modeLabels: ["തൽക്ഷണം", "ഇടത്തരം", "ഉയർന്നത്", "വളരെ ഉയർന്ന", "പ്രോ"],
   modeOpenerExtra: ["കോൺഫിഗർ ചെയ്യുക…"],
   tools: {
     web_search: ["വെബ് തിരയൽ"],

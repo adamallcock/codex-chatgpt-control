@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Slovenian (sl-SI). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=sl-SI, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const sl = {
   composerTextbox: ["Vprašajte kar koli"],
@@ -19,6 +18,7 @@ export const sl = {
   addFilesOpenerCandidates: ["Dodaj datoteke in še več"],
   addPhotosFilesMenuItem: ["Naloži fotografije in datoteke"],
   copyResponse: ["Kopiraj odgovor"],
+  modeLabels: ["Takoj", "Srednja", "Visoka", "Zelo visoko"],
   modeOpenerExtra: ["Konfiguracija …"],
   tools: {
     web_search: ["Iskanje po spletu"],

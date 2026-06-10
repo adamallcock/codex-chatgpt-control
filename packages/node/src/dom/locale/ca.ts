@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Catalan (ca-ES). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=ca-ES, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• Esforç" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const ca = {
   composerTextbox: ["Xateja amb el ChatGPT"],
@@ -19,6 +18,7 @@ export const ca = {
   addFilesOpenerCandidates: ["Afegeix fitxers i més"],
   addPhotosFilesMenuItem: ["Afegeix fotos i fitxers"],
   copyResponse: ["Copia la resposta"],
+  modeLabels: ["Instantani", "Mitjà", "Alt", "Molt alt"],
   modeOpenerExtra: ["Configura…"],
   tools: {
     web_search: ["Cerca a la xarxa"],

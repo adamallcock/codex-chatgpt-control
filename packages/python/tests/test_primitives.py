@@ -44,7 +44,11 @@ class PrimitiveFacadeTests(unittest.TestCase):
             (lambda: chatgpt.projects.sources.list(project_url="https://chatgpt.com/g/g-p-example/project"), "projects.sources.list", {"projectUrl": "https://chatgpt.com/g/g-p-example/project"}),
             (lambda: chatgpt.projects.sources.plan_add(project_url="https://chatgpt.com/g/g-p-example/project", files=["/tmp/a.txt"], batch_size=2), "projects.sources.planAdd", {"projectUrl": "https://chatgpt.com/g/g-p-example/project", "files": ["/tmp/a.txt"], "batchSize": 2}),
             (lambda: chatgpt.projects.sources.add(project_url="https://chatgpt.com/g/g-p-example/project", files=["/tmp/a.txt"], confirm_mutation=True), "projects.sources.add", {"projectUrl": "https://chatgpt.com/g/g-p-example/project", "files": ["/tmp/a.txt"], "confirmMutation": True}),
-            (lambda: chatgpt.modes.set(model="auto"), "modes.set", {"model": "auto"}),
+            (
+                lambda: chatgpt.modes.set(model="Pro", intelligence="Pro", model_version="5.4"),
+                "modes.set",
+                {"model": "Pro", "intelligence": "Pro", "modelVersion": "5.4"},
+            ),
             (lambda: chatgpt.tools.select(tool="web_search"), "tools.select", {"tool": "web_search"}),
             (lambda: chatgpt.response.copy(which="latest"), "response.copy", {"which": "latest"}),
         ]

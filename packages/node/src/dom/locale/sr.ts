@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Serbian (sr-RS). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=sr-RS, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const sr = {
   composerTextbox: ["Питај било шта"],
@@ -19,6 +18,7 @@ export const sr = {
   addFilesOpenerCandidates: ["Додај датотеке и друго"],
   addPhotosFilesMenuItem: ["Отпреми фотографије и датотеке"],
   copyResponse: ["Копирај одговор"],
+  modeLabels: ["Веома високо"],
   modeOpenerExtra: ["Конфигуриши..."],
   tools: {
     web_search: ["Претрага веба"],

@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Swedish (sv-SE). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=sv-SE, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const sv = {
   composerTextbox: ["Fråga vad som helst"],
@@ -19,6 +18,7 @@ export const sv = {
   addFilesOpenerCandidates: ["Lägg till filer med mera"],
   addPhotosFilesMenuItem: ["Ladda upp foton och filer"],
   copyResponse: ["Kopiera svar"],
+  modeLabels: ["Direkt", "Balanserad", "Hög", "Extra hög"],
   modeOpenerExtra: ["Konfigurera …"],
   tools: {
     web_search: ["Webbsökning"],

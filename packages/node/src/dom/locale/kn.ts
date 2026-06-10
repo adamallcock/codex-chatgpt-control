@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Kannada (kn-IN). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=kn-IN, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• ಹೆಚ್ಚಿನ" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const kn = {
   composerTextbox: ["ChatGPT ಜೊತೆಗೆ ಚಾಟ್ ಮಾಡಿ"],
@@ -19,6 +18,7 @@ export const kn = {
   addFilesOpenerCandidates: ["ಫೈಲ್‌ಗಳು ಮತ್ತು ಹೆಚ್ಚಿನವುಗಳನ್ನು ಸೇರಿಸಿ"],
   addPhotosFilesMenuItem: ["ಫೋಟೊ ಮತ್ತು ಫೈಲ್‌ಗಳನ್ನು ಸೇರಿಸಿ"],
   copyResponse: ["ಪ್ರತಿಕ್ರಿಯೆಯನ್ನು ನಕಲಿಸಿ"],
+  modeLabels: ["ತಕ್ಷಣ", "ಮಧ್ಯಮ", "ಉನ್ನತ", "ಅತಿ ಹೆಚ್ಚು", "ಪ್ರೊ"],
   modeOpenerExtra: ["ಕಾನ್ಫಿಗರ್ ಮಾಡಿ..."],
   tools: {
     web_search: ["ವೆಬ್ ಸರ್ಚ್"],

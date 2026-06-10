@@ -4,10 +4,11 @@ import type { LocaleContribution } from "./types.js";
  * French — France (fr-FR). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=fr-FR, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• Étendu" suffix is a descriptor, not a standalone mode). Not yet captured —
- * fall back to English + `selector_drift`: `download`, `downloadImage`, `imageContainerHint`,
- * `transientAssistant`, `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
+ * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
+ * blocker copy.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const frFR = {
   composerTextbox: ["Discuter avec ChatGPT"],
@@ -19,6 +20,7 @@ export const frFR = {
   addFilesOpenerCandidates: ["Ajouter des fichiers et plus encore"],
   addPhotosFilesMenuItem: ["Ajouter des photos et fichiers"],
   copyResponse: ["Copier la réponse"],
+  modeLabels: ["Moyen", "Avancé", "Très élevé"],
   modeOpenerExtra: ["Configurer"],
   tools: {
     web_search: ["Recherche sur le Web"],

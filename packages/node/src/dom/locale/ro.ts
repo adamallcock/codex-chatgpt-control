@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Romanian (ro-RO). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=ro-RO, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const ro = {
   composerTextbox: ["Întreabă orice"],
@@ -19,6 +18,7 @@ export const ro = {
   addFilesOpenerCandidates: ["Adaugă fișiere și multe altele"],
   addPhotosFilesMenuItem: ["Încarcă fotografii și fișiere"],
   copyResponse: ["Copiază răspunsul"],
+  modeLabels: ["Mediu", "Ridicat", "Foarte ridicată"],
   modeOpenerExtra: ["Configurează..."],
   tools: {
     web_search: ["Căutare pe internet"],

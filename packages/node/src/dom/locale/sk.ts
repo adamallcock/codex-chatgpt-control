@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Slovak (sk-SK). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=sk-SK, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const sk = {
   composerTextbox: ["Spýtaj sa hocičo…"],
@@ -19,6 +18,7 @@ export const sk = {
   addFilesOpenerCandidates: ["Pridať súbory a iné"],
   addPhotosFilesMenuItem: ["Nahrať fotografie a súbory"],
   copyResponse: ["Kopírovať odpoveď"],
+  modeLabels: ["Okamžitá", "Stredná", "Vysoká", "Extra vysoká"],
   modeOpenerExtra: ["Konfigurovať..."],
   tools: {
     web_search: ["Prehľadávaj web"],

@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Albanian (sq-AL). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=sq-AL, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const sq = {
   composerTextbox: ["Pyet për çdo gjë"],
@@ -19,6 +18,7 @@ export const sq = {
   addFilesOpenerCandidates: ["Shto skedarë e më shumë"],
   addPhotosFilesMenuItem: ["Ngarko foto dhe skedarë"],
   copyResponse: ["Kopjo përgjigjen"],
+  modeLabels: ["I menjëhershëm", "Mesatar", "Lartë", "Shumë i lartë"],
   modeOpenerExtra: ["Konfiguro..."],
   tools: {
     web_search: ["Kërkim në ueb"],

@@ -83,6 +83,107 @@ describe("mode and tool selection blockers", () => {
     });
   });
 
+  it("opens the new intelligence picker from the current High button and selects Pro", async () => {
+    const page = intelligencePickerPage({ current: "High" });
+
+    const result = await setMode({ page }, { model: "Pro" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["Pro"],
+      candidates: ["Instant", "Medium", "High", "Extra High", "Pro", "GPT-5.5"]
+    });
+  });
+
+  it("selects a nested model version from the new intelligence picker", async () => {
+    const page = intelligencePickerPage({ current: "High" });
+
+    const result = await setMode({ page }, { intelligence: "Pro", modelVersion: "5.4" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["Pro", "5.4"],
+      candidates: ["Instant", "Medium", "High", "Extra High", "Pro", "GPT-5.5", "5.5", "5.4", "5.3", "5.2", "4.5", "o3"]
+    });
+  });
+
+  it("selects localized Pro by intelligence menu position for legacy model requests", async () => {
+    const labels = ["فوری", "متوسط", "بالا", "بسیار زیاد", "حرفه‌ای"];
+    const page = intelligencePickerPage({ current: "بالا", labels });
+
+    const result = await setMode({ page }, { model: "Pro" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["حرفه‌ای"],
+      candidates: ["فوری", "متوسط", "بالا", "بسیار زیاد", "حرفه‌ای", "GPT-5.5"]
+    });
+  });
+
+  it("selects nested model versions after localized intelligence selection", async () => {
+    const labels = ["فوری", "متوسط", "بالا", "بسیار زیاد", "حرفه‌ای"];
+    const page = intelligencePickerPage({ current: "بالا", labels });
+
+    const result = await setMode({ page }, { intelligence: "Pro", modelVersion: "5.4" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["حرفه‌ای", "5.4"],
+      candidates: ["فوری", "متوسط", "بالا", "بسیار زیاد", "حرفه‌ای", "GPT-5.5", "5.5", "5.4", "5.3", "5.2", "4.5", "o3"]
+    });
+  });
+
+  it("opens nested model versions by pointer movement when the submenu row is hover-triggered", async () => {
+    const page = intelligencePickerPage({ current: "High", versionSubmenuTrigger: "pointer" });
+
+    const result = await setMode({ page }, { intelligence: "Pro", modelVersion: "5.4" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["Pro", "5.4"],
+      candidates: ["Instant", "Medium", "High", "Extra High", "Pro", "GPT-5.5", "5.5", "5.4", "5.3", "5.2", "4.5", "o3"]
+    });
+  });
+
+  it("reopens the picker for model versions when selecting intelligence closes the menu", async () => {
+    const page = intelligencePickerPage({ current: "High", closeOnIntelligenceSelection: true });
+
+    const result = await setMode({ page }, { intelligence: "Pro", modelVersion: "5.4" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["Pro", "5.4"],
+      candidates: ["Instant", "Medium", "High", "Extra High", "Pro", "GPT-5.5", "5.5", "5.4", "5.3", "5.2", "4.5", "o3"]
+    });
+  });
+
+  it("returns nested candidates when a requested model version is unavailable", async () => {
+    const page = intelligencePickerPage({ current: "Pro" });
+
+    const result = await setMode({ page }, { version: "6.0" });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("unsupported");
+    expect(result.blocker).toMatchObject({
+      kind: "selector_drift",
+      code: "visible_candidate_not_found",
+      candidates: [
+        { label: "Instant" },
+        { label: "Medium" },
+        { label: "High" },
+        { label: "Extra High" },
+        { label: "Pro" },
+        { label: "GPT-5.5" },
+        { label: "5.5" },
+        { label: "5.4" },
+        { label: "5.3" },
+        { label: "5.2" },
+        { label: "4.5" },
+        { label: "o3" }
+      ]
+    });
+  });
+
   it("waits for the mode opener after a new thread render", async () => {
     const page = delayedModeOpenerPage();
 
@@ -396,6 +497,7 @@ function selectedModePage(buttonLabels: string[], menuLabels: string[]): PageLik
     }),
     evaluate: async <T, A = unknown>(fn: (arg: A) => T | Promise<T>, arg?: A) => {
       const previousDocument = globalThis.document;
+      const previousWindow = globalThis.window;
       try {
         globalThis.document = {
           querySelectorAll: (selector: string) => {
@@ -408,13 +510,177 @@ function selectedModePage(buttonLabels: string[], menuLabels: string[]): PageLik
             return [];
           }
         } as unknown as Document;
+        globalThis.window = {
+          getComputedStyle: () => ({ display: "block", opacity: "1", visibility: "visible" })
+        } as unknown as Window & typeof globalThis;
         return await fn(arg as A);
       } finally {
         globalThis.document = previousDocument;
+        globalThis.window = previousWindow;
       }
     },
     waitForTimeout: async () => {},
     title: async () => "ChatGPT",
     url: () => "https://chatgpt.com/"
   };
+}
+
+type FakeMenuItem = {
+  label: string;
+  role: "menuitem" | "menuitemradio";
+  checked?: boolean;
+  hasPopup?: boolean;
+  rect?: { left: number; top: number; width: number; height: number };
+};
+
+function intelligencePickerPage({
+  current,
+  labels = ["Instant", "Medium", "High", "Extra High", "Pro"],
+  closeOnIntelligenceSelection = false,
+  versionSubmenuTrigger = "click"
+}: {
+  current: string;
+  labels?: string[];
+  closeOnIntelligenceSelection?: boolean;
+  versionSubmenuTrigger?: "click" | "pointer";
+}): PageLike {
+  let currentLabel = current;
+  let mainOpen = false;
+  let modelSubmenuOpen = false;
+  const gptRowRect = { left: 80, top: 220, width: 120, height: 36 };
+  const mainItems: FakeMenuItem[] = [
+    { label: labels[0] ?? "Instant", role: "menuitemradio", checked: current === (labels[0] ?? "Instant") },
+    { label: labels[1] ?? "Medium", role: "menuitemradio", checked: current === (labels[1] ?? "Medium") },
+    { label: labels[2] ?? "High", role: "menuitemradio", checked: current === (labels[2] ?? "High") },
+    { label: labels[3] ?? "Extra High", role: "menuitemradio", checked: current === (labels[3] ?? "Extra High") },
+    { label: labels[4] ?? "Pro", role: "menuitemradio", checked: current === (labels[4] ?? "Pro") },
+    { label: "GPT-5.5", role: "menuitem", hasPopup: true, rect: gptRowRect }
+  ];
+  const versionItems: FakeMenuItem[] = [
+    { label: "5.5", role: "menuitemradio", checked: true },
+    { label: "5.4", role: "menuitemradio", checked: false },
+    { label: "5.3", role: "menuitemradio", checked: false },
+    { label: "5.2", role: "menuitemradio", checked: false },
+    { label: "4.5", role: "menuitemradio", checked: false },
+    { label: "o3", role: "menuitemradio", checked: false }
+  ];
+  const missing: LocatorLike = {
+    count: async () => 0,
+    click: async () => {},
+    filter: () => missing
+  };
+  const opener: LocatorLike = {
+    count: async () => 1,
+    click: async () => {
+      mainOpen = true;
+    },
+    filter: () => opener
+  };
+  const locatorForItem = (label: string): LocatorLike => {
+    const item = [...mainItems, ...versionItems].find(candidate => candidate.label === label);
+    if (item === undefined || (!mainOpen && mainItems.includes(item)) || (!modelSubmenuOpen && versionItems.includes(item))) {
+      return missing;
+    }
+    return {
+      count: async () => 1,
+      click: async () => {
+        if (item.label === "GPT-5.5" && versionSubmenuTrigger === "click") {
+          modelSubmenuOpen = true;
+        } else if (mainItems.includes(item) && item.role === "menuitemradio") {
+          currentLabel = item.label;
+          if (closeOnIntelligenceSelection) {
+            mainOpen = false;
+            modelSubmenuOpen = false;
+          }
+        }
+      },
+      filter: () => locatorForItem(label)
+    };
+  };
+
+  return {
+    getByRole: (_role, options) => {
+      const name = String((options as { name?: unknown } | undefined)?.name ?? "");
+      return name === currentLabel ? opener : locatorForItem(name);
+    },
+    getByText: label => locatorForItem(String(label)),
+    locator: selector => ({
+      ...missing,
+      filter: options => {
+        const wanted = String((options as { hasText?: unknown } | undefined)?.hasText ?? "");
+        if (selector === "button, [role='button']" && wanted === currentLabel) {
+          return opener;
+        }
+        return locatorForItem(wanted);
+      }
+    }),
+    evaluate: async <T, A = unknown>(fn: (arg: A) => T | Promise<T>, arg?: A) => {
+      const previousDocument = globalThis.document;
+      const previousWindow = globalThis.window;
+      try {
+        globalThis.document = {
+          querySelectorAll: (selector: string) => {
+            if (selector === "button, [role='button']") {
+              return [fakeElement({ label: currentLabel })];
+            }
+            if (selector.includes("menuitem") || selector.includes("option")) {
+              if (!mainOpen) return [];
+              return [
+                ...mainItems.map(item => fakeElement(item)),
+                ...(modelSubmenuOpen ? versionItems.map(item => fakeElement(item)) : [])
+              ];
+            }
+            if (selector.includes("data-testid")) {
+              return [];
+            }
+            return [];
+          }
+        } as unknown as Document;
+        globalThis.window = {
+          getComputedStyle: () => ({ display: "block", opacity: "1", visibility: "visible" })
+        } as unknown as Window & typeof globalThis;
+        return await fn(arg as A);
+      } finally {
+        globalThis.document = previousDocument;
+        globalThis.window = previousWindow;
+      }
+    },
+    cua: {
+      move: async ({ x, y }) => {
+        const centerX = gptRowRect.left + gptRowRect.width / 2;
+        const centerY = gptRowRect.top + gptRowRect.height / 2;
+        if (versionSubmenuTrigger === "pointer" && Math.abs(x - centerX) <= 1 && Math.abs(y - centerY) <= 1) {
+          modelSubmenuOpen = true;
+        }
+      }
+    },
+    waitForTimeout: async () => {},
+    title: async () => "ChatGPT",
+    url: () => "https://chatgpt.com/"
+  };
+}
+
+function fakeElement(item: Partial<FakeMenuItem> & { label: string }): Element {
+  return {
+    getAttribute: (name: string) => {
+      if (name === "role") return item.role;
+      if (name === "aria-checked" && item.checked !== undefined) return item.checked ? "true" : "false";
+      if (name === "aria-haspopup" && item.hasPopup === true) return "menu";
+      if (name === "aria-expanded" && item.hasPopup === true) return "false";
+      return undefined;
+    },
+    getBoundingClientRect: () => ({
+      left: item.rect?.left ?? 0,
+      top: item.rect?.top ?? 0,
+      width: item.rect?.width ?? 0,
+      height: item.rect?.height ?? 0,
+      right: (item.rect?.left ?? 0) + (item.rect?.width ?? 0),
+      bottom: (item.rect?.top ?? 0) + (item.rect?.height ?? 0),
+      x: item.rect?.left ?? 0,
+      y: item.rect?.top ?? 0,
+      toJSON: () => ({})
+    }),
+    innerText: item.label,
+    textContent: item.label
+  } as unknown as Element;
 }

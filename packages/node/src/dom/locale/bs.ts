@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Bosnian (bs-BA). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=bs-BA, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• Produženo" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const bs = {
   composerTextbox: ["Razgovarajte pomoću ChatGPT-a"],
@@ -19,6 +18,7 @@ export const bs = {
   addFilesOpenerCandidates: ["Otpremite datoteke i još mnogo toga"],
   addPhotosFilesMenuItem: ["Dodaj slike i datoteke"],
   copyResponse: ["Kopiraj odgovor"],
+  modeLabels: ["Brzo", "Srednji", "Visoko", "Vrlo visoko"],
   modeOpenerExtra: ["Podesi"],
   tools: {
     web_search: ["Internet pretraga"],

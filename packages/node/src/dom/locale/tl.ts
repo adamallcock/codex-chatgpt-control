@@ -4,8 +4,8 @@ import type { LocaleContribution } from "./types.js";
  * Tagalog / Filipino (tl). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=tl, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro),
- * `deep_research` tool label ("Deep research").
+ * Omitted because they match English case-insensitively: `modeLabels` (Instant / Medium /
+ * High / Extra High / Pro), `deep_research` tool label ("Deep research").
  * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
  * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
  * blocker copy.

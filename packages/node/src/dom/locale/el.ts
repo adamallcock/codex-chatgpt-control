@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Greek (el-GR). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=el-GR, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• Εκτεταμένος" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const el = {
   composerTextbox: ["Συνομιλία με το ChatGPT"],
@@ -19,6 +18,7 @@ export const el = {
   addFilesOpenerCandidates: ["Προσθήκη αρχείων και άλλα"],
   addPhotosFilesMenuItem: ["Προσθήκη φωτογραφιών & αρχείων"],
   copyResponse: ["Αντιγραφή απάντησης"],
+  modeLabels: ["Άμεση", "Μεσαία", "Υψηλή", "Πολύ υψηλό"],
   modeOpenerExtra: ["Διαμόρφωση…"],
   tools: {
     web_search: ["Αναζήτηση στον ιστό"],

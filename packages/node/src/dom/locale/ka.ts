@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Georgian (ka-GE). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=ka-GE, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• გაფართოებული" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const ka = {
   composerTextbox: ["საუბარი ChatGPT-სთან"],
@@ -19,6 +18,7 @@ export const ka = {
   addFilesOpenerCandidates: ["ფაილების დამატება და მეტი"],
   addPhotosFilesMenuItem: ["ფოტოების და ფაილების დამატება"],
   copyResponse: ["პასუხის კოპირება"],
+  modeLabels: ["მყისიერი", "საშუალო", "მაღალი", "ძალიან მაღალი"],
   modeOpenerExtra: ["კონფიგურირება…"],
   tools: {
     web_search: ["ვებში ძიება"],

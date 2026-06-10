@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Spanish — Spain (es-ES). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=es-ES, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• Ampliado" suffix is a descriptor, not a standalone mode). Not yet captured
- * — fall back to English + `selector_drift`: `download`, `downloadImage`, `imageContainerHint`,
- * `transientAssistant`, `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const esES = {
   composerTextbox: ["Chatear con ChatGPT"],
@@ -19,6 +18,7 @@ export const esES = {
   addFilesOpenerCandidates: ["Añadir archivos y más"],
   addPhotosFilesMenuItem: ["Añadir fotos y archivos"],
   copyResponse: ["Copiar respuesta"],
+  modeLabels: ["Instantánea", "Media", "Alta", "Muy alta"],
   modeOpenerExtra: ["Configurar"],
   tools: {
     web_search: ["Búsqueda en Internet"],

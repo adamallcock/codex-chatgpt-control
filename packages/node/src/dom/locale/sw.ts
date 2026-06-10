@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Swahili (sw-TZ). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=sw-TZ, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const sw = {
   composerTextbox: ["Uliza chochote"],
@@ -19,6 +18,7 @@ export const sw = {
   addFilesOpenerCandidates: ["Ongeza faili na mengine zaidi"],
   addPhotosFilesMenuItem: ["Pakia picha na mafaili"],
   copyResponse: ["Nakili jibu"],
+  modeLabels: ["Papo hapo", "Wastani", "Juu", "Juu Zaidi"],
   modeOpenerExtra: ["Sanidi..."],
   tools: {
     web_search: ["Utafutaji wa wavuti"],

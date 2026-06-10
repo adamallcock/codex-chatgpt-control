@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Ukrainian (uk-UA). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=uk-UA, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const uk = {
   composerTextbox: ["Запитайте будь-що"],
@@ -19,6 +18,7 @@ export const uk = {
   addFilesOpenerCandidates: ["Додавайте файли й виконуйте інші дії"],
   addPhotosFilesMenuItem: ["Додати світлини та файли"],
   copyResponse: ["Копіювати відповідь"],
+  modeLabels: ["Миттєвий", "Середній", "Високий", "Дуже високий"],
   modeOpenerExtra: ["Налаштувати…"],
   tools: {
     web_search: ["Пошук в Інтернеті"],

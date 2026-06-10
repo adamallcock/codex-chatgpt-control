@@ -52,9 +52,10 @@ workflow selector.
 
 Two rules that never change regardless of language:
 
-- **API keys stay English.** Callers pass `effort: "Thinking"`, `tool: "web_search"`. Only
-  the *matched DOM text* is localized. You add the German label to the registry array; the
-  caller-facing key is untouched.
+- **API keys stay English.** Callers pass `model: "Pro"`,
+  `intelligence: "Pro"`, `modelVersion: "5.4"`, `effort: "Thinking"`, or
+  `tool: "web_search"`. Only the *matched DOM text* is localized. You add the
+  German label to the registry array; the caller-facing key is untouched.
 - **Structural anchors are language-agnostic and are not in this file.** Element ids
   (`#composer-plus-btn`, `#upload-files`), `data-message-author-role`,
   `data-testid^='conversation-turn'`, `a[href^='/c/']`, `a[download]`, and
@@ -150,6 +151,10 @@ export const de = {
 
 Leave the canonical English first (it comes from `en.ts`), and leave the API keys
 (`web_search`, the `effort` values) unchanged.
+
+Newer ChatGPT rollouts may expose `Medium`, `High`, `Extra High`, and `Pro`
+under an `Intelligence` picker. Add localized equivalents only after observing
+those exact labels in the target locale.
 
 Then open [`src/dom/locale/index.ts`](../src/dom/locale/index.ts) and register the new
 locale:

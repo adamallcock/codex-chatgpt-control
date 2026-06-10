@@ -417,7 +417,7 @@ var en = {
   /** Container hint used to scope generated-image download controls. */
   imageContainerHint: ["image"],
   // --- Mode switcher (also the canonical public API keys) ---
-  modeLabels: ["Latest", "Instant", "Thinking", "Extended", "Pro"],
+  modeLabels: ["Latest", "Instant", "Thinking", "Extended", "Medium", "High", "Extra High", "Pro"],
   /** Extra openers that surface the mode menu but are not selectable modes themselves. */
   modeOpenerExtra: ["Configure"],
   // --- Tool menu items, keyed by logical tool id ---
@@ -457,6 +457,7 @@ var de = {
   addFilesOpenerCandidates: ["Dateien und mehr hinzuf\xFCgen"],
   addPhotosFilesMenuItem: ["Fotos und Dateien hinzuf\xFCgen"],
   copyResponse: ["Antwort kopieren"],
+  modeLabels: ["Sofort", "Mittel", "Hoch", "Extra hoch"],
   modeOpenerExtra: ["Konfigurieren"],
   tools: {
     web_search: ["Websuche"],
@@ -477,6 +478,7 @@ var esES = {
   addFilesOpenerCandidates: ["A\xF1adir archivos y m\xE1s"],
   addPhotosFilesMenuItem: ["A\xF1adir fotos y archivos"],
   copyResponse: ["Copiar respuesta"],
+  modeLabels: ["Instant\xE1nea", "Media", "Alta", "Muy alta"],
   modeOpenerExtra: ["Configurar"],
   tools: {
     web_search: ["B\xFAsqueda en Internet"],
@@ -498,6 +500,7 @@ var frFR = {
   addFilesOpenerCandidates: ["Ajouter des fichiers et plus encore"],
   addPhotosFilesMenuItem: ["Ajouter des photos et fichiers"],
   copyResponse: ["Copier la r\xE9ponse"],
+  modeLabels: ["Moyen", "Avanc\xE9", "Tr\xE8s \xE9lev\xE9"],
   modeOpenerExtra: ["Configurer"],
   tools: {
     web_search: ["Recherche sur le Web"],
@@ -519,6 +522,7 @@ var zhHK = {
   addFilesOpenerCandidates: ["\u4E0A\u8F09\u6A94\u6848\u548C\u5176\u4ED6\u5185\u5BB9"],
   addPhotosFilesMenuItem: ["\u52A0\u5165\u76F8\u7247\u548C\u6A94\u6848"],
   copyResponse: ["\u8907\u88FD\u56DE\u8986"],
+  modeLabels: ["\u5373\u6642", "\u5747\u8861", "\u9AD8", "\u6975\u9AD8", "\u5C08\u696D"],
   modeOpenerExtra: ["\u8A2D\u5B9A"],
   tools: {
     web_search: ["\u7DB2\u7D61\u641C\u5C0B"],
@@ -540,6 +544,7 @@ var zhTW = {
   addFilesOpenerCandidates: ["\u65B0\u589E\u6A94\u6848\u7B49\u66F4\u591A\u529F\u80FD"],
   addPhotosFilesMenuItem: ["\u65B0\u589E\u7167\u7247\u548C\u6A94\u6848"],
   copyResponse: ["\u8907\u88FD\u56DE\u61C9"],
+  modeLabels: ["\u5373\u6642", "\u4E2D\u7B49", "\u9AD8", "\u8D85\u9AD8", "\u5C08\u696D"],
   modeOpenerExtra: ["\u8A2D\u5B9A"],
   tools: {
     web_search: ["\u7DB2\u9801\u641C\u5C0B"],
@@ -561,6 +566,7 @@ var ja = {
   addFilesOpenerCandidates: ["\u30D5\u30A1\u30A4\u30EB\u306E\u8FFD\u52A0\u306A\u3069"],
   addPhotosFilesMenuItem: ["\u5199\u771F\u3068\u30D5\u30A1\u30A4\u30EB\u3092\u8FFD\u52A0"],
   copyResponse: ["\u56DE\u7B54\u3092\u30B3\u30D4\u30FC\u3059\u308B"],
+  modeLabels: ["\u6700\u901F", "\u6A19\u6E96", "\u9AD8", "\u6700\u9AD8"],
   modeOpenerExtra: ["\u8A2D\u5B9A\u3059\u308B"],
   tools: {
     web_search: ["\u30A6\u30A7\u30D6\u691C\u7D22"],
@@ -581,6 +587,7 @@ var it = {
   addFilesOpenerCandidates: ["Aggiungi file e altro"],
   addPhotosFilesMenuItem: ["Aggiungi foto e file"],
   copyResponse: ["Copia risposta"],
+  modeLabels: ["Istantanea", "Media", "Alta", "Extra elevata"],
   modeOpenerExtra: ["Configura"],
   tools: {
     web_search: ["Ricerca sul web"],
@@ -601,6 +608,7 @@ var vi = {
   addFilesOpenerCandidates: ["Th\xEAm t\u1EC7p v\xE0 nhi\u1EC1u t\xEDnh n\u0103ng kh\xE1c"],
   addPhotosFilesMenuItem: ["Th\xEAm \u1EA3nh v\xE0 t\u1EC7p"],
   copyResponse: ["Sao ch\xE9p ph\u1EA3n h\u1ED3i"],
+  modeLabels: ["T\u1EE9c th\xEC", "Trung b\xECnh", "Cao", "R\u1EA5t cao"],
   modeOpenerExtra: ["\u0110\u1ECBnh c\u1EA5u h\xECnh"],
   tools: {
     web_search: ["T\xECm ki\u1EBFm tr\xEAn m\u1EA1ng"],
@@ -622,6 +630,7 @@ var am = {
   addFilesOpenerCandidates: ["\u134B\u12ED\u120E\u127D\u1295 \u12EB\u12AD\u1209 \u12A5\u1293 \u120C\u120E\u127D\u121D"],
   addPhotosFilesMenuItem: ["\u134E\u1276\u12CE\u127D\u1295 \u12A5\u1293 \u134B\u12ED\u120E\u127D\u1295 \u12EB\u12AD\u1209"],
   copyResponse: ["\u121D\u120B\u1239\u1295 \u12ED\u1245\u12F1"],
+  modeLabels: ["\u1348\u1323\u1295", "\u1218\u12AB\u12A8\u1208\u129B", "\u12A8\u134D\u1270\u129B", "\u12A5\u1305\u130D \u12A8\u134D\u1270\u129B"],
   modeOpenerExtra: ["\u12EB\u12CB\u1245\u1229"],
   tools: {
     web_search: ["\u12E8\u12F5\u122D \u134D\u1208\u130B"],
@@ -643,6 +652,7 @@ var ar = {
   addFilesOpenerCandidates: ["\u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0644\u0641\u0627\u062A \u0648\u0627\u0644\u0645\u0632\u064A\u062F"],
   addPhotosFilesMenuItem: ["\u0625\u0636\u0627\u0641\u0629 \u0635\u0648\u0631 \u0648\u0645\u0644\u0641\u0627\u062A"],
   copyResponse: ["\u0646\u0633\u062E \u0625\u062C\u0627\u0628\u0629"],
+  modeLabels: ["\u0641\u0648\u0631\u064A", "\u0645\u062A\u0648\u0633\u0637", "\u0639\u0627\u0644\u064A", "\u0645\u0643\u062B\u0641 \u062C\u062F\u064B\u0627", "\u0627\u062D\u062A\u0631\u0627\u0641\u064A"],
   modeOpenerExtra: ["\u062A\u0643\u0648\u064A\u0646"],
   tools: {
     web_search: ["\u0627\u0644\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0648\u064A\u0628"],
@@ -664,6 +674,7 @@ var bg = {
   addFilesOpenerCandidates: ["\u0414\u043E\u0431\u0430\u0432\u044F\u043D\u0435 \u043D\u0430 \u0444\u0430\u0439\u043B\u043E\u0432\u0435 \u0438 \u0434\u0440."],
   addPhotosFilesMenuItem: ["\u0414\u043E\u0431\u0430\u0432\u044F\u043D\u0435 \u043D\u0430 \u0441\u043D\u0438\u043C\u043A\u0438 \u0438 \u0444\u0430\u0439\u043B\u043E\u0432\u0435"],
   copyResponse: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0439\u0442\u0435 \u043E\u0442\u0433\u043E\u0432\u043E\u0440\u0430"],
+  modeLabels: ["\u041C\u0438\u0433\u043D\u043E\u0432\u0435\u043D", "\u0421\u0440\u0435\u0434\u0435\u043D", "\u0412\u0438\u0441\u043E\u043A", "\u041C\u043D\u043E\u0433\u043E \u0432\u0438\u0441\u043E\u043A\u043E", "\u041F\u0440\u043E"],
   modeOpenerExtra: ["\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0438\u0440\u0430\u0439\u0442\u0435"],
   tools: {
     web_search: ["\u0422\u044A\u0440\u0441\u0435\u043D\u0435 \u0432 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442"],
@@ -685,6 +696,7 @@ var bs = {
   addFilesOpenerCandidates: ["Otpremite datoteke i jo\u0161 mnogo toga"],
   addPhotosFilesMenuItem: ["Dodaj slike i datoteke"],
   copyResponse: ["Kopiraj odgovor"],
+  modeLabels: ["Brzo", "Srednji", "Visoko", "Vrlo visoko"],
   modeOpenerExtra: ["Podesi"],
   tools: {
     web_search: ["Internet pretraga"],
@@ -706,6 +718,7 @@ var ca = {
   addFilesOpenerCandidates: ["Afegeix fitxers i m\xE9s"],
   addPhotosFilesMenuItem: ["Afegeix fotos i fitxers"],
   copyResponse: ["Copia la resposta"],
+  modeLabels: ["Instantani", "Mitj\xE0", "Alt", "Molt alt"],
   modeOpenerExtra: ["Configura\u2026"],
   tools: {
     web_search: ["Cerca a la xarxa"],
@@ -727,6 +740,7 @@ var cs = {
   addFilesOpenerCandidates: ["P\u0159id\xE1v\xE1n\xED soubor\u016F a dal\u0161\xED"],
   addPhotosFilesMenuItem: ["P\u0159idat fotografie a soubory"],
   copyResponse: ["Zkop\xEDrovat odpov\u011B\u010F"],
+  modeLabels: ["Okam\u017Eit\xE1", "St\u0159edn\xED", "Vysok\xE1", "Velmi vysok\xE1"],
   modeOpenerExtra: ["Konfigurovat\u2026"],
   tools: {
     web_search: ["Vyhled\xE1v\xE1n\xED na webu"],
@@ -748,6 +762,7 @@ var da = {
   addFilesOpenerCandidates: ["Tilf\xF8j filer og mere"],
   addPhotosFilesMenuItem: ["Tilf\xF8j billeder og filer"],
   copyResponse: ["Kopi\xE9r svar"],
+  modeLabels: ["\xD8jeblikkeligt", "H\xF8j", "Ekstra h\xF8j"],
   modeOpenerExtra: ["Konfigurer ..."],
   tools: {
     web_search: ["Internets\xF8gning"],
@@ -769,6 +784,7 @@ var el = {
   addFilesOpenerCandidates: ["\u03A0\u03C1\u03BF\u03C3\u03B8\u03AE\u03BA\u03B7 \u03B1\u03C1\u03C7\u03B5\u03AF\u03C9\u03BD \u03BA\u03B1\u03B9 \u03AC\u03BB\u03BB\u03B1"],
   addPhotosFilesMenuItem: ["\u03A0\u03C1\u03BF\u03C3\u03B8\u03AE\u03BA\u03B7 \u03C6\u03C9\u03C4\u03BF\u03B3\u03C1\u03B1\u03C6\u03B9\u03CE\u03BD & \u03B1\u03C1\u03C7\u03B5\u03AF\u03C9\u03BD"],
   copyResponse: ["\u0391\u03BD\u03C4\u03B9\u03B3\u03C1\u03B1\u03C6\u03AE \u03B1\u03C0\u03AC\u03BD\u03C4\u03B7\u03C3\u03B7\u03C2"],
+  modeLabels: ["\u0386\u03BC\u03B5\u03C3\u03B7", "\u039C\u03B5\u03C3\u03B1\u03AF\u03B1", "\u03A5\u03C8\u03B7\u03BB\u03AE", "\u03A0\u03BF\u03BB\u03CD \u03C5\u03C8\u03B7\u03BB\u03CC"],
   modeOpenerExtra: ["\u0394\u03B9\u03B1\u03BC\u03CC\u03C1\u03C6\u03C9\u03C3\u03B7\u2026"],
   tools: {
     web_search: ["\u0391\u03BD\u03B1\u03B6\u03AE\u03C4\u03B7\u03C3\u03B7 \u03C3\u03C4\u03BF\u03BD \u03B9\u03C3\u03C4\u03CC"],
@@ -790,6 +806,7 @@ var es419 = {
   addFilesOpenerCandidates: ["Agregar archivos y m\xE1s"],
   addPhotosFilesMenuItem: ["Agregar fotos y archivos"],
   copyResponse: ["Copiar respuesta"],
+  modeLabels: ["Instant\xE1nea", "Media", "Alta", "Muy alta"],
   modeOpenerExtra: ["Configurar..."],
   tools: {
     web_search: ["Busca en la web"],
@@ -811,6 +828,7 @@ var et = {
   addFilesOpenerCandidates: ["Failide lisamine ja muud"],
   addPhotosFilesMenuItem: ["Lisa fotosid ja faile"],
   copyResponse: ["Kopeeri vastus"],
+  modeLabels: ["Kohene", "Keskmine", "K\xF5rge", "V\xE4ga k\xF5rge"],
   modeOpenerExtra: ["Konfigureeri..."],
   tools: {
     web_search: ["Veebiotsing"],
@@ -832,6 +850,7 @@ var fa = {
   addFilesOpenerCandidates: ["\u0627\u0641\u0632\u0648\u062F\u0646 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627 \u0648 \u0645\u0648\u0627\u0631\u062F \u0628\u06CC\u0634\u062A\u0631"],
   addPhotosFilesMenuItem: ["\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0635\u0627\u0648\u06CC\u0631 \u0648 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627"],
   copyResponse: ["\u06A9\u067E\u06CC \u06A9\u0631\u062F\u0646 \u067E\u0627\u0633\u062E"],
+  modeLabels: ["\u0641\u0648\u0631\u06CC", "\u0645\u062A\u0648\u0633\u0637", "\u0628\u0627\u0644\u0627", "\u0628\u0633\u06CC\u0627\u0631 \u0632\u06CC\u0627\u062F", "\u062D\u0631\u0641\u0647\u200C\u0627\u06CC"],
   modeOpenerExtra: ["\u067E\u06CC\u06A9\u0631\u0628\u0646\u062F\u06CC..."],
   tools: {
     web_search: ["\u062C\u0633\u062A\u062C\u0648\u06CC \u0648\u0628"],
@@ -853,6 +872,7 @@ var fi = {
   addFilesOpenerCandidates: ["Lis\xE4\xE4 tiedostoja ynn\xE4 muuta"],
   addPhotosFilesMenuItem: ["Lis\xE4\xE4 valokuvia & tiedostoja"],
   copyResponse: ["Kopioi vastaus"],
+  modeLabels: ["V\xE4lit\xF6n", "Keskitaso", "Korkea", "Eritt\xE4in korkea"],
   modeOpenerExtra: ["M\xE4\xE4rit\xE4..."],
   tools: {
     web_search: ["Verkkohaku"],
@@ -874,6 +894,7 @@ var frCA = {
   addFilesOpenerCandidates: ["Ajouter des fichiers et plus encore"],
   addPhotosFilesMenuItem: ["Ajouter des photos et des fichiers"],
   copyResponse: ["Copier la r\xE9ponse"],
+  modeLabels: ["Instantan\xE9", "Moyen", "\xC9lev\xE9", "Tr\xE8s \xE9lev\xE9"],
   modeOpenerExtra: ["Configurer..."],
   tools: {
     web_search: ["Recherche sur Internet"],
@@ -895,6 +916,7 @@ var gu = {
   addFilesOpenerCandidates: ["\u0AAB\u0ABE\u0A87\u0AB2\u0ACB \u0A85\u0AA8\u0AC7 \u0AB5\u0AA7\u0AC1 \u0A89\u0AAE\u0AC7\u0AB0\u0ACB"],
   addPhotosFilesMenuItem: ["\u0AAB\u0ACB\u0A9F\u0ABE \u0A85\u0AA8\u0AC7 \u0AAB\u0ABE\u0A87\u0AB2\u0ACB \u0A89\u0AAE\u0AC7\u0AB0\u0ACB"],
   copyResponse: ["\u0AAA\u0ACD\u0AB0\u0AA4\u0ABF\u0AAD\u0ABE\u0AB5 \u0A95\u0AC9\u0AAA\u0ABF \u0A95\u0AB0\u0ACB"],
+  modeLabels: ["\u0AA4\u0AB0\u0AA4", "\u0AAE\u0AA7\u0ACD\u0AAF\u0AAE", "\u0A89\u0A9A\u0ACD\u0A9A", "\u0A85\u0AA4\u0ABF \u0A89\u0A9A\u0ACD\u0A9A"],
   modeOpenerExtra: ["\u0A95\u0AA8\u0ACD\u0AAB\u0ABF\u0A97\u0AB0 \u0A95\u0AB0\u0ACB..."],
   tools: {
     web_search: ["\u0AB5\u0AC7\u0AAC \u0AB6\u0ACB\u0AA7"],
@@ -916,6 +938,7 @@ var hi = {
   addFilesOpenerCandidates: ["\u092B\u093C\u093E\u0907\u0932\u094B\u0902 \u0915\u094B \u091C\u094B\u0921\u093C\u0947\u0902 \u0914\u0930 \u092D\u0940 \u092C\u0939\u0941\u0924 \u0915\u0941\u091B \u0915\u0930\u0947\u0902"],
   addPhotosFilesMenuItem: ["\u092B\u093C\u094B\u091F\u094B \u0914\u0930 \u092B\u093C\u093E\u0907\u0932\u0947\u0902 \u091C\u094B\u0921\u093C\u0947\u0902"],
   copyResponse: ["\u091C\u0935\u093E\u092C \u0915\u094B \u0915\u0949\u092A\u0940 \u0915\u0930\u0947\u0902"],
+  modeLabels: ["\u0924\u0941\u0930\u0902\u0924", "\u092E\u0927\u094D\u092F\u092E", "\u0909\u091A\u094D\u091A", "\u092C\u0939\u0941\u0924 \u0909\u091A\u094D\u091A"],
   modeOpenerExtra: ["\u0915\u0949\u0928\u094D\u092B\u093C\u093F\u0917\u0930 \u0915\u0930\u0947\u0902..."],
   tools: {
     web_search: ["\u0935\u0947\u092C \u0938\u0930\u094D\u091A"],
@@ -937,6 +960,7 @@ var hr = {
   addFilesOpenerCandidates: ["Dodavanje datoteka i ostalo"],
   addPhotosFilesMenuItem: ["Dodaj fotografije i datoteke"],
   copyResponse: ["Kopiraj odgovor"],
+  modeLabels: ["Srednje", "Visoko", "Vrlo visoka"],
   modeOpenerExtra: ["Konfiguriraj\u2026"],
   tools: {
     web_search: ["Mre\u017Eno pretra\u017Eivanje"],
@@ -958,6 +982,7 @@ var hu = {
   addFilesOpenerCandidates: ["F\xE1jlok \xE9s egyebek hozz\xE1ad\xE1sa"],
   addPhotosFilesMenuItem: ["Fot\xF3k \xE9s f\xE1jlok hozz\xE1ad\xE1sa"],
   copyResponse: ["V\xE1lasz m\xE1sol\xE1sa"],
+  modeLabels: ["Azonnali", "K\xF6zepes", "Magas", "Kiemelked\u0151en magas"],
   modeOpenerExtra: ["Konfigur\xE1l\xE1s..."],
   tools: {
     web_search: ["Internetes keres\xE9s"],
@@ -979,6 +1004,7 @@ var hy = {
   addFilesOpenerCandidates: ["\u0531\u057E\u0565\u056C\u0561\u0581\u0580\u0565\u0584 \u0586\u0561\u0575\u056C\u0565\u0580 \u0587 \u0561\u057E\u0565\u056C\u056B\u0576"],
   addPhotosFilesMenuItem: ["\u0531\u057E\u0565\u056C\u0561\u0581\u0576\u0565\u056C \u056C\u0578\u0582\u057D\u0561\u0576\u056F\u0561\u0580\u0576\u0565\u0580 \u0587 \u0586\u0561\u0575\u056C\u0565\u0580"],
   copyResponse: ["\u054A\u0561\u057F\u0573\u0565\u0576\u0565\u056C \u057A\u0561\u057F\u0561\u057D\u056D\u0561\u0576\u0568"],
+  modeLabels: ["\u0531\u056F\u0576\u0569\u0561\u0580\u0569\u0561\u0575\u056B\u0576", "\u0544\u056B\u057B\u056B\u0576", "\u0532\u0561\u0580\u0571\u0580", "\u0547\u0561\u057F \u0562\u0561\u0580\u0571\u0580", "\u054A\u0580\u0578"],
   modeOpenerExtra: ["\u053F\u0561\u0566\u0574\u0561\u0571\u0587\u0565\u056C\u2024\u2024\u2024"],
   tools: {
     web_search: ["\u054E\u0565\u0562 \u0578\u0580\u0578\u0576\u0578\u0582\u0574"],
@@ -1000,6 +1026,7 @@ var id = {
   addFilesOpenerCandidates: ["Tambahkan file dan lainnya"],
   addPhotosFilesMenuItem: ["Tambah foto & file"],
   copyResponse: ["Salin respons"],
+  modeLabels: ["Instan", "Sedang", "Tinggi", "Sangat Tinggi"],
   modeOpenerExtra: ["Konfigurasi..."],
   tools: {
     web_search: ["Pencarian web"],
@@ -1021,6 +1048,7 @@ var is = {
   addFilesOpenerCandidates: ["B\xE6ta vi\xF0 skr\xE1m og fleira"],
   addPhotosFilesMenuItem: ["B\xE6ta myndum og skr\xE1m vi\xF0"],
   copyResponse: ["Afrita svar"],
+  modeLabels: ["Strax", "Mi\xF0lungs", "H\xE1tt", "Mj\xF6g h\xE1tt"],
   modeOpenerExtra: ["Stillir\u2026"],
   tools: {
     web_search: ["Vefleit"],
@@ -1042,6 +1070,7 @@ var ka = {
   addFilesOpenerCandidates: ["\u10E4\u10D0\u10D8\u10DA\u10D4\u10D1\u10D8\u10E1 \u10D3\u10D0\u10DB\u10D0\u10E2\u10D4\u10D1\u10D0 \u10D3\u10D0 \u10DB\u10D4\u10E2\u10D8"],
   addPhotosFilesMenuItem: ["\u10E4\u10DD\u10E2\u10DD\u10D4\u10D1\u10D8\u10E1 \u10D3\u10D0 \u10E4\u10D0\u10D8\u10DA\u10D4\u10D1\u10D8\u10E1 \u10D3\u10D0\u10DB\u10D0\u10E2\u10D4\u10D1\u10D0"],
   copyResponse: ["\u10DE\u10D0\u10E1\u10E3\u10EE\u10D8\u10E1 \u10D9\u10DD\u10DE\u10D8\u10E0\u10D4\u10D1\u10D0"],
+  modeLabels: ["\u10DB\u10E7\u10D8\u10E1\u10D8\u10D4\u10E0\u10D8", "\u10E1\u10D0\u10E8\u10E3\u10D0\u10DA\u10DD", "\u10DB\u10D0\u10E6\u10D0\u10DA\u10D8", "\u10EB\u10D0\u10DA\u10D8\u10D0\u10DC \u10DB\u10D0\u10E6\u10D0\u10DA\u10D8"],
   modeOpenerExtra: ["\u10D9\u10DD\u10DC\u10E4\u10D8\u10D2\u10E3\u10E0\u10D8\u10E0\u10D4\u10D1\u10D0\u2026"],
   tools: {
     web_search: ["\u10D5\u10D4\u10D1\u10E8\u10D8 \u10EB\u10D8\u10D4\u10D1\u10D0"],
@@ -1063,6 +1092,7 @@ var kk = {
   addFilesOpenerCandidates: ["\u0424\u0430\u0439\u043B\u0434\u0430\u0440\u0434\u044B \u0436\u04D9\u043D\u0435 \u0431\u0430\u0441\u049B\u0430 \u0434\u0435\u0440\u0435\u043A\u0442\u0435\u0440\u0434\u0456 \u049B\u043E\u0441\u0443"],
   addPhotosFilesMenuItem: ["\u0424\u043E\u0442\u043E\u0441\u0443\u0440\u0435\u0442\u0442\u0435\u0440 \u043C\u0435\u043D \u0444\u0430\u0439\u043B\u0434\u0430\u0440 \u049B\u043E\u0441\u0443"],
   copyResponse: ["\u0416\u0430\u0443\u0430\u043F\u0442\u044B \u043A\u04E9\u0448\u0456\u0440\u0443"],
+  modeLabels: ["\u0416\u0435\u0434\u0435\u043B", "\u041E\u0440\u0442\u0430\u0448\u0430", "\u0416\u043E\u0493\u0430\u0440\u044B", "\u0410\u0441\u0430 \u0436\u043E\u0493\u0430\u0440\u044B"],
   modeOpenerExtra: ["\u041A\u043E\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044F\u043B\u0430\u0443..."],
   tools: {
     web_search: ["\u0406\u0437\u0434\u0435\u0443"],
@@ -1084,6 +1114,7 @@ var kn = {
   addFilesOpenerCandidates: ["\u0CAB\u0CC8\u0CB2\u0CCD\u200C\u0C97\u0CB3\u0CC1 \u0CAE\u0CA4\u0CCD\u0CA4\u0CC1 \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CBF\u0CA8\u0CB5\u0CC1\u0C97\u0CB3\u0CA8\u0CCD\u0CA8\u0CC1 \u0CB8\u0CC7\u0CB0\u0CBF\u0CB8\u0CBF"],
   addPhotosFilesMenuItem: ["\u0CAB\u0CCB\u0C9F\u0CCA \u0CAE\u0CA4\u0CCD\u0CA4\u0CC1 \u0CAB\u0CC8\u0CB2\u0CCD\u200C\u0C97\u0CB3\u0CA8\u0CCD\u0CA8\u0CC1 \u0CB8\u0CC7\u0CB0\u0CBF\u0CB8\u0CBF"],
   copyResponse: ["\u0CAA\u0CCD\u0CB0\u0CA4\u0CBF\u0C95\u0CCD\u0CB0\u0CBF\u0CAF\u0CC6\u0CAF\u0CA8\u0CCD\u0CA8\u0CC1 \u0CA8\u0C95\u0CB2\u0CBF\u0CB8\u0CBF"],
+  modeLabels: ["\u0CA4\u0C95\u0CCD\u0CB7\u0CA3", "\u0CAE\u0CA7\u0CCD\u0CAF\u0CAE", "\u0C89\u0CA8\u0CCD\u0CA8\u0CA4", "\u0C85\u0CA4\u0CBF \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CC1", "\u0CAA\u0CCD\u0CB0\u0CCA"],
   modeOpenerExtra: ["\u0C95\u0CBE\u0CA8\u0CCD\u0CAB\u0CBF\u0C97\u0CB0\u0CCD \u0CAE\u0CBE\u0CA1\u0CBF..."],
   tools: {
     web_search: ["\u0CB5\u0CC6\u0CAC\u0CCD \u0CB8\u0CB0\u0CCD\u0C9A\u0CCD"],
@@ -1105,6 +1136,7 @@ var ko = {
   addFilesOpenerCandidates: ["\uD30C\uC77C \uCD94\uAC00 \uBC0F \uAE30\uD0C0"],
   addPhotosFilesMenuItem: ["\uC0AC\uC9C4 \uBC0F \uD30C\uC77C \uCD94\uAC00"],
   copyResponse: ["\uC751\uB2F5 \uBCF5\uC0AC"],
+  modeLabels: ["\uC989\uC2DC", "\uC911\uAC04", "\uB192\uC74C", "\uB9E4\uC6B0 \uB192\uC74C"],
   modeOpenerExtra: ["\uAD6C\uC131\u2026"],
   tools: {
     web_search: ["\uC6F9 \uAC80\uC0C9"],
@@ -1126,6 +1158,7 @@ var lt = {
   addFilesOpenerCandidates: ["\u012Etraukti failus ir daugiau"],
   addPhotosFilesMenuItem: ["Prid\u0117ti nuotrauk\u0173 ir fail\u0173"],
   copyResponse: ["Kopijuoti atsakym\u0105"],
+  modeLabels: ["Momentinis", "Vidutinis", "Auk\u0161tas", "Ypa\u010D didelis", "Profesionalus"],
   modeOpenerExtra: ["Konfig\u016Bruoti..."],
   tools: {
     web_search: ["\u017Diniatinklio paie\u0161ka"],
@@ -1147,6 +1180,7 @@ var zhHans = {
   addFilesOpenerCandidates: ["\u6DFB\u52A0\u6587\u4EF6\u7B49"],
   addPhotosFilesMenuItem: ["\u6DFB\u52A0\u7167\u7247\u548C\u6587\u4EF6"],
   copyResponse: ["\u590D\u5236\u56DE\u590D"],
+  modeLabels: ["\u6781\u901F", "\u5747\u8861", "\u9AD8\u7EA7", "\u8D85\u9AD8", "\u4E13\u4E1A"],
   modeOpenerExtra: ["\u914D\u7F6E\u2026"],
   tools: {
     web_search: ["\u7F51\u9875\u641C\u7D22"],
@@ -1168,6 +1202,7 @@ var ur = {
   addFilesOpenerCandidates: ["\u0641\u0627\u0626\u0644\u06CC\u06BA \u0648\u063A\u06CC\u0631\u06C1 \u0627\u067E \u0644\u0648\u0688 \u06A9\u0631\u06CC\u06BA"],
   addPhotosFilesMenuItem: ["\u062A\u0635\u0648\u06CC\u0631\u06CC\u06BA \u0627\u0648\u0631 \u0641\u0627\u0626\u0644\u06CC\u06BA \u0634\u0627\u0645\u0644 \u06A9\u0631\u06CC\u06BA"],
   copyResponse: ["\u062C\u0648\u0627\u0628 \u06A9\u0627\u067E\u06CC \u06A9\u0631\u06CC\u06BA"],
+  modeLabels: ["\u0641\u0648\u0631\u06CC", "\u0627\u0648\u0633\u0637", "\u0627\u0639\u0644\u06CC\u0670", "\u0627\u0646\u062A\u06C1\u0627\u0626\u06CC \u0627\u0639\u0644\u06CC\u0670"],
   modeOpenerExtra: ["\u06A9\u0646\u0641\u06CC\u06AF\u0631 \u06A9\u0631\u06CC\u06BA..."],
   tools: {
     web_search: ["\u0648\u06CC\u0628 \u067E\u0631 \u062A\u0644\u0627\u0634"],
@@ -1189,6 +1224,7 @@ var uk = {
   addFilesOpenerCandidates: ["\u0414\u043E\u0434\u0430\u0432\u0430\u0439\u0442\u0435 \u0444\u0430\u0439\u043B\u0438 \u0439 \u0432\u0438\u043A\u043E\u043D\u0443\u0439\u0442\u0435 \u0456\u043D\u0448\u0456 \u0434\u0456\u0457"],
   addPhotosFilesMenuItem: ["\u0414\u043E\u0434\u0430\u0442\u0438 \u0441\u0432\u0456\u0442\u043B\u0438\u043D\u0438 \u0442\u0430 \u0444\u0430\u0439\u043B\u0438"],
   copyResponse: ["\u041A\u043E\u043F\u0456\u044E\u0432\u0430\u0442\u0438 \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u044C"],
+  modeLabels: ["\u041C\u0438\u0442\u0442\u0454\u0432\u0438\u0439", "\u0421\u0435\u0440\u0435\u0434\u043D\u0456\u0439", "\u0412\u0438\u0441\u043E\u043A\u0438\u0439", "\u0414\u0443\u0436\u0435 \u0432\u0438\u0441\u043E\u043A\u0438\u0439"],
   modeOpenerExtra: ["\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u0442\u0438\u2026"],
   tools: {
     web_search: ["\u041F\u043E\u0448\u0443\u043A \u0432 \u0406\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0456"],
@@ -1210,6 +1246,7 @@ var ptBR = {
   addFilesOpenerCandidates: ["Adicionar arquivos e mais"],
   addPhotosFilesMenuItem: ["Carregar fotos e arquivos"],
   copyResponse: ["Copiar resposta"],
+  modeLabels: ["Instant\xE2neo", "M\xE9dio", "Alto", "Muito alta"],
   modeOpenerExtra: ["Configurar\u2026"],
   tools: {
     web_search: ["Busca na web"],
@@ -1231,6 +1268,7 @@ var ptPT = {
   addFilesOpenerCandidates: ["Adicionar ficheiros e mais"],
   addPhotosFilesMenuItem: ["Carregar fotos e ficheiros"],
   copyResponse: ["Copiar resposta"],
+  modeLabels: ["Instant\xE2neo", "M\xE9dia", "Alta", "M\xE1ximo"],
   modeOpenerExtra: ["Configurar..."],
   tools: {
     web_search: ["Procurar na web"],
@@ -1252,6 +1290,7 @@ var pl = {
   addFilesOpenerCandidates: ["Dodawaj pliki i nie tylko"],
   addPhotosFilesMenuItem: ["Prze\u015Blij zdj\u0119cia i pliki"],
   copyResponse: ["Kopiuj odpowied\u017A"],
+  modeLabels: ["B\u0142yskawiczny", "\u015Aredni", "Zaawansowana", "Bardzo wysoki"],
   modeOpenerExtra: ["Skonfiguruj..."],
   tools: {
     web_search: ["Wyszukiwanie w sieci"],
@@ -1273,6 +1312,7 @@ var sk = {
   addFilesOpenerCandidates: ["Prida\u0165 s\xFAbory a in\xE9"],
   addPhotosFilesMenuItem: ["Nahra\u0165 fotografie a s\xFAbory"],
   copyResponse: ["Kop\xEDrova\u0165 odpove\u010F"],
+  modeLabels: ["Okam\u017Eit\xE1", "Stredn\xE1", "Vysok\xE1", "Extra vysok\xE1"],
   modeOpenerExtra: ["Konfigurova\u0165..."],
   tools: {
     web_search: ["Preh\u013Ead\xE1vaj web"],
@@ -1294,6 +1334,7 @@ var ro = {
   addFilesOpenerCandidates: ["Adaug\u0103 fi\u0219iere \u0219i multe altele"],
   addPhotosFilesMenuItem: ["\xCEncarc\u0103 fotografii \u0219i fi\u0219iere"],
   copyResponse: ["Copiaz\u0103 r\u0103spunsul"],
+  modeLabels: ["Mediu", "Ridicat", "Foarte ridicat\u0103"],
   modeOpenerExtra: ["Configureaz\u0103..."],
   tools: {
     web_search: ["C\u0103utare pe internet"],
@@ -1315,6 +1356,7 @@ var nb = {
   addFilesOpenerCandidates: ["Legg til filer med mer"],
   addPhotosFilesMenuItem: ["Last opp bilder og filer"],
   copyResponse: ["Kopier svar"],
+  modeLabels: ["\xD8yeblikkelig", "Middels", "H\xF8y", "Ekstra h\xF8y"],
   modeOpenerExtra: ["Konfigurer \u2026"],
   tools: {
     web_search: ["Netts\xF8k"],
@@ -1336,6 +1378,7 @@ var ml = {
   addFilesOpenerCandidates: ["\u0D2B\u0D2F\u0D32\u0D41\u0D15\u0D33\u0D41\u0D02 \u0D2E\u0D31\u0D4D\u0D31\u0D41\u0D02 \u0D1A\u0D47\u0D7C\u0D15\u0D4D\u0D15\u0D41\u0D15"],
   addPhotosFilesMenuItem: ["\u0D2B\u0D4B\u0D1F\u0D4D\u0D1F\u0D4B\u0D15\u0D33\u0D41\u0D02 \u0D2B\u0D2F\u0D32\u0D41\u0D15\u0D33\u0D41\u0D02 \u0D05\u0D2A\u0D4D\u200C\u0D32\u0D4B\u0D21\u0D4D \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15"],
   copyResponse: ["\u0D2E\u0D31\u0D41\u0D2A\u0D1F\u0D3F \u0D15\u0D4B\u0D2A\u0D4D\u0D2A\u0D3F \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15"],
+  modeLabels: ["\u0D24\u0D7D\u0D15\u0D4D\u0D37\u0D23\u0D02", "\u0D07\u0D1F\u0D24\u0D4D\u0D24\u0D30\u0D02", "\u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D", "\u0D35\u0D33\u0D30\u0D46 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28", "\u0D2A\u0D4D\u0D30\u0D4B"],
   modeOpenerExtra: ["\u0D15\u0D4B\u0D7A\u0D2B\u0D3F\u0D17\u0D7C \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15\u2026"],
   tools: {
     web_search: ["\u0D35\u0D46\u0D2C\u0D4D \u0D24\u0D3F\u0D30\u0D2F\u0D7D"],
@@ -1357,6 +1400,7 @@ var ru = {
   addFilesOpenerCandidates: ["\u0414\u043E\u0431\u0430\u0432\u043B\u044F\u0439\u0442\u0435 \u0444\u0430\u0439\u043B\u044B \u0438 \u043C\u043D\u043E\u0433\u043E\u0435 \u0434\u0440\u0443\u0433\u043E\u0435"],
   addPhotosFilesMenuItem: ["\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u0438 \u0444\u0430\u0439\u043B\u044B"],
   copyResponse: ["\u041A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043E\u0442\u0432\u0435\u0442"],
+  modeLabels: ["\u041E\u0447\u0435\u043D\u044C \u0432\u044B\u0441\u043E\u043A\u0438\u0439"],
   modeOpenerExtra: ["\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044F..."],
   tools: {
     web_search: ["\u041F\u043E\u0438\u0441\u043A \u0432 \u0441\u0435\u0442\u0438"],
@@ -1378,6 +1422,7 @@ var pa = {
   addFilesOpenerCandidates: ["\u0A2B\u0A3E\u0A08\u0A32\u0A3E\u0A02 \u0A05\u0A24\u0A47 \u0A39\u0A4B\u0A30 \u0A2C\u0A39\u0A41\u0A24 \u0A15\u0A41\u0A1D \u0A38\u0A3C\u0A3E\u0A2E\u0A32 \u0A15\u0A30\u0A4B"],
   addPhotosFilesMenuItem: ["\u0A2B\u0A3C\u0A4B\u0A1F\u0A4B\u0A06\u0A02 \u0A05\u0A24\u0A47 \u0A2B\u0A3C\u0A3E\u0A08\u0A32\u0A3E\u0A02 \u0A05\u0A71\u0A2A\u0A32\u0A4B\u0A21 \u0A15\u0A30\u0A4B"],
   copyResponse: ["\u0A1C\u0A35\u0A3E\u0A2C \u0A15\u0A3E\u0A2A\u0A40 \u0A15\u0A30\u0A4B"],
+  modeLabels: ["\u0A24\u0A41\u0A30\u0A70\u0A24", "\u0A2E\u0A71\u0A27\u0A2E", "\u0A09\u0A71\u0A1A", "\u0A05\u0A24\u0A3F \u0A09\u0A71\u0A1A", "\u0A2A\u0A4D\u0A30\u0A4B"],
   modeOpenerExtra: ["\u0A15\u0A4C\u0A28\u0A2B\u0A3F\u0A17\u0A30..."],
   tools: {
     web_search: ["\u0A35\u0A48\u0A71\u0A2C \u0A16\u0A4B\u0A1C"],
@@ -1399,6 +1444,7 @@ var mr = {
   addFilesOpenerCandidates: ["\u092B\u093E\u0907\u0932\u094D\u0938 \u091C\u094B\u0921\u093E \u0906\u0923\u093F \u0907\u0924\u0930 \u0905\u0928\u0947\u0915 \u0917\u094B\u0937\u094D\u091F\u0940 \u0915\u0930\u093E"],
   addPhotosFilesMenuItem: ["\u092B\u094B\u091F\u094B \u0906\u0923\u093F \u092B\u093E\u0907\u0932\u094D\u0938 \u0905\u092A\u0932\u094B\u0921 \u0915\u0930\u093E"],
   copyResponse: ["\u092A\u094D\u0930\u0924\u093F\u0938\u093E\u0926 \u0915\u0949\u092A\u0940 \u0915\u0930\u093E"],
+  modeLabels: ["\u091D\u091F\u092A\u091F", "\u092E\u0927\u094D\u092F\u092E", "\u0909\u091A\u094D\u091A", "\u0905\u0924\u093F\u0909\u091A\u094D\u091A", "\u092A\u094D\u0930\u094B"],
   modeOpenerExtra: ["\u0915\u0949\u0928\u094D\u092B\u093F\u0917\u0930 \u0915\u0930\u093E..."],
   tools: {
     web_search: ["\u0935\u0947\u092C\u0935\u0930 \u0936\u094B\u0927"],
@@ -1420,6 +1466,7 @@ var tr = {
   addFilesOpenerCandidates: ["Dosyalar\u0131 ve \xE7ok daha fazlas\u0131n\u0131 ekle"],
   addPhotosFilesMenuItem: ["Foto\u011Fraf ve dosya y\xFCkle"],
   copyResponse: ["Yan\u0131t\u0131 kopyala"],
+  modeLabels: ["An\u0131nda", "Orta", "Y\xFCksek", "\xC7ok Y\xFCksek"],
   modeOpenerExtra: ["Yap\u0131land\u0131r..."],
   tools: {
     web_search: ["Web aramas\u0131"],
@@ -1441,6 +1488,7 @@ var sw = {
   addFilesOpenerCandidates: ["Ongeza faili na mengine zaidi"],
   addPhotosFilesMenuItem: ["Pakia picha na mafaili"],
   copyResponse: ["Nakili jibu"],
+  modeLabels: ["Papo hapo", "Wastani", "Juu", "Juu Zaidi"],
   modeOpenerExtra: ["Sanidi..."],
   tools: {
     web_search: ["Utafutaji wa wavuti"],
@@ -1462,6 +1510,7 @@ var te = {
   addFilesOpenerCandidates: ["\u0C2B\u0C48\u0C32\u0C4D\u200C\u0C32\u0C28\u0C41 \u0C2E\u0C30\u0C3F\u0C2F\u0C41 \u0C2E\u0C30\u0C3F\u0C28\u0C4D\u0C28\u0C3F \u0C1C\u0C4B\u0C21\u0C3F\u0C02\u0C1A\u0C02\u0C21\u0C3F"],
   addPhotosFilesMenuItem: ["\u0C2B\u0C4B\u0C1F\u0C4B\u0C32\u0C41 & \u0C2B\u0C48\u0C32\u0C4D\u200C\u0C32\u0C28\u0C41 \u0C05\u0C2A\u0C4D\u200C\u0C32\u0C4B\u0C21\u0C4D \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"],
   copyResponse: ["\u0C2A\u0C4D\u0C30\u0C24\u0C3F\u0C38\u0C4D\u0C2A\u0C02\u0C26\u0C28\u0C28\u0C41 \u0C15\u0C3E\u0C2A\u0C40 \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"],
+  modeLabels: ["\u0C24\u0C15\u0C4D\u0C37\u0C23\u0C02", "\u0C2E\u0C27\u0C4D\u0C2F\u0C38\u0C4D\u0C25", "\u0C05\u0C27\u0C3F\u0C15", "\u0C05\u0C24\u0C4D\u0C2F\u0C27\u0C3F\u0C15", "\u0C2A\u0C4D\u0C30\u0C4B"],
   modeOpenerExtra: ["\u0C15\u0C3E\u0C28\u0C4D\u0C2B\u0C3F\u0C17\u0C30\u0C4D \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"],
   tools: {
     web_search: ["\u0C35\u0C46\u0C2C\u0C4D\u200C\u0C32\u0C4B \u0C35\u0C46\u0C24\u0C15\u0C21\u0C02"],
@@ -1503,6 +1552,7 @@ var th = {
   addFilesOpenerCandidates: ["\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E44\u0E1F\u0E25\u0E4C\u0E41\u0E25\u0E30\u0E2D\u0E37\u0E48\u0E19\u0E46"],
   addPhotosFilesMenuItem: ["\u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E39\u0E1B\u0E41\u0E25\u0E30\u0E44\u0E1F\u0E25\u0E4C"],
   copyResponse: ["\u0E04\u0E31\u0E14\u0E25\u0E2D\u0E01\u0E04\u0E33\u0E15\u0E2D\u0E1A"],
+  modeLabels: ["\u0E17\u0E31\u0E19\u0E17\u0E35", "\u0E1B\u0E32\u0E19\u0E01\u0E25\u0E32\u0E07", "\u0E2A\u0E39\u0E07", "\u0E2A\u0E39\u0E07\u0E21\u0E32\u0E01"],
   modeOpenerExtra: ["\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E04\u0E48\u0E32..."],
   tools: {
     web_search: ["\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E40\u0E27\u0E47\u0E1A"],
@@ -1524,6 +1574,7 @@ var bn = {
   addFilesOpenerCandidates: ["\u09AB\u09BE\u0987\u09B2 \u098F\u09AC\u0982 \u0986\u09B0\u0993 \u0985\u09A8\u09C7\u0995 \u0995\u09BF\u099B\u09C1 \u09AF\u09CB\u0997 \u0995\u09B0\u09C1\u09A8"],
   addPhotosFilesMenuItem: ["\u09AB\u099F\u09CB \u098F\u09AC\u0982 \u09AB\u09BE\u0987\u09B2 \u0986\u09AA\u09B2\u09CB\u09A1 \u0995\u09B0\u09C1\u09A8"],
   copyResponse: ["\u0989\u09A4\u09CD\u09A4\u09B0 \u0995\u09AA\u09BF \u0995\u09B0\u09C1\u09A8"],
+  modeLabels: ["\u09A4\u09BE\u09CE\u0995\u09CD\u09B7\u09A3\u09BF\u0995", "\u09AE\u09BE\u099D\u09BE\u09B0\u09BF", "\u0989\u099A\u09CD\u099A", "\u0985\u09A4\u09BF \u0989\u099A\u09CD\u099A", "\u09AA\u09CD\u09B0\u09CB"],
   modeOpenerExtra: ["\u0995\u09A8\u09AB\u09BF\u0997\u09BE\u09B0 \u0995\u09B0\u09C1\u09A8..."],
   tools: {
     web_search: ["\u0993\u09AF\u09BC\u09C7\u09AC \u09B8\u09A8\u09CD\u09A7\u09BE\u09A8"],
@@ -1545,6 +1596,7 @@ var ms = {
   addFilesOpenerCandidates: ["Tambah fail dan banyak lagi"],
   addPhotosFilesMenuItem: ["Muat naik foto & fail"],
   copyResponse: ["Salin tindak balas"],
+  modeLabels: ["Segera", "Sederhana", "Tinggi", "Sangat Tinggi"],
   modeOpenerExtra: ["Konfigurasikan\u2026"],
   tools: {
     web_search: ["Carian web"],
@@ -1566,6 +1618,7 @@ var so = {
   addFilesOpenerCandidates: ["Ku dar faylashada iyo wax badan"],
   addPhotosFilesMenuItem: ["Soo geli sawirada & faylasha"],
   copyResponse: ["Koobiyee jawaabta"],
+  modeLabels: ["Degdeg", "Dhexdhexaad", "Sare", "Aad u sarreeya"],
   modeOpenerExtra: ["Ku xidh..."],
   tools: {
     web_search: ["Raadi shakabada"],
@@ -1587,6 +1640,7 @@ var nl = {
   addFilesOpenerCandidates: ["Bestanden en meer toevoegen"],
   addPhotosFilesMenuItem: ["Foto's en bestanden uploaden"],
   copyResponse: ["Reactie kopi\xEBren"],
+  modeLabels: ["Direct", "Gemiddeld", "Hoog", "Extra hoog"],
   modeOpenerExtra: ["Configureren..."],
   tools: {
     web_search: ["Zoeken op internet"],
@@ -1608,6 +1662,7 @@ var sv = {
   addFilesOpenerCandidates: ["L\xE4gg till filer med mera"],
   addPhotosFilesMenuItem: ["Ladda upp foton och filer"],
   copyResponse: ["Kopiera svar"],
+  modeLabels: ["Direkt", "Balanserad", "H\xF6g", "Extra h\xF6g"],
   modeOpenerExtra: ["Konfigurera \u2026"],
   tools: {
     web_search: ["Webbs\xF6kning"],
@@ -1629,6 +1684,7 @@ var lv = {
   addFilesOpenerCandidates: ["Failu pievieno\u0161ana un citas funkcijas"],
   addPhotosFilesMenuItem: ["Aug\u0161upiel\u0101d\u0113t foto un failus"],
   copyResponse: ["Kop\u0113t atbildi"],
+  modeLabels: ["T\u016Bl\u012Bt\u0113js", "Vid\u0113js", "Augsts", "\u013Boti augsts"],
   modeOpenerExtra: ["Konfigur\u0113t..."],
   tools: {
     web_search: ["Mekl\u0113\u0161ana t\u012Bmekl\u012B"],
@@ -1650,6 +1706,7 @@ var mk = {
   addFilesOpenerCandidates: ["\u0414\u043E\u0434\u0430\u0458 \u0434\u0430\u0442\u043E\u0442\u0435\u043A\u0438 \u0438 \u043F\u043E\u0432\u0435\u045C\u0435"],
   addPhotosFilesMenuItem: ["\u041F\u043E\u0441\u0442\u0430\u0432\u0438 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u0438 \u0434\u0430\u0442\u043E\u0442\u0435\u043A\u0438"],
   copyResponse: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0458 \u043E\u0434\u0433\u043E\u0432\u043E\u0440"],
+  modeLabels: ["\u0421\u0440\u0435\u0434\u043D\u043E", "\u0412\u0438\u0441\u043E\u043A\u043E", "\u041C\u043D\u043E\u0433\u0443 \u0432\u0438\u0441\u043E\u043A\u043E"],
   modeOpenerExtra: ["\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0438\u0440\u0430\u0458..."],
   tools: {
     web_search: ["\u041F\u0440\u0435\u0431\u0430\u0440\u0443\u0432\u0430\u045A\u0435 \u043D\u0430 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442"],
@@ -1671,6 +1728,7 @@ var sq = {
   addFilesOpenerCandidates: ["Shto skedar\xEB e m\xEB shum\xEB"],
   addPhotosFilesMenuItem: ["Ngarko foto dhe skedar\xEB"],
   copyResponse: ["Kopjo p\xEBrgjigjen"],
+  modeLabels: ["I menj\xEBhersh\xEBm", "Mesatar", "Lart\xEB", "Shum\xEB i lart\xEB"],
   modeOpenerExtra: ["Konfiguro..."],
   tools: {
     web_search: ["K\xEBrkim n\xEB ueb"],
@@ -1692,6 +1750,7 @@ var sl = {
   addFilesOpenerCandidates: ["Dodaj datoteke in \u0161e ve\u010D"],
   addPhotosFilesMenuItem: ["Nalo\u017Ei fotografije in datoteke"],
   copyResponse: ["Kopiraj odgovor"],
+  modeLabels: ["Takoj", "Srednja", "Visoka", "Zelo visoko"],
   modeOpenerExtra: ["Konfiguracija \u2026"],
   tools: {
     web_search: ["Iskanje po spletu"],
@@ -1713,6 +1772,7 @@ var sr = {
   addFilesOpenerCandidates: ["\u0414\u043E\u0434\u0430\u0458 \u0434\u0430\u0442\u043E\u0442\u0435\u043A\u0435 \u0438 \u0434\u0440\u0443\u0433\u043E"],
   addPhotosFilesMenuItem: ["\u041E\u0442\u043F\u0440\u0435\u043C\u0438 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0458\u0435 \u0438 \u0434\u0430\u0442\u043E\u0442\u0435\u043A\u0435"],
   copyResponse: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0458 \u043E\u0434\u0433\u043E\u0432\u043E\u0440"],
+  modeLabels: ["\u0412\u0435\u043E\u043C\u0430 \u0432\u0438\u0441\u043E\u043A\u043E"],
   modeOpenerExtra: ["\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0438\u0448\u0438..."],
   tools: {
     web_search: ["\u041F\u0440\u0435\u0442\u0440\u0430\u0433\u0430 \u0432\u0435\u0431\u0430"],
@@ -1734,6 +1794,7 @@ var mn = {
   addFilesOpenerCandidates: ["\u0424\u0430\u0439\u043B \u0431\u043E\u043B\u043E\u043D \u0431\u0443\u0441\u0430\u0434 \u0437\u04AF\u0439\u043B\u0441 \u043D\u044D\u043C\u044D\u0445"],
   addPhotosFilesMenuItem: ["\u0417\u0443\u0440\u0430\u0433 \u0431\u0430 \u0444\u0430\u0439\u043B \u0431\u0430\u0439\u0440\u0448\u0443\u0443\u043B\u0430\u0445"],
   copyResponse: ["\u0425\u0430\u0440\u0438\u0443\u043B\u0442 \u0445\u0443\u0443\u043B\u0430\u0445"],
+  modeLabels: ["\u0428\u0443\u0443\u0440\u0445\u0430\u0439", "\u0414\u0443\u043D\u0434", "\u04E8\u043D\u0434\u04E9\u0440", "\u041C\u0430\u0448 \u04E9\u043D\u0434\u04E9\u0440", "\u041F\u0440\u043E"],
   modeOpenerExtra: ["\u0422\u043E\u0445\u0438\u0440\u0443\u0443\u043B\u0430\u0445..."],
   tools: {
     web_search: ["\u0412\u0435\u0431 \u0445\u0430\u0439\u043B\u0442"],
@@ -1755,6 +1816,7 @@ var my = {
   addFilesOpenerCandidates: ["\u1016\u102D\u102F\u1004\u103A\u1019\u103B\u102C\u1038\u1014\u103E\u1004\u1037\u103A \u1021\u1001\u103C\u102C\u1038\u1021\u101B\u102C\u1019\u103B\u102C\u1038\u1000\u102D\u102F \u1011\u100A\u1037\u103A\u101B\u1014\u103A"],
   addPhotosFilesMenuItem: ["\u1013\u102C\u1010\u103A\u1015\u102F\u1036\u1019\u103B\u102C\u1038\u1014\u103E\u1004\u1037\u103A \u1016\u102D\u102F\u1004\u103A\u1019\u103B\u102C\u1038\u1000\u102D\u102F \u1010\u1004\u103A\u1015\u102B"],
   copyResponse: ["\u1010\u102F\u1036\u1037\u1015\u103C\u1014\u103A\u1019\u103E\u102F \u1000\u1030\u1038\u101A\u1030\u101B\u1014\u103A"],
+  modeLabels: ["\u1001\u103B\u1000\u103A\u1001\u103B\u1004\u103A\u1038", "\u1021\u101C\u101A\u103A\u1021\u101C\u1010\u103A", "\u1019\u103C\u1004\u1037\u103A", "\u1021\u101C\u103D\u1014\u103A\u1019\u103C\u1004\u1037\u103A"],
   modeOpenerExtra: ["\u1015\u103C\u102F\u1015\u103C\u1004\u103A\u1019\u103D\u1019\u103A\u1038\u1019\u1036\u101B\u1014\u103A"],
   tools: {
     web_search: ["\u101D\u1018\u103A\u101B\u103E\u102C\u1016\u103D\u1031\u101B\u1014\u103A"],
@@ -1776,6 +1838,7 @@ var ta = {
   addFilesOpenerCandidates: ["\u0B95\u0BCB\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BC8\u0BAF\u0BC1\u0BAE\u0BCD \u0BAE\u0BC7\u0BB2\u0BC1\u0BAE\u0BCD \u0BAA\u0BB2\u0BB5\u0BB1\u0BCD\u0BB1\u0BC8\u0BAF\u0BC1\u0BAE\u0BCD \u0B9A\u0BC7\u0BB0\u0BCD"],
   addPhotosFilesMenuItem: ["\u0BAA\u0B9F\u0B99\u0BCD\u0B95\u0BB3\u0BCD \u0BAE\u0BB1\u0BCD\u0BB1\u0BC1\u0BAE\u0BCD \u0B83\u0BAA\u0BC8\u0BB2\u0BCD\u0B95\u0BB3\u0BC8\u0BAA\u0BCD \u0BAA\u0BA4\u0BBF\u0BB5\u0BC7\u0BB1\u0BCD\u0BB1\u0BC1"],
   copyResponse: ["\u0BAA\u0BA4\u0BBF\u0BB2\u0BC8 \u0BA8\u0B95\u0BB2\u0BC6\u0B9F\u0BC1\u0B95\u0BCD\u0B95\u0BB2\u0BBE\u0BAE\u0BCD"],
+  modeLabels: ["\u0B89\u0B9F\u0BA9\u0B9F\u0BBF", "\u0BA8\u0B9F\u0BC1\u0BA4\u0BCD\u0BA4\u0BB0", "\u0B89\u0BAF\u0BB0\u0BCD", "\u0BAE\u0BBF\u0B95 \u0B89\u0BAF\u0BB0\u0BCD\u0BB5\u0BC1", "\u0BAA\u0BCD\u0BB0\u0BCB"],
   modeOpenerExtra: ["\u0B95\u0B9F\u0BCD\u0B9F\u0BAE\u0BC8\u0B95\u0BCD\u0B95\u0BB5\u0BC1\u0BAE\u0BCD..."],
   tools: {
     web_search: ["\u0B87\u0BA3\u0BC8\u0BAF \u0BA4\u0BC7\u0B9F\u0BB2\u0BCD"],
@@ -6863,14 +6926,33 @@ function extractMenuItemsFromText(text) {
 async function enumerateVisibleMenuItems(page) {
   if (typeof page.evaluate === "function") {
     const labels = await page.evaluate(() => {
-      const roleItems = Array.from(document.querySelectorAll("[role='menuitem'], [role='menuitemradio'], [role='option']")).map((node) => node.innerText ?? node.textContent ?? "").filter(Boolean);
+      const toItem = (node) => {
+        const element = node;
+        const label = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim();
+        const item = { label };
+        const role = element.getAttribute("role");
+        if (role !== null) item.role = role;
+        const checked = element.getAttribute("aria-checked");
+        if (checked === "true") item.checked = true;
+        if (checked === "false") item.checked = false;
+        const expanded = element.getAttribute("aria-expanded");
+        if (expanded === "true") item.expanded = true;
+        if (expanded === "false") item.expanded = false;
+        if (element.getAttribute("aria-haspopup") === "menu") item.hasPopup = true;
+        const testId = element.getAttribute("data-testid");
+        if (testId !== null) item.testId = testId;
+        const ariaLabel = element.getAttribute("aria-label");
+        if (ariaLabel !== null) item.ariaLabel = ariaLabel;
+        return item;
+      };
+      const roleItems = Array.from(document.querySelectorAll("[role='menuitem'], [role='menuitemradio'], [role='option']")).map(toItem).filter((item) => item.label.length > 0);
       if (roleItems.length > 0) {
-        return { labels: roleItems, split: false };
+        return { items: roleItems, labels: [], split: false };
       }
       const menus = Array.from(document.querySelectorAll("[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper]")).map((node) => node.innerText ?? node.textContent ?? "").filter(Boolean);
-      return { labels: menus, split: true };
+      return { items: [], labels: menus, split: true };
     });
-    return labels.split ? labels.labels.flatMap((label) => extractMenuItemsFromText(label)) : labels.labels.map((label) => normalizeWhitespace(label)).filter(Boolean).map((label) => ({ label, normalized: normalizeLabel(label) }));
+    return labels.split ? labels.labels.flatMap((label) => extractMenuItemsFromText(label)) : labels.items.map((item) => ({ ...item, label: normalizeWhitespace(item.label), normalized: normalizeLabel(item.label) })).filter((item) => item.label.length > 0);
   }
   return [];
 }
@@ -6888,6 +6970,15 @@ function findUniqueMenuItem(items, wanted) {
 var DEFAULT_MODE_EFFORT = "Thinking";
 var CURRENT_MODE_LABELS = [...localeLabels.modeLabels];
 var MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter((label) => label !== "Pro"), ...localeLabels.modeOpenerExtra];
+var MODEL_VERSION_FAMILY_PATTERN = /^gpt[\s-]/i;
+var MODEL_VERSION_LABEL_PATTERN = /^(?:o\d+|\d+(?:\.\d+)?)$/i;
+var CANONICAL_INTELLIGENCE_ORDER = /* @__PURE__ */ new Map([
+  ["instant", 0],
+  ["medium", 1],
+  ["high", 2],
+  ["extra high", 3],
+  ["pro", 4]
+]);
 async function setMode(env, args) {
   const boot2 = await ensurePage6(env);
   if (!boot2.ok) {
@@ -6896,8 +6987,10 @@ async function setMode(env, args) {
   const page = env.page;
   try {
     const requested = requestedModeLabels(args);
-    const opened = await waitForModeMenu(page, requested, args.timeoutMs ?? 3e4);
-    if (opened.alreadySelected.length === requested.length) {
+    const requestedVersion = requestedModelVersion(args);
+    const requestedForOpening = requestedVersion === void 0 ? requested : [...requested, requestedVersion];
+    const opened = await waitForModeMenu(page, requestedForOpening, args.timeoutMs ?? 3e4);
+    if (requestedVersion === void 0 && opened.alreadySelected.length === requested.length) {
       return resultOk({ selected: opened.alreadySelected, candidates: opened.modeButtons }, await contextFromPage(page));
     }
     if (!opened.opened) {
@@ -6907,14 +7000,14 @@ async function setMode(env, args) {
     const candidates = await enumerateVisibleMenuItems(page);
     const selected = [];
     for (const item of requested) {
-      const match = findUniqueMenuItem(candidates, item);
+      const match = findModeMenuItem(candidates, item);
       if (match === void 0) {
-        const candidateLabels = candidates.map((candidate) => candidate.label);
+        const candidateLabels2 = candidates.map((candidate) => candidate.label);
         return {
           ok: false,
           status: "unsupported",
           warnings: [],
-          blocker: selectorDriftBlocker(`Mode option "${item}" was not found or was ambiguous.`, candidateLabels),
+          blocker: selectorDriftBlocker(`Mode option "${item}" was not found or was ambiguous.`, candidateLabels2),
           context: await contextFromPage(page)
         };
       }
@@ -6923,7 +7016,22 @@ async function setMode(env, args) {
       }
       selected.push(match.label);
     }
-    return resultOk({ selected, candidates: candidates.map((candidate) => candidate.label) }, await contextFromPage(page));
+    let candidateLabels = candidates.map((candidate) => candidate.label);
+    if (requestedVersion !== void 0) {
+      const versionResult = await selectModelVersion(page, requestedVersion, candidates, args.timeoutMs ?? 3e4);
+      candidateLabels = dedupeLabels([...candidateLabels, ...versionResult.candidates]);
+      if (!versionResult.selected) {
+        return {
+          ok: false,
+          status: "unsupported",
+          warnings: [],
+          blocker: selectorDriftBlocker(`Model version "${requestedVersion}" was not found or was ambiguous.`, candidateLabels),
+          context: await contextFromPage(page)
+        };
+      }
+      selected.push(versionResult.selected);
+    }
+    return resultOk({ selected, candidates: candidateLabels }, await contextFromPage(page));
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
@@ -7028,6 +7136,9 @@ async function clickMenuItem(page, label) {
   if (await clickModelSwitcherMenuItem(page, label)) {
     return true;
   }
+  if (await clickMenuItemByPointer(page, label)) {
+    return true;
+  }
   if (await clickMenuItemByDom(page, label)) {
     return true;
   }
@@ -7037,6 +7148,22 @@ async function clickMenuItem(page, label) {
   }
   const textLocator = page.getByText?.(label, { exact: true });
   return clickIfUnique(textLocator);
+}
+async function clickMenuItemByPointer(page, label) {
+  const point = await menuItemCenter(page, { label });
+  if (point === void 0) {
+    return false;
+  }
+  const pageWithPointer = page;
+  if (pageWithPointer.mouse?.click !== void 0) {
+    await pageWithPointer.mouse.click(point.x, point.y);
+    return true;
+  }
+  if (pageWithPointer.cua?.click !== void 0) {
+    await pageWithPointer.cua.click({ x: point.x, y: point.y });
+    return true;
+  }
+  return false;
 }
 async function clickModelSwitcherMenuItem(page, label) {
   if (typeof page.evaluate !== "function" || typeof page.locator !== "function") {
@@ -7091,9 +7218,29 @@ function toolLabels(tool) {
   const known = localeLabels.tools[tool];
   return known !== void 0 ? [...known] : [tool];
 }
+function findModeMenuItem(candidates, wanted) {
+  const exact = findUniqueMenuItem(candidates, wanted);
+  if (exact !== void 0) {
+    return exact;
+  }
+  const wantedIndex = CANONICAL_INTELLIGENCE_ORDER.get(normalizeLabel(wanted));
+  if (wantedIndex === void 0) {
+    return void 0;
+  }
+  const intelligenceItems = candidates.filter(
+    (candidate) => candidate.role === "menuitemradio" && !MODEL_VERSION_LABEL_PATTERN.test(candidate.label) && !MODEL_VERSION_FAMILY_PATTERN.test(candidate.label)
+  );
+  return intelligenceItems.length >= CANONICAL_INTELLIGENCE_ORDER.size ? intelligenceItems[wantedIndex] : void 0;
+}
 function requestedModeLabels(args) {
-  const requested = [args.model, args.effort].filter((value) => value !== void 0);
+  const requested = [args.model, args.intelligence, args.effort].filter((value) => value !== void 0);
+  if (requestedModelVersion(args) !== void 0 && requested.length === 0) {
+    return [];
+  }
   return requested.length > 0 ? requested : [DEFAULT_MODE_EFFORT];
+}
+function requestedModelVersion(args) {
+  return args.modelVersion ?? args.version;
 }
 function findUniqueVisibleLabel(labels, wanted) {
   const normalized = normalizeLabel(wanted);
@@ -7118,6 +7265,108 @@ function escapeAttributeValue(value) {
 }
 function findAlreadySelectedModes(visibleButtons, requested) {
   return requested.map((label) => findUniqueVisibleLabel(visibleButtons, label)).filter((label) => label !== void 0);
+}
+async function selectModelVersion(page, requestedVersion, currentCandidates, timeoutMs) {
+  let candidates = await enumerateVisibleMenuItems(page);
+  if (!looksLikeModeMenu(candidates.map((candidate) => candidate.label))) {
+    const opened2 = await waitForModeMenu(page, [requestedVersion], timeoutMs);
+    if (opened2.opened) {
+      await page.waitForTimeout?.(250);
+      candidates = await enumerateVisibleMenuItems(page);
+    }
+  }
+  let exact = findExactMenuItem(candidates, requestedVersion);
+  if (exact !== void 0) {
+    return await clickMenuItem(page, exact.label) ? { selected: exact.label, candidates: candidates.map((candidate) => candidate.label) } : { candidates: candidates.map((candidate) => candidate.label) };
+  }
+  const opened = await openModelVersionSubmenu(page, currentCandidates);
+  candidates = await enumerateVisibleMenuItems(page);
+  exact = findExactMenuItem(candidates, requestedVersion);
+  if (!opened || exact === void 0) {
+    return { candidates: candidates.map((candidate) => candidate.label) };
+  }
+  return await clickMenuItem(page, exact.label) ? { selected: exact.label, candidates: candidates.map((candidate) => candidate.label) } : { candidates: candidates.map((candidate) => candidate.label) };
+}
+async function openModelVersionSubmenu(page, candidates) {
+  const submenuOpeners = candidates.filter((item) => item.hasPopup === true || MODEL_VERSION_FAMILY_PATTERN.test(item.label));
+  if (submenuOpeners.length === 0) {
+    return false;
+  }
+  for (const candidate of submenuOpeners) {
+    if (await openSubmenuByPointer(page, candidate)) {
+      await page.waitForTimeout?.(250);
+      if (await modelVersionMenuItemsAreVisible(page)) {
+        return true;
+      }
+    }
+    if (await clickMenuItem(page, candidate.label)) {
+      await page.waitForTimeout?.(250);
+      if (await modelVersionMenuItemsAreVisible(page)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+async function openSubmenuByPointer(page, item) {
+  const point = await menuItemCenter(page, item);
+  if (point === void 0) {
+    return false;
+  }
+  const pageWithMouse = page;
+  if (pageWithMouse.mouse?.move !== void 0) {
+    await pageWithMouse.mouse.move(point.x, point.y);
+    return true;
+  }
+  if (pageWithMouse.cua?.move !== void 0) {
+    await pageWithMouse.cua.move({ x: point.x, y: point.y });
+    return true;
+  }
+  return false;
+}
+async function menuItemCenter(page, item, roles = ["menuitem", "menuitemradio", "option"]) {
+  if (typeof page.evaluate !== "function") {
+    return void 0;
+  }
+  const target = { label: item.label, roles };
+  if (item.testId !== void 0) {
+    target.testId = item.testId;
+  }
+  return page.evaluate((target2) => {
+    const normalize2 = (value) => value.replace(/\s+/g, " ").trim().toLowerCase();
+    const normalizedLabel = normalize2(target2.label);
+    const roleSelector = target2.roles.map((role) => `[role='${role}']`).join(",");
+    const matches = Array.from(document.querySelectorAll(roleSelector)).filter((node) => {
+      const element = node;
+      if (target2.testId !== void 0 && element.getAttribute("data-testid") !== target2.testId) {
+        return false;
+      }
+      const label = normalize2(element.innerText ?? element.textContent ?? "");
+      if (label !== normalizedLabel) {
+        return false;
+      }
+      const rect2 = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      return rect2.width > 0 && rect2.height > 0 && style.visibility !== "hidden" && style.display !== "none" && style.opacity !== "0";
+    });
+    if (matches.length !== 1) return void 0;
+    const rect = matches[0].getBoundingClientRect();
+    return {
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2)
+    };
+  }, target).catch(() => void 0);
+}
+async function modelVersionMenuItemsAreVisible(page) {
+  return (await enumerateVisibleMenuItems(page)).some((candidate) => candidate.role === "menuitemradio" && MODEL_VERSION_LABEL_PATTERN.test(candidate.label));
+}
+function findExactMenuItem(items, wanted) {
+  const normalized = normalizeLabel(wanted);
+  const matches = items.filter((item) => item.normalized === normalized);
+  return matches.length === 1 ? matches[0] : void 0;
+}
+function dedupeLabels(labels) {
+  return Array.from(new Set(labels));
 }
 async function selectorDrift(page, message, candidates) {
   const visibleText = candidates?.join("\n") ?? await visibleButtonLabels(page);
@@ -7971,7 +8220,7 @@ var descriptors = [
     `await chatgpt.askInThread({ thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true, prompt: "Continue." });`
   ]),
   workflow("askWithFiles", "Attach absolute local file paths, optionally set mode, ask, wait, and read.", [
-    `await chatgpt.askWithFiles({ thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true, mode: { effort: "Thinking" }, files: ["/absolute/host/path/brief.md"], prompt: "Summarize this.", wait: true, read: { format: "markdown" } });`
+    `await chatgpt.askWithFiles({ thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true, mode: { model: "Pro" }, files: ["/absolute/host/path/brief.md"], prompt: "Summarize this.", wait: true, read: { format: "markdown" } });`
   ]),
   workflow("askAndDownload", "Ask ChatGPT to produce a visible downloadable output and save the latest exposed file.", [
     `await chatgpt.askAndDownload({ prompt: "Create a CSV.", download: { destDir: "/absolute/host/output" }, wait: true });`
@@ -8045,7 +8294,7 @@ var descriptors = [
   primitive("projects.sources.planAdd", "Dry-run an append-only Project Sources file add from explicit local files without opening ChatGPT.", 3e4),
   primitive("projects.sources.add", "Append explicit local files to a visible ChatGPT Project Sources list after confirmMutation: true.", 18e4),
   primitive("response.copy", "Click Copy response and return clipboard Markdown, with DOM fallback.", 5e3),
-  primitive("modes.set", "Select a visible model or effort candidate when unambiguous.", 3e4),
+  primitive("modes.set", "Select a visible model, intelligence, effort, or nested model-version candidate when unambiguous.", 3e4),
   primitive("tools.select", "Select a visible ChatGPT tool when unambiguous.", 3e4)
 ];
 function commandDescriptors() {
@@ -8150,7 +8399,7 @@ function workflowArgs(name) {
       prompt: "message to send after files are attached",
       thread: "optional thread selector",
       existingTab: "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
-      mode: 'optional visible mode selection, e.g. { effort: "Thinking" }',
+      mode: 'optional visible mode selection, e.g. { model: "Pro" } or { intelligence: "Pro", modelVersion: "5.4" }',
       wait: "true or wait options; defaults to true",
       read: 'true or read options such as { format: "markdown" }; defaults to Markdown',
       report: "optional redacted report settings"
@@ -8195,8 +8444,11 @@ function primitiveArgs(name) {
   if (name === "projects.sources.add") return { projectUrl: "ChatGPT Project URL", files: "explicit absolute local file paths", confirmMutation: "must be true to mutate Project Sources", batchSize: "optional upload batch size" };
   if (name === "modes.set") {
     return {
-      effort: "visible effort label such as Thinking or Extended",
-      model: "visible model label such as Instant, Pro, or another available model",
+      effort: "visible legacy effort label such as Thinking or Extended",
+      intelligence: "visible intelligence label such as Medium, High, Extra High, or Pro",
+      model: "visible model label such as Pro, GPT-5.5, or another available model",
+      modelVersion: "visible nested model version such as 5.5, 5.4, 4.5, or o3",
+      version: "alias for modelVersion",
       timeoutMs: "optional timeout for opening and selecting the visible mode menu"
     };
   }
@@ -8205,8 +8457,10 @@ function primitiveArgs(name) {
 function primitiveExamples(name) {
   if (name === "modes.set") {
     return [
+      `await chatgpt.modes.set({ model: "Pro" });`,
+      `await chatgpt.modes.set({ intelligence: "Pro", modelVersion: "5.4" });`,
       `await chatgpt.modes.set({ effort: "Thinking" });`,
-      `await chatgpt.askWithFiles({ mode: { effort: "Thinking" }, files: ["/absolute/host/path.jpg"], prompt: "Describe this image.", wait: true });`
+      `await chatgpt.askWithFiles({ mode: { model: "Pro" }, files: ["/absolute/host/path.jpg"], prompt: "Describe this image.", wait: true });`
     ];
   }
   if (name === "files.preflight") {

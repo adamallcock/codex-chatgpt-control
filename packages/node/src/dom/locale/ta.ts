@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Tamil (ta-IN). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=ta-IN, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const ta = {
   composerTextbox: ["எதையும் கேளுங்கள்"],
@@ -19,6 +18,7 @@ export const ta = {
   addFilesOpenerCandidates: ["கோப்புகளையும் மேலும் பலவற்றையும் சேர்"],
   addPhotosFilesMenuItem: ["படங்கள் மற்றும் ஃபைல்களைப் பதிவேற்று"],
   copyResponse: ["பதிலை நகலெடுக்கலாம்"],
+  modeLabels: ["உடனடி", "நடுத்தர", "உயர்", "மிக உயர்வு", "ப்ரோ"],
   modeOpenerExtra: ["கட்டமைக்கவும்..."],
   tools: {
     web_search: ["இணைய தேடல்"],

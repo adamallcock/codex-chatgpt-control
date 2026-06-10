@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Thai (th-TH). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=th-TH, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const th = {
   composerTextbox: ["ถามอะไรก็ได้"],
@@ -19,6 +18,7 @@ export const th = {
   addFilesOpenerCandidates: ["เพิ่มไฟล์และอื่นๆ"],
   addPhotosFilesMenuItem: ["อัปโหลดรูปและไฟล์"],
   copyResponse: ["คัดลอกคำตอบ"],
+  modeLabels: ["ทันที", "ปานกลาง", "สูง", "สูงมาก"],
   modeOpenerExtra: ["กำหนดค่า..."],
   tools: {
     web_search: ["ค้นหาเว็บ"],

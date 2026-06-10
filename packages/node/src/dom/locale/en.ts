@@ -30,7 +30,7 @@ export const en = {
   imageContainerHint: ["image"],
 
   // --- Mode switcher (also the canonical public API keys) ---
-  modeLabels: ["Latest", "Instant", "Thinking", "Extended", "Pro"],
+  modeLabels: ["Latest", "Instant", "Thinking", "Extended", "Medium", "High", "Extra High", "Pro"],
   /** Extra openers that surface the mode menu but are not selectable modes themselves. */
   modeOpenerExtra: ["Configure"],
 

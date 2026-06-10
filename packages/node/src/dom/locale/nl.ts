@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Dutch (nl-NL). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=nl-NL, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const nl = {
   composerTextbox: ["Stel een vraag"],
@@ -19,6 +18,7 @@ export const nl = {
   addFilesOpenerCandidates: ["Bestanden en meer toevoegen"],
   addPhotosFilesMenuItem: ["Foto's en bestanden uploaden"],
   copyResponse: ["Reactie kopiëren"],
+  modeLabels: ["Direct", "Gemiddeld", "Hoog", "Extra hoog"],
   modeOpenerExtra: ["Configureren..."],
   tools: {
     web_search: ["Zoeken op internet"],

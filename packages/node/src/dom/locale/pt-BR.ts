@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Portuguese (Brazil) (pt-BR). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=pt-BR, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const ptBR = {
   composerTextbox: ["Pergunte alguma coisa"],
@@ -19,6 +18,7 @@ export const ptBR = {
   addFilesOpenerCandidates: ["Adicionar arquivos e mais"],
   addPhotosFilesMenuItem: ["Carregar fotos e arquivos"],
   copyResponse: ["Copiar resposta"],
+  modeLabels: ["Instantâneo", "Médio", "Alto", "Muito alta"],
   modeOpenerExtra: ["Configurar…"],
   tools: {
     web_search: ["Busca na web"],

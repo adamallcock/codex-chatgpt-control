@@ -39,6 +39,18 @@ describe("localeLabels — English canonical preserved", () => {
       expect(new Set(list).size, list.join("|")).toBe(list.length);
     }
   });
+
+  it("includes observed localized Intelligence picker labels", () => {
+    expect(localeLabels.modeLabels).toEqual(expect.arrayContaining([
+      "Sofort",
+      "Mittel",
+      "Hoch",
+      "Extra hoch",
+      "Moyen",
+      "Avancé",
+      "Très élevé",
+    ]));
+  });
 });
 
 describe("en locale — completeness", () => {

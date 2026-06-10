@@ -5,10 +5,9 @@ import type { LocaleContribution } from "./types.js";
  * (html lang=fr-CA, Google Translate confirmed off).
  *
  * Uses distinctly Québécois vocabulary: "clavardage" for chat, "requête" for prompt.
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• Prolongée" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const frCA = {
   composerTextbox: ["Converser avec ChatGPT"],
@@ -20,6 +19,7 @@ export const frCA = {
   addFilesOpenerCandidates: ["Ajouter des fichiers et plus encore"],
   addPhotosFilesMenuItem: ["Ajouter des photos et des fichiers"],
   copyResponse: ["Copier la réponse"],
+  modeLabels: ["Instantané", "Moyen", "Élevé", "Très élevé"],
   modeOpenerExtra: ["Configurer..."],
   tools: {
     web_search: ["Recherche sur Internet"],

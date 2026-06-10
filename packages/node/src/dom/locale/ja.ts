@@ -4,11 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Japanese (ja-JP). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=ja-JP, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• 拡張" suffix is a descriptor) and `tools.deep_research` ("Deep research").
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const ja = {
   composerTextbox: ["ChatGPT とチャットする"],
@@ -20,6 +18,7 @@ export const ja = {
   addFilesOpenerCandidates: ["ファイルの追加など"],
   addPhotosFilesMenuItem: ["写真とファイルを追加"],
   copyResponse: ["回答をコピーする"],
+  modeLabels: ["最速", "標準", "高", "最高"],
   modeOpenerExtra: ["設定する"],
   tools: {
     web_search: ["ウェブ検索"],

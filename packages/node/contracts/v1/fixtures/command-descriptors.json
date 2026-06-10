@@ -67,7 +67,7 @@
       "args": {
         "existingTab": "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
         "files": "absolute local file paths to attach before submitting",
-        "mode": "optional visible mode selection, e.g. { effort: \"Thinking\" }",
+        "mode": "optional visible mode selection, e.g. { model: \"Pro\" } or { intelligence: \"Pro\", modelVersion: \"5.4\" }",
         "prompt": "message to send after files are attached",
         "read": "true or read options such as { format: \"markdown\" }; defaults to Markdown",
         "report": "optional redacted report settings",
@@ -89,7 +89,7 @@
       },
       "defaultTimeoutMs": 120000,
       "examples": [
-        "await chatgpt.askWithFiles({ thread: { type: \"url\", url: \"https://chatgpt.com/c/<conversation-id>\" }, existingTab: true, mode: { effort: \"Thinking\" }, files: [\"/absolute/host/path/brief.md\"], prompt: \"Summarize this.\", wait: true, read: { format: \"markdown\" } });"
+        "await chatgpt.askWithFiles({ thread: { type: \"url\", url: \"https://chatgpt.com/c/<conversation-id>\" }, existingTab: true, mode: { model: \"Pro\" }, files: [\"/absolute/host/path/brief.md\"], prompt: \"Summarize this.\", wait: true, read: { format: \"markdown\" } });"
       ],
       "layer": "workflow",
       "name": "askWithFiles",
@@ -933,9 +933,12 @@
     },
     {
       "args": {
-        "effort": "visible effort label such as Thinking or Extended",
-        "model": "visible model label such as Instant, Pro, or another available model",
-        "timeoutMs": "optional timeout for opening and selecting the visible mode menu"
+        "effort": "visible legacy effort label such as Thinking or Extended",
+        "intelligence": "visible intelligence label such as Medium, High, Extra High, or Pro",
+        "model": "visible model label such as Pro, GPT-5.5, or another available model",
+        "modelVersion": "visible nested model version such as 5.5, 5.4, 4.5, or o3",
+        "timeoutMs": "optional timeout for opening and selecting the visible mode menu",
+        "version": "alias for modelVersion"
       },
       "blockers": [
         "browser_bridge_unavailable",
@@ -945,14 +948,16 @@
       "defaults": {},
       "defaultTimeoutMs": 30000,
       "examples": [
+        "await chatgpt.modes.set({ model: \"Pro\" });",
+        "await chatgpt.modes.set({ intelligence: \"Pro\", modelVersion: \"5.4\" });",
         "await chatgpt.modes.set({ effort: \"Thinking\" });",
-        "await chatgpt.askWithFiles({ mode: { effort: \"Thinking\" }, files: [\"/absolute/host/path.jpg\"], prompt: \"Describe this image.\", wait: true });"
+        "await chatgpt.askWithFiles({ mode: { model: \"Pro\" }, files: [\"/absolute/host/path.jpg\"], prompt: \"Describe this image.\", wait: true });"
       ],
       "layer": "primitive",
       "name": "modes.set",
       "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
       "risk": "medium",
-      "summary": "Select a visible model or effort candidate when unambiguous."
+      "summary": "Select a visible model, intelligence, effort, or nested model-version candidate when unambiguous."
     },
     {
       "args": {},

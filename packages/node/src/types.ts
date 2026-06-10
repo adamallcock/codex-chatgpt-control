@@ -558,6 +558,9 @@ export type CopiedResponse = {
 export type SetModeArgs = {
   model?: string;
   effort?: string;
+  intelligence?: string;
+  modelVersion?: string;
+  version?: string;
   timeoutMs?: number;
 };
 
@@ -684,6 +687,14 @@ export type PageLike = {
   getByText?: (text: string | RegExp, options?: Record<string, unknown>) => LocatorLike;
   keyboard?: {
     press?: (key: string) => Promise<void>;
+  };
+  mouse?: {
+    move?: (x: number, y: number) => Promise<void> | void;
+    click?: (x: number, y: number) => Promise<void> | void;
+  };
+  cua?: {
+    move?: (options: { x: number; y: number }) => Promise<void> | void;
+    click?: (options: { x: number; y: number; button?: number }) => Promise<void> | void;
   };
   waitForTimeout?: (ms: number) => Promise<void>;
   waitForEvent?: (event: string, optionsOrCallback?: WaitForEventOptions | unknown) => Promise<unknown>;

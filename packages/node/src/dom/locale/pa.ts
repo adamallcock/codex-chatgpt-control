@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Punjabi (pa). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=pa, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const pa = {
   composerTextbox: ["ਕੁਝ ਵੀ ਪੁੱਛੋ"],
@@ -19,6 +18,7 @@ export const pa = {
   addFilesOpenerCandidates: ["ਫਾਈਲਾਂ ਅਤੇ ਹੋਰ ਬਹੁਤ ਕੁਝ ਸ਼ਾਮਲ ਕਰੋ"],
   addPhotosFilesMenuItem: ["ਫ਼ੋਟੋਆਂ ਅਤੇ ਫ਼ਾਈਲਾਂ ਅੱਪਲੋਡ ਕਰੋ"],
   copyResponse: ["ਜਵਾਬ ਕਾਪੀ ਕਰੋ"],
+  modeLabels: ["ਤੁਰੰਤ", "ਮੱਧਮ", "ਉੱਚ", "ਅਤਿ ਉੱਚ", "ਪ੍ਰੋ"],
   modeOpenerExtra: ["ਕੌਨਫਿਗਰ..."],
   tools: {
     web_search: ["ਵੈੱਬ ਖੋਜ"],

@@ -117,10 +117,14 @@
         "ok": true,
         "startedAt": "2026-06-06T00:00:00.000Z",
         "status": "ok",
-        "warnings": []
+        "warnings": [
+          "Markdown was reconstructed from visible DOM semantics; use response.copy for clipboard Markdown when exact copy fidelity is required."
+        ]
       }
     ],
-    "warnings": []
+    "warnings": [
+      "Markdown was reconstructed from visible DOM semantics; use response.copy for clipboard Markdown when exact copy fidelity is required."
+    ]
   },
   "schemaVersion": "chatgpt.browser_control.run_result.v1"
 }

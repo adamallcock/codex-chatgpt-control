@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Hungarian (hu-HU). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=hu-HU, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• Kibővített" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const hu = {
   composerTextbox: ["Csevegés a ChatGPT-vel"],
@@ -19,6 +18,7 @@ export const hu = {
   addFilesOpenerCandidates: ["Fájlok és egyebek hozzáadása"],
   addPhotosFilesMenuItem: ["Fotók és fájlok hozzáadása"],
   copyResponse: ["Válasz másolása"],
+  modeLabels: ["Azonnali", "Közepes", "Magas", "Kiemelkedően magas"],
   modeOpenerExtra: ["Konfigurálás..."],
   tools: {
     web_search: ["Internetes keresés"],

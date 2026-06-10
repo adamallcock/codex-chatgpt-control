@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Gujarati (gu-IN). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=gu-IN, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• વિસ્તૃત" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const gu = {
   composerTextbox: ["ChatGPT સાથે ચૅટ"],
@@ -19,6 +18,7 @@ export const gu = {
   addFilesOpenerCandidates: ["ફાઇલો અને વધુ ઉમેરો"],
   addPhotosFilesMenuItem: ["ફોટા અને ફાઇલો ઉમેરો"],
   copyResponse: ["પ્રતિભાવ કૉપિ કરો"],
+  modeLabels: ["તરત", "મધ્યમ", "ઉચ્ચ", "અતિ ઉચ્ચ"],
   modeOpenerExtra: ["કન્ફિગર કરો..."],
   tools: {
     web_search: ["વેબ શોધ"],

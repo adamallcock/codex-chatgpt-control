@@ -111,25 +111,20 @@ guesstimate; the tail (≈#11–15) is close and easily reordered.
 | Chinese (Traditional, Hong Kong) | 繁體中文（香港） | `zh-HK` | ~85M | ✅ |
 | Chinese (Traditional, Taiwan) | 繁體中文（台灣） | `zh-TW` | ~23M | ✅ |
 
-## Known limitation — locale switching in the automated harness
+## Automated capture
 
-ChatGPT renders its UI locale from the `oai-locale` cookie, not from the account-language
-preference alone. In the Claude-in-Chrome automation environment:
+Use the repository capture script to drive the visible ChatGPT UI through Settings → General
+→ Language, then open the composer Intelligence picker and record the localized labels:
 
-- Opening menus and reading localized labels via injected JS works perfectly (the capture
-  step is fully automated — one JS call harvests the whole home-screen set; a conversation
-  page yields `copyResponse`).
-- **Switching** the rendered locale is the bottleneck. Changing the account language updates
-  the saved preference, but the `oai-locale` cookie does not re-issue within the session, so
-  the page keeps rendering the previously-cached locale. Direct cookie writes are blocked by
-  the environment's privacy guard (and must not be circumvented).
-- Net effect: German captured cleanly because its cookie happened to set on the first switch;
-  subsequent in-session switches did not re-render. A full sweep therefore needs either a
-  fresh browser session per language, or the human operator to set the language + reload in a
-  normal (non-sandboxed) browser, after which the JS capture is instant.
+```bash
+npm run capture:intelligence-locales -- --auto-switch --all --if-missing open
+```
 
-This is an environment constraint, not a code issue — the per-locale infrastructure and the
-capture method both work. Treat additional locales as incremental contributions.
+The script uses the native language names from this tracker, verifies the rendered
+`document.documentElement.lang`, writes JSONL evidence under
+`outputs/intelligence-locale-captures/`, and restores the initially selected language by
+default. It does not write cookies, storage, or private browser state directly; if ChatGPT
+changes the settings or picker DOM, the run should emit a blocker record instead of guessing.
 
 ## Capture procedure (per language)
 

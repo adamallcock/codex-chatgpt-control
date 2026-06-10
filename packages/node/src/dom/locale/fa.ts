@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Persian (fa). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=fa, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• گسترده" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const fa = {
   composerTextbox: ["گفتگو با ChatGPT"],
@@ -19,6 +18,7 @@ export const fa = {
   addFilesOpenerCandidates: ["افزودن فایل‌ها و موارد بیشتر"],
   addPhotosFilesMenuItem: ["افزودن تصاویر و فایل‌ها"],
   copyResponse: ["کپی کردن پاسخ"],
+  modeLabels: ["فوری", "متوسط", "بالا", "بسیار زیاد", "حرفه‌ای"],
   modeOpenerExtra: ["پیکربندی..."],
   tools: {
     web_search: ["جستجوی وب"],

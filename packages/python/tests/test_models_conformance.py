@@ -63,7 +63,7 @@ class ModelConformanceTests(unittest.TestCase):
         assert result.blocker is not None
         self.assertEqual(result.blocker["kind"], "browser_bridge_unavailable")
         self.assertEqual(result.blocker["code"], "codex_chrome_bridge_unavailable")
-        self.assertEqual(result.interruptions[0]["type"], "unsupported")
+        self.assertEqual(result.interruptions[0]["type"], "timeout")
         self.assertEqual(result.interruptions[0]["status"], "partial")
 
     def test_partial_run_fixture_preserves_partial_interruption_status(self) -> None:

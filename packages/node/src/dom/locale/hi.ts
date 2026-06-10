@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Hindi (hi-IN). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=hi-IN, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• एक्सटेंडेड" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const hi = {
   composerTextbox: ["ChatGPT के साथ चैट करें"],
@@ -19,6 +18,7 @@ export const hi = {
   addFilesOpenerCandidates: ["फ़ाइलों को जोड़ें और भी बहुत कुछ करें"],
   addPhotosFilesMenuItem: ["फ़ोटो और फ़ाइलें जोड़ें"],
   copyResponse: ["जवाब को कॉपी करें"],
+  modeLabels: ["तुरंत", "मध्यम", "उच्च", "बहुत उच्च"],
   modeOpenerExtra: ["कॉन्फ़िगर करें..."],
   tools: {
     web_search: ["वेब सर्च"],

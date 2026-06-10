@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Korean (ko-KR). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=ko-KR, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• 확장" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const ko = {
   composerTextbox: ["ChatGPT와 채팅"],
@@ -19,6 +18,7 @@ export const ko = {
   addFilesOpenerCandidates: ["파일 추가 및 기타"],
   addPhotosFilesMenuItem: ["사진 및 파일 추가"],
   copyResponse: ["응답 복사"],
+  modeLabels: ["즉시", "중간", "높음", "매우 높음"],
   modeOpenerExtra: ["구성…"],
   tools: {
     web_search: ["웹 검색"],

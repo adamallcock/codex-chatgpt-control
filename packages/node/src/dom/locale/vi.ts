@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Vietnamese (vi-VN). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=vi-VN, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• Lâu hơn" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const vi = {
   composerTextbox: ["Trò chuyện với ChatGPT"],
@@ -19,6 +18,7 @@ export const vi = {
   addFilesOpenerCandidates: ["Thêm tệp và nhiều tính năng khác"],
   addPhotosFilesMenuItem: ["Thêm ảnh và tệp"],
   copyResponse: ["Sao chép phản hồi"],
+  modeLabels: ["Tức thì", "Trung bình", "Cao", "Rất cao"],
   modeOpenerExtra: ["Định cấu hình"],
   tools: {
     web_search: ["Tìm kiếm trên mạng"],

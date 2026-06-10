@@ -24,7 +24,7 @@ const descriptors: CommandDescriptor[] = [
     `await chatgpt.askInThread({ thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true, prompt: "Continue." });`
   ]),
   workflow("askWithFiles", "Attach absolute local file paths, optionally set mode, ask, wait, and read.", [
-    `await chatgpt.askWithFiles({ thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true, mode: { effort: "Thinking" }, files: ["/absolute/host/path/brief.md"], prompt: "Summarize this.", wait: true, read: { format: "markdown" } });`
+    `await chatgpt.askWithFiles({ thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true, mode: { model: "Pro" }, files: ["/absolute/host/path/brief.md"], prompt: "Summarize this.", wait: true, read: { format: "markdown" } });`
   ]),
   workflow("askAndDownload", "Ask ChatGPT to produce a visible downloadable output and save the latest exposed file.", [
     `await chatgpt.askAndDownload({ prompt: "Create a CSV.", download: { destDir: "/absolute/host/output" }, wait: true });`
@@ -98,7 +98,7 @@ const descriptors: CommandDescriptor[] = [
   primitive("projects.sources.planAdd", "Dry-run an append-only Project Sources file add from explicit local files without opening ChatGPT.", 30000),
   primitive("projects.sources.add", "Append explicit local files to a visible ChatGPT Project Sources list after confirmMutation: true.", 180000),
   primitive("response.copy", "Click Copy response and return clipboard Markdown, with DOM fallback.", 5000),
-  primitive("modes.set", "Select a visible model or effort candidate when unambiguous.", 30000),
+  primitive("modes.set", "Select a visible model, intelligence, effort, or nested model-version candidate when unambiguous.", 30000),
   primitive("tools.select", "Select a visible ChatGPT tool when unambiguous.", 30000)
 ];
 
@@ -213,7 +213,7 @@ function workflowArgs(name: string): Record<string, string> {
       prompt: "message to send after files are attached",
       thread: "optional thread selector",
       existingTab: "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
-      mode: "optional visible mode selection, e.g. { effort: \"Thinking\" }",
+      mode: "optional visible mode selection, e.g. { model: \"Pro\" } or { intelligence: \"Pro\", modelVersion: \"5.4\" }",
       wait: "true or wait options; defaults to true",
       read: "true or read options such as { format: \"markdown\" }; defaults to Markdown",
       report: "optional redacted report settings"
@@ -262,8 +262,11 @@ function primitiveArgs(name: string): Record<string, string> {
   if (name === "projects.sources.add") return { projectUrl: "ChatGPT Project URL", files: "explicit absolute local file paths", confirmMutation: "must be true to mutate Project Sources", batchSize: "optional upload batch size" };
   if (name === "modes.set") {
     return {
-      effort: "visible effort label such as Thinking or Extended",
-      model: "visible model label such as Instant, Pro, or another available model",
+      effort: "visible legacy effort label such as Thinking or Extended",
+      intelligence: "visible intelligence label such as Medium, High, Extra High, or Pro",
+      model: "visible model label such as Pro, GPT-5.5, or another available model",
+      modelVersion: "visible nested model version such as 5.5, 5.4, 4.5, or o3",
+      version: "alias for modelVersion",
       timeoutMs: "optional timeout for opening and selecting the visible mode menu"
     };
   }
@@ -273,8 +276,10 @@ function primitiveArgs(name: string): Record<string, string> {
 function primitiveExamples(name: string): string[] {
   if (name === "modes.set") {
     return [
+      `await chatgpt.modes.set({ model: "Pro" });`,
+      `await chatgpt.modes.set({ intelligence: "Pro", modelVersion: "5.4" });`,
       `await chatgpt.modes.set({ effort: "Thinking" });`,
-      `await chatgpt.askWithFiles({ mode: { effort: "Thinking" }, files: ["/absolute/host/path.jpg"], prompt: "Describe this image.", wait: true });`
+      `await chatgpt.askWithFiles({ mode: { model: "Pro" }, files: ["/absolute/host/path.jpg"], prompt: "Describe this image.", wait: true });`
     ];
   }
   if (name === "files.preflight") {

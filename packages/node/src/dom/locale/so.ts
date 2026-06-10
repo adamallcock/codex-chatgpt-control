@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Somali (so-SO). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=so-SO, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const so = {
   composerTextbox: ["Waydii waxkasta"],
@@ -19,6 +18,7 @@ export const so = {
   addFilesOpenerCandidates: ["Ku dar faylashada iyo wax badan"],
   addPhotosFilesMenuItem: ["Soo geli sawirada & faylasha"],
   copyResponse: ["Koobiyee jawaabta"],
+  modeLabels: ["Degdeg", "Dhexdhexaad", "Sare", "Aad u sarreeya"],
   modeOpenerExtra: ["Ku xidh..."],
   tools: {
     web_search: ["Raadi shakabada"],

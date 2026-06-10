@@ -9,6 +9,15 @@ import { bootstrap } from "./session.js";
 const DEFAULT_MODE_EFFORT = "Thinking";
 const CURRENT_MODE_LABELS: string[] = [...localeLabels.modeLabels];
 const MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter(label => label !== "Pro"), ...localeLabels.modeOpenerExtra];
+const MODEL_VERSION_FAMILY_PATTERN = /^gpt[\s-]/i;
+const MODEL_VERSION_LABEL_PATTERN = /^(?:o\d+|\d+(?:\.\d+)?)$/i;
+const CANONICAL_INTELLIGENCE_ORDER = new Map<string, number>([
+  ["instant", 0],
+  ["medium", 1],
+  ["high", 2],
+  ["extra high", 3],
+  ["pro", 4],
+]);
 
 export async function setMode(
   env: RuntimeEnv,
@@ -23,8 +32,10 @@ export async function setMode(
 
   try {
     const requested = requestedModeLabels(args);
-    const opened = await waitForModeMenu(page, requested, args.timeoutMs ?? 30000);
-    if (opened.alreadySelected.length === requested.length) {
+    const requestedVersion = requestedModelVersion(args);
+    const requestedForOpening = requestedVersion === undefined ? requested : [...requested, requestedVersion];
+    const opened = await waitForModeMenu(page, requestedForOpening, args.timeoutMs ?? 30000);
+    if (requestedVersion === undefined && opened.alreadySelected.length === requested.length) {
       return resultOk({ selected: opened.alreadySelected, candidates: opened.modeButtons }, await contextFromPage(page));
     }
     if (!opened.opened) {
@@ -35,7 +46,7 @@ export async function setMode(
     const selected: string[] = [];
 
     for (const item of requested) {
-      const match = findUniqueMenuItem(candidates, item);
+      const match = findModeMenuItem(candidates, item);
       if (match === undefined) {
         const candidateLabels = candidates.map(candidate => candidate.label);
         return {
@@ -52,7 +63,23 @@ export async function setMode(
       selected.push(match.label);
     }
 
-    return resultOk({ selected, candidates: candidates.map(candidate => candidate.label) }, await contextFromPage(page));
+    let candidateLabels = candidates.map(candidate => candidate.label);
+    if (requestedVersion !== undefined) {
+      const versionResult = await selectModelVersion(page, requestedVersion, candidates, args.timeoutMs ?? 30000);
+      candidateLabels = dedupeLabels([...candidateLabels, ...versionResult.candidates]);
+      if (!versionResult.selected) {
+        return {
+          ok: false,
+          status: "unsupported",
+          warnings: [],
+          blocker: selectorDriftBlocker(`Model version "${requestedVersion}" was not found or was ambiguous.`, candidateLabels),
+          context: await contextFromPage(page)
+        };
+      }
+      selected.push(versionResult.selected);
+    }
+
+    return resultOk({ selected, candidates: candidateLabels }, await contextFromPage(page));
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
@@ -186,6 +213,10 @@ async function clickMenuItem(page: PageLike, label: string): Promise<boolean> {
     return true;
   }
 
+  if (await clickMenuItemByPointer(page, label)) {
+    return true;
+  }
+
   if (await clickMenuItemByDom(page, label)) {
     return true;
   }
@@ -197,6 +228,28 @@ async function clickMenuItem(page: PageLike, label: string): Promise<boolean> {
 
   const textLocator = page.getByText?.(label, { exact: true });
   return clickIfUnique(textLocator);
+}
+
+async function clickMenuItemByPointer(page: PageLike, label: string): Promise<boolean> {
+  const point = await menuItemCenter(page, { label });
+  if (point === undefined) {
+    return false;
+  }
+
+  const pageWithPointer = page as PageLike & {
+    mouse?: { click?: (x: number, y: number) => Promise<void> | void };
+    cua?: { click?: (options: { x: number; y: number; button?: number }) => Promise<void> | void };
+  };
+
+  if (pageWithPointer.mouse?.click !== undefined) {
+    await pageWithPointer.mouse.click(point.x, point.y);
+    return true;
+  }
+  if (pageWithPointer.cua?.click !== undefined) {
+    await pageWithPointer.cua.click({ x: point.x, y: point.y });
+    return true;
+  }
+  return false;
 }
 
 async function clickModelSwitcherMenuItem(page: PageLike, label: string): Promise<boolean> {
@@ -266,9 +319,37 @@ function toolLabels(tool: string): string[] {
   return known !== undefined ? [...known] : [tool];
 }
 
+function findModeMenuItem(candidates: MenuItem[], wanted: string): MenuItem | undefined {
+  const exact = findUniqueMenuItem(candidates, wanted);
+  if (exact !== undefined) {
+    return exact;
+  }
+
+  const wantedIndex = CANONICAL_INTELLIGENCE_ORDER.get(normalizeLabel(wanted));
+  if (wantedIndex === undefined) {
+    return undefined;
+  }
+
+  const intelligenceItems = candidates.filter(candidate =>
+    candidate.role === "menuitemradio"
+    && !MODEL_VERSION_LABEL_PATTERN.test(candidate.label)
+    && !MODEL_VERSION_FAMILY_PATTERN.test(candidate.label)
+  );
+  return intelligenceItems.length >= CANONICAL_INTELLIGENCE_ORDER.size
+    ? intelligenceItems[wantedIndex]
+    : undefined;
+}
+
 function requestedModeLabels(args: SetModeArgs): string[] {
-  const requested = [args.model, args.effort].filter((value): value is string => value !== undefined);
+  const requested = [args.model, args.intelligence, args.effort].filter((value): value is string => value !== undefined);
+  if (requestedModelVersion(args) !== undefined && requested.length === 0) {
+    return [];
+  }
   return requested.length > 0 ? requested : [DEFAULT_MODE_EFFORT];
+}
+
+function requestedModelVersion(args: SetModeArgs): string | undefined {
+  return args.modelVersion ?? args.version;
 }
 
 function findUniqueVisibleLabel(labels: string[], wanted: string): string | undefined {
@@ -301,6 +382,146 @@ function findAlreadySelectedModes(visibleButtons: string[], requested: string[])
   return requested
     .map(label => findUniqueVisibleLabel(visibleButtons, label))
     .filter((label): label is string => label !== undefined);
+}
+
+async function selectModelVersion(
+  page: PageLike,
+  requestedVersion: string,
+  currentCandidates: MenuItem[],
+  timeoutMs: number
+): Promise<{ selected?: string; candidates: string[] }> {
+  let candidates = await enumerateVisibleMenuItems(page);
+  if (!looksLikeModeMenu(candidates.map(candidate => candidate.label))) {
+    const opened = await waitForModeMenu(page, [requestedVersion], timeoutMs);
+    if (opened.opened) {
+      await page.waitForTimeout?.(250);
+      candidates = await enumerateVisibleMenuItems(page);
+    }
+  }
+  let exact = findExactMenuItem(candidates, requestedVersion);
+  if (exact !== undefined) {
+    return await clickMenuItem(page, exact.label)
+      ? { selected: exact.label, candidates: candidates.map(candidate => candidate.label) }
+      : { candidates: candidates.map(candidate => candidate.label) };
+  }
+
+  const opened = await openModelVersionSubmenu(page, currentCandidates);
+  candidates = await enumerateVisibleMenuItems(page);
+  exact = findExactMenuItem(candidates, requestedVersion);
+  if (!opened || exact === undefined) {
+    return { candidates: candidates.map(candidate => candidate.label) };
+  }
+
+  return await clickMenuItem(page, exact.label)
+    ? { selected: exact.label, candidates: candidates.map(candidate => candidate.label) }
+    : { candidates: candidates.map(candidate => candidate.label) };
+}
+
+async function openModelVersionSubmenu(page: PageLike, candidates: MenuItem[]): Promise<boolean> {
+  const submenuOpeners = candidates.filter(item => item.hasPopup === true || MODEL_VERSION_FAMILY_PATTERN.test(item.label));
+  if (submenuOpeners.length === 0) {
+    return false;
+  }
+
+  for (const candidate of submenuOpeners) {
+    if (await openSubmenuByPointer(page, candidate)) {
+      await page.waitForTimeout?.(250);
+      if (await modelVersionMenuItemsAreVisible(page)) {
+        return true;
+      }
+    }
+
+    if (await clickMenuItem(page, candidate.label)) {
+      await page.waitForTimeout?.(250);
+      if (await modelVersionMenuItemsAreVisible(page)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function openSubmenuByPointer(page: PageLike, item: MenuItem): Promise<boolean> {
+  const point = await menuItemCenter(page, item);
+  if (point === undefined) {
+    return false;
+  }
+
+  const pageWithMouse = page as PageLike & {
+    mouse?: { move?: (x: number, y: number) => Promise<void> | void };
+    cua?: { move?: (options: { x: number; y: number }) => Promise<void> | void };
+  };
+
+  if (pageWithMouse.mouse?.move !== undefined) {
+    await pageWithMouse.mouse.move(point.x, point.y);
+    return true;
+  }
+  if (pageWithMouse.cua?.move !== undefined) {
+    await pageWithMouse.cua.move({ x: point.x, y: point.y });
+    return true;
+  }
+  return false;
+}
+
+async function menuItemCenter(
+  page: PageLike,
+  item: Pick<MenuItem, "label" | "testId">,
+  roles: string[] = ["menuitem", "menuitemradio", "option"]
+): Promise<{ x: number; y: number } | undefined> {
+  if (typeof page.evaluate !== "function") {
+    return undefined;
+  }
+
+  const target: { label: string; roles: string[]; testId?: string } = { label: item.label, roles };
+  if (item.testId !== undefined) {
+    target.testId = item.testId;
+  }
+
+  return page.evaluate((target: { label: string; roles: string[]; testId?: string }) => {
+    const normalize = (value: string) => value.replace(/\s+/g, " ").trim().toLowerCase();
+    const normalizedLabel = normalize(target.label);
+    const roleSelector = target.roles.map(role => `[role='${role}']`).join(",");
+    const matches = Array.from(document.querySelectorAll(roleSelector))
+      .filter(node => {
+        const element = node as HTMLElement;
+        if (target.testId !== undefined && element.getAttribute("data-testid") !== target.testId) {
+          return false;
+        }
+        const label = normalize(element.innerText ?? element.textContent ?? "");
+        if (label !== normalizedLabel) {
+          return false;
+        }
+        const rect = element.getBoundingClientRect();
+        const style = window.getComputedStyle(element);
+        return rect.width > 0
+          && rect.height > 0
+          && style.visibility !== "hidden"
+          && style.display !== "none"
+          && style.opacity !== "0";
+      });
+    if (matches.length !== 1) return undefined;
+
+    const rect = matches[0]!.getBoundingClientRect();
+    return {
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2)
+    };
+  }, target).catch(() => undefined);
+}
+
+async function modelVersionMenuItemsAreVisible(page: PageLike): Promise<boolean> {
+  return (await enumerateVisibleMenuItems(page))
+    .some(candidate => candidate.role === "menuitemradio" && MODEL_VERSION_LABEL_PATTERN.test(candidate.label));
+}
+
+function findExactMenuItem(items: MenuItem[], wanted: string): MenuItem | undefined {
+  const normalized = normalizeLabel(wanted);
+  const matches = items.filter(item => item.normalized === normalized);
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+function dedupeLabels(labels: string[]): string[] {
+  return Array.from(new Set(labels));
 }
 
 async function selectorDrift<T>(

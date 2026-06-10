@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Bulgarian (bg-BG). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=bg-BG, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• Разширено" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const bg = {
   composerTextbox: ["Чат с ChatGPT"],
@@ -19,6 +18,7 @@ export const bg = {
   addFilesOpenerCandidates: ["Добавяне на файлове и др."],
   addPhotosFilesMenuItem: ["Добавяне на снимки и файлове"],
   copyResponse: ["Копирайте отговора"],
+  modeLabels: ["Мигновен", "Среден", "Висок", "Много високо", "Про"],
   modeOpenerExtra: ["Конфигурирайте"],
   tools: {
     web_search: ["Търсене в интернет"],

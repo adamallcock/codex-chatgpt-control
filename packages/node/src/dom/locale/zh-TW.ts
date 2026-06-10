@@ -5,10 +5,9 @@ import type { LocaleContribution } from "./types.js";
  * session (html lang=zh-TW, Google Translate confirmed off). Distinct from zh-HK
  * (e.g. 傳送提示詞 vs 傳送提示, 網頁搜尋 vs 網絡搜尋, 複製回應 vs 複製回覆).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• 延伸" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const zhTW = {
   composerTextbox: ["與 ChatGPT 對話"],
@@ -20,6 +19,7 @@ export const zhTW = {
   addFilesOpenerCandidates: ["新增檔案等更多功能"],
   addPhotosFilesMenuItem: ["新增照片和檔案"],
   copyResponse: ["複製回應"],
+  modeLabels: ["即時", "中等", "高", "超高", "專業"],
   modeOpenerExtra: ["設定"],
   tools: {
     web_search: ["網頁搜尋"],

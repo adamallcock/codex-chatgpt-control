@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Arabic (ar). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=ar, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• التفكير لفترة طويلة" suffix is a descriptor). Not yet captured — fall back to
- * English + `selector_drift`: `download`, `downloadImage`, `imageContainerHint`,
- * `transientAssistant`, `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const ar = {
   composerTextbox: ["الدردشة مع ChatGPT"],
@@ -19,6 +18,7 @@ export const ar = {
   addFilesOpenerCandidates: ["إضافة الملفات والمزيد"],
   addPhotosFilesMenuItem: ["إضافة صور وملفات"],
   copyResponse: ["نسخ إجابة"],
+  modeLabels: ["فوري", "متوسط", "عالي", "مكثف جدًا", "احترافي"],
   modeOpenerExtra: ["تكوين"],
   tools: {
     web_search: ["البحث في الويب"],

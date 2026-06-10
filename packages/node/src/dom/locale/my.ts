@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Burmese (my-MM). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=my-MM, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const my = {
   composerTextbox: ["တစ်ခုခု မေးပါ…"],
@@ -19,6 +18,7 @@ export const my = {
   addFilesOpenerCandidates: ["ဖိုင်များနှင့် အခြားအရာများကို ထည့်ရန်"],
   addPhotosFilesMenuItem: ["ဓာတ်ပုံများနှင့် ဖိုင်များကို တင်ပါ"],
   copyResponse: ["တုံ့ပြန်မှု ကူးယူရန်"],
+  modeLabels: ["ချက်ချင်း", "အလယ်အလတ်", "မြင့်", "အလွန်မြင့်"],
   modeOpenerExtra: ["ပြုပြင်မွမ်းမံရန်"],
   tools: {
     web_search: ["ဝဘ်ရှာဖွေရန်"],

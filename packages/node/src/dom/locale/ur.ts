@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Urdu (ur). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=ur, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const ur = {
   composerTextbox: ["کوئی بھی چیز پوچھیں۔۔۔"],
@@ -19,6 +18,7 @@ export const ur = {
   addFilesOpenerCandidates: ["فائلیں وغیرہ اپ لوڈ کریں"],
   addPhotosFilesMenuItem: ["تصویریں اور فائلیں شامل کریں"],
   copyResponse: ["جواب کاپی کریں"],
+  modeLabels: ["فوری", "اوسط", "اعلیٰ", "انتہائی اعلیٰ"],
   modeOpenerExtra: ["کنفیگر کریں..."],
   tools: {
     web_search: ["ویب پر تلاش"],

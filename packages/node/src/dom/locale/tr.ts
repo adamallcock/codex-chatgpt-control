@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Turkish (tr-TR). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=tr-TR, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const tr = {
   composerTextbox: ["Herhangi bir şey sor"],
@@ -19,6 +18,7 @@ export const tr = {
   addFilesOpenerCandidates: ["Dosyaları ve çok daha fazlasını ekle"],
   addPhotosFilesMenuItem: ["Fotoğraf ve dosya yükle"],
   copyResponse: ["Yanıtı kopyala"],
+  modeLabels: ["Anında", "Orta", "Yüksek", "Çok Yüksek"],
   modeOpenerExtra: ["Yapılandır..."],
   tools: {
     web_search: ["Web araması"],

@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Armenian (hy-AM). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=hy-AM, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• Ընդլայնված" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const hy = {
   composerTextbox: ["Զրույց ChatGPT-ի հետ"],
@@ -19,6 +18,7 @@ export const hy = {
   addFilesOpenerCandidates: ["Ավելացրեք ֆայլեր և ավելին"],
   addPhotosFilesMenuItem: ["Ավելացնել լուսանկարներ և ֆայլեր"],
   copyResponse: ["Պատճենել պատասխանը"],
+  modeLabels: ["Ակնթարթային", "Միջին", "Բարձր", "Շատ բարձր", "Պրո"],
   modeOpenerExtra: ["Կազմաձևել․․․"],
   tools: {
     web_search: ["Վեբ որոնում"],

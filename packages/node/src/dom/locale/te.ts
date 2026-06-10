@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Telugu (te-IN). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=te-IN, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const te = {
   composerTextbox: ["ఏదైనా అడగండి"],
@@ -19,6 +18,7 @@ export const te = {
   addFilesOpenerCandidates: ["ఫైల్‌లను మరియు మరిన్ని జోడించండి"],
   addPhotosFilesMenuItem: ["ఫోటోలు & ఫైల్‌లను అప్‌లోడ్ చేయండి"],
   copyResponse: ["ప్రతిస్పందనను కాపీ చేయండి"],
+  modeLabels: ["తక్షణం", "మధ్యస్థ", "అధిక", "అత్యధిక", "ప్రో"],
   modeOpenerExtra: ["కాన్ఫిగర్ చేయండి"],
   tools: {
     web_search: ["వెబ్‌లో వెతకడం"],

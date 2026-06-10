@@ -86,7 +86,7 @@
           "supported": false
         },
         "status": "partial",
-        "type": "unsupported"
+        "type": "timeout"
       }
     ],
     "lastAgentName": "reviewer",

@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Danish (da-DK). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=da-DK, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking
- * / Pro — the "• Udvidet" suffix is a descriptor). Not yet captured — fall back to English +
- * `selector_drift`: `download`, `downloadImage`, `imageContainerHint`, `transientAssistant`,
- * `stopControl`, and the login/captcha/rate-limit blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const da = {
   composerTextbox: ["Chat med ChatGPT"],
@@ -19,6 +18,7 @@ export const da = {
   addFilesOpenerCandidates: ["Tilføj filer og mere"],
   addPhotosFilesMenuItem: ["Tilføj billeder og filer"],
   copyResponse: ["Kopiér svar"],
+  modeLabels: ["Øjeblikkeligt", "Høj", "Ekstra høj"],
   modeOpenerExtra: ["Konfigurer ..."],
   tools: {
     web_search: ["Internetsøgning"],

@@ -4,10 +4,9 @@ import type { LocaleContribution } from "./types.js";
  * Malay (ms-MY). Captured 2026-06-09 against a live chatgpt.com session
  * (html lang=ms-MY, Google Translate confirmed off).
  *
- * Omitted because they match English case-insensitively: `modeLabels` (Instant / Thinking / Pro).
- * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
+ *
+ * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
  */
 export const ms = {
   composerTextbox: ["Tanya apa-apa sahaja..."],
@@ -19,6 +18,7 @@ export const ms = {
   addFilesOpenerCandidates: ["Tambah fail dan banyak lagi"],
   addPhotosFilesMenuItem: ["Muat naik foto & fail"],
   copyResponse: ["Salin tindak balas"],
+  modeLabels: ["Segera", "Sederhana", "Tinggi", "Sangat Tinggi"],
   modeOpenerExtra: ["Konfigurasikan…"],
   tools: {
     web_search: ["Carian web"],
