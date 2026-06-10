@@ -115,4 +115,4 @@ Best-practice backend story: keep the Node runtime as the authoritative browser 
 2. Build wheel and sdist from `packages/python`.
 3. Run `twine check`.
 4. Install the wheel in a fresh virtual environment.
-5. Publish `0.1.0a1` only after the backend distribution story is documented and tested.
+5. Publish only after the backend distribution story is documented and tested.
