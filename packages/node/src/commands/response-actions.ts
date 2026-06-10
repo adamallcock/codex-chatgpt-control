@@ -93,11 +93,66 @@ export async function copyResponse(
 }
 
 function readClipboard(env: RuntimeEnv): Promise<string | undefined> {
-  return env.clipboard?.read() ?? readSystemClipboard();
+  return env.clipboard?.read() ?? readTabClipboard(env.page) ?? readSystemClipboard();
 }
 
 function waitForClipboard(env: RuntimeEnv, before: string | undefined, timeoutMs: number): Promise<string | undefined> {
-  return env.clipboard?.waitForChange(before, timeoutMs) ?? waitForClipboardChange(before, timeoutMs);
+  const tabClipboard = tabClipboardReader(env.page);
+  if (env.clipboard?.waitForChange !== undefined) {
+    return env.clipboard.waitForChange(before, timeoutMs);
+  }
+  if (tabClipboard !== undefined) {
+    return waitForReaderChange(tabClipboard, before, timeoutMs);
+  }
+  return waitForClipboardChange(before, timeoutMs);
+}
+
+async function readTabClipboard(page: PageLike | undefined): Promise<string | undefined> {
+  return await tabClipboardReader(page)?.();
+}
+
+function tabClipboardReader(page: PageLike | undefined): (() => Promise<string | undefined>) | undefined {
+  const clipboard = page?.clipboard;
+  if (clipboard === undefined) {
+    return undefined;
+  }
+  if (typeof clipboard.readText === "function") {
+    return async () => {
+      const text = await clipboard.readText?.();
+      return text !== undefined && text.length > 0 ? text : undefined;
+    };
+  }
+  if (typeof clipboard.read === "function") {
+    return async () => {
+      const items = await clipboard.read?.();
+      const text = items
+        ?.flatMap(item => item.entries ?? [])
+        .find(entry => typeof entry.text === "string" && /^text\//.test(entry.mimeType ?? "text/plain"))
+        ?.text;
+      return text !== undefined && text.length > 0 ? text : undefined;
+    };
+  }
+  return undefined;
+}
+
+async function waitForReaderChange(
+  read: () => Promise<string | undefined>,
+  before: string | undefined,
+  timeoutMs: number,
+  pollMs = 150
+): Promise<string | undefined> {
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    const current = await read();
+    if (current !== undefined && current.length > 0 && current !== before) {
+      return current;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, pollMs));
+  }
+
+  return undefined;
 }
 
 async function readSelectedAssistantMessage(

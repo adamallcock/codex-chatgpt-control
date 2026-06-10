@@ -57,6 +57,28 @@ describe("runSequence", () => {
     expect((result.data as { responseText?: string }).responseText).toBe("hello");
   });
 
+  it("fails closed when a sequence step exceeds its timeout", async () => {
+    const result = await runSequenceWithExecutor({
+      name: "timeout-example",
+      policy: { stopOnError: true, returnPartial: true, defaultTimeoutMs: 5 },
+      steps: [
+        { id: "hang", command: "session.bootstrap" }
+      ]
+    }, async () => new Promise<CommandResult<unknown>>(() => {}));
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("partial");
+    expect(result.blocker).toMatchObject({
+      kind: "unknown",
+      code: "sequence_step_timeout"
+    });
+    expect(result.steps?.[0]).toMatchObject({
+      id: "hang",
+      status: "timeout",
+      ok: false
+    });
+  });
+
   it("rejects unsafe variable paths", () => {
     expect(() => resolveVariableReference("${input.__proto__.polluted}", new Map(), {})).toThrow("Unsafe");
   });

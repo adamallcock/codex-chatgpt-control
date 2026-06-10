@@ -16,6 +16,7 @@ import type {
 } from "../types.js";
 import { contextFromPage } from "./context.js";
 import { bootstrap } from "./session.js";
+import { withTimeout } from "../browser/evaluate.js";
 
 const CHATGPT_HOME = "https://chatgpt.com/";
 
@@ -89,10 +90,23 @@ export async function newThread(env: RuntimeEnv, args: NewThreadArgs = {}): Prom
 
   const page = env.page!;
   try {
+    const timeoutMs = args.timeoutMs ?? 30000;
     try {
-      await newChatButton(page).click?.();
+      const target = newChatButton(page);
+      if (typeof target.click !== "function") {
+        throw new Error("New chat locator does not expose click().");
+      }
+      await withTimeout(
+        target.click({ timeoutMs: Math.min(timeoutMs, 10000) }),
+        Math.min(timeoutMs, 12000),
+        "Timed out clicking New chat button."
+      );
     } catch {
-      await page.goto?.(CHATGPT_HOME, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 30000 });
+      await withTimeout(
+        page.goto?.(CHATGPT_HOME, { waitUntil: "domcontentloaded", timeout: timeoutMs }) ?? Promise.resolve(),
+        timeoutMs,
+        "Timed out navigating to ChatGPT home."
+      );
     }
     await page.waitForTimeout?.(500);
     const state = await readPageState(page);

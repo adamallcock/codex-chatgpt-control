@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { access, readFile, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
@@ -23,7 +24,9 @@ import type {
   FilePreflightFile,
   LocatorLike,
   PageLike,
-  RuntimeEnv
+  RuntimeEnv,
+  VerifyAttachedArgs,
+  VerifyAttachedData
 } from "../types.js";
 import { contextFromPage } from "./context.js";
 import { bootstrap } from "./session.js";
@@ -504,8 +507,11 @@ async function clickChatGPTAddPhotosMenuItem(
   const menuItem = requiredLocator(page, "div[role='menuitem']").filter?.({ hasText: addPhotosFilesText });
 
   if (await locatorCount(menuItem) !== 1) {
-    const plusButton = requiredLocator(page, "#composer-plus-btn, button[aria-label='Add files and more']");
-    if (await locatorCount(plusButton) !== 1) {
+    const plusButton = await findUniqueLocator(page, [
+      "#composer-plus-btn, button[aria-label='Add files and more']",
+      "#composer-plus-btn, button[aria-label='ファイルの追加など']"
+    ]);
+    if (plusButton === undefined || await locatorCount(plusButton) !== 1) {
       throw new Error("ChatGPT Add files button was not uniquely available.");
     }
     await plusButton.click?.({ timeoutMs: Math.min(timeoutMs, 10000) });
@@ -514,6 +520,29 @@ async function clickChatGPTAddPhotosMenuItem(
 
   const refreshedMenuItem = requiredLocator(page, "div[role='menuitem']").filter?.({ hasText: addPhotosFilesText });
   await clickFileChooserLocator(page, refreshedMenuItem, paths, timeoutMs);
+}
+
+async function findUniqueMenuItem(page: PageLike, labels: string[]): Promise<LocatorLike | undefined> {
+  for (const selector of ["div[role='menuitem']", "[role='menuitem']"]) {
+    const menuItems = requiredLocator(page, selector);
+    for (const label of labels) {
+      const candidate = menuItems.filter?.({ hasText: label });
+      if (await locatorCount(candidate) === 1) {
+        return candidate;
+      }
+    }
+  }
+  return undefined;
+}
+
+async function findUniqueLocator(page: PageLike, selectors: string[]): Promise<LocatorLike | undefined> {
+  for (const selector of selectors) {
+    const candidate = requiredLocator(page, selector);
+    if (await locatorCount(candidate) === 1) {
+      return candidate;
+    }
+  }
+  return undefined;
 }
 
 async function clickFileChooserTarget(
@@ -550,6 +579,7 @@ async function clickFileChooserLocator(
   }
 
   const chooserPromise = waitForFileChooser(page, timeoutMs);
+  void chooserPromise.catch(() => undefined);
   try {
     await locator.click({ timeoutMs: Math.min(timeoutMs, 10000) });
   } catch (error) {

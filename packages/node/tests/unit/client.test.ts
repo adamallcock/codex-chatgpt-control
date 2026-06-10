@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createChatGPT } from "../../src/client.js";
+import { appendProReviewRunMarker } from "../../src/pro-review/run-marker.js";
 import type { BrowserLike, CommandResult, PageLike } from "../../src/types.js";
 
 describe("createChatGPT", () => {
@@ -698,6 +699,21 @@ function fakeChatGPTPage(url = "https://chatgpt.com/"): PageLike {
   };
 }
 
+function fakeConversationPage(userText: string, assistantText: string): PageLike {
+  return {
+    url: () => "https://chatgpt.com/c/convo-1",
+    title: async () => "ChatGPT",
+    content: async () => [
+      "<main>New chat Search chats Chat with ChatGPT",
+      `<article data-message-author-role="user"><p>${escapeHtml(userText)}</p></article>`,
+      `<article data-message-author-role="assistant"><p>${escapeHtml(assistantText)}</p></article>`,
+      "</main>"
+    ].join(""),
+    locator: () => ({ count: async () => 0 }),
+    waitForEvent: async () => ({})
+  };
+}
+
 function fakeLoginPage(): PageLike {
   return {
     url: () => "https://chatgpt.com/",
@@ -706,4 +722,11 @@ function fakeLoginPage(): PageLike {
     locator: () => ({ count: async () => 0 }),
     waitForEvent: async () => ({})
   };
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }

@@ -139,7 +139,7 @@ describe("continue-thread entrypoint", () => {
   });
 });
 
-function fakeClient(calls: string[]): Pick<ChatGPTClient, "askInThread" | "openThread" | "readLatest" | "session"> {
+function fakeClient(calls: string[]): Pick<ChatGPTClient, "askInThread" | "openThread" | "readLatest"> & { session: Pick<ChatGPTClient["session"], "bootstrap"> } {
   return {
     session: {
       bootstrap: async args => {

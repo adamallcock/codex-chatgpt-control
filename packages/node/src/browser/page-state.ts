@@ -21,7 +21,9 @@ export function parseConversationId(url: string): string | undefined {
 export async function readPageState(page: PageLike): Promise<PageState> {
   const rawUrl = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
   const url = typeof rawUrl === "string" ? rawUrl : "";
-  const rawTitle = typeof page.title === "function" ? await page.title().catch(() => undefined) : undefined;
+  const rawTitle = typeof page.title === "function"
+    ? await withTimeout(page.title(), 3000, "Timed out reading page title.").catch(() => undefined)
+    : undefined;
   const title = typeof rawTitle === "string" ? rawTitle : undefined;
   const visibleText = await readVisibleText(page);
   const blocker = classifyVisibleText(visibleText);

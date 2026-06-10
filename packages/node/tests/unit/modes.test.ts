@@ -83,6 +83,80 @@ describe("mode and tool selection blockers", () => {
     });
   });
 
+  it("selects the combined Pro extended row for Japanese Pro review mode", async () => {
+    const page = menuPage(
+      ["Instant", "Thinking", "Pro・拡張", "標準", "拡張"],
+      ["Pro・拡張"],
+      { "Pro・拡張": "model-switcher-gpt-5-5-pro" }
+    );
+
+    const result = await setMode({ page }, { model: "Pro", effort: "拡張" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["Pro・拡張"],
+      candidates: ["Instant", "Thinking", "Pro・拡張", "標準", "拡張"]
+    });
+  });
+
+  it("does not confuse Japanese prompt/project/profile labels with Pro mode", async () => {
+    const page = modeButtonMenuPage(
+      [
+        { aria: "プロンプトを送信する", testid: "send-button" },
+        { text: "プロジェクト" },
+        { text: "赤津元武 Pro", aria: "赤津元武 Proさんのプロファイルメニューを開く", testid: "accounts-profile-button" },
+        { text: "Thinking" }
+      ],
+      ["Instant", "Thinking", "Pro・拡張", "標準", "拡張"],
+      { "Pro・拡張": "model-switcher-gpt-5-5-pro" }
+    );
+
+    const result = await setMode({ page }, { model: "Pro", effort: "拡張" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["Pro・拡張"],
+      candidates: ["Instant", "Thinking", "Pro・拡張", "標準", "拡張"]
+    });
+  });
+
+  it("accepts the Japanese selected label shown after choosing Pro extended", async () => {
+    const page = selectedModePage(["じっくり思考 Pro"], ["Instant", "Thinking", "Pro • 拡張"]);
+
+    const result = await setMode({ page }, { model: "Pro", effort: "拡張", timeoutMs: 0 });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["じっくり思考 Pro"],
+      candidates: ["じっくり思考 Pro"]
+    });
+  });
+
+  it("refreshes menu candidates after selecting a Pro row with an effort submenu", async () => {
+    const page = proSubmenuModePage();
+
+    const result = await setMode({ page }, { model: "Pro", effort: "拡張", timeoutMs: 1000 });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["じっくり思考 Pro"],
+      candidates: ["Instant", "Thinking", "Pro", "設定する...", "標準", "拡張"]
+    });
+  });
+
+  it("blocks when a clicked mode does not become the visible selected mode", async () => {
+    const page = nonReflectingModeMenuPage(["Instant", "Thinking", "Pro"], ["Pro"]);
+
+    const result = await setMode({ page }, { model: "Pro", timeoutMs: 1000 });
+
+    expect(result.ok).toBe(false);
+    expect(result.blocker).toMatchObject({
+      kind: "selector_drift",
+      code: "visible_candidate_not_found",
+      message: "Requested ChatGPT mode was clicked, but the final selected mode could not be verified."
+    });
+  });
+
   it("waits for the mode opener after a new thread render", async () => {
     const page = delayedModeOpenerPage();
 
@@ -161,6 +235,7 @@ function menuPage(
   clickableLabels: string[] = [],
   menuTestIds: Record<string, string> = {}
 ): PageLike {
+  const selectedLabels = new Set<string>();
   const opener: LocatorLike = {
     count: async () => 1,
     click: async () => {}
@@ -170,28 +245,30 @@ function menuPage(
     click: async () => {},
     filter: () => missingMenuItem
   };
-  const clickableMenuItem: LocatorLike = {
+  const clickableMenuItem = (label: string): LocatorLike => ({
     count: async () => 1,
-    click: async () => {},
-    filter: () => clickableMenuItem
-  };
+    click: async () => {
+      selectedLabels.add(label);
+    },
+    filter: () => clickableMenuItem(label)
+  });
   const testIdLocator = (selector: string): LocatorLike => {
-    const matchingTestId = Object.values(menuTestIds).find(testId => selector.includes(`"${testId}"`));
-    return matchingTestId !== undefined ? clickableMenuItem : missingMenuItem;
+    const matchingLabel = Object.entries(menuTestIds).find(([, testId]) => selector.includes(`"${testId}"`))?.[0];
+    return matchingLabel !== undefined ? clickableMenuItem(matchingLabel) : missingMenuItem;
   };
   return {
     getByRole: () => opener,
-    getByText: label => clickableLabels.includes(String(label)) ? clickableMenuItem : missingMenuItem,
+    getByText: label => clickableLabels.includes(String(label)) ? clickableMenuItem(String(label)) : missingMenuItem,
     locator: selector => {
       const byTestId = testIdLocator(selector);
-      if (byTestId === clickableMenuItem) {
+      if (byTestId !== missingMenuItem) {
         return byTestId;
       }
       return {
         ...missingMenuItem,
         filter: options => {
           const wanted = String((options as { hasText?: unknown } | undefined)?.hasText ?? "");
-          return clickableLabels.includes(wanted) ? clickableMenuItem : missingMenuItem;
+          return clickableLabels.includes(wanted) ? clickableMenuItem(wanted) : missingMenuItem;
         }
       };
     },
@@ -199,13 +276,15 @@ function menuPage(
       const previousDocument = globalThis.document;
       try {
         globalThis.document = {
-          querySelectorAll: (selector: string) => selector.includes("menuitem") || selector.includes("option")
-            ? menuLabels.map(label => ({
-              getAttribute: (name: string) => name === "data-testid" ? menuTestIds[label] : undefined,
-              innerText: label,
-              textContent: label
-            }))
-            : selector.includes("data-testid")
+          querySelectorAll: (selector: string) => selector === "button, [role='button']"
+            ? Array.from(selectedLabels).map(label => ({ getAttribute: () => undefined, innerText: label, textContent: label }))
+            : selector.includes("menuitem") || selector.includes("option")
+              ? menuLabels.map(label => ({
+                getAttribute: (name: string) => name === "data-testid" ? menuTestIds[label] : undefined,
+                innerText: label,
+                textContent: label
+              }))
+              : selector.includes("data-testid")
               ? menuLabels
                 .filter(label => menuTestIds[label] !== undefined)
                 .map(label => ({
@@ -266,12 +345,121 @@ function delayedModeOpenerPage(): PageLike {
   };
 }
 
+function nonReflectingModeMenuPage(menuLabels: string[], clickableLabels: string[]): PageLike {
+  const opener: LocatorLike = {
+    count: async () => 1,
+    click: async () => {},
+    filter: () => opener
+  };
+  const missing: LocatorLike = {
+    count: async () => 0,
+    click: async () => {},
+    filter: () => missing
+  };
+  const clickable: LocatorLike = {
+    count: async () => 1,
+    click: async () => {},
+    filter: () => clickable
+  };
+  return {
+    getByRole: () => opener,
+    getByText: label => clickableLabels.includes(String(label)) ? clickable : missing,
+    locator: selector => ({
+      ...missing,
+      filter: options => {
+        const wanted = String((options as { hasText?: unknown } | undefined)?.hasText ?? "");
+        return selector !== "button, [role='button']" && clickableLabels.includes(wanted) ? clickable : missing;
+      }
+    }),
+    evaluate: async <T, A = unknown>(fn: (arg: A) => T | Promise<T>, arg?: A) => {
+      const previousDocument = globalThis.document;
+      try {
+        globalThis.document = {
+          querySelectorAll: (selector: string) => selector.includes("menuitem") || selector.includes("option")
+            ? menuLabels.map(label => ({ getAttribute: () => undefined, innerText: label, textContent: label }))
+            : []
+        } as unknown as Document;
+        return await fn(arg as A);
+      } finally {
+        globalThis.document = previousDocument;
+      }
+    },
+    waitForTimeout: async () => {},
+    title: async () => "ChatGPT",
+    url: () => "https://chatgpt.com/"
+  };
+}
+
+function proSubmenuModePage(): PageLike {
+  let submenuOpen = false;
+  const selectedLabels = new Set<string>();
+  const opener: LocatorLike = {
+    count: async () => 1,
+    click: async () => {},
+    filter: () => opener
+  };
+  const missing: LocatorLike = {
+    count: async () => 0,
+    click: async () => {},
+    filter: () => missing
+  };
+  const clickable = (label: string): LocatorLike => ({
+    count: async () => 1,
+    click: async () => {
+      if (label === "Pro") {
+        submenuOpen = true;
+      }
+      if (label === "拡張") {
+        selectedLabels.add("じっくり思考 Pro");
+      }
+    },
+    filter: () => clickable(label)
+  });
+  const visibleMenuLabels = () => submenuOpen
+    ? ["Instant", "Thinking", "Pro", "設定する...", "標準", "拡張"]
+    : ["Instant", "Thinking", "Pro", "設定する..."];
+  return {
+    getByRole: () => opener,
+    getByText: label => visibleMenuLabels().includes(String(label)) ? clickable(String(label)) : missing,
+    locator: () => ({
+      ...missing,
+      filter: options => {
+        const wanted = String((options as { hasText?: unknown } | undefined)?.hasText ?? "");
+        return visibleMenuLabels().includes(wanted) ? clickable(wanted) : missing;
+      }
+    }),
+    evaluate: async <T, A = unknown>(fn: (arg: A) => T | Promise<T>, arg?: A) => {
+      const previousDocument = globalThis.document;
+      try {
+        globalThis.document = {
+          querySelectorAll: (selector: string) => {
+            if (selector === "button, [role='button']") {
+              return Array.from(selectedLabels).map(label => ({ getAttribute: () => undefined, innerText: label, textContent: label }));
+            }
+            if (selector.includes("menuitem") || selector.includes("option")) {
+              return visibleMenuLabels().map(label => ({ getAttribute: () => undefined, innerText: label, textContent: label }));
+            }
+            return [];
+          }
+        } as unknown as Document;
+        return await fn(arg as A);
+      } finally {
+        globalThis.document = previousDocument;
+      }
+    },
+    waitForTimeout: async () => {},
+    title: async () => "ChatGPT",
+    url: () => "https://chatgpt.com/"
+  };
+}
+
 function modeButtonMenuPage(
   buttons: Array<{ text?: string; aria?: string; testid?: string }>,
   menuLabels: string[],
   menuTestIds: Record<string, string> = {}
 ): PageLike {
   let opened = false;
+  const selectedLabels = new Set<string>();
   const missing: LocatorLike = {
     count: async () => 0,
     click: async () => {},
@@ -284,20 +472,22 @@ function modeButtonMenuPage(
     },
     filter: () => opener
   };
-  const clickable: LocatorLike = {
+  const clickable = (label: string): LocatorLike => ({
     count: async () => 1,
-    click: async () => {},
-    filter: () => clickable
-  };
+    click: async () => {
+      selectedLabels.add(label);
+    },
+    filter: () => clickable(label)
+  });
   return {
     getByRole: (_role, options) => {
       const name = String((options as { name?: unknown } | undefined)?.name ?? "");
       return buttons.some(button => (button.text ?? button.aria ?? "") === name) ? opener : missing;
     },
-    getByText: label => menuLabels.includes(String(label)) ? clickable : missing,
+    getByText: label => menuLabels.includes(String(label)) ? clickable(String(label)) : missing,
     locator: selector => {
-      const matchingTestId = Object.values(menuTestIds).find(testId => selector.includes(`"${testId}"`));
-      if (matchingTestId !== undefined) return clickable;
+      const matchingLabel = Object.entries(menuTestIds).find(([, testId]) => selector.includes(`"${testId}"`))?.[0];
+      if (matchingLabel !== undefined) return clickable(matchingLabel);
       return {
         ...missing,
         filter: options => {
@@ -312,11 +502,14 @@ function modeButtonMenuPage(
         globalThis.document = {
           querySelectorAll: (selector: string) => {
             if (selector === "button, [role='button']") {
-              return buttons.map(button => ({
+              return [
+                ...buttons.map(button => ({
                 getAttribute: (name: string) => name === "aria-label" ? button.aria : name === "data-testid" ? button.testid : undefined,
                 innerText: button.text,
                 textContent: button.text
-              }));
+                })),
+                ...Array.from(selectedLabels).map(label => ({ getAttribute: () => undefined, innerText: label, textContent: label }))
+              ];
             }
             if (opened && (selector.includes("menuitem") || selector.includes("option") || selector.includes("data-testid"))) {
               return menuLabels.map(label => ({

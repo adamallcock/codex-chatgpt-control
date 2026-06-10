@@ -38,6 +38,7 @@ import type {
   SelectToolArgs,
   SequencePlan,
   SetModeArgs,
+  SubmitArgs,
   WaitArgs
 } from "../types.js";
 import {
@@ -115,7 +116,7 @@ export type ChatGPTBackendClient = {
   };
   messages: {
     compose(args: { text: string; mode?: "replace" | "append"; timeoutMs?: number }): Promise<CommandResult<unknown>>;
-    submit(args?: { text?: string; previousTurnCount?: number; timeoutMs?: number }): Promise<CommandResult<unknown>>;
+    submit(args?: SubmitArgs): Promise<CommandResult<unknown>>;
     ask(args: { text: string; wait?: boolean | WaitArgs; read?: boolean | ReadLatestArgs; timeoutMs?: number }): Promise<CommandResult<unknown>>;
     wait(args?: WaitArgs): Promise<CommandResult<unknown>>;
     readLatest(args?: ReadLatestArgs): Promise<CommandResult<unknown>>;

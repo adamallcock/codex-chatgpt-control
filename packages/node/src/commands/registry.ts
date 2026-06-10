@@ -32,6 +32,12 @@ const descriptors: CommandDescriptor[] = [
   workflow("runMessages", "Run sequential prompts where later prompts can use earlier step data.", [
     `await chatgpt.runMessages({ messages: [{ id: "first", prompt: "alpha" }, { id: "second", prompt: "beta" }] });`
   ]),
+  workflow("proReview.dryRun", "Prepare a guarded ChatGPT Pro review in Temporary Chat and stop before submitting.", [
+    `await chatgpt.proReview.dryRun({ zipPath: "/absolute/path/review.zip", prompt: "Review the attached zip.", mode: { model: "Pro" } });`
+  ]),
+  workflow("proReview.submitAndRead", "Submit a guarded ChatGPT Pro review only after all dry-run safety checks pass.", [
+    `await chatgpt.proReview.submitAndRead({ zipPath: "/absolute/path/review.zip", prompt: "Review the attached zip.", mode: { model: "Pro" }, autoSubmit: true, response: { timeoutMs: 600000, format: "markdown" } });`
+  ]),
   workflow("runner.run", "Agents-style facade: run a visible ChatGPT browser-control agent against input, files, thread, existing-tab, mode, and response options.", [
     `const agent = chatgpt.agent({ name: "reviewer", instructions: "Review deeply." }); await chatgpt.runner.run(agent, { input: "Review this.", thread: { type: "new" } });`,
     `await chatgpt.runner.run(agent, { input: "Continue.", thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true });`
@@ -79,10 +85,15 @@ const descriptors: CommandDescriptor[] = [
     `await chatgpt.createReport(result, { destDir: "/absolute/host/reports" });`
   ]),
   primitive("session.bootstrap", "Attach to ChatGPT in Chrome and detect login/blocker state.", 30000),
+  primitive("session.assertChatGPTHost", "Require the visible page hostname to be a recognized ChatGPT host.", 5000),
+  primitive("temporary.readState", "Read visible Temporary Chat state without toggling it.", 5000),
+  primitive("temporary.ensureOn", "Turn on Temporary Chat only when the visible toggle is unambiguous and verifiable.", 30000),
+  primitive("temporary.assertVerifiedOn", "Require Temporary Chat to be verified on before continuing.", 5000),
   primitive("threads.new", "Open a new ChatGPT thread.", 30000),
   primitive("threads.search", "Search visible ChatGPT history by query.", 30000),
   primitive("threads.open", "Open a thread by URL, conversation id, title, or search result.", 30000),
   primitive("messages.compose", "Fill the composer without submitting.", 30000),
+  primitive("messages.inspectComposer", "Read composer text, hash it, and verify the send button is unique and enabled.", 5000),
   primitive("messages.submit", "Submit the current composer contents.", 30000),
   primitive("messages.ask", "Compose, submit, optionally wait, and optionally read.", 120000),
   primitive("messages.wait", "Wait for the latest assistant response to stabilize.", 120000),
@@ -93,6 +104,7 @@ const descriptors: CommandDescriptor[] = [
   primitive("artifacts.downloadLatest", "Download or save the latest visible generated ChatGPT artifact.", 120000),
   primitive("files.preflight", "Validate local file paths, size limits, duplicates, zero-byte files, and extension-based MIME/category guesses without opening ChatGPT.", 30000),
   primitive("files.attach", "Attach absolute local file paths through visible ChatGPT upload controls.", 180000),
+  primitive("files.verifyAttached", "Verify exactly one expected visible attachment before safe submission.", 30000),
   primitive("files.downloadLatest", "Download the latest visible ChatGPT file affordance.", 120000),
   primitive("projects.sources.list", "Open or claim a visible ChatGPT Project Sources tab and list source names/statuses without source contents.", 30000),
   primitive("projects.sources.planAdd", "Dry-run an append-only Project Sources file add from explicit local files without opening ChatGPT.", 30000),
@@ -219,6 +231,16 @@ function workflowArgs(name: string): Record<string, string> {
       report: "optional redacted report settings"
     };
   }
+  if (name.startsWith("proReview.")) {
+    return {
+      zipPath: "absolute local review zip path",
+      prompt: "message to compose for ChatGPT Pro",
+      mode: "optional visible mode selection, e.g. { model: \"Pro\" }",
+      autoSubmit: "required true only for submitAndRead; dryRun always stops before submit",
+      runId: "optional duplicate-submission guard marker",
+      response: "optional wait/copy args used only after guarded submit"
+    };
+  }
   return {
     prompt: "message to send or workflow-specific input",
     thread: "optional thread selector",
@@ -249,6 +271,8 @@ function reportArgs(name: string): Record<string, string> {
 }
 
 function primitiveArgs(name: string): Record<string, string> {
+  if (name === "session.assertChatGPTHost") return {};
+  if (name.startsWith("temporary.")) return {};
   if (name === "messages.readLatest") return { role: "assistant or user", format: "markdown, normalized_text, visible_text, html, blocks, or all" };
   if (name === "artifacts.listLatest") return { kind: "artifact kind; currently image", max: "maximum artifacts to return" };
   if (name === "artifacts.wait") return { kind: "artifact kind; currently image", afterArtifactCount: "baseline artifact count", requireDownload: "wait until a download affordance is visible" };
@@ -300,12 +324,16 @@ function primitiveExamples(name: string): string[] {
   if (name.startsWith("artifacts.")) {
     return [`await chatgpt.artifacts.downloadLatest({ destDir: "/absolute/host/output" });`];
   }
+  if (name === "temporary.ensureOn") {
+    return [`await chatgpt.temporary.ensureOn();`];
+  }
   return [];
 }
 
 function primitiveBlockers(name: string): string[] {
   if (name === "files.preflight") return ["not_found", "permission", "upload_failed"];
   if (name.startsWith("files.attach")) return ["browser_bridge_unavailable", "login_required", "permission", "upload_failed"];
+  if (name.startsWith("files.verify")) return ["browser_bridge_unavailable", "login_required", "selector_drift"];
   if (name.startsWith("files.download")) return ["browser_bridge_unavailable", "login_required", "download_unavailable"];
   if (name === "projects.sources.planAdd") return ["not_found", "permission", "upload_failed"];
   if (name.startsWith("projects.sources.")) return ["browser_bridge_unavailable", "login_required", "selector_drift", "confirmation", "permission", "upload_failed"];

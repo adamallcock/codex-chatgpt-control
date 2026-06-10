@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { askMessage, readLatest, submittedUserTurnMatches, submitMessage, waitForMessage } from "../../src/commands/messages.js";
 import { copyResponse } from "../../src/commands/response-actions.js";
@@ -10,6 +11,7 @@ import {
   readLatestMessageText,
   readLatestMessageTextSnapshot
 } from "../../src/dom/messages.js";
+import { normalizePromptForHash } from "../../src/dom/visible-text.js";
 import type { LocatorLike, PageLike } from "../../src/types.js";
 
 describe("extractMessagesFromHtml", () => {
@@ -96,6 +98,127 @@ describe("extractMessagesFromHtml", () => {
     const renderedTurn = "Respond with exactly this Markdown structure and no extra prose: ## Format Fidelity - Markdown default - Structure preserved ts const format = \"markdown\"; | Format | Purpose | | --- | --- | | markdown | reports |";
 
     expect(submittedUserTurnMatches(renderedTurn, rawPrompt)).toBe(true);
+  });
+
+  it("submits with a bounded button click and no Enter fallback in buttonOnly mode", async () => {
+    let clickOptions: unknown;
+    let pressed = false;
+    const page: PageLike = {
+      locator: () => ({
+        click: async options => {
+          clickOptions = options;
+          throw new Error("click failed");
+        }
+      }),
+      keyboard: {
+        press: async () => {
+          pressed = true;
+        }
+      },
+      title: async () => "ChatGPT",
+      url: async () => "https://chatgpt.com/?temporary-chat=true"
+    };
+
+    const result = await submitMessage({ page }, {
+      text: "hello",
+      submitMode: "buttonOnly",
+      previousTurnCount: 0
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toContain("buttonOnly forbids Enter fallback");
+    expect(clickOptions).toEqual({ timeoutMs: 10000 });
+    expect(pressed).toBe(false);
+  });
+
+  it("uses a unique DOM send-button click fallback in buttonOnly mode", async () => {
+    let submitted = false;
+    const page: PageLike = {
+      locator: () => ({
+        click: async () => {
+          throw new Error("locator click failed");
+        }
+      }),
+      evaluate: async <T, A = unknown>(fn: (arg: A) => T | Promise<T>, arg?: A): Promise<T> => {
+        const previousDocument = globalThis.document;
+        try {
+          globalThis.document = {
+            querySelectorAll: (selector: string) => {
+              if (selector === "button, [role='button']") {
+                return [{
+                  disabled: false,
+                  innerText: "",
+                  textContent: "",
+                  getAttribute: (name: string) => name === "aria-label" ? "Send prompt" : null,
+                  click: () => {
+                    submitted = true;
+                  }
+                }];
+              }
+              if (selector === "[data-message-author-role]") {
+                return submitted ? [messageNode("user", "hello")] : [];
+              }
+              if (selector === "[data-message-author-role=\"user\"]") {
+                return submitted ? [messageNode("user", "hello")] : [];
+              }
+              return [];
+            }
+          } as unknown as Document;
+          return await fn(arg as A);
+        } finally {
+          globalThis.document = previousDocument;
+        }
+      },
+      waitForTimeout: async () => {},
+      title: async () => "ChatGPT",
+      url: async () => "https://chatgpt.com/?temporary-chat=true"
+    };
+
+    const result = await submitMessage({ page }, {
+      text: "hello",
+      submitMode: "buttonOnly",
+      previousTurnCount: 0,
+      timeoutMs: 10
+    });
+
+    expect(result.ok).toBe(true);
+    expect(submitted).toBe(true);
+    expect(result.data?.submitted).toBe(true);
+  });
+
+  it("blocks submit immediately when the preflight composer hash does not match", async () => {
+    let clicked = false;
+    const page: PageLike = {
+      locator: selector => {
+        const textbox: LocatorLike = {
+          click: async () => {},
+          fill: async () => {},
+          innerText: async () => "changed prompt",
+          textContent: async () => "changed prompt"
+        };
+        const send: LocatorLike = {
+          count: async () => 1,
+          click: async () => {
+            clicked = true;
+          },
+          evaluate: async fn => fn({ disabled: false, getAttribute: () => null } as unknown as Element)
+        };
+        return selector.includes("prompt-textarea") || selector.includes("textbox") ? textbox : send;
+      },
+      title: async () => "ChatGPT",
+      url: async () => "https://chatgpt.com/?temporary-chat=true"
+    };
+
+    const result = await submitMessage({ page }, {
+      text: "expected prompt",
+      submitMode: "buttonOnly",
+      previousTurnCount: 0,
+      expectedPromptSha256: sha256Prompt("expected prompt")
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.blocker?.code).toBe("composer_prompt_mismatch");
+    expect(clicked).toBe(false);
   });
 
   it("reads latest user text snapshots without serializing message HTML", async () => {
@@ -233,6 +356,38 @@ describe("extractMessagesFromHtml", () => {
     expect(result.ok).toBe(true);
     expect(result.output_text).toBe("Napoleon is adorable.");
     expect(result.data?.responseText).toBe("Napoleon is adorable.");
+  });
+
+  it("waits until the latest assistant turn has its own response actions", async () => {
+    const page = scriptedWaitPage([
+      {
+        totalCount: 2,
+        assistantCount: 1,
+        latestAssistantTurnIndex: 2,
+        latestAssistantText: "I will inspect the file first.",
+        hasStopControl: false,
+        hasResponseActions: false
+      },
+      {
+        totalCount: 2,
+        assistantCount: 1,
+        latestAssistantTurnIndex: 2,
+        latestAssistantText: "Final review result.",
+        hasStopControl: false,
+        hasResponseActions: true
+      }
+    ]);
+
+    const result = await waitForMessage({ page }, {
+      afterAssistantTurnCount: 0,
+      timeoutMs: 100,
+      stableMs: 0,
+      pollMs: 1
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.output_text).toBe("Final review result.");
+    expect(result.data?.responseText).toBe("Final review result.");
   });
 
   it("falls back to a guarded read when wait misses a submitted assistant turn", async () => {
@@ -620,6 +775,18 @@ function contentPage(html: string, onClick?: () => void): PageLike {
   };
 }
 
+function messageNode(role: string, text: string): HTMLElement {
+  return {
+    innerText: text,
+    textContent: text,
+    getAttribute: (name: string) => name === "data-message-author-role" ? role : null
+  } as unknown as HTMLElement;
+}
+
+function sha256Prompt(text: string): string {
+  return createHash("sha256").update(normalizePromptForHash(text)).digest("hex");
+}
+
 function askWaitFallbackPage(prompt: string, answer: string): PageLike {
   let composerText = "";
   let submitted = false;
@@ -767,6 +934,9 @@ function scriptedWaitPage(snapshots: WaitSnapshot[]): PageLike {
       }
       if (source.includes("node?.innerText")) {
         return snapshot.latestAssistantText as T;
+      }
+      if (source.includes("copy-turn-action-button")) {
+        return snapshot.hasResponseActions as T;
       }
       if (source.includes("document.querySelectorAll(selector).length")) {
         if (arg === "assistant") return snapshot.assistantCount as T;

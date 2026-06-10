@@ -159,6 +159,68 @@
     },
     {
       "args": {
+        "autoSubmit": "required true only for submitAndRead; dryRun always stops before submit",
+        "mode": "optional visible mode selection, e.g. { model: \"Pro\" }",
+        "prompt": "message to compose for ChatGPT Pro",
+        "runId": "optional duplicate-submission guard marker",
+        "zipPath": "absolute local review zip path"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "captcha",
+        "rate_limit",
+        "selector_drift"
+      ],
+      "defaults": {
+        "read": {
+          "format": "markdown"
+        },
+        "wait": true
+      },
+      "defaultTimeoutMs": 120000,
+      "examples": [
+        "await chatgpt.proReview.dryRun({ zipPath: \"/absolute/path/review.zip\", prompt: \"Review the attached zip.\", mode: { model: \"Pro\" } });"
+      ],
+      "layer": "workflow",
+      "name": "proReview.dryRun",
+      "retryPolicy": "Return structured CommandResult failures; do not resubmit prompts unless the sequence policy permits unmatched-turn recovery.",
+      "risk": "medium",
+      "summary": "Prepare a guarded ChatGPT Pro review in Temporary Chat and stop before submitting."
+    },
+    {
+      "args": {
+        "autoSubmit": "required true only for submitAndRead; dryRun always stops before submit",
+        "mode": "optional visible mode selection, e.g. { model: \"Pro\" }",
+        "prompt": "message to compose for ChatGPT Pro",
+        "runId": "optional duplicate-submission guard marker",
+        "zipPath": "absolute local review zip path"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "captcha",
+        "rate_limit",
+        "selector_drift"
+      ],
+      "defaults": {
+        "read": {
+          "format": "markdown"
+        },
+        "wait": true
+      },
+      "defaultTimeoutMs": 120000,
+      "examples": [
+        "await chatgpt.proReview.submitAndRead({ zipPath: \"/absolute/path/review.zip\", prompt: \"Review the attached zip.\", mode: { model: \"Pro\" }, autoSubmit: true });"
+      ],
+      "layer": "workflow",
+      "name": "proReview.submitAndRead",
+      "retryPolicy": "Return structured CommandResult failures; do not resubmit prompts unless the sequence policy permits unmatched-turn recovery.",
+      "risk": "medium",
+      "summary": "Submit a guarded ChatGPT Pro review only after all dry-run safety checks pass."
+    },
+    {
+      "args": {
         "existingTab": "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
         "prompt": "message to send or workflow-specific input",
         "report": "optional redacted report settings",
@@ -545,6 +607,76 @@
       "blockers": [
         "browser_bridge_unavailable",
         "login_required",
+        "selector_drift",
+        "confirmation"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 5000,
+      "examples": [],
+      "layer": "primitive",
+      "name": "session.assertChatGPTHost",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "low",
+      "summary": "Require the visible page hostname to be a recognized ChatGPT host."
+    },
+    {
+      "args": {},
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift",
+        "confirmation"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 5000,
+      "examples": [],
+      "layer": "primitive",
+      "name": "temporary.readState",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "low",
+      "summary": "Read visible Temporary Chat state without toggling it."
+    },
+    {
+      "args": {},
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift",
+        "confirmation"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 30000,
+      "examples": [
+        "await chatgpt.temporary.ensureOn();"
+      ],
+      "layer": "primitive",
+      "name": "temporary.ensureOn",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "medium",
+      "summary": "Turn on Temporary Chat only when the visible toggle is unambiguous and verifiable."
+    },
+    {
+      "args": {},
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift",
+        "confirmation"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 5000,
+      "examples": [],
+      "layer": "primitive",
+      "name": "temporary.assertVerifiedOn",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "low",
+      "summary": "Require Temporary Chat to be verified on before continuing."
+    },
+    {
+      "args": {},
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
         "captcha",
         "rate_limit",
         "selector_drift"
@@ -613,6 +745,27 @@
       "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
       "risk": "low",
       "summary": "Fill the composer without submitting."
+    },
+    {
+      "args": {
+        "expectedSha256": "optional expected composer SHA-256",
+        "expectedText": "optional expected composer text"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "captcha",
+        "rate_limit",
+        "selector_drift"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 5000,
+      "examples": [],
+      "layer": "primitive",
+      "name": "messages.inspectComposer",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "low",
+      "summary": "Read composer text, hash it, and verify the send button is unique and enabled."
     },
     {
       "args": {},
@@ -820,6 +973,26 @@
       "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
       "risk": "medium",
       "summary": "Attach absolute local file paths through visible ChatGPT upload controls."
+    },
+    {
+      "args": {
+        "expectedBytes": "optional expected size",
+        "expectedName": "expected visible attachment basename",
+        "expectedSha256": "optional expected SHA-256"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 30000,
+      "examples": [],
+      "layer": "primitive",
+      "name": "files.verifyAttached",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "low",
+      "summary": "Verify exactly one expected visible attachment before safe submission."
     },
     {
       "args": {},

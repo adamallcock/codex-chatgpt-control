@@ -48,15 +48,26 @@ export const cssSelectors = {
 } as const;
 
 export function composerTextbox(page: PageLike): LocatorLike {
-  if (typeof page.getByRole !== "function") {
-    return requiredLocator(page, "[contenteditable='true'], textarea");
+  if (typeof page.locator !== "function" && typeof page.getByRole === "function") {
+    return page.getByRole("textbox", { name: "Chat with ChatGPT" });
   }
   return page.getByRole("textbox", { name: anyLabelPattern(localeLabels.composerTextbox) });
 }
 
 export function sendButton(page: PageLike): LocatorLike {
-  if (typeof page.getByRole !== "function") {
-    return requiredLocator(page, "button[aria-label*='Send']");
+  const selector = [
+    "button[data-testid='send-button']",
+    "button[aria-label='Send prompt']",
+    "button[aria-label='Send message']",
+    "button[aria-label='送信']",
+    "button[aria-label='メッセージを送信する']"
+  ].join(", ");
+  const role = typeof page.getByRole === "function"
+    ? page.getByRole("button", { name: "Send prompt" })
+    : undefined;
+  if (typeof page.locator !== "function") {
+    if (role !== undefined) return role;
+    return requiredLocator(page, selector);
   }
   return page.getByRole("button", { name: anyLabelPattern(localeLabels.sendButton) });
 }
@@ -76,8 +87,19 @@ export function searchChatsInput(page: PageLike): LocatorLike {
 }
 
 export function newChatButton(page: PageLike): LocatorLike {
-  if (typeof page.getByRole !== "function") {
-    return requiredLocator(page, "a[href='/'], button");
+  const selector = [
+    "a[href='/']",
+    "button[aria-label='New chat']",
+    "a[aria-label='New chat']",
+    "button[aria-label='新しいチャット']",
+    "a[aria-label='新しいチャット']"
+  ].join(", ");
+  const role = typeof page.getByRole === "function"
+    ? page.getByRole("button", { name: "New chat" })
+    : undefined;
+  if (typeof page.locator !== "function") {
+    if (role !== undefined) return role;
+    return requiredLocator(page, selector);
   }
   return page.getByRole("button", { name: anyLabelPattern(localeLabels.newChat) });
 }
@@ -90,8 +112,18 @@ export function addFilesButton(page: PageLike): LocatorLike {
 }
 
 export function copyResponseButtons(page: PageLike): LocatorLike {
+  const selector = [
+    "button[data-testid='copy-turn-action-button']",
+    "button[aria-label*='Copy response']",
+    "button[aria-label*='回答をコピー']",
+    "button[aria-label*='応答をコピー']",
+    "button[aria-label*='レスポンスをコピー']"
+  ].join(", ");
+  const role = typeof page.getByRole === "function"
+    ? page.getByRole("button", { name: /Copy response|回答をコピー|応答をコピー|レスポンスをコピー/i })
+    : undefined;
   if (typeof page.getByRole !== "function") {
-    return requiredLocator(page, "button[aria-label*='Copy response']");
+    return requiredLocator(page, selector);
   }
   return page.getByRole("button", { name: anyLabelPattern(localeLabels.copyResponse) });
 }
@@ -113,4 +145,29 @@ export function requiredLocator(page: PageLike, selector: string): LocatorLike {
     throw new Error(`Page does not support locator("${selector}")`);
   }
   return page.locator(selector);
+}
+
+function fallbackLocator(primary: LocatorLike, fallback: LocatorLike | undefined, label: string): LocatorLike {
+  return {
+    ...primary,
+    click: async options => {
+      try {
+        if (primary.click !== undefined) return await primary.click(options);
+      } catch {
+        // Fall back to the secondary locator below.
+      }
+      if (fallback?.click !== undefined) return await fallback.click(options);
+      throw new Error(`${label} locator does not expose click().`);
+    },
+    count: async () => {
+      const primaryCount = await primary.count?.().catch(() => undefined);
+      if (primaryCount !== undefined && primaryCount > 0) return primaryCount;
+      return await fallback?.count?.().catch(() => undefined) ?? primaryCount ?? 0;
+    },
+    isVisible: async options => {
+      const primaryVisible = await primary.isVisible?.(options).catch(() => undefined);
+      if (primaryVisible === true) return true;
+      return await fallback?.isVisible?.(options).catch(() => undefined) ?? primaryVisible ?? false;
+    }
+  };
 }

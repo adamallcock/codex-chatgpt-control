@@ -2,10 +2,15 @@ export type RiskLevel = "low" | "medium" | "high";
 
 export const commandRisk = {
   "session.bootstrap": "low",
+  "session.assertChatGPTHost": "low",
+  "temporary.readState": "low",
+  "temporary.ensureOn": "medium",
+  "temporary.assertVerifiedOn": "low",
   "threads.search": "medium",
   "threads.open": "medium",
   "threads.new": "low",
   "messages.compose": "low",
+  "messages.inspectComposer": "low",
   "messages.submit": "medium",
   "messages.ask": "medium",
   "messages.wait": "low",
@@ -16,6 +21,7 @@ export const commandRisk = {
   "artifacts.downloadLatest": "medium",
   "files.preflight": "low",
   "files.attach": "medium",
+  "files.verifyAttached": "low",
   "files.downloadLatest": "medium",
   "projects.sources.list": "low",
   "projects.sources.planAdd": "low",

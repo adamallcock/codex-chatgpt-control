@@ -6,6 +6,14 @@ export function normalizeLineBreaks(text: string): string {
   return text.replace(/\r\n?/g, "\n");
 }
 
+export function normalizePromptForHash(text: string): string {
+  return normalizeLineBreaks(text)
+    .split("\n")
+    .map(line => line.replace(/[ \t]+$/g, ""))
+    .filter(line => line.trim().length > 0)
+    .join("\n");
+}
+
 export function decodeBasicEntities(text: string): string {
   return text
     .replace(/&nbsp;/g, " ")

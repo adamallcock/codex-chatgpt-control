@@ -32,6 +32,8 @@
     "test:backend-conformance": "vitest run tests/unit/backend-conformance.test.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "pro-review": "tsx src/scripts/pro-review.ts",
+    "pro-review-return": "tsx src/scripts/pro-review-return.ts",
     "thread": "tsx src/scripts/continue-thread.ts",
     "smoke:hi": "tsx src/scripts/smoke-hi.ts",
     "smoke:search": "tsx src/scripts/smoke-search-open-read.ts",
@@ -51,7 +53,8 @@
   },
   "types": "./dist/src/index.d.ts",
   "bin": {
-    "codex-chatgpt-control-backend": "dist/src/scripts/backend-server.js"
+    "codex-chatgpt-control-backend": "dist/src/scripts/backend-server.js",
+    "codex-chatgpt-pro-review": "dist/src/scripts/pro-review.js"
   },
   "files": [
     "dist/src/**/*.js",

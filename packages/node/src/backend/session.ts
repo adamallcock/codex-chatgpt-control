@@ -130,6 +130,10 @@ async function dispatchBackendCommand(client: ChatGPTClient, request: BackendReq
       return client.askAndDownload(payload as Parameters<ChatGPTClient["askAndDownload"]>[0]);
     case "runMessages":
       return client.runMessages(payload as Parameters<ChatGPTClient["runMessages"]>[0]);
+    case "proReview.dryRun":
+      return client.proReview.dryRun(payload as Parameters<ChatGPTClient["proReview"]["dryRun"]>[0]);
+    case "proReview.submitAndRead":
+      return client.proReview.submitAndRead(payload as Parameters<ChatGPTClient["proReview"]["submitAndRead"]>[0]);
     case "openThread":
       return client.openThread(payload as Parameters<ChatGPTClient["openThread"]>[0]);
     case "readLatest":
@@ -162,6 +166,14 @@ async function dispatchBackendCommand(client: ChatGPTClient, request: BackendReq
       );
     case "session.bootstrap":
       return client.session.bootstrap(emptyToUndefined(payload));
+    case "session.assertChatGPTHost":
+      return client.session.assertChatGPTHost();
+    case "temporary.readState":
+      return client.temporary.readState();
+    case "temporary.ensureOn":
+      return client.temporary.ensureOn();
+    case "temporary.assertVerifiedOn":
+      return client.temporary.assertVerifiedOn();
     case "threads.new":
       return client.threads.new(emptyToUndefined(payload));
     case "threads.search":
@@ -170,6 +182,8 @@ async function dispatchBackendCommand(client: ChatGPTClient, request: BackendReq
       return client.threads.open(payload as Parameters<ChatGPTClient["threads"]["open"]>[0]);
     case "messages.compose":
       return client.messages.compose(payload as Parameters<ChatGPTClient["messages"]["compose"]>[0]);
+    case "messages.inspectComposer":
+      return client.messages.inspectComposer(emptyToUndefined(payload) as Parameters<ChatGPTClient["messages"]["inspectComposer"]>[0]);
     case "messages.submit":
       return client.messages.submit(emptyToUndefined(payload));
     case "messages.ask":
@@ -190,6 +204,8 @@ async function dispatchBackendCommand(client: ChatGPTClient, request: BackendReq
       return client.files.preflight(payload as Parameters<ChatGPTClient["files"]["preflight"]>[0]);
     case "files.attach":
       return client.files.attach(payload as Parameters<ChatGPTClient["files"]["attach"]>[0]);
+    case "files.verifyAttached":
+      return client.files.verifyAttached(payload as Parameters<ChatGPTClient["files"]["verifyAttached"]>[0]);
     case "files.downloadLatest":
       return client.files.downloadLatest(payload as Parameters<ChatGPTClient["files"]["downloadLatest"]>[0]);
     case "projects.sources.list":
