@@ -30,4 +30,42 @@ describe("contract fixtures", () => {
     expect(fixtureCases.sort()).toEqual([...cases].sort());
     expect([...new Set(required)].sort()).toEqual(listed);
   });
+
+  it("keeps success fixtures semantically successful and host-independent", () => {
+    const filesPreflight = readFixture("files-preflight-success.json");
+    const projectSources = readFixture("project-sources-plan-add.json");
+    const doctor = readFixture("doctor-scenario-preflight.json");
+    const reports = readFixture("reports-create-redacted.json");
+
+    expect(filesPreflight.result).toMatchObject({
+      ok: true,
+      status: "ok",
+      data: { totalBytes: 16 }
+    });
+    expect(filesPreflight.result.data.files.map((file: { name: string }) => file.name)).toEqual(["spec.md", "context.json"]);
+
+    expect(projectSources.result).toMatchObject({
+      ok: true,
+      status: "ok",
+      data: {
+        operation: "append_add",
+        projectId: "g-p-example",
+        totalBytes: 16
+      }
+    });
+    expect(projectSources.result.data.batches).toHaveLength(2);
+
+    expect(doctor.result.data.checks.file_preflight).toMatchObject({
+      status: "ok",
+      details: { totalBytes: 16 }
+    });
+
+    const serializedReports = JSON.stringify(reports);
+    expect(serializedReports).toContain("/tmp/codex-chatgpt-control/reports/contract-fixtures/");
+    expect(serializedReports).not.toMatch(/[A-Za-z]:[\\/]/);
+  });
 });
+
+function readFixture(name: string): any {
+  return JSON.parse(readFileSync(new URL(`fixtures/${name}`, contractRoot), "utf8"));
+}

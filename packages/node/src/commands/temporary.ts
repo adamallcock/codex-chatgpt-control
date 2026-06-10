@@ -42,7 +42,7 @@ export async function readTemporaryChatState(env: RuntimeEnv): Promise<CommandRe
     ];
     return resultOk({
       state: "on",
-      confidence: "verified",
+      confidence: "assumed_from_url",
       evidence: urlEvidence,
       candidates: labels
     }, context);
@@ -85,8 +85,11 @@ export async function ensureTemporaryChatOn(env: RuntimeEnv): Promise<CommandRes
   if (!before.ok || before.data === undefined) {
     return before;
   }
-  if (before.data.state === "on") {
+  if (before.data.state === "on" && before.data.confidence === "verified") {
     return before;
+  }
+  if (before.data.state === "on") {
+    return temporaryBlocker(env.page, "Temporary Chat state is inferred from URL but not verified on.", before.data);
   }
   if (before.data.state === "unknown") {
     return temporaryBlocker(env.page, "Temporary Chat state could not be verified before toggling.", before.data);
@@ -99,7 +102,7 @@ export async function ensureTemporaryChatOn(env: RuntimeEnv): Promise<CommandRes
   await env.page!.waitForTimeout?.(500);
 
   const after = await readTemporaryChatState(env);
-  if (after.ok && after.data?.state === "on") {
+  if (after.ok && after.data?.state === "on" && after.data.confidence === "verified") {
     return after;
   }
   return temporaryBlocker(env.page, "Temporary Chat did not become verified_on after toggling.", after.data);
@@ -107,7 +110,7 @@ export async function ensureTemporaryChatOn(env: RuntimeEnv): Promise<CommandRes
 
 export async function assertTemporaryChatVerifiedOn(env: RuntimeEnv): Promise<CommandResult<TemporaryChatData>> {
   const state = await readTemporaryChatState(env);
-  if (state.ok && state.data?.state === "on") {
+  if (state.ok && state.data?.state === "on" && state.data.confidence === "verified") {
     return state;
   }
   return temporaryBlocker(env.page, "Temporary Chat is not verified_on.", state.data);

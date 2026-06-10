@@ -590,7 +590,7 @@ export type TemporaryChatEvidence = {
 };
 
 export type TemporaryChatData =
-  | { state: "on"; confidence: "verified"; evidence: TemporaryChatEvidence[]; candidates: string[] }
+  | { state: "on"; confidence: "verified" | "assumed_from_url"; evidence: TemporaryChatEvidence[]; candidates: string[] }
   | { state: "off"; evidence: TemporaryChatEvidence[]; candidates: string[] }
   | { state: "unknown"; evidence: TemporaryChatEvidence[]; candidates: string[] };
 

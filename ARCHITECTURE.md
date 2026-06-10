@@ -17,7 +17,7 @@ The guarded Pro review flow is intentionally split into small steps:
 1. Attach to a visible ChatGPT tab through the browser bridge, starting from `https://chatgpt.com/?temporary-chat=true` for Pro review.
 2. Verify the current host is a real ChatGPT host.
 3. Ensure the starting tab is an empty chat.
-4. Ensure Temporary Chat is verified on. When the visible toggle is hidden, the workflow may treat `temporary-chat=true` plus zero user/assistant turns as verified Temporary Chat evidence.
+4. Ensure Temporary Chat is verified on. When the visible toggle is hidden, `temporary-chat=true` plus zero user/assistant turns is treated only as `assumed_from_url` evidence; Pro review submission still requires verified UI evidence such as a turn-off Temporary Chat control or explicit on-state attributes.
 5. Select the requested visible mode. Pro review defaults to visible `Pro` with effort `拡張`; it must not rely on ChatGPT's default `Thinking` mode. Japanese ChatGPT UI may require selecting `Pro`, opening the intelligence/settings modal, and changing `Pro の思考の労力` from `標準` to `拡張`. After that, the selected state may show as `じっくり思考 Pro`, and this is treated as the same verified mode.
 6. Attach the expected zip.
 7. Verify exactly the expected attachment name is visible.

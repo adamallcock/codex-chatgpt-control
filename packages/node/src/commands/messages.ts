@@ -439,7 +439,7 @@ async function waitForSendButtonReady(
 
 function isSendButtonReady(state: SendButtonState): boolean {
   if (!state.available) return false;
-  if (state.count !== undefined && state.count !== 1) return false;
+  if (state.count !== 1) return false;
   if (state.visible === false) return false;
   if (state.disabled === true) return false;
   if (state.busy === true) return false;
@@ -449,13 +449,16 @@ function isSendButtonReady(state: SendButtonState): boolean {
 async function readSendButtonState(page: PageLike): Promise<SendButtonState> {
   const locator = sendButton(page);
   const count = typeof locator.count === "function" ? await locator.count() : undefined;
-  if (count !== undefined && count !== 1) {
+  if (count === undefined) {
+    return { available: false, reason: "unreadable:count_missing" };
+  }
+  if (count !== 1) {
     return { available: false, count, reason: count === 0 ? "not_found" : "not_unique" };
   }
   const visible = typeof locator.isVisible === "function" ? await locator.isVisible({ timeoutMs: 500 }).catch(() => undefined) : undefined;
   if (typeof locator.evaluate !== "function") {
-    const state: SendButtonState = { available: true };
-    if (count !== undefined) state.count = count;
+    const state: SendButtonState = { available: false, reason: "unreadable:evaluate_missing" };
+    state.count = count;
     if (visible !== undefined) state.visible = visible;
     return state;
   }

@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const FIXED_ISO = "2026-06-06T00:00:00.000Z";
@@ -10,9 +11,13 @@ const root = join(here, "..");
 const contractRoot = join(root, "contracts", "v1");
 const fixturesDir = join(contractRoot, "fixtures");
 const manifestPath = join(contractRoot, "manifest.json");
-const reportFixtureDir = join(root, "reports", "contract-fixtures");
-const doctorScenarioReportDir = "/tmp/codex-chatgpt-control/reports/contract-fixtures/missing-doctor-reports";
-const filePreflightFixtureDir = "/tmp/codex-chatgpt-control/file-preflight-contract-fixtures";
+const stableContractFixtureRoot = "/tmp/codex-chatgpt-control";
+const stableReportFixtureDir = `${stableContractFixtureRoot}/reports/contract-fixtures`;
+const stableFilePreflightFixtureDir = `${stableContractFixtureRoot}/file-preflight-contract-fixtures`;
+const contractFixtureWorkRoot = join(tmpdir(), "codex-chatgpt-control-contract-fixtures");
+const reportFixtureDir = join(contractFixtureWorkRoot, "reports", "contract-fixtures");
+const doctorScenarioReportDir = join(reportFixtureDir, "missing-doctor-reports");
+const filePreflightFixtureDir = join(contractFixtureWorkRoot, "file-preflight-contract-fixtures");
 
 const {
   createChatGPT,
@@ -26,6 +31,7 @@ mkdirSync(fixturesDir, { recursive: true });
 const generatedFixtures = [];
 const chatgpt = createChatGPT({ now: () => FIXED_DATE });
 rmSync(reportFixtureDir, { recursive: true, force: true });
+rmSync(contractFixtureWorkRoot, { recursive: true, force: true });
 rmSync(doctorScenarioReportDir, { recursive: true, force: true });
 rmSync(filePreflightFixtureDir, { recursive: true, force: true });
 mkdirSync(filePreflightFixtureDir, { recursive: true });
@@ -760,6 +766,8 @@ function normalizeFixtureValue(value) {
 
 function normalizePrimitive(value) {
   if (typeof value !== "string") return value;
+  const stablePath = normalizeStableFixturePath(value);
+  if (stablePath !== value) return normalizePrimitive(stablePath);
   const normalized = value.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, FIXED_ISO);
   if (normalized !== value) return normalizePrimitive(normalized);
   if (/^run_[a-z0-9]{8,}$/i.test(value)) return "run_fixed";
@@ -771,6 +779,26 @@ function normalizePrimitive(value) {
     return "/tmp/codex-chatgpt-control/reports/contract-fixtures/fixed-contract-report.json";
   }
   return normalized;
+}
+
+function normalizeStableFixturePath(value) {
+  const slashValue = value.replace(/\\/g, "/");
+  const mappings = [
+    [toSlashPath(filePreflightFixtureDir), stableFilePreflightFixtureDir],
+    [toSlashPath(reportFixtureDir), stableReportFixtureDir],
+    [toSlashPath(contractFixtureWorkRoot), stableContractFixtureRoot]
+  ];
+
+  for (const [actual, stable] of mappings) {
+    if (actual.length > 0 && slashValue.includes(actual)) {
+      return slashValue.split(actual).join(stable);
+    }
+  }
+  return value;
+}
+
+function toSlashPath(value) {
+  return value.replace(/\\/g, "/");
 }
 
 function sortObjectKeys(value) {

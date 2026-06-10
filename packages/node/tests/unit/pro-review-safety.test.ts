@@ -4,10 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createChatGPT } from "../../src/client.js";
+import { assertSafeToSubmit } from "../../src/commands/guards.js";
 import { assertChatGPTHost } from "../../src/commands/session.js";
 import { inspectComposer } from "../../src/commands/messages.js";
 import { normalizePromptForHash } from "../../src/dom/visible-text.js";
-import { readTemporaryChatState } from "../../src/commands/temporary.js";
+import { assertTemporaryChatVerifiedOn, readTemporaryChatState } from "../../src/commands/temporary.js";
 import { verifyAttachedFiles } from "../../src/commands/files.js";
 import type { LocatorLike, PageLike } from "../../src/types.js";
 
@@ -84,17 +85,24 @@ describe("ChatGPT Pro review safety primitives", () => {
     });
   });
 
-  it("accepts Temporary Chat URL plus an empty thread when the toggle is hidden", async () => {
+  it("treats Temporary Chat URL plus an empty thread as assumed but not verified", async () => {
+    const page = documentPage([], {
+      url: "https://chatgpt.com/?temporary-chat=true"
+    });
     const result = await readTemporaryChatState({
-      page: documentPage([], {
-        url: "https://chatgpt.com/?temporary-chat=true"
-      })
+      page
     });
 
     expect(result.ok).toBe(true);
     expect(result.data).toMatchObject({
       state: "on",
-      confidence: "verified"
+      confidence: "assumed_from_url"
+    });
+
+    const asserted = await assertTemporaryChatVerifiedOn({ page });
+    expect(asserted.ok).toBe(false);
+    expect(asserted.blocker).toMatchObject({
+      code: "temporary_chat_not_verified"
     });
   });
 
@@ -107,6 +115,22 @@ describe("ChatGPT Pro review safety primitives", () => {
     expect(result.blocker).toMatchObject({
       kind: "confirmation",
       code: "not_chatgpt_host"
+    });
+  });
+
+  it("blocks safe submit when a modal dialog is visible", async () => {
+    const result = await assertSafeToSubmit({
+      page: documentPage([], {
+        bodyText: "New chat Chat with ChatGPT confirm modal dialog Continue Cancel"
+      })
+    }, {
+      expectedAttachmentName: "review.zip",
+      expectedPromptSha256: "a".repeat(64)
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.blocker).toMatchObject({
+      kind: "modal"
     });
   });
 
@@ -325,6 +349,8 @@ function testLocator(
   return {
     count: async () => selected.length,
     click: async () => {},
+    isVisible: async () => selected.length > 0,
+    evaluate: async fn => fn((selected[0] ?? node({ label: "" })) as unknown as Element),
     innerText: async () => options.textboxText ?? "",
     textContent: async () => options.textboxText ?? null
   };

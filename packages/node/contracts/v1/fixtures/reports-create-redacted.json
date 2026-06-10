@@ -16,12 +16,12 @@
         "schemaVersion": "chatgpt.browser_control.integrity.v1",
         "target": {
           "bytes": 335,
-          "path": "C:\\Dropbox\\Projects\\codex-chatgpt-control\\packages\\node\\reports\\contract-fixtures\\2026-06-06T00-00-00-000Z-contract-report.json",
-          "sha256": "d98e7759f632b1740cb8038a702c3762a3791892af5b4b30896a10760e15dfdb"
+          "path": "/tmp/codex-chatgpt-control/reports/contract-fixtures/fixed-contract-report.json",
+          "sha256": "cededc6eea43928fb56d45bf2417d2b4b31ed9fae7dbbe00262f8097718e33bf"
         }
       },
-      "metaPath": "C:\\Dropbox\\Projects\\codex-chatgpt-control\\packages\\node\\reports\\contract-fixtures\\2026-06-06T00-00-00-000Z-contract-report.json.meta.json",
-      "path": "C:\\Dropbox\\Projects\\codex-chatgpt-control\\packages\\node\\reports\\contract-fixtures\\2026-06-06T00-00-00-000Z-contract-report.json"
+      "metaPath": "/tmp/codex-chatgpt-control/reports/contract-fixtures/fixed-contract-report.json.meta.json",
+      "path": "/tmp/codex-chatgpt-control/reports/contract-fixtures/fixed-contract-report.json"
     },
     "ok": true,
     "status": "ok",

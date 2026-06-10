@@ -19,7 +19,7 @@ export async function assertSafeToSubmit(
   checks.push("chatgpt_host");
 
   const state = env.page === undefined ? undefined : await readPageState(env.page).catch(() => undefined);
-  if (state?.blocker !== undefined && state.blocker.kind !== "modal") {
+  if (state?.blocker !== undefined) {
     return blocked(env, state.blocker.kind, `ChatGPT page is blocked by ${state.blocker.kind}.`, state.blocker.visibleText);
   }
   if (state?.signedIn === false) {
@@ -57,8 +57,14 @@ export async function assertSafeToSubmit(
   if (!composer.ok) return forwardFailure(composer);
   checks.push("composer_verified");
 
-  if (args.runId !== undefined && await submittedRunIdExists(env, args.runId)) {
-    return blocked(env, "confirmation", `A submitted user turn already appears to contain runId ${args.runId}; refusing to resubmit.`);
+  if (args.runId !== undefined) {
+    const duplicateState = await readSubmittedRunIdState(env, args.runId);
+    if (duplicateState === "unreadable") {
+      return blocked(env, "confirmation", "Submitted run-id state could not be verified before safe submission.");
+    }
+    if (duplicateState === "exists") {
+      return blocked(env, "confirmation", `A submitted user turn already appears to contain runId ${args.runId}; refusing to resubmit.`);
+    }
   }
   checks.push("duplicate_guard");
 
@@ -71,15 +77,19 @@ export async function assertSafeToSubmit(
   };
 }
 
-async function submittedRunIdExists(env: RuntimeEnv, runId: string): Promise<boolean> {
+async function readSubmittedRunIdState(env: RuntimeEnv, runId: string): Promise<"exists" | "absent" | "unreadable"> {
   const page = env.page;
   if (page === undefined || typeof page.evaluate !== "function") {
-    return false;
+    return "unreadable";
   }
-  return page.evaluate((wanted: string) => {
+  const exists = await page.evaluate((wanted: string) => {
     return Array.from(document.querySelectorAll("[data-message-author-role='user']"))
       .some(node => (node.textContent ?? "").includes(wanted));
-  }, runId).catch(() => false);
+  }, runId).catch(() => undefined);
+  if (typeof exists !== "boolean") {
+    return "unreadable";
+  }
+  return exists ? "exists" : "absent";
 }
 
 async function blocked(

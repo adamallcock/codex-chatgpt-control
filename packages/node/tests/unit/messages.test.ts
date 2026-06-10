@@ -452,6 +452,8 @@ describe("extractMessagesFromHtml", () => {
     let waitCalls = 0;
     let submitted = false;
     const send: LocatorLike = {
+      count: async () => 1,
+      isVisible: async () => true,
       evaluate: async <T>() => {
         readinessChecks += 1;
         return {
@@ -517,6 +519,8 @@ describe("extractMessagesFromHtml", () => {
     let submitted = false;
     const prompt = "Reply exactly retry-ready.";
     const send: LocatorLike = {
+      count: async () => 1,
+      isVisible: async () => true,
       evaluate: async <T>() => ({
         disabled: false,
         busy: false,
@@ -859,6 +863,15 @@ function askWaitFallbackPage(prompt: string, answer: string): PageLike {
     innerText: async () => composerText
   };
   const send: LocatorLike = {
+    count: async () => 1,
+    isVisible: async () => true,
+    evaluate: async fn => fn({
+      disabled: false,
+      getAttribute: () => null,
+      className: "",
+      innerText: "Send prompt",
+      textContent: "Send prompt"
+    } as unknown as Element),
     click: async () => {
       submitted = true;
     }
