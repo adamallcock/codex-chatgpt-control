@@ -193,6 +193,25 @@ describe("Project Sources browser commands", () => {
     expect(result.data?.sources).toEqual([{ name: "brief.md", status: "ready" }]);
   });
 
+  it("does not list empty-state sort, filter, or add controls as sources", async () => {
+    const result = await listProjectSources({
+      page: htmlPage(`
+        <main>
+          <button role="tab" aria-selected="true">Sources</button>
+          <button aria-label="Sort sources: Newest"><span>Newest</span></button>
+          <button aria-label="Filter sources: All"><span>All</span></button>
+          <section aria-label="Sources">
+            <p>Give ChatGPT more context</p>
+            <button>Add sources</button>
+          </section>
+        </main>
+      `)
+    }, { projectUrl: PROJECT_URL });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.sources).toEqual([]);
+  });
+
   it("navigates nested project chat pages to the normalized project page before listing", async () => {
     let currentUrl = "https://chatgpt.com/g/g-p-69f7590a9a188191a7356459c924eaf9-diy-wifi/c/abc-123";
     const navigations: string[] = [];

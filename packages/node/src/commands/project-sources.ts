@@ -355,7 +355,24 @@ async function readProjectSourcesSnapshot(page: PageLike): Promise<ProjectSource
         const looksLikeName = (text: string) => text.length > 0
           && text.length <= 160
           && !/^(ready|processing|uploading|failed|error|add source|sources?)$/i.test(text);
-        const sourceNodes = Array.from(document.querySelectorAll("[data-testid*='source' i], [aria-label*='source' i], [class*='source' i]"));
+        const sourceNodes = Array.from(document.querySelectorAll([
+          "li[data-testid*='source' i]",
+          "article[data-testid*='source' i]",
+          "tr[data-testid*='source' i]",
+          "div[data-testid*='source' i]",
+          "li[aria-label*='source' i]",
+          "article[aria-label*='source' i]",
+          "tr[aria-label*='source' i]",
+          "div[aria-label*='source' i]",
+          "li[class*='source' i]",
+          "article[class*='source' i]",
+          "tr[class*='source' i]",
+          "div[class*='source' i]"
+        ].join(", "))).filter(node => {
+          const tag = node.tagName.toLowerCase();
+          const role = node.getAttribute("role") ?? "";
+          return tag !== "button" && tag !== "a" && !/^(button|tab|menuitem|option)$/i.test(role);
+        });
         const sources = sourceNodes.flatMap(node => {
           const children = Array.from(node.querySelectorAll("span, td, button, a"))
             .map(textOf)
