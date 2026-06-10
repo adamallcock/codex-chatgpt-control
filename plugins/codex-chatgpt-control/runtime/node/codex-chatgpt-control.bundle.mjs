@@ -240,6 +240,9 @@ var en = {
   /** Fallback opener labels tried in order when the primary add-files control is absent. */
   addFilesOpenerCandidates: ["Add files and more", "Add files", "Add photos"],
   addPhotosFilesMenuItem: ["Add photos & files"],
+  projectSourcesTab: ["Sources"],
+  projectSourcesAddSource: ["Add source", "Add sources"],
+  projectSourcesUploadFiles: ["Upload files", "Upload file", "Upload", "Add files"],
   copyResponse: ["Copy response"],
   // --- Download affordances (matched as `aria-label` substrings) ---
   download: ["Download"],
@@ -1660,6 +1663,9 @@ var nonToolKeys = [
   "addFilesButton",
   "addFilesOpenerCandidates",
   "addPhotosFilesMenuItem",
+  "projectSourcesTab",
+  "projectSourcesAddSource",
+  "projectSourcesUploadFiles",
   "copyResponse",
   "download",
   "downloadImage",
@@ -5908,6 +5914,587 @@ function uploadPermissionRemediation() {
   ];
 }
 
+// src/commands/project-sources.ts
+var CHATGPT_ORIGIN = "https://chatgpt.com";
+var DEFAULT_PROJECT_SOURCE_BATCH_SIZE = 10;
+var PROJECT_SOURCE_CANDIDATE_LIMIT = 20;
+function normalizeProjectSourcesUrl(value) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error("ChatGPT Project URL must be an absolute URL.");
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error("ChatGPT Project URL must use https.");
+  }
+  if (parsed.hostname !== "chatgpt.com") {
+    throw new Error("ChatGPT Project URL must be on chatgpt.com.");
+  }
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  const gIndex = segments.indexOf("g");
+  const handle = gIndex >= 0 ? segments[gIndex + 1] : void 0;
+  if (handle === void 0 || !handle.startsWith("g-p-")) {
+    throw new Error("ChatGPT Project URL must include a Project path such as /g/g-p-.../project.");
+  }
+  const { projectId, projectSlug } = splitProjectHandle(handle);
+  const normalized = {
+    projectId,
+    url: `${CHATGPT_ORIGIN}/g/${handle}/project`
+  };
+  if (projectSlug !== void 0) {
+    normalized.projectSlug = projectSlug;
+  }
+  return normalized;
+}
+async function buildProjectSourceAddPlan(env, args) {
+  let project;
+  try {
+    project = normalizeProjectSourcesUrl(args.projectUrl);
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)));
+  }
+  const preflightArgs = { paths: args.files };
+  if (args.maxBytesPerFile !== void 0) preflightArgs.maxBytesPerFile = args.maxBytesPerFile;
+  if (args.maxTotalBytes !== void 0) preflightArgs.maxTotalBytes = args.maxTotalBytes;
+  const preflight = await preflightFiles(env, preflightArgs);
+  if (!preflight.ok || preflight.data === void 0) {
+    return preflight;
+  }
+  const files = preflight.data.files.map((file, index) => ({
+    ...file,
+    displayPath: args.files[index] ?? file.path
+  }));
+  const batchSize = normalizedBatchSize(args.batchSize);
+  const batches = [];
+  for (let offset = 0; offset < files.length; offset += batchSize) {
+    const batchFiles = files.slice(offset, offset + batchSize);
+    batches.push({
+      index: batches.length,
+      files: batchFiles,
+      totalBytes: batchFiles.reduce((sum, file) => sum + file.bytes, 0)
+    });
+  }
+  return resultOk({
+    ...project,
+    projectUrl: project.url,
+    operation: "append_add",
+    dryRun: true,
+    files,
+    batches,
+    totalBytes: preflight.data.totalBytes
+  }, { timestamp: preflight.context.timestamp }, preflight.warnings);
+}
+async function listProjectSources(env, args) {
+  const opened = await openProjectSourcesUI(env, args);
+  if (!opened.ok || opened.data === void 0) {
+    return opened;
+  }
+  return readProjectSourcesFromCurrentPage(env, opened.data, "project_sources_list_unavailable");
+}
+async function addProjectSources(env, args) {
+  const plan = await buildProjectSourceAddPlan(env, args);
+  if (!plan.ok || plan.data === void 0) {
+    return plan;
+  }
+  if (args.confirmMutation !== true) {
+    return {
+      ok: false,
+      status: "needs_confirmation",
+      data: plan.data,
+      warnings: plan.warnings,
+      blocker: {
+        kind: "confirmation",
+        code: "project_sources_add_confirmation_required",
+        fieldPath: "confirmMutation",
+        message: "Adding files to a ChatGPT Project Sources list mutates visible project state. Re-run with confirmMutation: true after user approval.",
+        remediation: [
+          {
+            label: "Confirm Project Sources add",
+            instruction: "Ask the user to confirm this append-only Project Sources add operation for the listed local file names.",
+            userActionRequired: true
+          }
+        ],
+        resumable: true
+      },
+      context: plan.context
+    };
+  }
+  const opened = await openProjectSourcesUI(env, args);
+  if (!opened.ok || opened.data === void 0) {
+    return opened;
+  }
+  const before = await readProjectSourcesFromCurrentPage(env, opened.data, "project_sources_list_unavailable");
+  if (!before.ok || before.data === void 0) {
+    return before;
+  }
+  const page = env.page;
+  if (page === void 0) {
+    return resultError(new Error("No active ChatGPT Project page is available for Project Sources upload."), opened.context);
+  }
+  for (const batch of plan.data.batches) {
+    const upload = await uploadProjectSourceBatch(page, batch, args.timeoutMs ?? 12e4);
+    if (!upload.ok) {
+      return upload;
+    }
+  }
+  await page.waitForTimeout?.(1e3);
+  const after = await readProjectSourcesFromCurrentPage(env, opened.data, "project_sources_after_add_unavailable");
+  if (!after.ok || after.data === void 0) {
+    return after;
+  }
+  return resultOk({
+    ...plan.data,
+    dryRun: false,
+    before: before.data.sources,
+    after: after.data.sources,
+    added: diffProjectSourceNames(before.data.sources, after.data.sources)
+  }, await contextFromPage(page), [...plan.warnings, ...before.warnings, ...after.warnings]);
+}
+function diffProjectSourceNames(before, after) {
+  const remaining = /* @__PURE__ */ new Map();
+  for (const source of before) {
+    const key = sourceNameKey(source.name);
+    remaining.set(key, (remaining.get(key) ?? 0) + 1);
+  }
+  const added = [];
+  for (const source of after) {
+    const key = sourceNameKey(source.name);
+    const count = remaining.get(key) ?? 0;
+    if (count > 0) {
+      remaining.set(key, count - 1);
+    } else {
+      added.push(source);
+    }
+  }
+  return added;
+}
+function extractProjectSourcesFromHtml(html) {
+  const sources = [];
+  const sourceBlockPattern = /<(?:div|li|article|tr)\b(?<attrs>[^>]*(?:data-testid|aria-label|class)=["'][^"']*source[^"']*["'][^>]*)>(?<body>[\s\S]*?)<\/(?:div|li|article|tr)>/gi;
+  for (const match of html.matchAll(sourceBlockPattern)) {
+    const body = match.groups?.body ?? "";
+    const texts = extractChildTexts(body, ["span", "td", "button", "a"]);
+    const name = texts.map(sourceNameFromCandidateText).find((text) => text !== void 0);
+    if (name === void 0) {
+      continue;
+    }
+    const statusText = texts.find((text) => text !== name && normalizeProjectSourceStatus(text) !== "unknown");
+    sources.push({ name, status: normalizeProjectSourceStatus(statusText ?? "") });
+  }
+  sources.push(...extractSourcesSectionRowsFromHtml(html));
+  return dedupeAdjacentSources(sources);
+}
+function safeProjectSourceCandidatesFromHtml(html) {
+  const candidates = [];
+  const interactivePattern = /<(button|a)\b(?<attrs>[^>]*)>(?<body>[\s\S]*?)<\/\1>/gi;
+  for (const match of html.matchAll(interactivePattern)) {
+    const tag = match[1]?.toLowerCase();
+    const attrs = match.groups?.attrs ?? "";
+    const text = normalizeText2(stripTags2(match.groups?.body ?? ""));
+    const label = normalizeText2(attr2(attrs, "aria-label") ?? attr2(attrs, "title") ?? text);
+    if (label.length === 0 || label.length > 120) {
+      continue;
+    }
+    const roleAttr = attr2(attrs, "role");
+    const role = roleAttr ?? (tag === "a" ? "link" : "button");
+    candidates.push({ label, role });
+  }
+  return dedupeCandidates(candidates).slice(0, PROJECT_SOURCE_CANDIDATE_LIMIT);
+}
+async function openProjectSourcesUI(env, args) {
+  let project;
+  try {
+    project = normalizeProjectSourcesUrl(args.projectUrl);
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)));
+  }
+  if (env.page === void 0) {
+    const boot = await bootstrap(env, bootstrapArgsForProject(project.url, args));
+    if (!boot.ok) {
+      return boot;
+    }
+  }
+  const page = env.page;
+  if (page === void 0) {
+    return resultError(new Error("No active ChatGPT page is available."), { timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+  }
+  try {
+    const currentUrl = await Promise.resolve(page.url?.()).catch(() => void 0);
+    if (!sameProjectPageUrl(currentUrl, project.url) && typeof page.goto === "function") {
+      await page.goto(project.url, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
+      await page.waitForTimeout?.(500);
+    }
+    await clickSourcesTabIfAvailable(page, args.timeoutMs ?? 3e4);
+    return resultOk(project, await contextFromPage(page));
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+function bootstrapArgsForProject(url, args) {
+  const boot = { url };
+  if (args.preferExistingTab !== void 0) {
+    boot.preferExistingTab = args.preferExistingTab;
+  }
+  if (args.existingTab === true) {
+    boot.existingTab = {
+      target: { type: "url", url },
+      ifMissing: "block",
+      ifMultiple: "block",
+      requireChatGPT: true
+    };
+  } else if (args.existingTab !== void 0) {
+    boot.existingTab = args.existingTab;
+  }
+  return boot;
+}
+async function readProjectSourcesFromCurrentPage(env, project, driftCode) {
+  const page = env.page;
+  if (page === void 0) {
+    return resultError(new Error("No active ChatGPT Project page is available for Project Sources listing."), project);
+  }
+  const snapshot = await readProjectSourcesSnapshot(page);
+  if (snapshot.uiPresent) {
+    return resultOk({ ...project, sources: snapshot.sources }, await contextFromPage(page));
+  }
+  return {
+    ok: false,
+    status: "unsupported",
+    warnings: [],
+    blocker: {
+      kind: "selector_drift",
+      code: driftCode,
+      message: "The visible ChatGPT Project Sources UI could not be identified without reading source contents.",
+      candidates: snapshot.candidates,
+      resumable: true
+    },
+    context: await contextFromPage(page)
+  };
+}
+async function readProjectSourcesSnapshot(page) {
+  if (typeof page.evaluate === "function") {
+    try {
+      const raw = await page.evaluate(() => {
+        const normalize = (value) => value.replace(/\s+/g, " ").trim();
+        const textOf = (element) => normalize(element.innerText ?? element.textContent ?? "");
+        const statusFor = (text) => {
+          if (/\b(ready|added|available|synced)\b/i.test(text)) return "ready";
+          if (/\b(processing|uploading|adding|pending|in progress)\b/i.test(text)) return "processing";
+          if (/\b(failed|error|unsupported)\b/i.test(text)) return "failed";
+          return "unknown";
+        };
+        const excludedLabel = (text) => /^(ready|processing|uploading|failed|error|add sources?|sources?|newest|all|source actions)$/i.test(text) || /^(sort|filter) sources?:/i.test(text);
+        const sourceNameFromCandidate = (text) => {
+          const normalized = normalize(text).replace(/\s+(Document|File|PDF|Image|Spreadsheet|Text|Code|CSV|Markdown)\s+·.*$/i, "");
+          if (normalized.length === 0 || normalized.length > 160 || excludedLabel(normalized)) return void 0;
+          return normalized;
+        };
+        const sourceNodes = Array.from(document.querySelectorAll([
+          "li[data-testid*='source' i]",
+          "article[data-testid*='source' i]",
+          "tr[data-testid*='source' i]",
+          "div[data-testid*='source' i]",
+          "li[aria-label*='source' i]",
+          "article[aria-label*='source' i]",
+          "tr[aria-label*='source' i]",
+          "div[aria-label*='source' i]",
+          "li[class*='source' i]",
+          "article[class*='source' i]",
+          "tr[class*='source' i]",
+          "div[class*='source' i]"
+        ].join(", "))).filter((node) => {
+          const tag = node.tagName.toLowerCase();
+          const role = node.getAttribute("role") ?? "";
+          return tag !== "button" && tag !== "a" && !/^(button|tab|menuitem|option|dialog|menu)$/i.test(role) && node.closest("[role='dialog'], [role='menu']") === null;
+        });
+        const sourcesFromNodes = sourceNodes.flatMap((node) => {
+          const children = Array.from(node.querySelectorAll("span, td, button, a")).map(textOf).filter(Boolean);
+          const name = children.map(sourceNameFromCandidate).find(Boolean);
+          if (!name) return [];
+          const statusText = children.find((child) => child !== name && statusFor(child) !== "unknown") ?? "";
+          return [{ name, status: statusFor(statusText) }];
+        });
+        const sourcesFromSection = Array.from(document.querySelectorAll("section[aria-label]")).filter((section) => /sources?/i.test(section.getAttribute("aria-label") ?? "") && section.closest("[role='dialog'], [role='menu']") === null).flatMap((section) => Array.from(section.querySelectorAll("[aria-label], button")).flatMap((element) => {
+          const role = element.getAttribute("role") ?? "";
+          if (/^(tab|menuitem|option)$/i.test(role)) return [];
+          const aria = normalize(element.getAttribute("aria-label") ?? "");
+          const text = textOf(element);
+          const name = sourceNameFromCandidate(aria) ?? sourceNameFromCandidate(text);
+          if (!name) return [];
+          const status = statusFor(text);
+          return [{ name, status }];
+        }));
+        const sources = [...sourcesFromNodes, ...sourcesFromSection];
+        const candidates = Array.from(document.querySelectorAll("[role='tab'], button, a")).map((element) => {
+          const label = normalize(element.getAttribute("aria-label") ?? element.getAttribute("title") ?? textOf(element));
+          const role = element.getAttribute("role") ?? (element.tagName.toLowerCase() === "a" ? "link" : "button");
+          return { label, role };
+        }).filter((candidate) => candidate.label.length > 0 && candidate.label.length <= 120).slice(0, 20);
+        const activeSourceTab = Array.from(document.querySelectorAll("[role='tab'], button")).some((element) => {
+          const label = textOf(element) || element.getAttribute("aria-label") || "";
+          return /sources?/i.test(label) && element.getAttribute("aria-selected") === "true";
+        });
+        const emptyState = /\bno sources\b/i.test(document.body?.innerText ?? "");
+        return {
+          sources,
+          uiPresent: sources.length > 0 || activeSourceTab || emptyState,
+          candidates
+        };
+      });
+      return normalizeSnapshot(raw);
+    } catch {
+    }
+  }
+  if (typeof page.content === "function") {
+    const html = await page.content();
+    const sources = extractProjectSourcesFromHtml(html);
+    const activeSourceTab = /role=["']tab["'][^>]*aria-selected=["']true["'][^>]*>\s*Sources\s*</i.test(html) || /aria-label=["']Sources["'][^>]*aria-selected=["']true["']/i.test(html);
+    const emptyState = /\bno sources\b/i.test(stripInteractiveHtml(html));
+    return {
+      sources,
+      uiPresent: sources.length > 0 || activeSourceTab || emptyState,
+      candidates: safeProjectSourceCandidatesFromHtml(html)
+    };
+  }
+  return { sources: [], uiPresent: false, candidates: [] };
+}
+function normalizeSnapshot(raw) {
+  if (raw === null || typeof raw !== "object") {
+    return { sources: [], uiPresent: false, candidates: [] };
+  }
+  const record = raw;
+  const sources = Array.isArray(record.sources) ? record.sources.flatMap((item) => isRecord2(item) && typeof item.name === "string" ? [{ name: normalizeText2(item.name), status: normalizeProjectSourceStatus(String(item.status ?? "")) }] : []) : [];
+  const candidates = Array.isArray(record.candidates) ? dedupeCandidates(record.candidates.flatMap((item) => {
+    if (!isRecord2(item) || typeof item.label !== "string") {
+      return [];
+    }
+    const candidate = { label: normalizeText2(item.label) };
+    if (typeof item.role === "string") {
+      candidate.role = item.role;
+    }
+    return [candidate];
+  })) : [];
+  return {
+    sources: dedupeAdjacentSources(sources.filter((source) => source.name.length > 0)),
+    uiPresent: record.uiPresent === true,
+    candidates: candidates.slice(0, PROJECT_SOURCE_CANDIDATE_LIMIT)
+  };
+}
+async function uploadProjectSourceBatch(page, batch, timeoutMs) {
+  const paths = batch.files.map((file) => file.path);
+  try {
+    const directInput = page.locator?.("input[type='file']");
+    if (directInput !== void 0 && typeof directInput.setInputFiles === "function" && await locatorCount2(directInput) > 0) {
+      await directInput.setInputFiles(paths);
+      return resultOk({ files: batch.files.map((file) => ({ name: file.name, bytes: file.bytes })) }, await contextFromPage(page));
+    }
+    if (typeof page.waitForEvent !== "function") {
+      throw new Error("The active Project Sources page does not expose file chooser events.");
+    }
+    let chooserPromise = waitForFileChooser2(page, timeoutMs);
+    await clickProjectSourceControl(page, localeLabels.projectSourcesAddSource, "button", timeoutMs);
+    const opened = await raceFileChooserOpen(chooserPromise, page, 300);
+    if (!opened) {
+      chooserPromise = waitForFileChooser2(page, timeoutMs);
+      await clickProjectSourceControl(page, localeLabels.projectSourcesUploadFiles, "button", timeoutMs);
+    }
+    const chooser = await chooserPromise;
+    await chooser.setFiles(paths);
+    return resultOk({ files: batch.files.map((file) => ({ name: file.name, bytes: file.bytes })) }, await contextFromPage(page));
+  } catch (error) {
+    return {
+      ok: false,
+      status: "blocked",
+      warnings: [],
+      blocker: {
+        kind: "permission",
+        code: "project_sources_upload_unavailable",
+        message: `Project Sources file upload could not be completed through visible file chooser controls: ${error instanceof Error ? error.message : String(error)}`,
+        remediation: [
+          {
+            label: "Use visible Project Sources UI",
+            instruction: "Open the Project Sources tab, click Add source, choose the local file upload option, and retry after the browser file chooser is available.",
+            userActionRequired: true
+          }
+        ],
+        resumable: true
+      },
+      context: await contextFromPage(page)
+    };
+  }
+}
+async function clickSourcesTabIfAvailable(page, timeoutMs) {
+  try {
+    await clickProjectSourceControl(page, localeLabels.projectSourcesTab, "tab", timeoutMs);
+  } catch {
+  }
+}
+async function clickProjectSourceControl(page, labels, role, timeoutMs) {
+  const locator = page.getByRole?.(role, { name: anyLabelPattern(labels) });
+  if (locator !== void 0 && await locatorCount2(locator) > 0) {
+    await (locator.first?.() ?? locator).click?.({ timeout: Math.min(timeoutMs, 1e4) });
+    await page.waitForTimeout?.(250);
+    return;
+  }
+  const selector = labels.map((label) => `button[aria-label*='${cssString(label)}'], [role='${role}'][aria-label*='${cssString(label)}']`).join(", ");
+  const fallback = page.locator?.(selector);
+  if (fallback !== void 0 && await locatorCount2(fallback) > 0) {
+    await (fallback.first?.() ?? fallback).click?.({ timeout: Math.min(timeoutMs, 1e4) });
+    await page.waitForTimeout?.(250);
+    return;
+  }
+  throw new Error(`Project Sources ${role} was not available for labels: ${labels.join(", ")}`);
+}
+async function waitForFileChooser2(page, timeoutMs) {
+  const rawChooser = await page.waitForEvent?.("filechooser", { timeout: timeoutMs, timeoutMs });
+  if (rawChooser === null || typeof rawChooser !== "object" || typeof rawChooser.setFiles !== "function") {
+    throw new Error("Project Sources file chooser did not expose setFiles().");
+  }
+  return rawChooser;
+}
+async function raceFileChooserOpen(chooserPromise, page, waitMs) {
+  return Promise.race([
+    chooserPromise.then(() => true, () => false),
+    (page.waitForTimeout?.(waitMs) ?? new Promise((resolve4) => setTimeout(resolve4, waitMs))).then(() => false)
+  ]);
+}
+async function locatorCount2(locator) {
+  if (typeof locator.count !== "function") {
+    return 0;
+  }
+  return locator.count();
+}
+function normalizedBatchSize(value) {
+  if (value === void 0) {
+    return DEFAULT_PROJECT_SOURCE_BATCH_SIZE;
+  }
+  return Number.isInteger(value) && value > 0 ? value : DEFAULT_PROJECT_SOURCE_BATCH_SIZE;
+}
+function splitProjectHandle(handle) {
+  const match = /^(g-p-[0-9a-f]{16,})(?:-(.+))?$/i.exec(handle);
+  if (match === null) {
+    return { projectId: handle };
+  }
+  const result = { projectId: match[1] };
+  if (match[2] !== void 0 && match[2].length > 0) {
+    result.projectSlug = match[2];
+  }
+  return result;
+}
+function sameProjectPageUrl(current, expected) {
+  if (current === void 0) {
+    return false;
+  }
+  try {
+    const currentUrl = new URL(current);
+    const expectedUrl = new URL(expected);
+    return currentUrl.origin === expectedUrl.origin && trimTrailingSlash(currentUrl.pathname) === trimTrailingSlash(expectedUrl.pathname);
+  } catch {
+    return false;
+  }
+}
+function trimTrailingSlash(value) {
+  return value.endsWith("/") ? value.slice(0, -1) : value;
+}
+function sourceNameKey(value) {
+  return normalizeText2(value).toLocaleLowerCase();
+}
+function extractChildTexts(html, tags) {
+  const tagPattern = tags.join("|");
+  const pattern = new RegExp(`<(${tagPattern})\\b[^>]*>([\\s\\S]*?)<\\/\\1>`, "gi");
+  return Array.from(html.matchAll(pattern)).map((match) => normalizeText2(stripTags2(match[2] ?? ""))).filter(Boolean);
+}
+function extractAttrValues(html, name) {
+  const pattern = new RegExp(`${name}=["']([^"']+)["']`, "gi");
+  return Array.from(html.matchAll(pattern)).map((match) => normalizeText2(match[1] ?? "")).filter(Boolean);
+}
+function looksLikeSourceName(text) {
+  return text.length > 0 && text.length <= 160 && !/^(ready|processing|uploading|failed|error|add sources?|sources?|newest|all|source actions)$/i.test(text) && !/^(sort|filter) sources?:/i.test(text);
+}
+function sourceNameFromCandidateText(text) {
+  const name = normalizeText2(text).replace(/\s+(Document|File|PDF|Image|Spreadsheet|Text|Code|CSV|Markdown)\s+·.*$/i, "");
+  return looksLikeSourceName(name) ? name : void 0;
+}
+function extractSourcesSectionRowsFromHtml(html) {
+  const sources = [];
+  const sectionPattern = /<section\b(?<attrs>[^>]*aria-label=["']Sources["'][^>]*)>(?<body>[\s\S]*?)<\/section>/gi;
+  for (const match of html.matchAll(sectionPattern)) {
+    const body = match.groups?.body ?? "";
+    const texts = [
+      ...extractAttrValues(body, "aria-label"),
+      ...extractChildTexts(body, ["button"])
+    ];
+    for (const text of texts) {
+      const name = sourceNameFromCandidateText(text);
+      if (name !== void 0) {
+        sources.push({ name, status: normalizeProjectSourceStatus(text) });
+      }
+    }
+  }
+  return dedupeAdjacentSources(sources);
+}
+function normalizeProjectSourceStatus(value) {
+  if (/\b(ready|added|available|synced)\b/i.test(value)) return "ready";
+  if (/\b(processing|uploading|adding|pending|in progress)\b/i.test(value)) return "processing";
+  if (/\b(failed|error|unsupported)\b/i.test(value)) return "failed";
+  return "unknown";
+}
+function dedupeAdjacentSources(sources) {
+  const deduped = [];
+  for (const source of sources) {
+    const previous = deduped.at(-1);
+    if (previous?.name === source.name && previous.status === source.status) {
+      continue;
+    }
+    deduped.push(source);
+  }
+  return deduped;
+}
+function dedupeCandidates(candidates) {
+  const seen = /* @__PURE__ */ new Set();
+  const deduped = [];
+  for (const candidate of candidates) {
+    const label = normalizeText2(candidate.label);
+    if (label.length === 0) {
+      continue;
+    }
+    const role = candidate.role === void 0 ? void 0 : normalizeText2(candidate.role);
+    const key = `${role ?? ""}\0${label}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    const item = { label };
+    if (role !== void 0 && role.length > 0) {
+      item.role = role;
+    }
+    deduped.push(item);
+  }
+  return deduped;
+}
+function attr2(attrs, name) {
+  const pattern = new RegExp(`${name}=["']([^"']+)["']`, "i");
+  return pattern.exec(attrs)?.[1];
+}
+function stripInteractiveHtml(html) {
+  return html.replace(/<(button|a)\b[\s\S]*?<\/\1>/gi, " ");
+}
+function stripTags2(value) {
+  return value.replace(/<[^>]+>/g, " ");
+}
+function normalizeText2(value) {
+  return decodeEntities(value).replace(/\s+/g, " ").trim();
+}
+function decodeEntities(value) {
+  return value.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+}
+function cssString(value) {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+function isRecord2(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 // src/commands/response-actions.ts
 async function copyResponse(env, args = {}) {
   const boot = await ensurePage5(env);
@@ -6424,6 +7011,12 @@ async function executeStep(step, env, previousResults) {
       return attachFiles(env, step.args);
     case "files.downloadLatest":
       return downloadLatestFile(env, step.args);
+    case "projects.sources.list":
+      return listProjectSources(env, step.args);
+    case "projects.sources.planAdd":
+      return buildProjectSourceAddPlan(env, step.args);
+    case "projects.sources.add":
+      return addProjectSources(env, step.args);
     case "response.copy":
       return copyResponse(env, step.args);
     case "modes.set":
@@ -7182,7 +7775,7 @@ function outputTextFromResult(result) {
   return findStringByKey(result.data, /* @__PURE__ */ new Set(["responseText", "markdown", "text", "normalizedText", "visibleText"]));
 }
 function findStringByKey(value, keys) {
-  if (!isRecord2(value)) return void 0;
+  if (!isRecord3(value)) return void 0;
   for (const [key, child] of Object.entries(value)) {
     if (keys.has(key) && typeof child === "string" && child.length > 0) return child;
   }
@@ -7192,7 +7785,7 @@ function findStringByKey(value, keys) {
   }
   return void 0;
 }
-function isRecord2(value) {
+function isRecord3(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -7214,6 +7807,9 @@ var commandRisk = {
   "files.preflight": "low",
   "files.attach": "medium",
   "files.downloadLatest": "medium",
+  "projects.sources.list": "low",
+  "projects.sources.planAdd": "low",
+  "projects.sources.add": "medium",
   "response.copy": "medium",
   "modes.set": "medium",
   "tools.select": "medium",
@@ -7310,6 +7906,9 @@ var descriptors = [
   primitive("files.preflight", "Validate local file paths, size limits, duplicates, zero-byte files, and extension-based MIME/category guesses without opening ChatGPT.", 3e4),
   primitive("files.attach", "Attach absolute local file paths through visible ChatGPT upload controls.", 18e4),
   primitive("files.downloadLatest", "Download the latest visible ChatGPT file affordance.", 12e4),
+  primitive("projects.sources.list", "Open or claim a visible ChatGPT Project Sources tab and list source names/statuses without source contents.", 3e4),
+  primitive("projects.sources.planAdd", "Dry-run an append-only Project Sources file add from explicit local files without opening ChatGPT.", 3e4),
+  primitive("projects.sources.add", "Append explicit local files to a visible ChatGPT Project Sources list after confirmMutation: true.", 18e4),
   primitive("response.copy", "Click Copy response and return clipboard Markdown, with DOM fallback.", 5e3),
   primitive("modes.set", "Select a visible model or effort candidate when unambiguous.", 3e4),
   primitive("tools.select", "Select a visible ChatGPT tool when unambiguous.", 3e4)
@@ -7456,6 +8055,9 @@ function primitiveArgs(name) {
   if (name.startsWith("threads.search")) return { query: "history search query" };
   if (name === "files.preflight") return { paths: "absolute local file paths", maxBytesPerFile: "optional local per-file byte limit", maxTotalBytes: "optional local total byte limit" };
   if (name.startsWith("files.attach")) return { paths: "absolute local file paths" };
+  if (name === "projects.sources.list") return { projectUrl: "ChatGPT Project URL such as https://chatgpt.com/g/g-p-.../project", existingTab: "optional exact existing-tab policy", timeoutMs: "optional browser timeout" };
+  if (name === "projects.sources.planAdd") return { projectUrl: "ChatGPT Project URL", files: "explicit absolute local file paths", batchSize: "optional upload batch size" };
+  if (name === "projects.sources.add") return { projectUrl: "ChatGPT Project URL", files: "explicit absolute local file paths", confirmMutation: "must be true to mutate Project Sources", batchSize: "optional upload batch size" };
   if (name === "modes.set") {
     return {
       effort: "visible effort label such as Thinking or Extended",
@@ -7483,6 +8085,15 @@ function primitiveExamples(name) {
       String.raw`// On Windows backend hosts, use paths such as C:\Users\you\Pictures\image.jpg.`
     ];
   }
+  if (name === "projects.sources.list") {
+    return [`await chatgpt.projects.sources.list({ projectUrl: "https://chatgpt.com/g/g-p-example/project" });`];
+  }
+  if (name === "projects.sources.planAdd") {
+    return [`await chatgpt.projects.sources.planAdd({ projectUrl: "https://chatgpt.com/g/g-p-example/project", files: ["/absolute/host/path.md"] });`];
+  }
+  if (name === "projects.sources.add") {
+    return [`await chatgpt.projects.sources.add({ projectUrl: "https://chatgpt.com/g/g-p-example/project", files: ["/absolute/host/path.md"], confirmMutation: true });`];
+  }
   if (name.startsWith("artifacts.")) {
     return [`await chatgpt.artifacts.downloadLatest({ destDir: "/absolute/host/output" });`];
   }
@@ -7492,6 +8103,8 @@ function primitiveBlockers(name) {
   if (name === "files.preflight") return ["not_found", "permission", "upload_failed"];
   if (name.startsWith("files.attach")) return ["browser_bridge_unavailable", "login_required", "permission", "upload_failed"];
   if (name.startsWith("files.download")) return ["browser_bridge_unavailable", "login_required", "download_unavailable"];
+  if (name === "projects.sources.planAdd") return ["not_found", "permission", "upload_failed"];
+  if (name.startsWith("projects.sources.")) return ["browser_bridge_unavailable", "login_required", "selector_drift", "confirmation", "permission", "upload_failed"];
   if (name.startsWith("artifacts.")) return ["browser_bridge_unavailable", "login_required", "artifact_unavailable", "artifact_selector_drift", "artifact_download_unavailable"];
   if (name.startsWith("modes.") || name.startsWith("tools.")) return ["browser_bridge_unavailable", "login_required", "selector_drift"];
   return commonBlockers();
@@ -7640,7 +8253,7 @@ function toRunResult(agent, result) {
   return mapped;
 }
 function extractOutputText(data) {
-  if (!isRecord3(data)) return "";
+  if (!isRecord4(data)) return "";
   if (typeof data.responseText === "string") return data.responseText;
   if (typeof data.text === "string") return data.text;
   for (const value of Object.values(data)) {
@@ -7671,7 +8284,7 @@ function runItemsFromResult(result, outputText) {
   return items;
 }
 function messageItemsFromData(data) {
-  if (!isRecord3(data)) return [];
+  if (!isRecord4(data)) return [];
   const items = [];
   if (typeof data.prompt === "string" && data.prompt.length > 0) {
     items.push({
@@ -7717,7 +8330,7 @@ function failedCommand(result) {
   }
   return void 0;
 }
-function isRecord3(value) {
+function isRecord4(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -7803,7 +8416,7 @@ function validateResponsesCreateArgs(args) {
       alternative: 'Use instructionsMode: "visible_prefix" or omit instructionsMode.'
     });
   }
-  if (isRecord4(args.text)) {
+  if (isRecord5(args.text)) {
     const format = args.text.format;
     if (format !== void 0 && (typeof format !== "string" || !responseFormats.has(format))) {
       unsupported2.push({
@@ -7896,7 +8509,7 @@ function apiOnlyField(path3, alternative) {
 function responseId(now) {
   return `chatgpt-browser-${now.getTime().toString(36)}`;
 }
-function isRecord4(value) {
+function isRecord5(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -8029,6 +8642,13 @@ function createChatGPT(options = {}) {
       preflight: (args) => preflightFiles(env, args),
       attach: (args) => attachFiles(env, args),
       downloadLatest: (args) => downloadLatestFile(env, args)
+    },
+    projects: {
+      sources: {
+        list: (args) => listProjectSources(env, args),
+        planAdd: (args) => buildProjectSourceAddPlan(env, args),
+        add: (args) => addProjectSources(env, args)
+      }
     },
     artifacts: {
       listLatest: (args) => listLatestArtifacts(env, args),
@@ -8349,7 +8969,7 @@ async function runPlanInvocation(plan, env, limits, defaults, reporting) {
       return maybeAttachReport(env, result, reportOptions(plan.report, reporting), limits);
     }
     if (!("steps" in plan) && plan.name === "redacted-run-report") {
-      const input = isRecord5(plan.input) ? plan.input : {};
+      const input = isRecord6(plan.input) ? plan.input : {};
       const result = input.result;
       if (!isCommandResult2(result)) {
         throw new Error('Named workflow "redacted-run-report" requires input.result to be a CommandResult.');
@@ -8487,7 +9107,7 @@ function planOpenThread(thread) {
   };
 }
 function planByName(name, args, defaults = {}) {
-  const input = isRecord5(args) ? args : {};
+  const input = isRecord6(args) ? args : {};
   switch (name) {
     case "new-ask-read":
       return planAskWorkflow({ prompt: stringInput(input, "prompt"), thread: { type: "new" } }, defaults);
@@ -8550,7 +9170,7 @@ function resultSummary(result) {
   };
 }
 function isCommandResult2(value) {
-  return isRecord5(value) && typeof value.ok === "boolean" && typeof value.status === "string" && Array.isArray(value.warnings) && isRecord5(value.context) && typeof value.context.timestamp === "string";
+  return isRecord6(value) && typeof value.ok === "boolean" && typeof value.status === "string" && Array.isArray(value.warnings) && isRecord6(value.context) && typeof value.context.timestamp === "string";
 }
 function bootstrapStepForWorkflow(thread, existingTab, preferExistingTab) {
   const args = bootstrapArgsForWorkflow(thread, existingTab, preferExistingTab);
@@ -8645,7 +9265,7 @@ function isTypedThread(thread) {
 function normalizeFileInputs(files) {
   return files.map((file) => typeof file === "string" ? file : file.path);
 }
-function isRecord5(value) {
+function isRecord6(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 function stringInput(input, key) {
@@ -8713,6 +9333,9 @@ var backendCommands = [
   "files.preflight",
   "files.attach",
   "files.downloadLatest",
+  "projects.sources.list",
+  "projects.sources.planAdd",
+  "projects.sources.add",
   "modes.set",
   "tools.select",
   "response.copy"
@@ -8729,7 +9352,7 @@ var ProtocolError = class extends Error {
 };
 var commandSet = new Set(backendCommands);
 function parseBackendRequest(raw) {
-  if (!isRecord6(raw)) {
+  if (!isRecord7(raw)) {
     throw new ProtocolError("invalid_request", "Backend request must be an object.", false);
   }
   const schemaVersion = raw.schemaVersion;
@@ -8792,12 +9415,12 @@ function backendEventCompleted(requestId, result) {
 }
 function normalizePayload(value) {
   if (value === void 0) return {};
-  if (!isRecord6(value)) {
+  if (!isRecord7(value)) {
     throw new ProtocolError("invalid_request", "Backend request payload must be an object when provided.", false);
   }
   return value;
 }
-function isRecord6(value) {
+function isRecord7(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -9010,7 +9633,7 @@ var StdioBackendTransport = class {
       ));
       return;
     }
-    if (!isRecord7(value)) {
+    if (!isRecord8(value)) {
       this.failAll(new BackendClientError("invalid_backend_message", "Backend protocol line must be a JSON object.", true));
       return;
     }
@@ -9242,7 +9865,7 @@ var AsyncQueue = class {
     for (const waiter of waiters) waiter();
   }
 };
-function isRecord7(value) {
+function isRecord8(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -9407,6 +10030,12 @@ async function dispatchBackendCommand(client, request) {
       return client.files.attach(payload);
     case "files.downloadLatest":
       return client.files.downloadLatest(payload);
+    case "projects.sources.list":
+      return client.projects.sources.list(payload);
+    case "projects.sources.planAdd":
+      return client.projects.sources.planAdd(payload);
+    case "projects.sources.add":
+      return client.projects.sources.add(payload);
     case "modes.set":
       return client.modes.set(payload);
     case "tools.select":
@@ -9436,11 +10065,11 @@ function runInput(payload) {
   return payload.input;
 }
 function runPlanPayload(payload) {
-  if (isRecord8(payload.plan)) return payload.plan;
+  if (isRecord9(payload.plan)) return payload.plan;
   return payload;
 }
 function commandFilter(payload) {
-  if (isRecord8(payload.filter)) return payload.filter;
+  if (isRecord9(payload.filter)) return payload.filter;
   return Object.keys(payload).length === 0 ? void 0 : payload;
 }
 function requiredString(payload, key) {
@@ -9460,7 +10089,7 @@ function optionalString(payload, key) {
 }
 function requiredRecord(payload, key) {
   const value = payload[key];
-  if (!isRecord8(value)) {
+  if (!isRecord9(value)) {
     throw new ProtocolError("invalid_request", `Backend command requires payload.${key} as an object.`, false);
   }
   return value;
@@ -9468,7 +10097,7 @@ function requiredRecord(payload, key) {
 function optionalRecord(payload, key) {
   const value = payload[key];
   if (value === void 0) return void 0;
-  if (!isRecord8(value)) {
+  if (!isRecord9(value)) {
     throw new ProtocolError("invalid_request", `Backend command payload.${key} must be an object when provided.`, false);
   }
   return value;
@@ -9476,7 +10105,7 @@ function optionalRecord(payload, key) {
 function emptyToUndefined(payload) {
   return Object.keys(payload).length === 0 ? void 0 : payload;
 }
-function isRecord8(value) {
+function isRecord9(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 export {
@@ -9499,6 +10128,7 @@ export {
   UNTRUSTED_OUTPUT_INLINE_LIMIT_BYTES,
   UNTRUSTED_OUTPUT_SCHEMA_VERSION,
   addFilesButton,
+  addProjectSources,
   ask,
   askInThread,
   askMessage,
@@ -9513,6 +10143,7 @@ export {
   backendResponseError,
   backendResponseOk,
   bootstrap,
+  buildProjectSourceAddPlan,
   classifyVisibleText,
   commandDescriptors,
   commandRisk,
@@ -9535,6 +10166,7 @@ export {
   decodeBasicEntities,
   defaultSequencePolicy,
   describeCommand,
+  diffProjectSourceNames,
   doctor,
   downloadLatestArtifact,
   downloadLatestAttachment,
@@ -9544,6 +10176,7 @@ export {
   explainCommandBlocker,
   extractMenuItemsFromText,
   extractMessagesFromHtml,
+  extractProjectSourcesFromHtml,
   extractRoleMessageHtml,
   extractThreadSearchResultsFromHtml,
   fencedTextBlock,
@@ -9559,12 +10192,14 @@ export {
   isTransientAssistantText,
   listLatestArtifacts,
   listPageArtifacts,
+  listProjectSources,
   locatorCountWithTimeout,
   newChatButton,
   newThread,
   normalizeLabel,
   normalizeLineBreaks,
   normalizePolicy,
+  normalizeProjectSourcesUrl,
   normalizePromptForIntegrity,
   normalizeResponseFormat,
   normalizeWhitespace,
@@ -9608,6 +10243,7 @@ export {
   runItemStreamEvent,
   runSequence,
   runSequenceWithExecutor,
+  safeProjectSourceCandidatesFromHtml,
   searchChatsButton,
   searchChatsInput,
   searchOpenCopyLatest,
