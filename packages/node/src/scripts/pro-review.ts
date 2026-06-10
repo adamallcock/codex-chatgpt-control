@@ -16,6 +16,7 @@ import type {
   WaitAndReadArgs
 } from "../types.js";
 import { normalizePromptForHash } from "../dom/visible-text.js";
+import { appendProReviewRunMarker } from "../pro-review/run-marker.js";
 
 const DEFAULT_FORMAT: ResponseFormat = "markdown";
 const DEFAULT_RESPONSE_TIMEOUT_MS = 600000;
@@ -77,7 +78,9 @@ export type ProReviewCliOptions = {
   stableMs: number;
 };
 
-export type ProReviewCliClient = Pick<ChatGPTClient, "proReview">;
+export type ProReviewCliClient = {
+  proReview: Pick<ChatGPTClient["proReview"], "dryRun" | "submitAndRead">;
+};
 
 export class ProReviewUsageError extends Error {
   constructor(message: string, readonly exitCode = 2) {
@@ -207,12 +210,18 @@ export async function runProReview(
   options: ProReviewCliOptions
 ): Promise<CommandResult<unknown>> {
   const prompt = options.prompt ?? await readTextFile(options.promptFile);
+  const runId = options.runId ?? (options.submit || options.outputPath !== undefined ? generateRunId() : undefined);
+  const reviewPrompt = runId === undefined ? prompt : await proReviewPromptWithMarker(prompt, options.zipPath, runId);
+  const runOptions: ProReviewCliOptions = {
+    ...options,
+    ...(runId !== undefined ? { runId } : {})
+  };
   const mode = modeArgs(options);
   const common = {
     zipPath: options.zipPath,
-    prompt,
+    prompt: reviewPrompt,
     ...(mode !== undefined ? { mode } : {}),
-    ...(options.runId !== undefined ? { runId: options.runId } : {})
+    ...(runId !== undefined ? { runId } : {})
   };
 
   const result = options.submit
@@ -227,7 +236,7 @@ export async function runProReview(
     });
 
   if (options.outputPath !== undefined) {
-    const outputMetaPath = await writeOutputFiles(options.outputPath, result, options, prompt);
+    const outputMetaPath = await writeOutputFiles(options.outputPath, result, runOptions, reviewPrompt);
     return {
       ...result,
       context: {
@@ -338,6 +347,18 @@ function responseArgs(options: ProReviewCliOptions): WaitAndReadArgs {
     stableMs: options.stableMs,
     ...(options.maxChars !== undefined ? { maxChars: options.maxChars } : {})
   };
+}
+
+async function proReviewPromptWithMarker(prompt: string, zipPath: string, runId: string): Promise<string> {
+  const zipStat = await stat(zipPath);
+  const zipSha256 = await sha256File(zipPath);
+  return appendProReviewRunMarker(prompt, {
+    runId,
+    promptSha256: sha256Text(normalizePromptForHash(prompt)),
+    zipSha256,
+    zipName: basename(zipPath),
+    zipBytes: zipStat.size
+  });
 }
 
 async function writeOutputFiles(

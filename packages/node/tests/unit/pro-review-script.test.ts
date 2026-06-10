@@ -96,7 +96,10 @@ describe("pro-review entrypoint", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(calls).toEqual([`submit:${zipPath}:Review now.:120000:1500`]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain(`submit:${zipPath}:Review now.`);
+    expect(calls[0]).toContain("runId: run-123");
+    expect(calls[0]).toContain(":120000:1500");
     const outputPath = (result.context as Record<string, unknown>).outputPath;
     const outputMetaPath = (result.context as Record<string, unknown>).outputMetaPath;
     expect(typeof outputPath).toBe("string");
@@ -116,7 +119,7 @@ describe("pro-review entrypoint", () => {
       prompt: {
         path: expect.any(String),
         sha256: expect.any(String),
-        bytes: "Review now.".length
+        bytes: expect.any(Number)
       },
       zip: {
         basename: "review.zip",
@@ -141,6 +144,9 @@ describe("pro-review entrypoint", () => {
       }
     });
     const returnPromptPath = ((meta.return as Record<string, unknown>).promptPath) as string;
+    const inputPrompt = await readFile((meta.prompt as Record<string, unknown>).path as string, "utf8");
+    expect(inputPrompt).toContain("## Codex ChatGPT Pro Review Run");
+    expect(inputPrompt).toContain("runId: run-123");
     const returnPrompt = await readFile(returnPromptPath, "utf8");
     expect(returnPrompt).toContain("runId: run-123");
     expect(returnPrompt).toContain(`answerPath: ${outputPath}`);

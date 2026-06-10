@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createChatGPT } from "../../src/client.js";
+import { appendProReviewRunMarker } from "../../src/pro-review/run-marker.js";
 import type { BrowserLike, CommandResult, PageLike } from "../../src/types.js";
 
 describe("createChatGPT", () => {
@@ -134,6 +135,49 @@ describe("createChatGPT", () => {
     expect(typeof chatgpt.messages.readLatest).toBe("function");
     expect(typeof chatgpt.files.attach).toBe("function");
     expect(typeof chatgpt.response.copy).toBe("function");
+  });
+
+  it("recovers Pro review answers only from a tab with the matching run marker", async () => {
+    const promptSha256 = "a".repeat(64);
+    const zipSha256 = "b".repeat(64);
+    const submitted = appendProReviewRunMarker("Review this.", {
+      runId: "run-recover",
+      promptSha256,
+      zipSha256,
+      zipName: "review.zip",
+      zipBytes: 5
+    });
+    const page = fakeConversationPage(submitted, "Recovered answer text from Pro.");
+    const browser: BrowserLike = {
+      name: "chrome",
+      user: {
+        openTabs: () => [{ id: "tab-1", url: "https://chatgpt.com/c/convo-1", title: "Review" }],
+        claimTab: () => page
+      }
+    };
+    const chatgpt = createChatGPT({ browser });
+
+    const recovered = await chatgpt.proReview.recover({
+      runId: "run-recover",
+      conversationId: "convo-1",
+      expectedPromptSha256: promptSha256,
+      expectedZipSha256: zipSha256,
+      minChars: 10,
+      response: { prefer: "dom", format: "markdown" }
+    });
+
+    expect(recovered.ok).toBe(true);
+    expect(recovered.data).toMatchObject({
+      text: "Recovered answer text from Pro.",
+      source: "dom",
+      runId: "run-recover",
+      recovered: true,
+      marker: {
+        runId: "run-recover",
+        promptSha256,
+        zipSha256
+      }
+    });
   });
 
   it("blocks workflows that exceed run budgets before opening the browser", async () => {
@@ -315,6 +359,21 @@ function fakeChatGPTPage(): PageLike {
   };
 }
 
+function fakeConversationPage(userText: string, assistantText: string): PageLike {
+  return {
+    url: () => "https://chatgpt.com/c/convo-1",
+    title: async () => "ChatGPT",
+    content: async () => [
+      "<main>New chat Search chats Chat with ChatGPT",
+      `<article data-message-author-role="user"><p>${escapeHtml(userText)}</p></article>`,
+      `<article data-message-author-role="assistant"><p>${escapeHtml(assistantText)}</p></article>`,
+      "</main>"
+    ].join(""),
+    locator: () => ({ count: async () => 0 }),
+    waitForEvent: async () => ({})
+  };
+}
+
 function fakeLoginPage(): PageLike {
   return {
     url: () => "https://chatgpt.com/",
@@ -323,4 +382,11 @@ function fakeLoginPage(): PageLike {
     locator: () => ({ count: async () => 0 }),
     waitForEvent: async () => ({})
   };
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }

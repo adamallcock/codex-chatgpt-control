@@ -28,6 +28,7 @@ import type {
 import { assertSafeToSubmit } from "./commands/guards.js";
 import { attachFiles, downloadLatestFile, verifyAttachedFiles } from "./commands/files.js";
 import { doctor, type DoctorArgs, type DoctorReport } from "./commands/doctor.js";
+import { contextFromPage } from "./commands/context.js";
 import { askMessage, composeMessage, inspectComposer, readLatest, submitMessage, waitAndRead, waitForMessage } from "./commands/messages.js";
 import { selectTool, setMode } from "./commands/modes.js";
 import { createRunReport, type RunReportData, type RunReportOptions } from "./commands/reports.js";
@@ -59,7 +60,9 @@ import {
 } from "./runner/responses.js";
 import { streamFromRunResult } from "./runner/stream.js";
 import { redactReportValue, type ReportRedactionOptions } from "./safety/report-redaction.js";
+import { readMessages } from "./dom/messages.js";
 import { normalizePromptForHash } from "./dom/visible-text.js";
+import { appendProReviewRunMarker, parseProReviewRunMarker } from "./pro-review/run-marker.js";
 
 export type ChatGPTClientOptions = RuntimeEnv & {
   defaults?: {
@@ -145,6 +148,17 @@ export type ProReviewWorkflowArgs = {
   report?: boolean | RunReportOptions;
 };
 
+export type ProReviewRecoveryArgs = {
+  runId: string;
+  tabId?: string;
+  conversationId?: string;
+  url?: string;
+  expectedPromptSha256?: string;
+  expectedZipSha256?: string;
+  minChars?: number;
+  response?: CopyResponseArgs;
+};
+
 const DEFAULT_PRO_REVIEW_MODE: SetModeArgs = { model: "Pro", effort: "拡張" };
 
 export type NamedWorkflowInvocation = {
@@ -168,6 +182,7 @@ export type ChatGPTClient = {
   proReview: {
     dryRun(args: Omit<ProReviewWorkflowArgs, "autoSubmit"> & { autoSubmit?: false }): Promise<CommandResult<unknown>>;
     submitAndRead(args: ProReviewWorkflowArgs & { autoSubmit: true }): Promise<CommandResult<unknown>>;
+    recover(args: ProReviewRecoveryArgs): Promise<CommandResult<unknown>>;
   };
   openThread(thread: WorkflowThread): Promise<CommandResult<unknown>>;
   readLatest(args?: ReadLatestArgs): Promise<CommandResult<unknown>>;
@@ -253,7 +268,8 @@ export function createChatGPT(options: ChatGPTClientOptions = {}): ChatGPTClient
     runMessages: args => runGuarded(planRunMessages(args, options.defaults), env, limits, reportOptions(args.report, options.reporting)),
     proReview: {
       dryRun: args => runProReviewWorkflow({ ...args, autoSubmit: false }, env, limits, options.reporting),
-      submitAndRead: args => runProReviewWorkflow(args, env, limits, options.reporting)
+      submitAndRead: args => runProReviewWorkflow(args, env, limits, options.reporting),
+      recover: args => recoverProReviewAnswer(args, env)
     },
     openThread: thread => runSequence(planOpenThread(thread), env),
     readLatest: args => readLatest(env, args),
@@ -378,7 +394,17 @@ async function hasZipSignature(path: string): Promise<boolean> {
 }
 
 function planProReviewWorkflow(args: ProReviewWorkflowArgs, file: ProReviewFileMetadata): SequencePlan {
-  const promptSha256 = sha256Text(args.prompt);
+  const basePromptSha256 = sha256Text(args.prompt);
+  const submittedPrompt = args.runId === undefined
+    ? args.prompt
+    : appendProReviewRunMarker(args.prompt, {
+      runId: args.runId,
+      promptSha256: basePromptSha256,
+      zipSha256: file.sha256,
+      zipName: file.name,
+      zipBytes: file.bytes
+    });
+  const promptSha256 = sha256Text(submittedPrompt);
   const mode = args.mode ?? DEFAULT_PRO_REVIEW_MODE;
   const guardArgs: AssertSafeToSubmitArgs = {
     expectedPromptSha256: promptSha256,
@@ -411,7 +437,7 @@ function planProReviewWorkflow(args: ProReviewWorkflowArgs, file: ProReviewFileM
         expectedPath: file.path
       }
     },
-    { id: "compose", command: "messages.compose", args: { text: args.prompt, mode: "replace" } },
+    { id: "compose", command: "messages.compose", args: { text: submittedPrompt, mode: "replace" } },
     { id: "inspect_composer", command: "messages.inspectComposer", args: { expectedSha256: promptSha256 } },
     { id: "safe_to_submit", command: "guards.assertSafeToSubmit", args: guardArgs }
   );
@@ -429,7 +455,7 @@ function planProReviewWorkflow(args: ProReviewWorkflowArgs, file: ProReviewFileM
         id: "submit",
         command: "messages.submit",
         args: {
-          text: args.prompt,
+          text: submittedPrompt,
           submitMode: "buttonOnly",
           requireChatGPTHost: true,
           requireTemporary: true,
@@ -458,6 +484,138 @@ function waitArgsFromProReviewResponse(response: WaitAndReadArgs | undefined): W
     ...(response?.stableMs !== undefined ? { stableMs: response.stableMs } : {}),
     ...(response?.pollMs !== undefined ? { pollMs: response.pollMs } : {}),
     ...(response?.mode !== undefined ? { mode: response.mode } : {})
+  };
+}
+
+async function recoverProReviewAnswer(
+  args: ProReviewRecoveryArgs,
+  env: RuntimeEnv
+): Promise<CommandResult<unknown>> {
+  const boot = await bootstrap(env, { existingTab: proReviewRecoveryTabPolicy(args) });
+  if (!boot.ok) {
+    return boot;
+  }
+
+  const marker = await findVisibleProReviewMarker(env, args);
+  if (!marker.ok) {
+    return marker;
+  }
+
+  const copied = await copyResponse(env, {
+    which: "latest",
+    prefer: args.response?.prefer ?? "clipboard",
+    format: args.response?.format ?? "markdown",
+    timeoutMs: args.response?.timeoutMs ?? 15000
+  });
+  const copiedText = textFromData(copied.data);
+  const minChars = args.minChars ?? 1000;
+  if (!copied.ok || copiedText === undefined || copiedText.length < minChars) {
+    return {
+      ...copied,
+      ok: false,
+      status: copied.ok ? "blocked" : copied.status,
+      blocker: copied.blocker ?? {
+        kind: "not_found",
+        code: "pro_review_recovered_answer_too_short",
+        message: `Recovered Pro answer text was too short (${copiedText?.length ?? 0}/${minChars} chars).`,
+        resumable: true
+      },
+      warnings: copied.warnings
+    };
+  }
+
+  return {
+    ...copied,
+    data: {
+      ...(copied.data !== null && typeof copied.data === "object" ? copied.data as Record<string, unknown> : {}),
+      runId: args.runId,
+      recovered: true,
+      marker: marker.data
+    }
+  };
+}
+
+function proReviewRecoveryTabPolicy(args: ProReviewRecoveryArgs): ExistingTabPolicy {
+  if (args.tabId !== undefined) {
+    return { target: { type: "tabId", tabId: args.tabId }, ifMissing: "block", ifMultiple: "block", requireChatGPT: true };
+  }
+  if (args.conversationId !== undefined) {
+    return { target: { type: "conversationId", conversationId: args.conversationId }, ifMissing: "block", ifMultiple: "block", requireChatGPT: true };
+  }
+  if (args.url !== undefined) {
+    return { target: { type: "url", url: args.url }, ifMissing: "block", ifMultiple: "block", requireChatGPT: true };
+  }
+  return { target: { type: "selected", host: "chatgpt" }, ifMissing: "block", ifMultiple: "first", requireChatGPT: true };
+}
+
+async function findVisibleProReviewMarker(
+  env: RuntimeEnv,
+  args: ProReviewRecoveryArgs
+): Promise<CommandResult<unknown>> {
+  const page = env.page;
+  if (page === undefined) {
+    return {
+      ok: false,
+      status: "blocked",
+      warnings: [],
+      blocker: {
+        kind: "not_found",
+        code: "pro_review_recovery_tab_unavailable",
+        message: "No ChatGPT page was available after recovery bootstrap.",
+        resumable: true
+      },
+      context: { timestamp: new Date().toISOString() }
+    };
+  }
+
+  const userMessages = await readMessages(page, { role: "user", format: "normalized_text" });
+  for (const message of userMessages) {
+    const marker = parseProReviewRunMarker(message.text);
+    if (marker?.runId !== args.runId) {
+      continue;
+    }
+    if (args.expectedPromptSha256 !== undefined && marker.promptSha256 !== args.expectedPromptSha256) {
+      return proReviewMarkerMismatch("promptSha256", args.expectedPromptSha256, marker.promptSha256, env);
+    }
+    if (args.expectedZipSha256 !== undefined && marker.zipSha256 !== args.expectedZipSha256) {
+      return proReviewMarkerMismatch("zipSha256", args.expectedZipSha256, marker.zipSha256, env);
+    }
+    return resultOk(marker, await contextFromPage(page));
+  }
+
+  return {
+    ok: false,
+    status: "blocked",
+    warnings: [],
+    blocker: {
+      kind: "not_found",
+      code: "pro_review_run_marker_not_found",
+      message: `No visible submitted user turn contained Pro review run marker "${args.runId}".`,
+      resumable: true
+    },
+    context: await contextFromPage(page)
+  };
+}
+
+async function proReviewMarkerMismatch(
+  field: "promptSha256" | "zipSha256",
+  expected: string,
+  actual: string,
+  env: RuntimeEnv
+): Promise<CommandResult<unknown>> {
+  return {
+    ok: false,
+    status: "blocked",
+    warnings: [],
+    blocker: {
+      kind: "confirmation",
+      code: "pro_review_run_marker_mismatch",
+      fieldPath: field,
+      message: `Recovered Pro review run marker ${field} did not match expected hash.`,
+      visibleText: `expected=${expected} actual=${actual}`,
+      resumable: true
+    },
+    context: env.page === undefined ? { timestamp: new Date().toISOString() } : await contextFromPage(env.page)
   };
 }
 
@@ -1012,6 +1170,15 @@ function resultSummary(result: CommandResult<unknown>): Record<string, unknown> 
     context: result.context,
     reportPath: result.reportPath
   };
+}
+
+function textFromData(data: unknown): string | undefined {
+  if (data === null || typeof data !== "object") {
+    return undefined;
+  }
+  const record = data as Record<string, unknown>;
+  const text = record.text ?? record.responseText ?? record.markdown ?? record.normalizedText ?? record.visibleText;
+  return typeof text === "string" ? text : undefined;
 }
 
 function isCommandResult(value: unknown): value is CommandResult<unknown> {
