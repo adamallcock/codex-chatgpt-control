@@ -49,7 +49,7 @@ export const cssSelectors = {
 
 export function composerTextbox(page: PageLike): LocatorLike {
   if (typeof page.locator !== "function" && typeof page.getByRole === "function") {
-    return page.getByRole("textbox", { name: "Chat with ChatGPT" });
+    return page.getByRole("textbox", { name: anyLabelPattern(localeLabels.composerTextbox) });
   }
   if (typeof page.getByRole === "function") {
     return page.getByRole("textbox", { name: anyLabelPattern(localeLabels.composerTextbox) });
@@ -66,7 +66,7 @@ export function sendButton(page: PageLike): LocatorLike {
     "button[aria-label='メッセージを送信する']"
   ].join(", ");
   const role = typeof page.getByRole === "function"
-    ? page.getByRole("button", { name: "Send prompt" })
+    ? page.getByRole("button", { name: anyLabelPattern(localeLabels.sendButton) })
     : undefined;
   if (typeof page.locator !== "function") {
     if (role !== undefined) return role;
@@ -101,7 +101,7 @@ export function newChatButton(page: PageLike): LocatorLike {
     "a[aria-label='新しいチャット']"
   ].join(", ");
   const role = typeof page.getByRole === "function"
-    ? page.getByRole("button", { name: "New chat" })
+    ? page.getByRole("button", { name: anyLabelPattern(localeLabels.newChat) })
     : undefined;
   if (typeof page.locator !== "function") {
     if (role !== undefined) return role;

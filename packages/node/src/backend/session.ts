@@ -214,6 +214,8 @@ async function dispatchBackendCommand(client: ChatGPTClient, request: BackendReq
       return client.projects.sources.planAdd(payload as Parameters<ChatGPTClient["projects"]["sources"]["planAdd"]>[0]);
     case "projects.sources.add":
       return client.projects.sources.add(payload as Parameters<ChatGPTClient["projects"]["sources"]["add"]>[0]);
+    case "guards.assertSafeToSubmit":
+      return client.guards.assertSafeToSubmit(payload as Parameters<ChatGPTClient["guards"]["assertSafeToSubmit"]>[0]);
     case "modes.set":
       return client.modes.set(payload as Parameters<ChatGPTClient["modes"]["set"]>[0]);
     case "tools.select":

@@ -9,19 +9,19 @@
       "integrity": {
         "inputs": [],
         "output": {
-          "bytes": 96,
-          "sha256": "850670117a5a33720b6f91ac79ce20cefe23ed760d6c47ec78f71cac06eba360",
+          "bytes": 91,
+          "sha256": "dd8ad62529007db783327efac55c90583885c806c58213017b7fabf814a2fb1f",
           "untrusted": true
         },
         "schemaVersion": "chatgpt.browser_control.integrity.v1",
         "target": {
           "bytes": 335,
-          "path": "/tmp/codex-chatgpt-control/reports/contract-fixtures/fixed-contract-report.json",
-          "sha256": "d5117c3a558823e5e01cc602dd4c776a6900472ecc2df85c6fb7e074d42e25d1"
+          "path": "C:\\Dropbox\\Projects\\codex-chatgpt-control\\packages\\node\\reports\\contract-fixtures\\2026-06-06T00-00-00-000Z-contract-report.json",
+          "sha256": "d98e7759f632b1740cb8038a702c3762a3791892af5b4b30896a10760e15dfdb"
         }
       },
-      "metaPath": "/tmp/codex-chatgpt-control/reports/contract-fixtures/fixed-contract-report.json.meta.json",
-      "path": "/tmp/codex-chatgpt-control/reports/contract-fixtures/fixed-contract-report.json"
+      "metaPath": "C:\\Dropbox\\Projects\\codex-chatgpt-control\\packages\\node\\reports\\contract-fixtures\\2026-06-06T00-00-00-000Z-contract-report.json.meta.json",
+      "path": "C:\\Dropbox\\Projects\\codex-chatgpt-control\\packages\\node\\reports\\contract-fixtures\\2026-06-06T00-00-00-000Z-contract-report.json"
     },
     "ok": true,
     "status": "ok",

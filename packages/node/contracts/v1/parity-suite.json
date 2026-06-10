@@ -627,6 +627,13 @@
       "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py"],
       "docs": ["references/backend-protocol.md", "references/localization.md", "references/python-parity.md"]
     },
+    "guards.assertSafeToSubmit": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json"],
+      "nodeTests": ["tests/unit/pro-review-safety.test.ts", "tests/unit/backend-client.test.ts"],
+      "pythonTests": ["tests/test_primitives.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "references/python-parity.md"]
+    },
     "modes.set": {
       "surface": "workflows-primitives-diagnostics",
       "fixtures": ["command-descriptors.json"],

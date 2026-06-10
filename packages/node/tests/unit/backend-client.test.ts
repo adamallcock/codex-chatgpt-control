@@ -55,6 +55,44 @@ describe("ChatGPT backend client", () => {
     ]);
   });
 
+  it("exposes guarded Pro review backend primitives", async () => {
+    const transport = new RecordingTransport({
+      ok: true,
+      result: { ok: true, status: "ok", warnings: [], context: { timestamp: "2026-06-06T00:00:00.000Z" } }
+    });
+    const chatgpt = createChatGPTBackendClient(transport);
+
+    expect(typeof chatgpt.proReview.dryRun).toBe("function");
+    expect(typeof chatgpt.proReview.submitAndRead).toBe("function");
+    expect(typeof chatgpt.session.assertChatGPTHost).toBe("function");
+    expect(typeof chatgpt.temporary.ensureOn).toBe("function");
+    expect(typeof chatgpt.messages.inspectComposer).toBe("function");
+    expect(typeof chatgpt.files.preflight).toBe("function");
+    expect(typeof chatgpt.files.verifyAttached).toBe("function");
+    expect(typeof chatgpt.guards.assertSafeToSubmit).toBe("function");
+
+    await chatgpt.proReview.dryRun({ zipPath: "/tmp/review.zip", prompt: "Review." });
+    await chatgpt.session.assertChatGPTHost();
+    await chatgpt.temporary.ensureOn();
+    await chatgpt.messages.inspectComposer({ expectedSha256: "a".repeat(64) });
+    await chatgpt.files.preflight({ paths: ["/tmp/review.zip"] });
+    await chatgpt.files.verifyAttached({ expectedName: "review.zip" });
+    await chatgpt.guards.assertSafeToSubmit({
+      expectedPromptSha256: "a".repeat(64),
+      expectedAttachmentName: "review.zip"
+    });
+
+    expect(transport.requests.map(request => request.command)).toEqual([
+      "proReview.dryRun",
+      "session.assertChatGPTHost",
+      "temporary.ensureOn",
+      "messages.inspectComposer",
+      "files.preflight",
+      "files.verifyAttached",
+      "guards.assertSafeToSubmit"
+    ]);
+  });
+
   it("matches in-process runner plans", async () => {
     const options = deterministicOptions();
     const inProcess = createChatGPT(options);

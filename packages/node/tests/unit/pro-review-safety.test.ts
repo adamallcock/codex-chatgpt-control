@@ -40,6 +40,21 @@ describe("ChatGPT Pro review safety primitives", () => {
     });
   });
 
+  it("does not treat broad temporary wording as a Temporary Chat control", async () => {
+    const result = await readTemporaryChatState({
+      page: documentPage([
+        node({ label: "一時停止" }),
+        node({ label: "Temporary files" })
+      ])
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({
+      state: "unknown",
+      candidates: []
+    });
+  });
+
   it("treats localized turn-on labels as Temporary Chat off evidence", async () => {
     const result = await readTemporaryChatState({
       page: documentPage([

@@ -131,7 +131,7 @@ async function readTemporaryCandidates(page: PageLike): Promise<TemporaryCandida
   }
 
   return withTimeout(page.evaluate(() => {
-    const labels = [/temporary chat/i, /\btemporary\b/i, /一時チャット/, /一時/];
+    const labels = [/temporary chat/i, /一時チャット/];
     const normalize = (value: string | null | undefined) => (value ?? "").replace(/\s+/g, " ").trim();
     const matchesTemporary = (value: string) => labels.some(pattern => pattern.test(value));
     const sourceEvidence = (label: string, source: string) => ({ label, source });
@@ -190,7 +190,7 @@ async function clickTemporaryCandidate(page: PageLike): Promise<boolean> {
 
   if (typeof page.evaluate === "function") {
     const clicked = await withTimeout(page.evaluate(() => {
-      const labels = [/temporary chat/i, /\btemporary\b/i, /一時チャット/, /一時/];
+      const labels = [/temporary chat/i, /一時チャット/];
       const normalize = (value: string | null | undefined) => (value ?? "").replace(/\s+/g, " ").trim();
       const matchesTemporary = (value: string) => labels.some(pattern => pattern.test(value));
       const candidates = Array.from(document.querySelectorAll("button, [role='button'], [role='switch'], [role='checkbox'], input[type='checkbox']"))

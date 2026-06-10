@@ -44,29 +44,16 @@
           "status": "blocked"
         },
         "file_preflight": {
+          "blockerKind": "upload_failed",
+          "code": "file_path_not_absolute",
           "details": {
-            "files": [
-              {
-                "bytes": 5,
-                "category": "text",
-                "extension": ".md",
-                "mimeType": "text/markdown",
-                "name": "spec.md"
-              },
-              {
-                "bytes": 11,
-                "category": "data",
-                "extension": ".json",
-                "mimeType": "application/json",
-                "name": "context.json"
-              }
-            ],
-            "pathCount": 2,
-            "totalBytes": 16,
-            "warnings": []
+            "category": "upload",
+            "severity": "action_required",
+            "userActionRequired": true
           },
-          "message": "File preflight completed without blocking local file issues.",
-          "status": "ok"
+          "message": "File attachment path must be absolute for the backend host: \\tmp\\codex-chatgpt-control\\file-preflight-contract-fixtures\\spec.md",
+          "nextCommand": "files.preflight",
+          "status": "blocked"
         },
         "localization": {
           "details": {

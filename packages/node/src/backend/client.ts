@@ -5,6 +5,7 @@ import type {
   AskInThreadWorkflowArgs,
   AskWithFilesWorkflowArgs,
   AskWorkflowArgs,
+  ProReviewWorkflowArgs,
   NamedWorkflowInvocation,
   RunMessagesArgs,
   WorkflowThread
@@ -26,10 +27,13 @@ import type { ReportRedactionOptions } from "../safety/report-redaction.js";
 import type {
   ArtifactDownloadArgs,
   ArtifactWaitArgs,
+  AssertSafeToSubmitArgs,
   BootstrapArgs,
   CommandResult,
   CopyResponseArgs,
   DownloadLatestArgs,
+  FilePreflightArgs,
+  InspectComposerArgs,
   ListArtifactsArgs,
   NewThreadArgs,
   OpenThreadArgs,
@@ -39,6 +43,7 @@ import type {
   SequencePlan,
   SetModeArgs,
   SubmitArgs,
+  VerifyAttachedArgs,
   WaitArgs
 } from "../types.js";
 import {
@@ -88,6 +93,10 @@ export type ChatGPTBackendClient = {
   askInThread(args: AskInThreadWorkflowArgs): Promise<CommandResult<unknown>>;
   askWithFiles(args: AskWithFilesWorkflowArgs): Promise<CommandResult<unknown>>;
   askAndDownload(args: AskAndDownloadWorkflowArgs): Promise<CommandResult<unknown>>;
+  proReview: {
+    dryRun(args: Omit<ProReviewWorkflowArgs, "autoSubmit"> & { autoSubmit?: false }): Promise<CommandResult<unknown>>;
+    submitAndRead(args: ProReviewWorkflowArgs & { autoSubmit: true }): Promise<CommandResult<unknown>>;
+  };
   runMessages(args: RunMessagesArgs): Promise<CommandResult<unknown>>;
   openThread(thread: WorkflowThread): Promise<CommandResult<unknown>>;
   readLatest(args?: ReadLatestArgs): Promise<CommandResult<unknown>>;
@@ -108,6 +117,12 @@ export type ChatGPTBackendClient = {
   };
   session: {
     bootstrap(args?: BootstrapArgs): Promise<CommandResult<unknown>>;
+    assertChatGPTHost(): Promise<CommandResult<unknown>>;
+  };
+  temporary: {
+    readState(): Promise<CommandResult<unknown>>;
+    ensureOn(): Promise<CommandResult<unknown>>;
+    assertVerifiedOn(): Promise<CommandResult<unknown>>;
   };
   threads: {
     "new"(args?: NewThreadArgs): Promise<CommandResult<unknown>>;
@@ -116,6 +131,7 @@ export type ChatGPTBackendClient = {
   };
   messages: {
     compose(args: { text: string; mode?: "replace" | "append"; timeoutMs?: number }): Promise<CommandResult<unknown>>;
+    inspectComposer(args?: InspectComposerArgs): Promise<CommandResult<unknown>>;
     submit(args?: SubmitArgs): Promise<CommandResult<unknown>>;
     ask(args: { text: string; wait?: boolean | WaitArgs; read?: boolean | ReadLatestArgs; timeoutMs?: number }): Promise<CommandResult<unknown>>;
     wait(args?: WaitArgs): Promise<CommandResult<unknown>>;
@@ -123,8 +139,13 @@ export type ChatGPTBackendClient = {
     waitAndRead(args?: WaitArgs & ReadLatestArgs): Promise<CommandResult<unknown>>;
   };
   files: {
+    preflight(args: FilePreflightArgs): Promise<CommandResult<unknown>>;
     attach(args: { paths: string[]; timeoutMs?: number }): Promise<CommandResult<unknown>>;
+    verifyAttached(args: VerifyAttachedArgs): Promise<CommandResult<unknown>>;
     downloadLatest(args: DownloadLatestArgs): Promise<CommandResult<unknown>>;
+  };
+  guards: {
+    assertSafeToSubmit(args: AssertSafeToSubmitArgs): Promise<CommandResult<unknown>>;
   };
   modes: {
     set(args: SetModeArgs): Promise<CommandResult<unknown>>;
@@ -176,6 +197,10 @@ export function createChatGPTBackendClient(transport: BackendTransport): ChatGPT
     askInThread: args => request("askInThread", args as Record<string, unknown>),
     askWithFiles: args => request("askWithFiles", args as Record<string, unknown>),
     askAndDownload: args => request("askAndDownload", args as Record<string, unknown>),
+    proReview: {
+      dryRun: args => request("proReview.dryRun", args as unknown as Record<string, unknown>),
+      submitAndRead: args => request("proReview.submitAndRead", args as unknown as Record<string, unknown>)
+    },
     runMessages: args => request("runMessages", args as unknown as Record<string, unknown>),
     openThread: thread => request("openThread", thread as unknown as Record<string, unknown>),
     readLatest: args => request("readLatest", args as Record<string, unknown> | undefined ?? {}),
@@ -190,7 +215,13 @@ export function createChatGPTBackendClient(transport: BackendTransport): ChatGPT
       summarize: (result, args) => request("reports.summarize", args === undefined ? { result } : { result, args })
     },
     session: {
-      bootstrap: args => request("session.bootstrap", args as Record<string, unknown> | undefined ?? {})
+      bootstrap: args => request("session.bootstrap", args as Record<string, unknown> | undefined ?? {}),
+      assertChatGPTHost: () => request("session.assertChatGPTHost")
+    },
+    temporary: {
+      readState: () => request("temporary.readState"),
+      ensureOn: () => request("temporary.ensureOn"),
+      assertVerifiedOn: () => request("temporary.assertVerifiedOn")
     },
     threads: {
       new: args => request("threads.new", args as Record<string, unknown> | undefined ?? {}),
@@ -199,6 +230,7 @@ export function createChatGPTBackendClient(transport: BackendTransport): ChatGPT
     },
     messages: {
       compose: args => request("messages.compose", args),
+      inspectComposer: args => request("messages.inspectComposer", args as Record<string, unknown> | undefined ?? {}),
       submit: args => request("messages.submit", args as Record<string, unknown> | undefined ?? {}),
       ask: args => request("messages.ask", args as Record<string, unknown>),
       wait: args => request("messages.wait", args as Record<string, unknown> | undefined ?? {}),
@@ -211,8 +243,13 @@ export function createChatGPTBackendClient(transport: BackendTransport): ChatGPT
       downloadLatest: args => request("artifacts.downloadLatest", args as unknown as Record<string, unknown>)
     },
     files: {
+      preflight: args => request("files.preflight", args as Record<string, unknown>),
       attach: args => request("files.attach", args),
+      verifyAttached: args => request("files.verifyAttached", args as unknown as Record<string, unknown>),
       downloadLatest: args => request("files.downloadLatest", args as unknown as Record<string, unknown>)
+    },
+    guards: {
+      assertSafeToSubmit: args => request("guards.assertSafeToSubmit", args as unknown as Record<string, unknown>)
     },
     modes: {
       set: args => request("modes.set", args as Record<string, unknown>)

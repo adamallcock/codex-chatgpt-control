@@ -162,6 +162,7 @@
         "autoSubmit": "required true only for submitAndRead; dryRun always stops before submit",
         "mode": "optional visible mode selection, e.g. { model: \"Pro\" }",
         "prompt": "message to compose for ChatGPT Pro",
+        "response": "optional wait/copy args used only after guarded submit",
         "runId": "optional duplicate-submission guard marker",
         "zipPath": "absolute local review zip path"
       },
@@ -193,6 +194,7 @@
         "autoSubmit": "required true only for submitAndRead; dryRun always stops before submit",
         "mode": "optional visible mode selection, e.g. { model: \"Pro\" }",
         "prompt": "message to compose for ChatGPT Pro",
+        "response": "optional wait/copy args used only after guarded submit",
         "runId": "optional duplicate-submission guard marker",
         "zipPath": "absolute local review zip path"
       },
@@ -211,7 +213,7 @@
       },
       "defaultTimeoutMs": 120000,
       "examples": [
-        "await chatgpt.proReview.submitAndRead({ zipPath: \"/absolute/path/review.zip\", prompt: \"Review the attached zip.\", mode: { model: \"Pro\" }, autoSubmit: true });"
+        "await chatgpt.proReview.submitAndRead({ zipPath: \"/absolute/path/review.zip\", prompt: \"Review the attached zip.\", mode: { model: \"Pro\" }, autoSubmit: true, response: { timeoutMs: 600000, format: \"markdown\" } });"
       ],
       "layer": "workflow",
       "name": "proReview.submitAndRead",
@@ -607,8 +609,9 @@
       "blockers": [
         "browser_bridge_unavailable",
         "login_required",
-        "selector_drift",
-        "confirmation"
+        "captcha",
+        "rate_limit",
+        "selector_drift"
       ],
       "defaults": {},
       "defaultTimeoutMs": 5000,
@@ -624,8 +627,9 @@
       "blockers": [
         "browser_bridge_unavailable",
         "login_required",
-        "selector_drift",
-        "confirmation"
+        "captcha",
+        "rate_limit",
+        "selector_drift"
       ],
       "defaults": {},
       "defaultTimeoutMs": 5000,
@@ -641,8 +645,9 @@
       "blockers": [
         "browser_bridge_unavailable",
         "login_required",
-        "selector_drift",
-        "confirmation"
+        "captcha",
+        "rate_limit",
+        "selector_drift"
       ],
       "defaults": {},
       "defaultTimeoutMs": 30000,
@@ -660,8 +665,9 @@
       "blockers": [
         "browser_bridge_unavailable",
         "login_required",
-        "selector_drift",
-        "confirmation"
+        "captcha",
+        "rate_limit",
+        "selector_drift"
       ],
       "defaults": {},
       "defaultTimeoutMs": 5000,
@@ -747,10 +753,7 @@
       "summary": "Fill the composer without submitting."
     },
     {
-      "args": {
-        "expectedSha256": "optional expected composer SHA-256",
-        "expectedText": "optional expected composer text"
-      },
+      "args": {},
       "blockers": [
         "browser_bridge_unavailable",
         "login_required",
@@ -975,11 +978,7 @@
       "summary": "Attach absolute local file paths through visible ChatGPT upload controls."
     },
     {
-      "args": {
-        "expectedBytes": "optional expected size",
-        "expectedName": "expected visible attachment basename",
-        "expectedSha256": "optional expected SHA-256"
-      },
+      "args": {},
       "blockers": [
         "browser_bridge_unavailable",
         "login_required",
@@ -1082,6 +1081,28 @@
       "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
       "risk": "medium",
       "summary": "Append explicit local files to a visible ChatGPT Project Sources list after confirmMutation: true."
+    },
+    {
+      "args": {
+        "expectedAttachmentName": "single visible attachment filename required before submit",
+        "expectedAttachmentSha256": "optional local source SHA-256 recorded for the expected attachment",
+        "expectedPromptSha256": "normalized SHA-256 of the exact prompt currently expected in the composer",
+        "runId": "optional Pro review run id used for duplicate submitted-turn guard"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift",
+        "confirmation"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 30000,
+      "examples": [],
+      "layer": "primitive",
+      "name": "guards.assertSafeToSubmit",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "high",
+      "summary": "Re-run host, Temporary Chat, attachment, composer, mode, and duplicate-run checks before guarded submission."
     },
     {
       "args": {

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -9,6 +10,8 @@ import {
   runProReview,
   type ProReviewCliClient
 } from "../../src/scripts/pro-review.js";
+import { normalizePromptForHash } from "../../src/dom/visible-text.js";
+import { parseProReviewRunMarker } from "../../src/pro-review/run-marker.js";
 
 describe("pro-review entrypoint", () => {
   it("parses dry-run arguments by default", () => {
@@ -147,6 +150,13 @@ describe("pro-review entrypoint", () => {
     const inputPrompt = await readFile((meta.prompt as Record<string, unknown>).path as string, "utf8");
     expect(inputPrompt).toContain("## Codex ChatGPT Pro Review Run");
     expect(inputPrompt).toContain("runId: run-123");
+    const marker = parseProReviewRunMarker(inputPrompt);
+    expect(marker).toMatchObject({
+      runId: "run-123",
+      promptSha256: sha256Prompt("Review now.")
+    });
+    expect((meta.prompt as Record<string, unknown>).sha256).toBe(sha256Prompt(inputPrompt));
+    expect((meta.prompt as Record<string, unknown>).sha256).not.toBe(marker?.promptSha256);
     const returnPrompt = await readFile(returnPromptPath, "utf8");
     expect(returnPrompt).toContain("runId: run-123");
     expect(returnPrompt).toContain(`answerPath: ${outputPath}`);
@@ -239,4 +249,8 @@ function ok(data: unknown): CommandResult<unknown> {
     warnings: [],
     context: { timestamp: "2026-06-09T00:00:00.000Z" }
   };
+}
+
+function sha256Prompt(text: string): string {
+  return createHash("sha256").update(normalizePromptForHash(text)).digest("hex");
 }

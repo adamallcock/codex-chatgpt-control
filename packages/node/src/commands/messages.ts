@@ -47,6 +47,7 @@ type AssistantProgressSnapshot = {
 
 type SendButtonState = {
   available: boolean;
+  count?: number;
   visible?: boolean;
   disabled?: boolean;
   busy?: boolean;
@@ -397,10 +398,20 @@ async function waitForSendButtonReady(
   let lastVisibleText: string | undefined;
 
   while (Date.now() - started < timeoutMs) {
-    const state = await readSendButtonState(page).catch(() => ({ available: true } satisfies SendButtonState));
+    const state: SendButtonState = await readSendButtonState(page).catch(error => ({
+      available: false,
+      reason: `unreadable:${error instanceof Error ? error.message : String(error)}`
+    } satisfies SendButtonState));
     lastState = state;
     if (isSendButtonReady(state)) {
-      return { ready: true, count: 1, enabled: true };
+      return { ready: true, count: state.count ?? 1, enabled: true };
+    }
+    if (state.reason === "not_unique" || state.reason?.startsWith("unreadable:")) {
+      return {
+        ready: false,
+        code: "send_button_not_ready",
+        message: `ChatGPT's send button state is not safe for submission.${describeSendState(state)}`
+      };
     }
 
     const visibleText = await readVisibleTextForSubmit(page).catch(() => undefined);
@@ -428,6 +439,7 @@ async function waitForSendButtonReady(
 
 function isSendButtonReady(state: SendButtonState): boolean {
   if (!state.available) return false;
+  if (state.count !== undefined && state.count !== 1) return false;
   if (state.visible === false) return false;
   if (state.disabled === true) return false;
   if (state.busy === true) return false;
@@ -436,12 +448,14 @@ function isSendButtonReady(state: SendButtonState): boolean {
 
 async function readSendButtonState(page: PageLike): Promise<SendButtonState> {
   const locator = sendButton(page);
-  if (typeof locator.count === "function" && await locator.count().catch(() => 1) === 0) {
-    return { available: false, reason: "not_found" };
+  const count = typeof locator.count === "function" ? await locator.count() : undefined;
+  if (count !== undefined && count !== 1) {
+    return { available: false, count, reason: count === 0 ? "not_found" : "not_unique" };
   }
   const visible = typeof locator.isVisible === "function" ? await locator.isVisible({ timeoutMs: 500 }).catch(() => undefined) : undefined;
   if (typeof locator.evaluate !== "function") {
     const state: SendButtonState = { available: true };
+    if (count !== undefined) state.count = count;
     if (visible !== undefined) state.visible = visible;
     return state;
   }
@@ -466,6 +480,7 @@ async function readSendButtonState(page: PageLike): Promise<SendButtonState> {
 
   const state: SendButtonState = {
     available: true,
+    ...(count !== undefined ? { count } : {}),
     disabled: evaluated.disabled,
     busy: evaluated.busy
   };
@@ -493,6 +508,7 @@ function describeSendState(state: SendButtonState | undefined): string {
   if (state === undefined) return "";
   const parts: string[] = [];
   if (!state.available) parts.push("available=false");
+  if (state.count !== undefined) parts.push(`count=${state.count}`);
   if (state.visible !== undefined) parts.push(`visible=${state.visible}`);
   if (state.disabled !== undefined) parts.push(`disabled=${state.disabled}`);
   if (state.busy !== undefined) parts.push(`busy=${state.busy}`);

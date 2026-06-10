@@ -109,6 +109,7 @@ const descriptors: CommandDescriptor[] = [
   primitive("projects.sources.list", "Open or claim a visible ChatGPT Project Sources tab and list source names/statuses without source contents.", 30000),
   primitive("projects.sources.planAdd", "Dry-run an append-only Project Sources file add from explicit local files without opening ChatGPT.", 30000),
   primitive("projects.sources.add", "Append explicit local files to a visible ChatGPT Project Sources list after confirmMutation: true.", 180000),
+  primitive("guards.assertSafeToSubmit", "Re-run host, Temporary Chat, attachment, composer, mode, and duplicate-run checks before guarded submission.", 30000),
   primitive("response.copy", "Click Copy response and return clipboard Markdown, with DOM fallback.", 5000),
   primitive("modes.set", "Select a visible model or effort candidate when unambiguous.", 30000),
   primitive("tools.select", "Select a visible ChatGPT tool when unambiguous.", 30000)
@@ -281,6 +282,14 @@ function primitiveArgs(name: string): Record<string, string> {
   if (name.startsWith("threads.search")) return { query: "history search query" };
   if (name === "files.preflight") return { paths: "absolute local file paths", maxBytesPerFile: "optional local per-file byte limit", maxTotalBytes: "optional local total byte limit" };
   if (name.startsWith("files.attach")) return { paths: "absolute local file paths" };
+  if (name === "guards.assertSafeToSubmit") {
+    return {
+      expectedPromptSha256: "normalized SHA-256 of the exact prompt currently expected in the composer",
+      expectedAttachmentName: "single visible attachment filename required before submit",
+      expectedAttachmentSha256: "optional local source SHA-256 recorded for the expected attachment",
+      runId: "optional Pro review run id used for duplicate submitted-turn guard"
+    };
+  }
   if (name === "projects.sources.list") return { projectUrl: "ChatGPT Project URL such as https://chatgpt.com/g/g-p-.../project", existingTab: "optional exact existing-tab policy", timeoutMs: "optional browser timeout" };
   if (name === "projects.sources.planAdd") return { projectUrl: "ChatGPT Project URL", files: "explicit absolute local file paths", batchSize: "optional upload batch size" };
   if (name === "projects.sources.add") return { projectUrl: "ChatGPT Project URL", files: "explicit absolute local file paths", confirmMutation: "must be true to mutate Project Sources", batchSize: "optional upload batch size" };
@@ -337,6 +346,7 @@ function primitiveBlockers(name: string): string[] {
   if (name.startsWith("files.download")) return ["browser_bridge_unavailable", "login_required", "download_unavailable"];
   if (name === "projects.sources.planAdd") return ["not_found", "permission", "upload_failed"];
   if (name.startsWith("projects.sources.")) return ["browser_bridge_unavailable", "login_required", "selector_drift", "confirmation", "permission", "upload_failed"];
+  if (name.startsWith("guards.")) return ["browser_bridge_unavailable", "login_required", "selector_drift", "confirmation"];
   if (name.startsWith("artifacts.")) return ["browser_bridge_unavailable", "login_required", "artifact_unavailable", "artifact_selector_drift", "artifact_download_unavailable"];
   if (name.startsWith("modes.") || name.startsWith("tools.")) return ["browser_bridge_unavailable", "login_required", "selector_drift"];
   return commonBlockers();

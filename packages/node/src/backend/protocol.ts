@@ -55,6 +55,7 @@ export const backendCommands = [
   "projects.sources.list",
   "projects.sources.planAdd",
   "projects.sources.add",
+  "guards.assertSafeToSubmit",
   "modes.set",
   "tools.select",
   "response.copy"

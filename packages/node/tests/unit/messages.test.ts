@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { askMessage, readLatest, submittedUserTurnMatches, submitMessage, waitForMessage } from "../../src/commands/messages.js";
+import { askMessage, inspectComposer, readLatest, submittedUserTurnMatches, submitMessage, waitForMessage } from "../../src/commands/messages.js";
 import { copyResponse } from "../../src/commands/response-actions.js";
 import {
   countMessages,
@@ -219,6 +219,47 @@ describe("extractMessagesFromHtml", () => {
     expect(result.ok).toBe(false);
     expect(result.blocker?.code).toBe("composer_prompt_mismatch");
     expect(clicked).toBe(false);
+  });
+
+  it("blocks composer inspection when the send button is not unique", async () => {
+    const page = composerInspectionPage({
+      send: {
+        count: async () => 2,
+        evaluate: async fn => fn({ disabled: false, getAttribute: () => null } as unknown as Element)
+      }
+    });
+
+    const result = await inspectComposer({ page }, {
+      expectedSha256: sha256Prompt("ready prompt")
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.blocker).toMatchObject({
+      kind: "selector_drift",
+      code: "send_button_not_unique_enabled"
+    });
+    expect(result.data?.sendButtonCount).toBe(0);
+  });
+
+  it("blocks composer inspection when send button state cannot be read", async () => {
+    const page = composerInspectionPage({
+      send: {
+        count: async () => 1,
+        evaluate: async () => {
+          throw new Error("strict mode violation");
+        }
+      }
+    });
+
+    const result = await inspectComposer({ page }, {
+      expectedSha256: sha256Prompt("ready prompt")
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.blocker).toMatchObject({
+      kind: "selector_drift",
+      code: "send_button_not_unique_enabled"
+    });
   });
 
   it("reads latest user text snapshots without serializing message HTML", async () => {
@@ -785,6 +826,26 @@ function messageNode(role: string, text: string): HTMLElement {
 
 function sha256Prompt(text: string): string {
   return createHash("sha256").update(normalizePromptForHash(text)).digest("hex");
+}
+
+function composerInspectionPage(options: { send: LocatorLike }): PageLike {
+  const textbox: LocatorLike = {
+    innerText: async () => "ready prompt",
+    textContent: async () => "ready prompt"
+  };
+  return {
+    getByRole: (role: string) => role === "textbox" ? textbox : options.send,
+    evaluate: async <T, A = unknown>(fn: (arg: A) => T | Promise<T>, arg?: A): Promise<T> => {
+      const source = String(fn);
+      if (source.includes("document.body?.innerText")) {
+        return "" as T;
+      }
+      return await fn(arg as A);
+    },
+    waitForTimeout: async () => {},
+    title: async () => "ChatGPT",
+    url: async () => "https://chatgpt.com/?temporary-chat=true"
+  };
 }
 
 function askWaitFallbackPage(prompt: string, answer: string): PageLike {

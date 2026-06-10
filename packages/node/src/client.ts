@@ -437,20 +437,23 @@ async function hasZipSignature(path: string): Promise<boolean> {
 }
 
 function planProReviewWorkflow(args: ProReviewWorkflowArgs, file: ProReviewFileMetadata): SequencePlan {
-  const basePromptSha256 = sha256Text(args.prompt);
+  const existingMarker = args.runId === undefined ? undefined : parseProReviewRunMarker(args.prompt);
+  const sourcePromptSha256 = existingMarker !== undefined && existingMarker.runId === args.runId
+    ? existingMarker.promptSha256
+    : sha256Text(args.prompt);
   const submittedPrompt = args.runId === undefined
     ? args.prompt
     : appendProReviewRunMarker(args.prompt, {
       runId: args.runId,
-      promptSha256: basePromptSha256,
+      promptSha256: sourcePromptSha256,
       zipSha256: file.sha256,
       zipName: file.name,
       zipBytes: file.bytes
     });
-  const promptSha256 = sha256Text(submittedPrompt);
+  const submittedPromptSha256 = sha256Text(submittedPrompt);
   const mode = args.mode ?? DEFAULT_PRO_REVIEW_MODE;
   const guardArgs: AssertSafeToSubmitArgs = {
-    expectedPromptSha256: promptSha256,
+    expectedPromptSha256: submittedPromptSha256,
     expectedAttachmentName: file.name,
     expectedAttachmentBytes: file.bytes,
     expectedAttachmentSha256: file.sha256,
@@ -481,7 +484,7 @@ function planProReviewWorkflow(args: ProReviewWorkflowArgs, file: ProReviewFileM
       }
     },
     { id: "compose", command: "messages.compose", args: { text: submittedPrompt, mode: "replace" } },
-    { id: "inspect_composer", command: "messages.inspectComposer", args: { expectedSha256: promptSha256 } },
+    { id: "inspect_composer", command: "messages.inspectComposer", args: { expectedSha256: submittedPromptSha256 } },
     { id: "safe_to_submit", command: "guards.assertSafeToSubmit", args: guardArgs }
   );
 
@@ -502,7 +505,7 @@ function planProReviewWorkflow(args: ProReviewWorkflowArgs, file: ProReviewFileM
           submitMode: "buttonOnly",
           requireChatGPTHost: true,
           requireTemporary: true,
-          expectedPromptSha256: promptSha256,
+          expectedPromptSha256: submittedPromptSha256,
           expectedAttachmentName: file.name,
           expectedAttachmentBytes: file.bytes,
           expectedAttachmentSha256: file.sha256,

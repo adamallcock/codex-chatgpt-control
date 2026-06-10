@@ -1,31 +1,17 @@
 {
   "result": {
+    "blocker": {
+      "code": "file_path_not_absolute",
+      "fieldPath": "paths[0]",
+      "kind": "upload_failed",
+      "message": "File attachment path must be absolute for the backend host: \\tmp\\codex-chatgpt-control\\file-preflight-contract-fixtures\\spec.md",
+      "resumable": true
+    },
     "context": {
       "timestamp": "2026-06-06T00:00:00.000Z"
     },
-    "data": {
-      "files": [
-        {
-          "bytes": 5,
-          "category": "text",
-          "extension": ".md",
-          "mimeType": "text/markdown",
-          "name": "spec.md",
-          "path": "/tmp/codex-chatgpt-control/file-preflight-contract-fixtures/spec.md"
-        },
-        {
-          "bytes": 11,
-          "category": "data",
-          "extension": ".json",
-          "mimeType": "application/json",
-          "name": "context.json",
-          "path": "/tmp/codex-chatgpt-control/file-preflight-contract-fixtures/context.json"
-        }
-      ],
-      "totalBytes": 16
-    },
-    "ok": true,
-    "status": "ok",
+    "ok": false,
+    "status": "blocked",
     "warnings": []
   },
   "schemaVersion": "chatgpt.browser_control.command_result.v1"
