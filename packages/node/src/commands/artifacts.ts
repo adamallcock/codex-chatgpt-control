@@ -4,7 +4,6 @@ import { waitForDownloadFromClick } from "../browser/downloads.js";
 import { readPageState } from "../browser/page-state.js";
 import { countPageArtifacts, listPageArtifacts, readLatestImageDataUrl } from "../dom/artifacts.js";
 import { cssSelectors, requiredLocator } from "../dom/selectors.js";
-import { localeLabels } from "../dom/locale-labels.js";
 import { resultOk } from "../errors.js";
 import type {
   ArtifactDownloadArgs,
@@ -574,11 +573,7 @@ async function ensurePage(env: RuntimeEnv): Promise<CommandResult<unknown>> {
 async function hasStopControl(page: RuntimeEnv["page"] & {}, timeoutMs: number): Promise<boolean> {
   if (typeof page.evaluate !== "function") return false;
   return withTimeout(
-    page.evaluate((phrases: string[]) => {
-      const text = document.body?.innerText ?? "";
-      const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return phrases.some(phrase => new RegExp(`\\b${escape(phrase)}\\b`, "i").test(text));
-    }, [...localeLabels.stopControl]),
+    page.evaluate(() => /\b(stop generating|stop streaming|cancel)\b/i.test(document.body?.innerText ?? "")),
     localGuardTimeout(timeoutMs, 2000),
     "Timed out while checking ChatGPT stop controls."
   ).catch(() => false);

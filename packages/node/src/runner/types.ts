@@ -16,7 +16,6 @@ import type {
   WaitArgs
 } from "../types.js";
 import type { RunReportOptions } from "../commands/reports.js";
-import type { UntrustedOutputReturnEnvelope } from "../safety/untrusted-output.js";
 import type { ChatGPTRunStream } from "./stream.js";
 
 export type ChatGPTThreadSelector =
@@ -213,7 +212,6 @@ export type ChatGPTRunState = {
 export type ChatGPTRunData<TOutput = string> = {
   finalOutput?: TOutput;
   outputText: string;
-  untrustedOutput?: UntrustedOutputReturnEnvelope;
   thread?: ChatGPTThreadRef;
   downloads?: DownloadedFileSummary[];
   reportPath?: string;
@@ -256,7 +254,6 @@ export type ChatGPTResponse = {
     resultStatus: CommandStatus;
     thread?: ChatGPTThreadRef;
     reportPath?: string;
-    untrustedOutput?: UntrustedOutputReturnEnvelope;
     unsupported?: UnsupportedField[];
   };
 };

@@ -69,10 +69,8 @@ const descriptors: CommandDescriptor[] = [
   report("redacted-run-report", "Named macro: create a redacted report for a supplied CommandResult.", [
     `await chatgpt.runPlan({ name: "redacted-run-report", input: { result } });`
   ]),
-  diagnostic("doctor", "Preflight browser bridge, login, upload, existing-tab, artifact, localization, report, and selector readiness.", [
-    `await chatgpt.doctor({ check: ["bridge", "login", "upload"] });`,
-    `await chatgpt.doctor({ check: ["existing_tab"], existingTab: { target: { type: "conversationId", conversationId: "<conversation-id>" }, ifMissing: "block" } });`,
-    `await chatgpt.doctor({ check: ["localization", "reports"], report: { destDir: "/absolute/host/reports" } });`
+  diagnostic("doctor", "Preflight browser bridge, login, upload, download, clipboard, mode, and tool readiness.", [
+    `await chatgpt.doctor({ check: ["bridge", "login", "upload"] });`
   ]),
   report("createReport", "Write a durable redacted run report for a command result.", [
     `await chatgpt.createReport(result, { destDir: "/absolute/host/reports" });`
@@ -230,12 +228,7 @@ function workflowDefaults(name: string): Record<string, unknown> {
 
 function diagnosticArgs(name: string): Record<string, string> {
   if (name === "doctor-upload") return {};
-  return {
-    check: "optional list of readiness checks",
-    existingTab: "optional exact existing-tab policy for check: [\"existing_tab\"]",
-    files: "optional file paths for the Stage 2 file_preflight scaffold",
-    report: "optional report output policy for check: [\"reports\"]"
-  };
+  return { check: "optional list of readiness checks" };
 }
 
 function reportArgs(name: string): Record<string, string> {

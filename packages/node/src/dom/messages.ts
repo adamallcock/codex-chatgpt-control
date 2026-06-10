@@ -11,7 +11,6 @@ import type {
   ResponseTable
 } from "../types.js";
 import { extractRoleMessageHtml, formatMessageHtml, normalizeResponseFormat } from "./message-format.js";
-import { localeLabels } from "./locale-labels.js";
 import { normalizeWhitespace } from "./visible-text.js";
 
 export type MessageRole = "user" | "assistant";
@@ -166,7 +165,10 @@ export function isTransientAssistantText(text: string): boolean {
     .trim()
     .toLowerCase();
 
-  return localeLabels.transientAssistant.some(phrase => normalized === phrase.toLowerCase())
+  return normalized === "thinking"
+    || normalized === "reasoning"
+    || normalized === "searching"
+    || normalized === "searching the web"
     || /^analyzing (?:the )?images?$/.test(normalized)
     || /^processing (?:the )?images?$/.test(normalized)
     || /^reading (?:the )?images?$/.test(normalized);

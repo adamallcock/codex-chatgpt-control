@@ -476,10 +476,7 @@
     },
     {
       "args": {
-        "check": "optional list of readiness checks",
-        "existingTab": "optional exact existing-tab policy for check: [\"existing_tab\"]",
-        "files": "optional file paths for the Stage 2 file_preflight scaffold",
-        "report": "optional report output policy for check: [\"reports\"]"
+        "check": "optional list of readiness checks"
       },
       "blockers": [
         "browser_bridge_unavailable",
@@ -489,15 +486,13 @@
       "defaults": {},
       "defaultTimeoutMs": 30000,
       "examples": [
-        "await chatgpt.doctor({ check: [\"bridge\", \"login\", \"upload\"] });",
-        "await chatgpt.doctor({ check: [\"existing_tab\"], existingTab: { target: { type: \"conversationId\", conversationId: \"<conversation-id>\" }, ifMissing: \"block\" } });",
-        "await chatgpt.doctor({ check: [\"localization\", \"reports\"], report: { destDir: \"/absolute/host/reports\" } });"
+        "await chatgpt.doctor({ check: [\"bridge\", \"login\", \"upload\"] });"
       ],
       "layer": "diagnostic",
       "name": "doctor",
       "retryPolicy": "Return structured readiness checks; retry only after the reported blocker or permission setting changes.",
       "risk": "low",
-      "summary": "Preflight browser bridge, login, upload, existing-tab, artifact, localization, report, and selector readiness."
+      "summary": "Preflight browser bridge, login, upload, download, clipboard, mode, and tool readiness."
     },
     {
       "args": {

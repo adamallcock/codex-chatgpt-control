@@ -2,7 +2,6 @@ import { readPageState } from "../browser/page-state.js";
 import { resultError, resultOk } from "../errors.js";
 import { countPageMessages, isTransientAssistantText, readLatestMessage, readLatestMessageText, readLatestMessageTextSnapshot, readMessages } from "../dom/messages.js";
 import { composerTextbox, copyResponseButtons, sendButton } from "../dom/selectors.js";
-import { localeLabels } from "../dom/locale-labels.js";
 import { normalizeLineBreaks, normalizeWhitespace } from "../dom/visible-text.js";
 import type {
   AskArgs,
@@ -680,11 +679,10 @@ function renderSubmittedTurnMarkdownSyntax(text: string, preserveFenceLanguage =
 
 async function hasStopControl(page: PageLike): Promise<boolean> {
   if (typeof page.evaluate === "function") {
-    return page.evaluate((phrases: string[]) => {
+    return page.evaluate(() => {
       const text = document.body?.innerText ?? "";
-      const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return phrases.some(phrase => new RegExp(`\\b${escape(phrase)}\\b`, "i").test(text));
-    }, [...localeLabels.stopControl]).catch(() => false);
+      return /\b(stop generating|stop streaming|cancel)\b/i.test(text);
+    }).catch(() => false);
   }
   return false;
 }
@@ -699,11 +697,7 @@ async function hasResponseActions(page: PageLike): Promise<boolean> {
     return await copyButtons.isVisible?.() === true;
   } catch {
     if (typeof page.evaluate === "function") {
-      return page.evaluate((phrases: string[]) => {
-        const text = document.body?.innerText ?? "";
-        const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return phrases.some(phrase => new RegExp(`\\b${escape(phrase)}\\b`, "i").test(text));
-      }, [...localeLabels.responseActions]).catch(() => false);
+      return page.evaluate(() => /\b(Copy response|More actions)\b/i.test(document.body?.innerText ?? "")).catch(() => false);
     }
     return true;
   }
