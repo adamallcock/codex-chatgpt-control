@@ -14,6 +14,7 @@ import type {
   FilePreflightArgs,
   FilePreflightData,
   ExistingTabPolicy,
+  InspectComposerArgs,
   ListArtifactsArgs,
   NewThreadArgs,
   OpenThreadArgs,
@@ -37,7 +38,8 @@ import type {
   WaitArgs
 } from "./types.js";
 import { downloadLatestArtifact, listLatestArtifacts, waitForArtifact } from "./commands/artifacts.js";
-import { attachFiles, downloadLatestFile, preflightFiles } from "./commands/files.js";
+import { assertSafeToSubmit } from "./commands/guards.js";
+import { attachFiles, downloadLatestFile, preflightFiles, verifyAttachedFiles } from "./commands/files.js";
 import { addProjectSources, buildProjectSourceAddPlan, listProjectSources } from "./commands/project-sources.js";
 import { doctor, type DoctorArgs, type DoctorReport } from "./commands/doctor.js";
 import { contextFromPage } from "./commands/context.js";
@@ -73,6 +75,9 @@ import {
 import { streamFromRunResult } from "./runner/stream.js";
 import { redactReportValue, type ReportRedactionOptions } from "./safety/report-redaction.js";
 import { explainCommandBlocker, type BlockerExplanation, type ExplainBlockerOptions } from "./diagnostics/blockers.js";
+import { readMessages } from "./dom/messages.js";
+import { normalizePromptForHash } from "./dom/visible-text.js";
+import { appendProReviewRunMarker, parseProReviewRunMarker } from "./pro-review/run-marker.js";
 
 export type ChatGPTClientOptions = RuntimeEnv & {
   defaults?: {
@@ -252,6 +257,9 @@ export type ChatGPTClient = {
       add(args: ProjectSourcesAddArgs): Promise<CommandResult<ProjectSourcesAddData | ProjectSourcesAddPlanData>>;
     };
   };
+  guards: {
+    assertSafeToSubmit(args: AssertSafeToSubmitArgs): Promise<CommandResult<unknown>>;
+  };
   modes: {
     set(args: SetModeArgs): Promise<CommandResult<unknown>>;
   };
@@ -349,6 +357,9 @@ export function createChatGPT(options: ChatGPTClientOptions = {}): ChatGPTClient
       listLatest: args => listLatestArtifacts(env, args),
       wait: args => waitForArtifact(env, args),
       downloadLatest: args => downloadLatestArtifact(env, args)
+    },
+    guards: {
+      assertSafeToSubmit: args => assertSafeToSubmit(env, args)
     },
     modes: {
       set: args => setMode(env, args)

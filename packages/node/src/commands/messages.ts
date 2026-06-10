@@ -5,7 +5,7 @@ import { resultError, resultOk } from "../errors.js";
 import { countPageMessages, isTransientAssistantText, readLatestMessage, readLatestMessageText, readLatestMessageTextSnapshot, readMessages } from "../dom/messages.js";
 import { composerTextbox, copyResponseButtons, sendButton } from "../dom/selectors.js";
 import { localeLabels } from "../dom/locale-labels.js";
-import { normalizeLineBreaks, normalizeWhitespace } from "../dom/visible-text.js";
+import { normalizeLineBreaks, normalizePromptForHash, normalizeWhitespace } from "../dom/visible-text.js";
 import type {
   AskArgs,
   AskReadData,
@@ -119,12 +119,14 @@ export async function inspectComposer(
     const text = normalizeLineBreaks(await readLocatorText(composerTextbox(page)));
     const sha256 = sha256Text(normalizePromptForHash(text));
     const sendState = await waitForSendButtonReady(page);
+    const sendButtonCount = sendState.ready ? sendState.count : 0;
+    const sendButtonEnabled = sendState.ready ? sendState.enabled : false;
     const data: InspectComposerData = {
       text,
       sha256,
       length: text.length,
-      sendButtonCount: sendState.count,
-      sendButtonEnabled: sendState.enabled
+      sendButtonCount,
+      sendButtonEnabled
     };
 
     const expectedSha256 = args.expectedSha256 ?? (args.expectedText === undefined ? undefined : sha256Text(normalizePromptForHash(args.expectedText)));
@@ -147,7 +149,7 @@ export async function inspectComposer(
       }
     }
 
-    if (sendState.count !== 1 || !sendState.enabled) {
+    if (sendButtonCount !== 1 || !sendButtonEnabled) {
       return {
         ok: false,
         status: "blocked",
@@ -179,38 +181,63 @@ export async function submitMessage(
   }
 
   const page = env.page!;
+  const previousTurnCount = args.previousTurnCount ?? await countPageMessages(page).catch(() => undefined);
 
   try {
-    const ready = await waitForSendButtonReady(page, args.timeoutMs ?? 30000);
-    if (!ready.ready) {
-      const blocker: NonNullable<CommandResult<SubmitData>["blocker"]> = {
-        kind: ready.code === "attachment_processing" ? "upload_failed" : "selector_drift",
-        code: ready.code,
-        message: ready.message,
-        remediation: [
-          {
-            label: "Wait for composer",
-            instruction: "Wait for ChatGPT's composer and attachments to become ready, then retry without manually changing the page.",
-            userActionRequired: false
-          }
-        ],
-        resumable: true
-      };
-      if (ready.visibleText !== undefined) {
-        blocker.visibleText = ready.visibleText;
-      }
-      return {
-        ok: false,
-        status: "blocked",
-        warnings: [],
-        blocker,
-        context: await contextFromPage(page)
-      };
+    const preflight = await assertSubmitPreconditions(env, args);
+    if (preflight !== undefined) {
+      return preflight as CommandResult<SubmitData>;
     }
 
     const timeoutMs = args.timeoutMs ?? 30000;
     const startedAt = Date.now();
-    await clickSendControl(page);
+    if (args.submitMode === "buttonOnly") {
+      const target = sendButton(page);
+      try {
+        if (typeof target.click !== "function") {
+          throw new Error("Send button locator does not expose click().");
+        }
+        await withTimeout(
+          target.click({ timeoutMs: 10000 }),
+          12000,
+          "Timed out clicking send button."
+        );
+      } catch {
+        const clickedByLocator = await clickSendButtonByLocatorEvaluate(target).catch(() => false);
+        const clickedByDom = clickedByLocator ? true : await clickUniqueSendButtonByDom(page).catch(() => false);
+        if (!clickedByDom) {
+          throw new Error("Send button click failed and submitMode=buttonOnly forbids Enter fallback.");
+        }
+      }
+    } else {
+      const ready = await waitForSendButtonReady(page, timeoutMs);
+      if (!ready.ready) {
+        const blocker: NonNullable<CommandResult<SubmitData>["blocker"]> = {
+          kind: ready.code === "attachment_processing" ? "upload_failed" : "selector_drift",
+          code: ready.code,
+          message: ready.message,
+          remediation: [
+            {
+              label: "Wait for composer",
+              instruction: "Wait for ChatGPT's composer and attachments to become ready, then retry without manually changing the page.",
+              userActionRequired: false
+            }
+          ],
+          resumable: true
+        };
+        if (ready.visibleText !== undefined) {
+          blocker.visibleText = ready.visibleText;
+        }
+        return {
+          ok: false,
+          status: "blocked",
+          warnings: [],
+          blocker,
+          context: await contextFromPage(page)
+        };
+      }
+      await clickSendControl(page);
+    }
 
     let userTurn = await waitForSubmittedUserTurn(
       page,
@@ -218,7 +245,7 @@ export async function submitMessage(
       previousTurnCount,
       initialSubmitWaitMs(timeoutMs)
     );
-    if (userTurn === undefined && Date.now() - startedAt < timeoutMs && await shouldRetryNoopSubmit(page, args.text)) {
+    if (args.submitMode !== "buttonOnly" && userTurn === undefined && Date.now() - startedAt < timeoutMs && await shouldRetryNoopSubmit(page, args.text)) {
       await sleep(page, 250);
       await clickSendControl(page);
       userTurn = await waitForSubmittedUserTurn(
@@ -284,11 +311,85 @@ async function shouldRetryNoopSubmit(page: PageLike, text: string | undefined): 
   return submittedUserTurnMatches(composerText, text);
 }
 
+async function assertSubmitPreconditions(
+  env: RuntimeEnv,
+  args: SubmitArgs
+): Promise<CommandResult<unknown> | undefined> {
+  if (args.requireChatGPTHost === true) {
+    const host = await assertChatGPTHost(env);
+    if (!host.ok) return host;
+  }
+
+  if (args.requireTemporary === true) {
+    const temporary = await assertTemporaryChatVerifiedOn(env);
+    if (!temporary.ok) return temporary;
+  }
+
+  if (args.expectedAttachmentName !== undefined) {
+    const attachmentArgs: Parameters<typeof verifyAttachedFiles>[1] = {
+      expectedName: args.expectedAttachmentName
+    };
+    if (args.expectedAttachmentBytes !== undefined) attachmentArgs.expectedBytes = args.expectedAttachmentBytes;
+    if (args.expectedAttachmentSha256 !== undefined) attachmentArgs.expectedSha256 = args.expectedAttachmentSha256;
+    if (args.expectedAttachmentPath !== undefined) attachmentArgs.expectedPath = args.expectedAttachmentPath;
+    const attachment = await verifyAttachedFiles(env, attachmentArgs);
+    if (!attachment.ok) return attachment;
+  }
+
+  if (args.expectedPromptSha256 !== undefined) {
+    const composer = await inspectComposer(env, { expectedSha256: args.expectedPromptSha256 });
+    if (!composer.ok) return composer;
+  }
+
+  return undefined;
+}
+
+async function clickSendButtonByLocatorEvaluate(locator: ReturnType<typeof sendButton>): Promise<boolean> {
+  if (typeof locator.evaluate !== "function") {
+    return false;
+  }
+  const count = await locator.count?.().catch(() => undefined);
+  if (count !== undefined && count !== 1) {
+    return false;
+  }
+  return withTimeout(locator.evaluate(element => {
+    const button = element as HTMLButtonElement;
+    if (button.disabled || button.getAttribute("aria-disabled") === "true") {
+      return false;
+    }
+    button.click();
+    return true;
+  }), 5000, "Timed out clicking send button by locator evaluate.");
+}
+
+async function clickUniqueSendButtonByDom(page: PageLike): Promise<boolean> {
+  if (typeof page.evaluate !== "function") {
+    return false;
+  }
+  return withTimeout(page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll("button, [role='button']"))
+      .filter(node => {
+        const element = node as HTMLElement;
+        const label = `${element.getAttribute("aria-label") ?? ""} ${element.innerText ?? ""} ${element.textContent ?? ""}`;
+        return /send prompt|send message|\bsend\b|送信/i.test(label);
+      });
+    if (buttons.length !== 1) {
+      return false;
+    }
+    const button = buttons[0] as HTMLButtonElement;
+    if (button.disabled || button.getAttribute("aria-disabled") === "true") {
+      return false;
+    }
+    button.click();
+    return true;
+  }), 5000, "Timed out clicking unique send button by DOM.");
+}
+
 async function waitForSendButtonReady(
   page: PageLike,
-  timeoutMs: number
+  timeoutMs = 5000
 ): Promise<
-  | { ready: true }
+  | { ready: true; count: number; enabled: boolean }
   | { ready: false; code: "attachment_processing" | "send_button_not_ready"; message: string; visibleText?: string }
 > {
   const started = Date.now();
@@ -299,7 +400,7 @@ async function waitForSendButtonReady(
     const state = await readSendButtonState(page).catch(() => ({ available: true } satisfies SendButtonState));
     lastState = state;
     if (isSendButtonReady(state)) {
-      return { ready: true };
+      return { ready: true, count: 1, enabled: true };
     }
 
     const visibleText = await readVisibleTextForSubmit(page).catch(() => undefined);

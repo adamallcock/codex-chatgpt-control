@@ -51,7 +51,10 @@ export function composerTextbox(page: PageLike): LocatorLike {
   if (typeof page.locator !== "function" && typeof page.getByRole === "function") {
     return page.getByRole("textbox", { name: "Chat with ChatGPT" });
   }
-  return page.getByRole("textbox", { name: anyLabelPattern(localeLabels.composerTextbox) });
+  if (typeof page.getByRole === "function") {
+    return page.getByRole("textbox", { name: anyLabelPattern(localeLabels.composerTextbox) });
+  }
+  return requiredLocator(page, "#prompt-textarea, textarea, [contenteditable='true'], [role='textbox']");
 }
 
 export function sendButton(page: PageLike): LocatorLike {
@@ -69,7 +72,10 @@ export function sendButton(page: PageLike): LocatorLike {
     if (role !== undefined) return role;
     return requiredLocator(page, selector);
   }
-  return page.getByRole("button", { name: anyLabelPattern(localeLabels.sendButton) });
+  if (typeof page.getByRole === "function") {
+    return page.getByRole("button", { name: anyLabelPattern(localeLabels.sendButton) });
+  }
+  return requiredLocator(page, selector);
 }
 
 export function searchChatsButton(page: PageLike): LocatorLike {
@@ -101,7 +107,10 @@ export function newChatButton(page: PageLike): LocatorLike {
     if (role !== undefined) return role;
     return requiredLocator(page, selector);
   }
-  return page.getByRole("button", { name: anyLabelPattern(localeLabels.newChat) });
+  if (typeof page.getByRole === "function") {
+    return page.getByRole("button", { name: anyLabelPattern(localeLabels.newChat) });
+  }
+  return requiredLocator(page, selector);
 }
 
 export function addFilesButton(page: PageLike): LocatorLike {

@@ -1,5 +1,4 @@
 import type { CommandContext, PageLike } from "../types.js";
-import { withTimeout } from "../browser/evaluate.js";
 import { countPageMessages } from "../dom/messages.js";
 import { parseConversationId } from "../browser/page-state.js";
 import { withTimeout } from "./timeouts.js";

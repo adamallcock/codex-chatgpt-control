@@ -1,8 +1,9 @@
 import type { CommandResult, RuntimeEnv, SequencePlan, SequencePolicy, SequenceStep, SequenceStepResult } from "../types.js";
 import { downloadLatestArtifact, listLatestArtifacts, waitForArtifact } from "./artifacts.js";
-import { attachFiles, downloadLatestFile } from "./files.js";
+import { attachFiles, downloadLatestFile, verifyAttachedFiles } from "./files.js";
+import { assertSafeToSubmit } from "./guards.js";
 import { addProjectSources, buildProjectSourceAddPlan, listProjectSources } from "./project-sources.js";
-import { askMessage, composeMessage, readLatest, submitMessage, waitAndRead, waitForMessage } from "./messages.js";
+import { askMessage, composeMessage, inspectComposer, readLatest, submitMessage, waitAndRead, waitForMessage } from "./messages.js";
 import { copyResponse } from "./response-actions.js";
 import { assertChatGPTHost, bootstrap } from "./session.js";
 import { newThread, openThread, searchThreads } from "./threads.js";
@@ -153,6 +154,8 @@ export async function executeStep(
       return buildProjectSourceAddPlan(env, step.args);
     case "projects.sources.add":
       return addProjectSources(env, step.args);
+    case "guards.assertSafeToSubmit":
+      return assertSafeToSubmit(env, step.args);
     case "response.copy":
       return copyResponse(env, step.args);
     case "modes.set":

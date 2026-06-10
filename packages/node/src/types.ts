@@ -397,6 +397,24 @@ export type AttachFilesData = {
   files: AttachedFile[];
 };
 
+export type VerifyAttachedArgs = {
+  expectedName: string;
+  expectedBytes?: number;
+  expectedSha256?: string;
+  expectedPath?: string;
+  timeoutMs?: number;
+};
+
+export type VerifyAttachedData = {
+  verified: true;
+  expectedName: string;
+  expectedBytes?: number;
+  expectedSha256?: string;
+  localSourceBytes?: number;
+  localSourceSha256?: string;
+  visibleAttachments: string[];
+};
+
 export type ProjectSourceStatus =
   | "ready"
   | "processing"
@@ -635,6 +653,7 @@ export type SequenceStep =
   | { id: string; command: "projects.sources.list"; args: ProjectSourcesListArgs }
   | { id: string; command: "projects.sources.planAdd"; args: ProjectSourcesPlanAddArgs }
   | { id: string; command: "projects.sources.add"; args: ProjectSourcesAddArgs }
+  | { id: string; command: "guards.assertSafeToSubmit"; args: AssertSafeToSubmitArgs }
   | { id: string; command: "response.copy"; args?: CopyResponseArgs }
   | { id: string; command: "modes.set"; args: SetModeArgs }
   | { id: string; command: "tools.select"; args: SelectToolArgs };

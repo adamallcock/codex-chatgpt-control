@@ -240,6 +240,62 @@ export async function attachFiles(
   }
 }
 
+export async function verifyAttachedFiles(
+  env: RuntimeEnv,
+  args: VerifyAttachedArgs
+): Promise<CommandResult<VerifyAttachedData>> {
+  const boot = await ensurePage(env);
+  if (!boot.ok) {
+    return boot as CommandResult<VerifyAttachedData>;
+  }
+
+  const page = env.page!;
+
+  try {
+    const visibleAttachments = await readVisibleAttachmentLabels(page);
+    const normalizedVisibleAttachments = Array.from(new Set(visibleAttachments.map(normalizeAttachmentLabel)));
+    const expectedName = normalizeAttachmentComparable(args.expectedName);
+    const expectedBytes = args.expectedBytes ?? (args.expectedPath === undefined ? undefined : (await stat(args.expectedPath)).size);
+    const expectedSha256 = args.expectedSha256 ?? (args.expectedPath === undefined ? undefined : await digestFile(args.expectedPath));
+    const matching = normalizedVisibleAttachments.filter(label => normalizeAttachmentComparable(label) === expectedName);
+
+    const data: VerifyAttachedData = {
+      verified: true,
+      expectedName: args.expectedName,
+      visibleAttachments: normalizedVisibleAttachments
+    };
+    if (expectedBytes !== undefined) {
+      data.expectedBytes = expectedBytes;
+      data.localSourceBytes = expectedBytes;
+    }
+    if (expectedSha256 !== undefined) {
+      data.expectedSha256 = expectedSha256;
+      data.localSourceSha256 = expectedSha256;
+    }
+
+    if (normalizedVisibleAttachments.length !== 1 || matching.length !== 1) {
+      return {
+        ok: false,
+        status: "blocked",
+        warnings: [],
+        blocker: {
+          kind: "selector_drift",
+          code: "attachment_not_uniquely_verified",
+          message: "Exactly one visible attachment matching the expected file name is required before safe submission.",
+          visibleText: visibleAttachments.join("\n"),
+          candidates: normalizedVisibleAttachments.map(label => ({ label })),
+          resumable: true
+        },
+        context: await contextFromPage(page)
+      };
+    }
+
+    return resultOk(data, await contextFromPage(page));
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+
 type FilePreflightBlockerArgs = {
   env: RuntimeEnv;
   status: CommandStatus;
@@ -368,6 +424,52 @@ function guessFileType(extension: string): { mimeType: string; category: FileCat
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
+}
+
+async function readVisibleAttachmentLabels(page: PageLike): Promise<string[]> {
+  if (typeof page.evaluate !== "function") {
+    return [];
+  }
+
+  return page.evaluate(() => {
+    const looksLikeAttachment = (text: string) => /\.(zip|txt|md|pdf|docx?|xlsx?|csv|json|png|jpe?g|webp)\b/i.test(text);
+    const normalize = (value: string | null | undefined) => (value ?? "").replace(/\s+/g, " ").trim();
+    const selectors = [
+      "[data-testid*='attachment']",
+      "[data-testid*='file']",
+      "[aria-label*='.zip']",
+      "[title*='.zip']",
+      "button",
+      "[role='button']"
+    ].join(", ");
+    const labels = Array.from(document.querySelectorAll(selectors))
+      .map(node => {
+        const element = node as HTMLElement;
+        return normalize(
+          element.getAttribute("aria-label")
+          || element.getAttribute("title")
+          || element.innerText
+          || element.textContent
+        );
+      })
+      .filter(label => label.length > 0 && looksLikeAttachment(label));
+    return Array.from(new Set(labels));
+  }).catch(() => []);
+}
+
+function normalizeAttachmentLabel(label: string): string {
+  const match = /[^\s:：\\/]+?\.(?:zip|txt|md|pdf|docx?|xlsx?|csv|json|png|jpe?g|webp)\b/i.exec(label);
+  return match?.[0] ?? label;
+}
+
+function normalizeAttachmentComparable(label: string): string {
+  return label.normalize("NFKC").replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+}
+
+async function digestFile(path: string): Promise<string> {
+  const hash = createHash("sha256");
+  hash.update(await readFile(path));
+  return hash.digest("hex");
 }
 
 async function waitForAttachedFilesReady(
