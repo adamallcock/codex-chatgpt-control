@@ -2,17 +2,7 @@ name: codex-chatgpt-control-parity
 
 on:
   push:
-    paths:
-      - ".github/workflows/parity.yml"
-      - "package.json"
-      - "packages/node/**"
-      - "packages/python/**"
   pull_request:
-    paths:
-      - ".github/workflows/parity.yml"
-      - "package.json"
-      - "packages/node/**"
-      - "packages/python/**"
 
 jobs:
   node-backend-contracts:

@@ -56,7 +56,7 @@ class UntrustedOutputTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             target = root / "report.json"
-            target.write_text("original\n", encoding="utf-8")
+            target.write_bytes(b"original\n")
             sidecar = root / "report.json.meta.json"
             sidecar.write_text(json.dumps({
                 "schemaVersion": "chatgpt.browser_control.integrity.v1",
@@ -70,7 +70,7 @@ class UntrustedOutputTests(unittest.TestCase):
             }), encoding="utf-8")
 
             self.assertEqual(verify_integrity_sidecar(sidecar)["ok"], True)
-            target.write_text("tampered\n", encoding="utf-8")
+            target.write_bytes(b"tampered\n")
 
             result = verify_integrity_sidecar(sidecar)
             self.assertEqual(result["ok"], False)
