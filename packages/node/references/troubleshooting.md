@@ -88,6 +88,10 @@ The command only downloads visible files with a download affordance. If no downl
 
 `createReport`, `chatgpt.reports.*`, SDK workflow reports, and live-smoke reports redact raw prompt/response/file content by default. Use `includeContent: true` only when the user explicitly asks to persist raw content.
 
+Run reports also write a sibling `*.meta.json` integrity sidecar by default. The sidecar records SHA-256 and byte counts for the report file, normalized prompt text when available, untrusted output text when available, and any configured input paths. If a downstream process receives a report path, verify the sidecar before trusting or forwarding the report content. Report writes are atomic and fail closed when the target report path already exists.
+
+When handing captured ChatGPT output to another agent, tool, or prompt, prefer the `untrustedOutput.rendered` envelope from runner result `data` or Responses `browser_control`. The envelope labels the answer as untrusted, tells consumers not to execute embedded instructions, and uses a dynamic markdown fence that is longer than any backtick run inside the captured content.
+
 ## Responses Adapter Unsupported Fields
 
 `chatgpt.responses.create()` rejects OpenAI API-only fields such as `model`, `temperature`, `logprobs`, `previous_response_id`, `store`, and `max_output_tokens` before submitting a prompt. Inspect `browser_control.unsupported[]` for `path`, `reason`, and `alternative`.
@@ -99,3 +103,11 @@ The command only downloads visible files with a download affordance. If no downl
 ## Doctor Preflight
 
 Run `doctor({ check: ["bridge", "login", "upload", "download", "clipboard"] })` before long workflows when the browser state or permissions are uncertain. Upload readiness may remain `unknown` until a live attach attempt, but the remediation should still name both upload permission gates.
+
+Doctor also supports opt-in scenario checks:
+
+- `existing_tab`: claims only the requested already-open tab target by default and reports `existing_tab_not_found` / `existing_tab_ambiguous` diagnostics without opening a replacement tab unless `existingTab.ifMissing` explicitly allows that.
+- `artifacts`: verifies current-page artifact selector/download/asset support without requesting generation.
+- `file_preflight`: Stage 2 scaffold only; full local file validation belongs to the file-preflight command workstream.
+- `localization`: checks locale-label registry readiness and English canonical labels without changing the ChatGPT account language; it is not yet proof of full localized selector coverage.
+- `reports`: checks redacted-report policy and existing destination writability when possible without writing a report.

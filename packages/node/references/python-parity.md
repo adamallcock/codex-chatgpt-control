@@ -19,6 +19,8 @@ Wire fields stay TypeScript-compatible. Python exposes idiomatic aliases:
 | `activeAgentName` | `active_agent_name` |
 | `lastAgentName` | `last_agent_name` |
 | `nextStepId` | `next_step_id` |
+| `browser_control.untrustedOutput` | `response.untrusted_output` |
+| `metaPath` | `meta_path` |
 
 Generated-image behavior stays owned by the TypeScript runtime. Python exposes
 the same backend commands through `chatgpt.artifacts.list_latest(...)`,
@@ -74,9 +76,29 @@ from codex_chatgpt_control import ChatGPTResponse
 
 response = ChatGPTResponse.from_wire(payload["response"])
 unsupported = response.unsupported_fields
+safe_handoff = response.untrusted_output
 ```
 
 Unsupported OpenAI API-only fields stay explicit in `browser_control.unsupported[]`; the Python adapter must not submit them silently.
+
+Successful Responses and runner fixtures may include `untrustedOutput`, a no-execute return envelope for handing captured ChatGPT output to another agent, tool, or prompt. It is metadata and framing around `output_text`; it does not make the raw answer trusted.
+
+Python also exposes the same pure helper surface for local consumers:
+
+```python
+from codex_chatgpt_control import (
+    render_untrusted_output_return_envelope,
+    verify_integrity_sidecar,
+)
+
+safe = render_untrusted_output_return_envelope(
+    output_text=response.output_text,
+    source="chatgpt",
+    captured_at="2026-06-09T20:00:00.000Z",
+)
+```
+
+Report results may include `metaPath` plus `integrity` metadata. Python exposes those as `RunReportData.meta_path` and `RunReportData.integrity`; consumers can call `verify_integrity_sidecar(...)` before trusting persisted report paths across a process boundary.
 
 ## Streaming
 

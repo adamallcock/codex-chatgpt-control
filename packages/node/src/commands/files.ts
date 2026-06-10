@@ -4,6 +4,7 @@ import { downloadLatestArtifact, locatorCountWithTimeout } from "./artifacts.js"
 import { waitForDownloadFromClick } from "../browser/downloads.js";
 import { resultError, resultOk } from "../errors.js";
 import { addFilesButton, cssSelectors, requiredLocator } from "../dom/selectors.js";
+import { localeLabels } from "../dom/locale-labels.js";
 import { basenameForHostPath, resolveForHostPath } from "../platform/local-paths.js";
 import type {
   AttachedFile,
@@ -252,7 +253,10 @@ async function clickChatGPTAddPhotosMenuItem(
   paths: string[],
   timeoutMs: number
 ): Promise<void> {
-  const menuItem = requiredLocator(page, "div[role='menuitem']").filter?.({ hasText: "Add photos & files" });
+  // The `#composer-plus-btn` id is the language-agnostic primary; the aria-label and the
+  // menu-item text are locale-sensitive (menu text sourced from the locale registry).
+  const addPhotosFilesText = localeLabels.addPhotosFilesMenuItem[0];
+  const menuItem = requiredLocator(page, "div[role='menuitem']").filter?.({ hasText: addPhotosFilesText });
 
   if (await locatorCount(menuItem) !== 1) {
     const plusButton = requiredLocator(page, "#composer-plus-btn, button[aria-label='Add files and more']");
@@ -263,7 +267,7 @@ async function clickChatGPTAddPhotosMenuItem(
     await page.waitForTimeout?.(250);
   }
 
-  const refreshedMenuItem = requiredLocator(page, "div[role='menuitem']").filter?.({ hasText: "Add photos & files" });
+  const refreshedMenuItem = requiredLocator(page, "div[role='menuitem']").filter?.({ hasText: addPhotosFilesText });
   await clickFileChooserLocator(page, refreshedMenuItem, paths, timeoutMs);
 }
 

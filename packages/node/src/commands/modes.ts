@@ -1,13 +1,14 @@
 import { resultError, resultOk } from "../errors.js";
-import { enumerateVisibleMenuItems, findUniqueMenuItem } from "../dom/menus.js";
+import { enumerateVisibleMenuItems, findUniqueMenuItem, type MenuItem } from "../dom/menus.js";
+import { localeLabels } from "../dom/locale-labels.js";
 import { normalizeLabel, normalizeWhitespace } from "../dom/visible-text.js";
 import type { CommandResult, LocatorLike, PageLike, RuntimeEnv, SelectToolArgs, SetModeArgs } from "../types.js";
 import { contextFromPage } from "./context.js";
 import { bootstrap } from "./session.js";
 
 const DEFAULT_MODE_EFFORT = "Thinking";
-const CURRENT_MODE_LABELS = ["Latest", "Instant", "Thinking", "Extended", "Pro"];
-const MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter(label => label !== "Pro"), "Configure"];
+const CURRENT_MODE_LABELS: string[] = [...localeLabels.modeLabels];
+const MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter(label => label !== "Pro"), ...localeLabels.modeOpenerExtra];
 
 export async function setMode(
   env: RuntimeEnv,
@@ -104,14 +105,23 @@ export async function selectTool(
   const page = env.page!;
 
   try {
-    const opened = await clickFirstUniqueButton(page, ["Add files and more", "Add files", "Add photos"]);
+    const opened = await clickFirstUniqueButton(page, [...localeLabels.addFilesOpenerCandidates]);
     if (!opened) {
       return selectorDrift(page, "No unique ChatGPT tool menu opener was found.");
     }
     await page.waitForTimeout?.(250);
     const candidates = await enumerateVisibleMenuItems(page);
-    const wanted = toolLabel(args.tool);
-    const match = findUniqueMenuItem(candidates, wanted);
+    const wantedCandidates = toolLabels(args.tool);
+    let match: MenuItem | undefined;
+    let wanted = wantedCandidates[0] ?? args.tool;
+    for (const candidate of wantedCandidates) {
+      const found = findUniqueMenuItem(candidates, candidate);
+      if (found !== undefined) {
+        match = found;
+        wanted = candidate;
+        break;
+      }
+    }
 
     if (match === undefined) {
       const candidateLabels = candidates.map(candidate => candidate.label);
@@ -251,17 +261,9 @@ async function clickIfUnique(locator: LocatorLike | undefined): Promise<boolean>
   return true;
 }
 
-function toolLabel(tool: string): string {
-  switch (tool) {
-    case "web_search":
-      return "Web search";
-    case "deep_research":
-      return "Deep research";
-    case "create_image":
-      return "Create image";
-    default:
-      return tool;
-  }
+function toolLabels(tool: string): string[] {
+  const known = (localeLabels.tools as Record<string, readonly string[]>)[tool];
+  return known !== undefined ? [...known] : [tool];
 }
 
 function requestedModeLabels(args: SetModeArgs): string[] {

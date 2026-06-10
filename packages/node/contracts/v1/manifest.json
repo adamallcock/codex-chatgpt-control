@@ -47,6 +47,11 @@
       "schema": "commandResult"
     },
     {
+      "case": "doctor_scenario_preflight",
+      "file": "doctor-scenario-preflight.json",
+      "schema": "commandResult"
+    },
+    {
       "case": "existing_tab_diagnostics_blocker",
       "file": "existing-tab-diagnostics-blocker.json",
       "schema": "commandResult"

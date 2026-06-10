@@ -1,0 +1,93 @@
+{
+  "result": {
+    "context": {
+      "timestamp": "2026-06-06T00:00:00.000Z"
+    },
+    "data": {
+      "checks": {
+        "existing_tab": {
+          "blockerKind": "not_found",
+          "code": "existing_tab_not_found",
+          "details": {
+            "candidates": [
+              {
+                "label": "tab other - Other Chat - https://chatgpt.com/c/other"
+              }
+            ],
+            "category": "targeting",
+            "existingTab": {
+              "candidateTabs": [
+                {
+                  "conversationId": "other",
+                  "id": "other",
+                  "title": "Other Chat",
+                  "url": "https://chatgpt.com/c/other"
+                }
+              ],
+              "chatgptTabCount": 1,
+              "mismatchReason": "conversation_id_mismatch",
+              "requestedTarget": {
+                "conversationId": "abc-123",
+                "type": "conversationId"
+              },
+              "userOpenTabsAvailable": true
+            },
+            "severity": "warning",
+            "userActionRequired": false
+          },
+          "message": "No already-open ChatGPT tab matched the requested existing-tab target.",
+          "nextCommand": "session.bootstrap",
+          "remediation": [
+            "Choose an exact tab: Use the selected tab, a ChatGPT conversation URL, conversation ID, or a tab id returned by openTabs().",
+            "Allow opening: Rerun with open-if-missing only if it is acceptable to open or create a ChatGPT tab instead of reusing an already-open one."
+          ],
+          "status": "blocked"
+        },
+        "file_preflight": {
+          "code": "file_preflight_deferred",
+          "details": {
+            "fullValidation": "deferred_to_stage_3",
+            "pathCount": 1
+          },
+          "message": "File preflight is registered as a Stage 2 scaffold; full local file validation is owned by Stage 3.",
+          "nextCommand": "files.attach",
+          "status": "unsupported"
+        },
+        "localization": {
+          "details": {
+            "englishCanonicalPresent": true,
+            "labelCandidateCount": 1067,
+            "missingToolIds": [],
+            "pageAvailable": false,
+            "requiredKeysMissing": [],
+            "runtimeSelectorCoverage": "registry_only_stage_2",
+            "toolIds": [
+              "web_search",
+              "deep_research",
+              "create_image"
+            ]
+          },
+          "message": "The locale registry is loaded; localized runtime selector coverage is registry-only in Stage 2 and not fully proven.",
+          "status": "unknown"
+        },
+        "reports": {
+          "details": {
+            "destDir": "/tmp/codex-chatgpt-control/reports/contract-fixtures/missing-doctor-reports",
+            "exists": false,
+            "includeContent": false,
+            "maxPreviewChars": 240,
+            "redactionDefault": true
+          },
+          "message": "Report destination does not exist yet; createReport will create it when a report is written.",
+          "nextCommand": "createReport",
+          "status": "unknown"
+        }
+      },
+      "ready": false
+    },
+    "ok": true,
+    "status": "ok",
+    "warnings": []
+  },
+  "schemaVersion": "chatgpt.browser_control.command_result.v1"
+}

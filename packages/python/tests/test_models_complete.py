@@ -5,6 +5,7 @@ from pathlib import Path
 from codex_chatgpt_control.models import (
     BackendCapabilities,
     BackendEvent,
+    CapabilityCheck,
     BackendResponse,
     ChatGPTAgentModel,
     ChatGPTRunInput,
@@ -120,7 +121,29 @@ class CompleteModelTests(unittest.TestCase):
         assert run_input.attachments is not None
         self.assertEqual(run_input.attachments[0]["path"], "/tmp/context.md")
         self.assertEqual(report.path, "reports/run.json")
-        self.assertEqual(doctor.checks["bridge"]["status"], "ok")
+        self.assertEqual(doctor.checks["bridge"].status, "ok")
+
+    def test_doctor_report_parses_scenario_preflight_fixture(self) -> None:
+        result = CommandResult.from_wire(load_json("doctor-scenario-preflight.json")["result"])
+        doctor = DoctorReport.from_wire(result.data)
+
+        self.assertFalse(doctor.ready)
+        self.assertIsInstance(doctor.checks["existing_tab"], CapabilityCheck)
+        self.assertEqual(doctor.checks["existing_tab"].status, "blocked")
+        self.assertEqual(doctor.checks["existing_tab"].blocker_kind, "not_found")
+        self.assertEqual(doctor.checks["existing_tab"].code, "existing_tab_not_found")
+        self.assertEqual(doctor.checks["existing_tab"].next_command, "session.bootstrap")
+        self.assertIsNotNone(doctor.checks["existing_tab"].details)
+        assert doctor.checks["existing_tab"].details is not None
+        self.assertEqual(
+            doctor.checks["existing_tab"].details["existingTab"]["mismatchReason"],
+            "conversation_id_mismatch",
+        )
+        self.assertEqual(doctor.checks["localization"].status, "unknown")
+        self.assertEqual(doctor.checks["reports"].status, "unknown")
+        self.assertEqual(doctor.checks["file_preflight"].status, "unsupported")
+        self.assertEqual(doctor.checks["file_preflight"].code, "file_preflight_deferred")
+        self.assertIn("blockerKind", doctor.to_wire()["checks"]["existing_tab"])
 
 
 if __name__ == "__main__":

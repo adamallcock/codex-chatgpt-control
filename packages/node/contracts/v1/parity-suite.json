@@ -184,6 +184,7 @@
       "fixtures": [
         "blocker-explanation-profiles.json",
         "doctor-bridge-upload.json",
+        "doctor-scenario-preflight.json",
         "existing-tab-diagnostics-blocker.json",
         "primitive-bootstrap-blocker.json",
         "workflow-ask-success.json"
@@ -379,9 +380,9 @@
     },
     "doctor": {
       "surface": "workflows-primitives-diagnostics",
-      "fixtures": ["doctor-bridge-upload.json", "command-descriptors.json"],
+      "fixtures": ["doctor-bridge-upload.json", "doctor-scenario-preflight.json", "command-descriptors.json"],
       "nodeTests": ["tests/unit/client.test.ts", "tests/unit/backend-dispatch.test.ts", "tests/unit/backend-conformance.test.ts"],
-      "pythonTests": ["tests/test_workflows.py", "tests/test_cross_language_conformance.py"],
+      "pythonTests": ["tests/test_workflows.py", "tests/test_cross_language_conformance.py", "tests/test_models_complete.py"],
       "docs": ["references/troubleshooting.md", "references/backend-protocol.md", "references/python-parity.md"]
     },
     "createReport": {

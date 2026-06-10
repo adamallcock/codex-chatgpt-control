@@ -1,4 +1,5 @@
 import type { CommandResult } from "../types.js";
+import { renderUntrustedOutputReturnEnvelope } from "../safety/untrusted-output.js";
 import { interruptionFromCommandResult } from "./interruptions.js";
 import { augmentCommandBlocker } from "./resume.js";
 import type { ChatGPTAgent, ChatGPTRunData, ChatGPTRunItem, ChatGPTRunResult } from "./types.js";
@@ -14,6 +15,19 @@ export function toRunResult<TOutput>(
   const output = runItemsFromResult(result, outputText);
   const state = runStateFromResult(result, interruptions);
   const data: ChatGPTRunData<TOutput> = { outputText };
+  if (outputText.length > 0) {
+    const envelopeArgs: Parameters<typeof renderUntrustedOutputReturnEnvelope>[0] = {
+      outputText,
+      source: "chatgpt",
+      capturedAt: result.context.timestamp,
+      metadata: {
+        result_status: result.status,
+        report_path: result.reportPath
+      }
+    };
+    if (result.reportPath !== undefined) envelopeArgs.outputPath = result.reportPath;
+    data.untrustedOutput = renderUntrustedOutputReturnEnvelope(envelopeArgs);
+  }
   if (finalOutput !== undefined) data.finalOutput = finalOutput;
   const thread = threadRefFromContext(result.context);
   if (thread !== undefined) data.thread = thread;

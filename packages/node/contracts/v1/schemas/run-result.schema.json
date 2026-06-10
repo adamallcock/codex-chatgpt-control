@@ -19,6 +19,15 @@
     "status": { "$ref": "#/$defs/commandStatus" },
     "output_text": { "type": "string" },
     "finalOutput": {},
+    "data": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "outputText": { "type": "string" },
+        "untrustedOutput": { "$ref": "#/$defs/untrustedOutputReturnEnvelope" },
+        "reportPath": { "type": "string" }
+      }
+    },
     "output": {
       "type": "array",
       "items": { "$ref": "#/$defs/runItem" }
@@ -180,6 +189,33 @@
       "additionalProperties": true,
       "properties": {
         "type": { "type": "string", "minLength": 1 }
+      }
+    },
+    "untrustedOutputReturnEnvelope": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "trusted",
+        "source",
+        "capturedAt",
+        "contentSha256",
+        "contentBytes",
+        "inline",
+        "maxInlineBytes",
+        "rendered"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "schemaVersion": { "const": "chatgpt.browser_control.untrusted_output_return.v1" },
+        "trusted": { "const": false },
+        "source": { "type": "string", "minLength": 1 },
+        "capturedAt": { "type": "string", "minLength": 1 },
+        "contentSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "contentBytes": { "type": "integer", "minimum": 0 },
+        "inline": { "type": "boolean" },
+        "maxInlineBytes": { "type": "integer", "minimum": 1 },
+        "outputPath": { "type": "string" },
+        "rendered": { "type": "string", "minLength": 1 }
       }
     }
   }

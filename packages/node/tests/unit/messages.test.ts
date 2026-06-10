@@ -680,7 +680,7 @@ function askWaitFallbackPage(prompt: string, answer: string): PageLike {
           ? submitted ? prompt : "Earlier question."
           : submitted ? answer : "Earlier answer.") as T;
       }
-      if (source.includes("stop generating")) {
+      if (Array.isArray(arg) && arg.includes("stop generating")) {
         return false as T;
       }
       if (source.includes("document.body?.innerText")) {
@@ -748,7 +748,7 @@ function scriptedWaitPage(snapshots: WaitSnapshot[]): PageLike {
       const source = String(fn);
       const snapshot = current();
 
-      if (source.includes("stop generating")) {
+      if (Array.isArray(arg) && arg.includes("stop generating")) {
         return snapshot.hasStopControl as T;
       }
       if (source.includes("latestAssistantTurnIndex")) {

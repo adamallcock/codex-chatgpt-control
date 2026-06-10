@@ -1,3 +1,6 @@
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { BackendSession } from "../../src/backend/session.js";
 import {
@@ -134,7 +137,12 @@ describe("backend dispatch", () => {
   });
 
   it("dispatches doctor checks as typed command results", async () => {
-    const response = await send(deterministicSession(), "doctor", { check: ["bridge", "upload"] });
+    const reportDir = await mkdtemp(join(tmpdir(), "chatgpt-backend-doctor-"));
+    const response = await send(deterministicSession(), "doctor", {
+      check: ["bridge", "upload", "localization", "reports", "file_preflight"],
+      files: ["/absolute/path/spec.md"],
+      report: { destDir: reportDir }
+    });
 
     expect(response.ok).toBe(true);
     expectOk(response);
@@ -149,6 +157,16 @@ describe("backend dispatch", () => {
           },
           upload: {
             status: "unknown"
+          },
+          localization: {
+            status: "unknown"
+          },
+          reports: {
+            status: "ok"
+          },
+          file_preflight: {
+            status: "unsupported",
+            code: "file_preflight_deferred"
           }
         }
       }

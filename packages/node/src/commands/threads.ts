@@ -2,6 +2,7 @@ import { parseConversationId, readPageState } from "../browser/page-state.js";
 import { resultError, resultOk } from "../errors.js";
 import { countPageMessages, readLatestMessageText } from "../dom/messages.js";
 import { requiredLocator, searchChatsButton, searchChatsInput, newChatButton } from "../dom/selectors.js";
+import { anyLabelPattern, localeLabels } from "../dom/locale-labels.js";
 import { normalizeWhitespace, stripTags } from "../dom/visible-text.js";
 import type {
   CommandResult,
@@ -292,7 +293,7 @@ async function openSearchUI(page: NonNullable<RuntimeEnv["page"]>): Promise<void
 async function fillSearchQuery(page: NonNullable<RuntimeEnv["page"]>, query: string): Promise<void> {
   const attempts = [
     async () => searchChatsInput(page).fill?.(query),
-    async () => page.getByRole?.("textbox", { name: "Search chats" }).fill?.(query),
+    async () => page.getByRole?.("textbox", { name: anyLabelPattern(localeLabels.searchChatsButton) }).fill?.(query),
     async () => page.getByRole?.("textbox", { name: /Search chats/i }).fill?.(query),
     async () => requiredLocator(page, "input[placeholder*='Search'], [role='dialog'] input").fill?.(query)
   ];

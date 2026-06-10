@@ -11,6 +11,7 @@ const contractRoot = join(root, "contracts", "v1");
 const fixturesDir = join(contractRoot, "fixtures");
 const manifestPath = join(contractRoot, "manifest.json");
 const reportFixtureDir = join(root, "reports", "contract-fixtures");
+const doctorScenarioReportDir = "/tmp/codex-chatgpt-control/reports/contract-fixtures/missing-doctor-reports";
 
 const {
   createChatGPT,
@@ -24,6 +25,7 @@ mkdirSync(fixturesDir, { recursive: true });
 const generatedFixtures = [];
 const chatgpt = createChatGPT({ now: () => FIXED_DATE });
 rmSync(reportFixtureDir, { recursive: true, force: true });
+rmSync(doctorScenarioReportDir, { recursive: true, force: true });
 
 const BLOCKER_EXPLANATION_PROFILES = [
   { kind: "browser_bridge_unavailable", title: "Browser bridge unavailable", category: "environment", severity: "blocked", userActionRequired: false },
@@ -274,6 +276,29 @@ await writeGeneratedFixture(
   "commandResult",
   "doctor_bridge_upload",
   commandResultFixture(await backendResult("doctor", { check: ["bridge", "upload"] }))
+);
+
+await writeGeneratedFixture(
+  "doctor-scenario-preflight.json",
+  "commandResult",
+  "doctor_scenario_preflight",
+  commandResultFixture(await backendResult(
+    "doctor",
+    {
+      check: ["existing_tab", "localization", "reports", "file_preflight"],
+      existingTab: {
+        target: { type: "conversationId", conversationId: "abc-123" },
+        ifMissing: "block"
+      },
+      files: ["/absolute/host/path/spec.md"],
+      report: { destDir: doctorScenarioReportDir }
+    },
+    {
+      browser: fakeExistingTabsBrowser([
+        { id: "other", url: "https://chatgpt.com/c/other", title: "Other Chat" }
+      ])
+    }
+  ))
 );
 
 await writeGeneratedFixture(
@@ -702,13 +727,17 @@ function normalizeFixtureValue(value) {
 
 function normalizePrimitive(value) {
   if (typeof value !== "string") return value;
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return FIXED_ISO;
+  const normalized = value.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, FIXED_ISO);
+  if (normalized !== value) return normalizePrimitive(normalized);
   if (/^run_[a-z0-9]{8,}$/i.test(value)) return "run_fixed";
   if (/^interruption-[a-z0-9]+$/i.test(value)) return "interruption_fixed";
-  if (value.includes("/reports/contract-fixtures/") && value.includes("contract-report")) {
+  if (normalized.includes("/reports/contract-fixtures/") && normalized.includes("contract-report")) {
+    if (normalized.endsWith(".meta.json")) {
+      return "/tmp/codex-chatgpt-control/reports/contract-fixtures/fixed-contract-report.json.meta.json";
+    }
     return "/tmp/codex-chatgpt-control/reports/contract-fixtures/fixed-contract-report.json";
   }
-  return value;
+  return normalized;
 }
 
 function sortObjectKeys(value) {

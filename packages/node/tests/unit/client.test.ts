@@ -315,6 +315,31 @@ describe("createChatGPT", () => {
     expect(result.data?.checks.upload?.remediation?.join(" ")).toContain("Allow access to file URLs");
   });
 
+  it("doctor preserves the lightweight default checks", async () => {
+    const page = fakeChatGPTPage();
+    const browser: BrowserLike = { name: "chrome", tabs: { selected: () => page } };
+    const chatgpt = createChatGPT({ browser });
+
+    const result = await chatgpt.doctor();
+
+    expect(result.ok).toBe(true);
+    expect(Object.keys(result.data?.checks ?? {})).toEqual([
+      "bridge",
+      "login",
+      "upload",
+      "download",
+      "clipboard",
+      "modes",
+      "tools",
+      "selectors"
+    ]);
+    expect(result.data?.checks).not.toHaveProperty("existing_tab");
+    expect(result.data?.checks).not.toHaveProperty("artifacts");
+    expect(result.data?.checks).not.toHaveProperty("file_preflight");
+    expect(result.data?.checks).not.toHaveProperty("localization");
+    expect(result.data?.checks).not.toHaveProperty("reports");
+  });
+
   it("doctor explains ordinary-shell bridge blockers and live bootstrap recovery", async () => {
     const chatgpt = createChatGPT({ now: () => new Date("2026-06-06T00:00:00.000Z") });
 
@@ -346,11 +371,273 @@ describe("createChatGPT", () => {
       remediation: [expect.stringContaining("sign in")]
     });
   });
+
+  it("doctor reports missing existing-tab targets without opening or claiming a tab", async () => {
+    const claimed: unknown[] = [];
+    const created: string[] = [];
+    const browser: BrowserLike = {
+      name: "chrome",
+      user: {
+        openTabs: async () => [
+          { id: "other", url: "https://chatgpt.com/c/other", title: "Other Chat" }
+        ],
+        claimTab: async tab => {
+          claimed.push(tab);
+          throw new Error("claimTab should not be called for a missing existing-tab target.");
+        }
+      },
+      tabs: {
+        create: async url => {
+          created.push(url);
+          return fakeChatGPTPage();
+        }
+      }
+    };
+    const chatgpt = createChatGPT({ browser });
+
+    const result = await chatgpt.doctor({
+      check: ["existing_tab"],
+      existingTab: {
+        target: { type: "conversationId", conversationId: "abc-123" },
+        ifMissing: "block"
+      }
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.ready).toBe(false);
+    expect(result.data?.checks.existing_tab).toMatchObject({
+      status: "blocked",
+      blockerKind: "not_found",
+      code: "existing_tab_not_found",
+      nextCommand: "session.bootstrap",
+      details: {
+        existingTab: {
+          requestedTarget: {
+            type: "conversationId",
+            conversationId: "abc-123"
+          },
+          mismatchReason: "conversation_id_mismatch",
+          chatgptTabCount: 1
+        }
+      }
+    });
+    expect(claimed).toEqual([]);
+    expect(created).toEqual([]);
+  });
+
+  it("doctor reuses exact existing-tab bootstrap for other requested bootstrap checks", async () => {
+    const claimed: string[] = [];
+    const selected: string[] = [];
+    const created: string[] = [];
+    const pages = new Map([
+      ["other", fakeChatGPTPage("https://chatgpt.com/c/other")],
+      ["target", fakeChatGPTPage("https://chatgpt.com/c/target")]
+    ]);
+    const browser: BrowserLike = {
+      name: "chrome",
+      user: {
+        openTabs: async () => [
+          { id: "other", url: "https://chatgpt.com/c/other", title: "Other Chat" },
+          { id: "target", url: "https://chatgpt.com/c/target", title: "Target Chat" }
+        ],
+        claimTab: async tab => {
+          const tabId = typeof tab === "string" ? tab : tab.id;
+          const tabUrl = typeof tab === "string" ? undefined : tab.url;
+          claimed.push(tabId);
+          return pages.get(tabId) ?? fakeChatGPTPage(tabUrl);
+        }
+      },
+      tabs: {
+        selected: () => {
+          selected.push("selected");
+          return pages.get("other")!;
+        },
+        create: async url => {
+          created.push(url);
+          return fakeChatGPTPage(url);
+        }
+      }
+    };
+    const chatgpt = createChatGPT({ browser });
+
+    const result = await chatgpt.doctor({
+      check: ["bridge", "existing_tab"],
+      existingTab: {
+        target: { type: "conversationId", conversationId: "target" },
+        ifMissing: "block"
+      }
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.checks.bridge?.status).toBe("ok");
+    expect(result.data?.checks.existing_tab?.status).toBe("ok");
+    expect(claimed).toEqual(["target"]);
+    expect(selected).toEqual([]);
+    expect(created).toEqual([]);
+  });
+
+  it("doctor reports ambiguous existing-tab targets with metadata-only candidates", async () => {
+    const browser: BrowserLike = {
+      name: "chrome",
+      user: {
+        openTabs: async () => [
+          { id: "one", url: "https://chatgpt.com/c/one", title: "SDK Review" },
+          { id: "two", url: "https://chatgpt.com/c/two", title: "SDK Review" }
+        ],
+        claimTab: async () => {
+          throw new Error("claimTab should not be called for ambiguous existing-tab targets.");
+        }
+      }
+    };
+    const chatgpt = createChatGPT({ browser });
+
+    const result = await chatgpt.doctor({
+      check: ["existing_tab"],
+      existingTab: {
+        target: { type: "title", title: "SDK Review" },
+        ifMultiple: "block"
+      }
+    });
+
+    expect(result.data?.checks.existing_tab).toMatchObject({
+      status: "blocked",
+      code: "existing_tab_ambiguous",
+      details: {
+        existingTab: {
+          mismatchReason: "multiple_candidates",
+          candidateTabs: [
+            {
+              id: "one",
+              url: "https://chatgpt.com/c/one",
+              title: "SDK Review",
+              conversationId: "one"
+            },
+            {
+              id: "two",
+              url: "https://chatgpt.com/c/two",
+              title: "SDK Review",
+              conversationId: "two"
+            }
+          ]
+        }
+      }
+    });
+  });
+
+  it("doctor verifies localization registry readiness without a browser bridge", async () => {
+    const chatgpt = createChatGPT();
+
+    const result = await chatgpt.doctor({ check: ["localization"] });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.ready).toBe(true);
+    expect(result.data?.checks.localization).toMatchObject({
+      status: "unknown",
+      message: expect.stringContaining("registry-only"),
+      details: {
+        englishCanonicalPresent: true,
+        requiredKeysMissing: [],
+        runtimeSelectorCoverage: "registry_only_stage_2",
+        toolIds: expect.arrayContaining(["web_search", "deep_research", "create_image"])
+      }
+    });
+  });
+
+  it("doctor verifies report output policy and existing directory writability", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-doctor-reports-"));
+    const chatgpt = createChatGPT();
+
+    const result = await chatgpt.doctor({
+      check: ["reports"],
+      report: { destDir: dir }
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.checks.reports).toMatchObject({
+      status: "ok",
+      message: expect.stringContaining("writable"),
+      details: {
+        destDir: dir,
+        includeContent: false,
+        redactionDefault: true
+      }
+    });
+  });
+
+  it("doctor reports when requested report policy persists raw content", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-doctor-reports-raw-"));
+    const chatgpt = createChatGPT();
+
+    const result = await chatgpt.doctor({
+      check: ["reports"],
+      report: { destDir: dir, includeContent: true }
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.checks.reports).toMatchObject({
+      status: "ok",
+      message: expect.stringContaining("raw content persistence is enabled"),
+      details: {
+        destDir: dir,
+        includeContent: true,
+        redactionDefault: false
+      }
+    });
+    expect(result.data?.checks.reports?.message).not.toContain("redaction is enabled");
+  });
+
+  it("doctor exposes the file-preflight scaffold without opening a browser", async () => {
+    const opened: string[] = [];
+    const browser: BrowserLike = {
+      name: "chrome",
+      tabs: {
+        create: async url => {
+          opened.push(url);
+          return fakeChatGPTPage();
+        }
+      }
+    };
+    const chatgpt = createChatGPT({ browser });
+
+    const result = await chatgpt.doctor({
+      check: ["file_preflight"],
+      files: ["/absolute/path/spec.md"]
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.ready).toBe(false);
+    expect(result.data?.checks.file_preflight).toMatchObject({
+      status: "unsupported",
+      code: "file_preflight_deferred",
+      details: {
+        pathCount: 1,
+        fullValidation: "deferred_to_stage_3"
+      }
+    });
+    expect(opened).toEqual([]);
+  });
+
+  it("doctor reports artifact primitive readiness without requesting generation", async () => {
+    const page = fakeChatGPTPage();
+    const chatgpt = createChatGPT({ page });
+
+    const result = await chatgpt.doctor({ check: ["artifacts"] });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.checks.artifacts).toMatchObject({
+      status: "ok",
+      details: {
+        pageAvailable: true,
+        selectorsAvailable: true,
+        downloadEventsAvailable: true
+      }
+    });
+  });
 });
 
-function fakeChatGPTPage(): PageLike {
+function fakeChatGPTPage(url = "https://chatgpt.com/"): PageLike {
   return {
-    url: () => "https://chatgpt.com/",
+    url: () => url,
     title: async () => "ChatGPT",
     content: async () => "<main>New chat Search chats Chat with ChatGPT</main>",
     locator: () => ({ count: async () => 0 }),

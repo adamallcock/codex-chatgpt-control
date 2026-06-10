@@ -149,6 +149,25 @@ const diagnostic = await chatgpt.doctor({
 });
 ```
 
+Use opt-in scenario checks before targeted workflows:
+
+```ts
+await chatgpt.doctor({
+  check: ["existing_tab"],
+  existingTab: {
+    target: { type: "conversationId", conversationId: "<conversation-id>" },
+    ifMissing: "block"
+  }
+});
+
+await chatgpt.doctor({
+  check: ["localization", "reports"],
+  report: { destDir: "/absolute/host/reports" }
+});
+```
+
+`localization` verifies locale-registry readiness without changing the account language; it is not yet proof that every localized selector path is wired.
+
 ## Response Capture
 
 Use Markdown by default for human-readable answers and saved artifacts:

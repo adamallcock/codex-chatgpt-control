@@ -430,7 +430,7 @@ async function findExistingChatGPTTab(browser: BrowserLike): Promise<PageLike | 
     target: { type: "selected", host: "chatgpt" },
     ifMultiple: "first",
     requireChatGPT: true
-  }, false);
+  }, false).catch(() => ({ page: undefined }));
   if (userTab.page !== undefined) {
     return userTab.page;
   }

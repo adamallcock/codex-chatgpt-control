@@ -60,6 +60,33 @@ describe("existing Chrome tab bootstrap", () => {
     ]);
   });
 
+  it("falls back to a fresh tab when implicit user-tab reuse is already claimed", async () => {
+    const created: string[] = [];
+    const browser: BrowserLike = {
+      name: "chrome",
+      user: {
+        openTabs: async () => [
+          { id: "claimed-tab", url: "https://chatgpt.com/c/abc-123", title: "Already Claimed" }
+        ],
+        claimTab: async () => {
+          throw new Error("Tab claimed-tab is already part of browser session existing-session");
+        }
+      },
+      tabs: {
+        create: async url => {
+          created.push(url);
+          return fakeChatGPTPage("fresh-tab", url, "ChatGPT");
+        }
+      }
+    };
+
+    const result = await bootstrap({ browser }, { preferExistingTab: true });
+
+    expect(result.ok).toBe(true);
+    expect(result.context.tabId).toBe("fresh-tab");
+    expect(created).toEqual(["https://chatgpt.com/"]);
+  });
+
   it("claims an exact open user ChatGPT tab by conversation id without navigating", async () => {
     const claimed: unknown[] = [];
     const browser: BrowserLike = {

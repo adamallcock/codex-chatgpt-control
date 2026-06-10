@@ -95,6 +95,7 @@ class CommandResult(WireModel):
 class ChatGPTRunResult(WireModel):
     ok: bool
     status: CommandStatus
+    data: dict[str, Any] | None = None
     output_text: str
     final_output: Any = Field(default=None, alias="finalOutput")
     output: list[dict[str, Any]]
@@ -123,6 +124,11 @@ class ChatGPTResponse(WireModel):
     def unsupported_fields(self) -> list[dict[str, Any]]:
         value = self.browser_control.get("unsupported")
         return value if isinstance(value, list) else []
+
+    @property
+    def untrusted_output(self) -> dict[str, Any] | None:
+        value = self.browser_control.get("untrustedOutput")
+        return value if isinstance(value, dict) else None
 
 
 StreamEventType = Literal[
@@ -212,11 +218,28 @@ class BackendEvent(WireModel):
 class RunReportData(WireModel):
     path: str
     bytes: int | None = None
+    include_content: bool | None = Field(default=None, alias="includeContent")
+    meta_path: str | None = Field(default=None, alias="metaPath")
+    integrity: dict[str, Any] | None = None
     redacted: bool | None = None
 
 
+CapabilityStatus = Literal["ok", "blocked", "unsupported", "unknown"]
+
+
+class CapabilityCheck(WireModel):
+    status: CapabilityStatus
+    message: str
+    remediation: list[str] | None = None
+    code: str | None = None
+    blocker_kind: str | None = Field(default=None, alias="blockerKind")
+    next_command: str | None = Field(default=None, alias="nextCommand")
+    details: dict[str, Any] | None = None
+
+
 class DoctorReport(WireModel):
-    checks: dict[str, dict[str, Any]]
+    ready: bool | None = None
+    checks: dict[str, CapabilityCheck]
 
 
 def _command_output_text(data: Any) -> str | None:

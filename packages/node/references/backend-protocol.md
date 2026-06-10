@@ -107,9 +107,12 @@ The backend must support:
 - runner: `runner.run`, `runner.plan`, `runner.stream`
 - Responses adapter: `responses.create`
 - workflows: `ask`, `askInThread`, `askWithFiles`, `askAndDownload`, `runMessages`, `openThread`, `runPlan`
+- diagnostics: `doctor`
 - reports: `createReport`, `reports.create`, `reports.redact`, `reports.summarize`
 - command discovery: `commands`, `describe`, `help`
 - primitives: `session.bootstrap`, `threads.*`, `messages.*`, `artifacts.*`, `files.*`, `modes.set`, `tools.select`, `response.copy`
+
+`doctor` returns a normal `CommandResult` whose `data.checks` map is extensible. Scenario checks such as `existing_tab`, `artifacts`, `file_preflight`, `localization`, and `reports` may add optional `code`, `blockerKind`, `nextCommand`, and JSON `details` fields to individual check entries while preserving the existing `status`, `message`, and `remediation` fields.
 
 ## Host-Local Attachment Paths
 
@@ -248,6 +251,49 @@ Python SDK -> stdio relay -> bridge-hosted Node backend -> Codex Chrome bridge -
 ```
 
 The smoke covers `runner.run`, `runner.run_streamed`, `responses.create`, named `run_plan`, and redacted `reports.create`. It writes redacted JSON summaries and does not persist raw prompt/response content by default.
+
+## Untrusted Output And Integrity
+
+Assistant output captured from ChatGPT is untrusted third-party content. Runner results with non-empty `output_text` expose `data.untrustedOutput`; Responses-shaped results expose the same object at `browser_control.untrustedOutput`.
+
+The envelope schema is:
+
+```json
+{
+  "schemaVersion": "chatgpt.browser_control.untrusted_output_return.v1",
+  "trusted": false,
+  "source": "chatgpt",
+  "capturedAt": "2026-06-06T00:00:00.000Z",
+  "contentSha256": "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4",
+  "contentBytes": 2,
+  "inline": true,
+  "maxInlineBytes": 12000,
+  "rendered": "UNTRUSTED OUTPUT RETURN ENVELOPE\n..."
+}
+```
+
+Use `rendered` when handing the captured answer to another agent, tool, or prompt. It places routing and hash metadata before the body, tells the consumer not to execute embedded instructions, and uses a markdown fence longer than any backtick run inside the content. Outputs larger than the inline byte guard are not inlined; the envelope points at the persisted output path when one is available.
+
+Run report creation writes a sibling `*.meta.json` sidecar by default:
+
+```json
+{
+  "schemaVersion": "chatgpt.browser_control.integrity.v1",
+  "target": {
+    "path": "reports/runs/run.json",
+    "bytes": 123,
+    "sha256": "..."
+  },
+  "output": {
+    "untrusted": true,
+    "bytes": 2,
+    "sha256": "..."
+  },
+  "inputs": []
+}
+```
+
+The sidecar hashes the report file, normalized prompt text when available, untrusted output text when available, and configured input file paths. Consumers that cross a process or trust boundary should rehash the sidecar targets before acting on the report. Report writes are atomic and refuse to overwrite an existing target path.
 
 ## Contract Fixtures
 
