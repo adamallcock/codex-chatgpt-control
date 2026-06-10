@@ -14,8 +14,6 @@ from codex_chatgpt_control.models import (
     CommandDescriptor,
     CommandResult,
     DoctorReport,
-    FilePreflightData,
-    ProjectSourcesAddPlanData,
     RunReportData,
     SequencePlan,
 )
@@ -143,32 +141,33 @@ class CompleteModelTests(unittest.TestCase):
         )
         self.assertEqual(doctor.checks["localization"].status, "unknown")
         self.assertEqual(doctor.checks["reports"].status, "unknown")
-        self.assertEqual(doctor.checks["file_preflight"].status, "ok")
-        self.assertIsNotNone(doctor.checks["file_preflight"].details)
-        assert doctor.checks["file_preflight"].details is not None
-        self.assertEqual(doctor.checks["file_preflight"].details["totalBytes"], 16)
+        self.assertEqual(doctor.checks["file_preflight"].status, "blocked")
+        self.assertEqual(doctor.checks["file_preflight"].blocker_kind, "upload_failed")
+        self.assertEqual(doctor.checks["file_preflight"].code, "file_path_not_absolute")
+        self.assertEqual(doctor.checks["file_preflight"].next_command, "files.preflight")
         self.assertIn("blockerKind", doctor.to_wire()["checks"]["existing_tab"])
 
-    def test_file_preflight_fixture_parses_metadata_aliases(self) -> None:
+    def test_file_preflight_blocked_fixture_parses_blocker(self) -> None:
         result = CommandResult.from_wire(load_json("files-preflight-success.json")["result"])
-        data = FilePreflightData.from_wire(result.data)
 
-        self.assertTrue(result.ok)
-        self.assertEqual(data.total_bytes, 16)
-        self.assertEqual(data.files[0].name, "spec.md")
-        self.assertEqual(data.files[0].mime_type, "text/markdown")
-        self.assertIn("mimeType", data.to_wire()["files"][0])
+        self.assertFalse(result.ok)
+        self.assertEqual(result.status, "blocked")
+        self.assertIsNone(result.data)
+        self.assertIsNotNone(result.blocker)
+        assert result.blocker is not None
+        self.assertEqual(result.blocker["code"], "file_path_not_absolute")
+        self.assertEqual(result.blocker["kind"], "upload_failed")
 
-    def test_project_sources_plan_add_fixture_parses_aliases(self) -> None:
+    def test_project_sources_plan_add_blocked_fixture_parses_blocker(self) -> None:
         result = CommandResult.from_wire(load_json("project-sources-plan-add.json")["result"])
-        data = ProjectSourcesAddPlanData.from_wire(result.data)
 
-        self.assertTrue(result.ok)
-        self.assertEqual(data.project_url, "https://chatgpt.com/g/g-p-example/project")
-        self.assertEqual(data.total_bytes, 16)
-        self.assertEqual(data.files[0].display_path, data.files[0].path)
-        self.assertEqual(data.batches[0].total_bytes, 5)
-        self.assertIn("displayPath", data.to_wire()["files"][0])
+        self.assertFalse(result.ok)
+        self.assertEqual(result.status, "blocked")
+        self.assertIsNone(result.data)
+        self.assertIsNotNone(result.blocker)
+        assert result.blocker is not None
+        self.assertEqual(result.blocker["code"], "file_path_not_absolute")
+        self.assertEqual(result.blocker["fieldPath"], "paths[0]")
 
 
 if __name__ == "__main__":
