@@ -457,29 +457,38 @@ async function readSendButtonState(page: PageLike): Promise<SendButtonState> {
   }
   const visible = typeof locator.isVisible === "function" ? await locator.isVisible({ timeoutMs: 500 }).catch(() => undefined) : undefined;
   if (typeof locator.evaluate !== "function") {
+    const domState = await readSendButtonStateFromDom(page);
+    if (domState !== undefined) return domState;
     const state: SendButtonState = { available: false, reason: "unreadable:evaluate_missing" };
     state.count = count;
     if (visible !== undefined) state.visible = visible;
     return state;
   }
 
-  const evaluated = await locator.evaluate(element => {
-    const htmlElement = element as HTMLElement;
-    const button = element as HTMLButtonElement;
-    return {
-      disabled: button.disabled === true
-        || element.getAttribute("disabled") !== null
-        || element.getAttribute("aria-disabled") === "true"
-        || element.getAttribute("data-disabled") === "true",
-      busy: element.getAttribute("aria-busy") === "true"
-        || htmlElement.className.toString().toLocaleLowerCase().includes("loading"),
-      label: element.getAttribute("aria-label")
-        ?? element.getAttribute("title")
-        ?? htmlElement.innerText
-        ?? element.textContent
-        ?? undefined
-    };
-  });
+  let evaluated: { disabled: boolean; busy: boolean; label?: string };
+  try {
+    evaluated = await locator.evaluate(element => {
+      const htmlElement = element as HTMLElement;
+      const button = element as HTMLButtonElement;
+      return {
+        disabled: button.disabled === true
+          || element.getAttribute("disabled") !== null
+          || element.getAttribute("aria-disabled") === "true"
+          || element.getAttribute("data-disabled") === "true",
+        busy: element.getAttribute("aria-busy") === "true"
+          || htmlElement.className.toString().toLocaleLowerCase().includes("loading"),
+        label: element.getAttribute("aria-label")
+          ?? element.getAttribute("title")
+          ?? htmlElement.innerText
+          ?? element.textContent
+          ?? undefined
+      };
+    });
+  } catch {
+    const domState = await readSendButtonStateFromDom(page);
+    if (domState !== undefined) return domState;
+    throw new Error("send_button_evaluate_failed");
+  }
 
   const state: SendButtonState = {
     available: true,
@@ -490,6 +499,50 @@ async function readSendButtonState(page: PageLike): Promise<SendButtonState> {
   if (visible !== undefined) state.visible = visible;
   if (evaluated.label !== undefined) state.label = evaluated.label;
   return state;
+}
+
+async function readSendButtonStateFromDom(page: PageLike): Promise<SendButtonState | undefined> {
+  if (typeof page.evaluate !== "function") return undefined;
+  return page.evaluate((labels) => {
+    const labelSet = new Set(labels);
+    const candidates = Array.from(document.querySelectorAll("button, [role='button']"))
+      .filter(element => element.getAttribute("data-testid") === "send-button"
+        || labelSet.has(element.getAttribute("aria-label") ?? "")
+        || labelSet.has((element as HTMLElement).innerText ?? "")
+        || labelSet.has(element.textContent ?? "")
+        || element.id === "composer-submit-button");
+
+    if (candidates.length !== 1) {
+      return {
+        available: false,
+        count: candidates.length,
+        reason: candidates.length === 0 ? "not_found" : "not_unique"
+      };
+    }
+
+    const element = candidates[0] as HTMLButtonElement;
+    const htmlElement = element as HTMLElement;
+    const hasGeometry = typeof element.getClientRects === "function";
+    const visible = hasGeometry
+      ? Boolean(element.offsetWidth || element.offsetHeight || element.getClientRects().length)
+      : undefined;
+    return {
+      available: true,
+      count: 1,
+      disabled: element.disabled === true
+        || element.getAttribute("disabled") !== null
+        || element.getAttribute("aria-disabled") === "true"
+        || element.getAttribute("data-disabled") === "true",
+      busy: element.getAttribute("aria-busy") === "true"
+        || htmlElement.className.toString().toLocaleLowerCase().includes("loading"),
+      label: element.getAttribute("aria-label")
+        ?? element.getAttribute("title")
+        ?? htmlElement.innerText
+        ?? element.textContent
+        ?? undefined,
+      ...(visible !== undefined ? { visible } : {})
+    };
+  }, localeLabels.sendButton);
 }
 
 async function readVisibleTextForSubmit(page: PageLike): Promise<string | undefined> {

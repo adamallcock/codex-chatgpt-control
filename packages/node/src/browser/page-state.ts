@@ -1,7 +1,7 @@
 import type { BlockerKind, PageLike } from "../types.js";
 import { classifyVisibleText } from "../safety/blockers.js";
 import { compactVisibleText } from "../safety/redaction.js";
-import { escapeRegExp, localeLabels } from "../dom/locale-labels.js";
+import { localeLabels } from "../dom/locale-labels.js";
 import { withTimeout } from "../commands/timeouts.js";
 
 export type PageState = {
@@ -94,6 +94,8 @@ export function htmlToText(html: string): string {
 }
 
 function isLikelySignedIn(visibleText: string): boolean {
-  const markers = localeLabels.signedInMarkers.map(escapeRegExp).join("|");
-  return new RegExp(`\\b(${markers})\\b`, "i").test(visibleText);
+  const normalizedText = visibleText.toLocaleLowerCase();
+  return localeLabels.signedInMarkers.some(marker =>
+    marker.length > 0 && normalizedText.includes(marker.toLocaleLowerCase())
+  );
 }

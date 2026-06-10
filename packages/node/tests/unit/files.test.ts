@@ -262,6 +262,68 @@ describe("attachFiles", () => {
     expect(uploadedPaths).toEqual([file]);
   });
 
+  it("uses the localized Japanese upload menu item when the file input is hidden", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-ja-"));
+    const file = join(dir, "notes.txt");
+    await writeFile(file, "hello");
+
+    let plusClicked = false;
+    let uploadedPaths: string[] = [];
+
+    const messageLocator: LocatorLike = {
+      count: async () => 0
+    };
+    const hiddenInput: LocatorLike = {
+      count: async () => 1,
+      isVisible: async () => false
+    };
+    const plusButton: LocatorLike = {
+      count: async () => 1,
+      click: async () => {
+        plusClicked = true;
+      }
+    };
+    const emptyLocator: LocatorLike = {
+      count: async () => 0
+    };
+    const japaneseMenuItem: LocatorLike = {
+      count: async () => plusClicked ? 1 : 0,
+      click: async () => {}
+    };
+    const menuRoot: LocatorLike = {
+      count: async () => 0,
+      filter: options => options.hasText === "写真とファイルをアップロードする" ? japaneseMenuItem : emptyLocator
+    };
+
+    const page: PageLike = {
+      locator: (selector: string) => {
+        if (selector === "#upload-files") return hiddenInput;
+        if (selector.includes("#composer-plus-btn")) return plusButton;
+        if (selector === "div[role='menuitem']" || selector === "[role='menuitem']") return menuRoot;
+        if (selector.includes("data-message-author-role")) return messageLocator;
+        return emptyLocator;
+      },
+      waitForEvent: async event => {
+        expect(event).toBe("filechooser");
+        return {
+          isMultiple: async () => true,
+          setFiles: async (paths: string[]) => {
+            uploadedPaths = paths;
+          }
+        };
+      },
+      waitForTimeout: async () => {},
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/"
+    };
+
+    const result = await attachFiles({ page }, { paths: [file] });
+
+    expect(result.ok).toBe(true);
+    expect(plusClicked).toBe(true);
+    expect(uploadedPaths).toEqual([file]);
+  });
+
   it("waits for attached files to finish processing before returning success", async () => {
     const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-processing-"));
     const file = join(dir, "notes.txt");

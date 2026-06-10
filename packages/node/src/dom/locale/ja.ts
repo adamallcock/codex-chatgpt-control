@@ -18,7 +18,7 @@ export const ja = {
   newChat: ["新しいチャット"],
   addFilesButton: ["ファイルの追加など"],
   addFilesOpenerCandidates: ["ファイルの追加など"],
-  addPhotosFilesMenuItem: ["写真とファイルを追加"],
+  addPhotosFilesMenuItem: ["写真とファイルを追加", "写真とファイルをアップロードする"],
   copyResponse: ["回答をコピーする"],
   modeOpenerExtra: ["設定する"],
   tools: {

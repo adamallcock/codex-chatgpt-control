@@ -605,10 +605,10 @@ async function clickChatGPTAddPhotosMenuItem(
 ): Promise<void> {
   // The `#composer-plus-btn` id is the language-agnostic primary; the aria-label and the
   // menu-item text are locale-sensitive (menu text sourced from the locale registry).
-  const addPhotosFilesText = localeLabels.addPhotosFilesMenuItem[0];
-  const menuItem = requiredLocator(page, "div[role='menuitem']").filter?.({ hasText: addPhotosFilesText });
+  const addPhotosFilesLabels = localeLabels.addPhotosFilesMenuItem;
+  const menuItem = await findUniqueMenuItem(page, addPhotosFilesLabels);
 
-  if (await locatorCount(menuItem) !== 1) {
+  if (menuItem === undefined || await locatorCount(menuItem) !== 1) {
     const plusButton = await findUniqueLocator(page, [
       "#composer-plus-btn, button[aria-label='Add files and more']",
       "#composer-plus-btn, button[aria-label='ファイルの追加など']"
@@ -620,7 +620,7 @@ async function clickChatGPTAddPhotosMenuItem(
     await page.waitForTimeout?.(250);
   }
 
-  const refreshedMenuItem = requiredLocator(page, "div[role='menuitem']").filter?.({ hasText: addPhotosFilesText });
+  const refreshedMenuItem = await findUniqueMenuItem(page, addPhotosFilesLabels);
   await clickFileChooserLocator(page, refreshedMenuItem, paths, timeoutMs);
 }
 

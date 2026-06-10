@@ -250,6 +250,7 @@ describe("extractMessagesFromHtml", () => {
         }
       }
     });
+    delete (page as { evaluate?: unknown }).evaluate;
 
     const result = await inspectComposer({ page }, {
       expectedSha256: sha256Prompt("ready prompt")
@@ -260,6 +261,48 @@ describe("extractMessagesFromHtml", () => {
       kind: "selector_drift",
       code: "send_button_not_unique_enabled"
     });
+  });
+
+  it("uses DOM send button state when locator evaluate is unavailable", async () => {
+    const textbox: LocatorLike = {
+      innerText: async () => "ready prompt",
+      textContent: async () => "ready prompt"
+    };
+    const send: LocatorLike = {
+      count: async () => 1,
+      isVisible: async () => true
+    };
+    const page: PageLike = {
+      getByRole: (role: string) => role === "textbox" ? textbox : send,
+      evaluate: async <T, A = unknown>(fn: (arg: A) => T | Promise<T>, arg?: A): Promise<T> => {
+        const source = String(fn);
+        if (source.includes("querySelectorAll")) {
+          return {
+            available: true,
+            count: 1,
+            visible: true,
+            disabled: false,
+            busy: false,
+            label: "プロンプトを送信する"
+          } as T;
+        }
+        if (source.includes("document.body?.innerText")) {
+          return "" as T;
+        }
+        return await fn(arg as A);
+      },
+      waitForTimeout: async () => {},
+      title: async () => "ChatGPT",
+      url: async () => "https://chatgpt.com/?temporary-chat=true"
+    };
+
+    const result = await inspectComposer({ page }, {
+      expectedSha256: sha256Prompt("ready prompt")
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.sendButtonCount).toBe(1);
+    expect(result.data?.sendButtonEnabled).toBe(true);
   });
 
   it("reads latest user text snapshots without serializing message HTML", async () => {
