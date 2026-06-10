@@ -39,6 +39,7 @@ export type LocaleStrings = {
   signedInMarkers: string | readonly string[];
   transientAssistant: string | readonly string[];
   stopControl: string | readonly string[];
+  stoppedAssistant: string | readonly string[];
   responseActions: string | readonly string[];
 
   // --- Blocker classification ---

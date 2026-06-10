@@ -38,7 +38,7 @@
       {
         "id": "interrupt-timeout",
         "type": "timeout",
-        "status": "timeout",
+        "status": "partial",
         "message": "The assistant response did not stabilize before the configured timeout.",
         "resume": {
           "supported": true,
@@ -70,7 +70,7 @@
       {
         "id": "ask",
         "command": "messages.ask",
-        "status": "timeout",
+        "status": "partial",
         "ok": false
       }
     ],

@@ -7,6 +7,28 @@ status: draft
 
 # Troubleshooting
 
+<!-- surface-drift:blocker-kind-coverage:start -->
+## Blocker Kind Coverage
+
+This section is checked by `npm run docs:drift`. Keep it aligned with `BlockerKind`, `explainCommandBlocker(...)`, command descriptors, and public troubleshooting coverage.
+
+- `browser_bridge_unavailable`: Browser bridge unavailable (category: `environment`, severity: `blocked`, user action: no)
+- `login_required`: Login required (category: `auth`, severity: `action_required`, user action: yes)
+- `captcha`: Captcha or human verification required (category: `auth`, severity: `action_required`, user action: yes)
+- `rate_limit`: Rate limited (category: `auth`, severity: `action_required`, user action: yes)
+- `modal`: Modal is blocking the page (category: `runtime`, severity: `action_required`, user action: yes)
+- `permission`: Permission required (category: `permission`, severity: `action_required`, user action: yes)
+- `confirmation`: Confirmation required (category: `user_confirmation`, severity: `action_required`, user action: yes)
+- `selector_drift`: Selector drift (category: `ui_drift`, severity: `blocked`, user action: no)
+- `artifact_unavailable`: Artifact unavailable (category: `artifact`, severity: `warning`, user action: no)
+- `artifact_selector_drift`: Artifact selector drift (category: `ui_drift`, severity: `blocked`, user action: no)
+- `artifact_download_unavailable`: Artifact download unavailable (category: `download`, severity: `warning`, user action: no)
+- `download_unavailable`: Download unavailable (category: `download`, severity: `warning`, user action: no)
+- `upload_failed`: Upload failed (category: `upload`, severity: `action_required`, user action: yes)
+- `not_found`: Target not found (category: `not_found`, severity: `warning`, user action: no)
+- `unknown`: Unknown blocker (category: `unknown`, severity: `blocked`, user action: no)
+<!-- surface-drift:blocker-kind-coverage:end -->
+
 ## `browser_bridge_unavailable`
 
 Expected from ordinary shells. Use it as a diagnostic that the command failed safely before touching browser state.

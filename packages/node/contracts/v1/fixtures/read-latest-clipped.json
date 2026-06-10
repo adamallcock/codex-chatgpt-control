@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "chatgpt.browser_control.command_result.v1",
+  "result": {
+    "ok": true,
+    "status": "ok",
+    "data": {
+      "role": "assistant",
+      "text": "abcdefghij",
+      "format": "markdown",
+      "source": "semantic_dom",
+      "fidelity": "semantic_markdown",
+      "captureLimit": {
+        "maxChars": 10,
+        "originalChars": 26,
+        "clipped": true
+      },
+      "warnings": [
+        "Response captured text was clipped by maxChars=10 from 26 characters."
+      ],
+      "markdown": "abcdefghij"
+    },
+    "output_text": "abcdefghij",
+    "warnings": [
+      "Response captured text was clipped by maxChars=10 from 26 characters."
+    ],
+    "context": {
+      "timestamp": "2026-06-10T00:00:00.000Z",
+      "url": "https://chatgpt.com/c/fixture-clipped"
+    }
+  }
+}

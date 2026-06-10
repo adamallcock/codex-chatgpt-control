@@ -174,8 +174,10 @@ var en = {
   signedInMarkers: ["New chat", "Search chats", "Chat with ChatGPT", "Recents", "Projects"],
   /** Exact-match transient assistant placeholders filtered out of captured responses. */
   transientAssistant: ["thinking", "reasoning", "searching", "searching the web"],
-  /** Streaming "stop" control text, matched as whole words while a response generates. */
-  stopControl: ["stop generating", "stop streaming", "cancel"],
+  /** Streaming "stop" control text, matched while a response generates. */
+  stopControl: ["stop generating", "stop streaming", "stop answering", "cancel"],
+  /** Interrupted generation markers shown after the assistant stops before completion. */
+  stoppedAssistant: ["stopped thinking", "stopped answering", "generation stopped"],
   /** Response-action affordance text (fallback to the structural copy-button locator). */
   responseActions: ["Copy response", "More actions"],
   // --- Blocker classification (ChatGPT-localized visible text only) ---
@@ -1585,6 +1587,7 @@ var nonToolKeys = [
   "signedInMarkers",
   "transientAssistant",
   "stopControl",
+  "stoppedAssistant",
   "responseActions",
   "loginBlocker",
   "captchaBlocker",
@@ -2087,20 +2090,34 @@ function formatMessageHtml(html, requestedFormat = "markdown", maxChars, metadat
   const root = parseHtmlFragment(html);
   const meaningfulChildren = stripIgnorableNodes(root.children);
   const blocks = extractBlocks(meaningfulChildren);
-  const markdown = clamp(blocksToMarkdown(blocks), maxChars);
-  const visibleText = clamp(blocksToPlainText(blocks), maxChars);
-  const normalizedText = clamp(normalizeWhitespace(visibleText), maxChars);
+  const rawMarkdown = blocksToMarkdown(blocks);
+  const rawVisibleText = blocksToPlainText(blocks);
+  const rawNormalizedText = normalizeWhitespace(rawVisibleText);
+  const markdownCapture = applyCaptureLimit(rawMarkdown, maxChars);
+  const visibleTextCapture = applyCaptureLimit(rawVisibleText, maxChars);
+  const normalizedTextCapture = applyCaptureLimit(rawNormalizedText, maxChars);
+  const markdown = markdownCapture.text;
+  const visibleText = visibleTextCapture.text;
+  const normalizedText = normalizedTextCapture.text;
   const citations = collectCitations(meaningfulChildren);
   const codeBlocks = blocks.flatMap((block) => block.type === "code" ? [codeBlockFromBlock(block)] : []);
   const tables = blocks.flatMap((block) => block.type === "table" ? [tableFromBlock(block)] : []);
   const metadata = extractResponseMetadata(metadataHtml ?? html);
+  const captureLimit = captureLimitForFormat(format, {
+    markdown: markdownCapture.captureLimit,
+    visibleText: visibleTextCapture.captureLimit,
+    normalizedText: normalizedTextCapture.captureLimit,
+    html: applyCaptureLimit(html, maxChars).captureLimit
+  });
   const content = {
     text: textForFormat(format, { markdown, visibleText, normalizedText, html }),
     format,
     source: "semantic_dom",
     fidelity: fidelityForDomFormat(format)
   };
+  if (captureLimit !== void 0) content.captureLimit = captureLimit;
   const warnings = warningsForDomFormat(format);
+  if (captureLimit?.clipped === true) warnings.push(captureLimitWarning(captureLimit));
   if (warnings.length > 0) content.warnings = warnings;
   if (format === "markdown" || format === "all") content.markdown = markdown;
   if (format === "visible_text" || format === "all") content.visibleText = visibleText;
@@ -2124,15 +2141,27 @@ function formatMessageHtml(html, requestedFormat = "markdown", maxChars, metadat
 }
 function formatClipboardMarkdown(text, maxChars, requestedFormat = "markdown") {
   const format = normalizeResponseFormat(requestedFormat);
-  const markdown = clamp(normalizeLineBreaks(text).trim(), maxChars);
+  const rawMarkdown = normalizeLineBreaks(text).trim();
+  const rawNormalizedText = normalizeWhitespace(rawMarkdown);
+  const markdownCapture = applyCaptureLimit(rawMarkdown, maxChars);
+  const normalizedTextCapture = applyCaptureLimit(rawNormalizedText, maxChars);
+  const markdown = markdownCapture.text;
   const visibleText = markdown;
-  const normalizedText = clamp(normalizeWhitespace(markdown), maxChars);
+  const normalizedText = normalizedTextCapture.text;
+  const captureLimit = captureLimitForFormat(format, {
+    markdown: markdownCapture.captureLimit,
+    visibleText: markdownCapture.captureLimit,
+    normalizedText: normalizedTextCapture.captureLimit,
+    html: markdownCapture.captureLimit
+  });
   const content = {
     text: textForFormat(format, { markdown, visibleText, normalizedText, html: markdown }),
     format,
     source: "clipboard",
     fidelity: "clipboard_markdown"
   };
+  if (captureLimit !== void 0) content.captureLimit = captureLimit;
+  if (captureLimit?.clipped === true) content.warnings = [captureLimitWarning(captureLimit)];
   if (format === "markdown" || format === "all") content.markdown = markdown;
   if (format === "visible_text" || format === "all") content.visibleText = visibleText;
   if (format === "normalized_text" || format === "all") content.normalizedText = normalizedText;
@@ -2159,6 +2188,38 @@ function warningsForDomFormat(format) {
     return [];
   }
   return ["Markdown was reconstructed from visible DOM semantics; use response.copy for clipboard Markdown when exact copy fidelity is required."];
+}
+function applyCaptureLimit(text, maxChars) {
+  if (maxChars === void 0) {
+    return { text };
+  }
+  const captureLimit = {
+    maxChars,
+    originalChars: text.length,
+    clipped: text.length > maxChars
+  };
+  return {
+    text: captureLimit.clipped ? text.slice(0, maxChars) : text,
+    captureLimit
+  };
+}
+function captureLimitForFormat(format, limits) {
+  switch (format) {
+    case "markdown":
+      return limits.markdown;
+    case "visible_text":
+      return limits.visibleText;
+    case "normalized_text":
+      return limits.normalizedText;
+    case "html":
+      return limits.html;
+    case "blocks":
+    case "all":
+      return limits.markdown;
+  }
+}
+function captureLimitWarning(captureLimit) {
+  return `Response captured text was clipped by maxChars=${captureLimit.maxChars} from ${captureLimit.originalChars} characters.`;
 }
 function textForFormat(format, values) {
   switch (format) {
@@ -2536,10 +2597,6 @@ function languageFromClass(className) {
 }
 function normalizeInline(text) {
   return decodeBasicEntities(text).replace(/[ \t\r\n]+/g, " ").replace(/\s+([.,;:!?])/g, "$1").trim();
-}
-function clamp(text, maxChars) {
-  if (maxChars === void 0 || text.length <= maxChars) return text;
-  return text.slice(0, Math.max(0, maxChars));
 }
 function escapeMarkdownLinkText(text) {
   return text.replace(/]/g, "\\]");
@@ -5526,6 +5583,97 @@ function isNodeError2(error) {
   return error instanceof Error && "code" in error;
 }
 
+// src/dom/generation-state.ts
+var EMPTY_GENERATION_STATE = {
+  active: false,
+  stopped: false,
+  signals: []
+};
+async function readAssistantGenerationState(page) {
+  if (typeof page.evaluate === "function") {
+    return page.evaluate((args) => {
+      const normalize = (value) => (value ?? "").trim().toLowerCase();
+      const isVisible = (element) => {
+        const style = window.getComputedStyle(element);
+        return style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0" && element.getAttribute("aria-hidden") !== "true";
+      };
+      const visibleButtons = Array.from(document.querySelectorAll("button")).filter((button) => isVisible(button) && button.disabled !== true && button.getAttribute("aria-disabled") !== "true");
+      const buttonTexts = visibleButtons.map((button) => [
+        button.innerText,
+        button.textContent,
+        button.getAttribute("aria-label"),
+        button.getAttribute("title")
+      ].map(normalize).filter(Boolean).join(" ")).filter(Boolean);
+      const bodyText = normalize(document.body?.innerText);
+      const haystacks = [bodyText, ...buttonTexts];
+      const matchingSignals = (phrases) => haystacks.flatMap(
+        (text) => phrases.map((phrase) => phrase.toLowerCase()).filter((phrase) => text.includes(phrase))
+      );
+      const activeSignals = matchingSignals(args.stop);
+      const stoppedSignals = matchingSignals(args.stopped);
+      return {
+        active: activeSignals.length > 0,
+        stopped: stoppedSignals.length > 0,
+        signals: [.../* @__PURE__ */ new Set([...activeSignals, ...stoppedSignals, ...buttonTexts.filter((text) => /stop|cancel|stopped|answering|thinking/i.test(text))])].slice(0, 5)
+      };
+    }, {
+      stop: [...localeLabels.stopControl],
+      stopped: [...localeLabels.stoppedAssistant]
+    }).catch(() => EMPTY_GENERATION_STATE);
+  }
+  if (typeof page.content === "function") {
+    const html = await page.content().catch(() => "");
+    return generationStateFromText(html);
+  }
+  return EMPTY_GENERATION_STATE;
+}
+async function latestAssistantTurnHasResponseActions(page) {
+  if (typeof page.evaluate === "function") {
+    const scoped = await page.evaluate((phrases) => {
+      const turns = Array.from(document.querySelectorAll("[data-testid^='conversation-turn']"));
+      if (turns.length === 0) return void 0;
+      const latestTurn = turns.reverse().find(
+        (turn) => turn.querySelector("[data-message-author-role='assistant']") !== null
+      );
+      if (latestTurn === void 0) return false;
+      const actionText = Array.from(latestTurn.querySelectorAll("button")).map((button) => [
+        button.innerText,
+        button.textContent,
+        button.getAttribute("aria-label"),
+        button.getAttribute("title")
+      ].filter(Boolean).join(" ")).join(" ").toLowerCase();
+      return phrases.some((phrase) => actionText.includes(phrase.toLowerCase()));
+    }, [...localeLabels.responseActions]).catch(() => void 0);
+    if (scoped !== void 0) {
+      return scoped;
+    }
+  }
+  try {
+    const copyButtons = copyResponseButtons(page);
+    const count = await copyButtons.count?.();
+    if (count !== void 0) {
+      return count > 0;
+    }
+    return await copyButtons.isVisible?.() === true;
+  } catch {
+    if (typeof page.content === "function") {
+      const html = await page.content().catch(() => "");
+      return localeLabels.responseActions.some((phrase) => html.toLowerCase().includes(phrase.toLowerCase()));
+    }
+    return true;
+  }
+}
+function generationStateFromText(text) {
+  const normalized = text.toLowerCase();
+  const activeSignals = localeLabels.stopControl.filter((phrase) => normalized.includes(phrase.toLowerCase()));
+  const stoppedSignals = localeLabels.stoppedAssistant.filter((phrase) => normalized.includes(phrase.toLowerCase()));
+  return {
+    active: activeSignals.length > 0,
+    stopped: stoppedSignals.length > 0,
+    signals: [...activeSignals, ...stoppedSignals].slice(0, 5)
+  };
+}
+
 // src/commands/output.ts
 function commandOutputText(data) {
   if (!isRecord2(data)) return void 0;
@@ -5554,7 +5702,7 @@ function isRecord2(value) {
 
 // src/commands/messages.ts
 function isResponseComplete(snapshot) {
-  return snapshot.latestText.trim().length > 0 && !isTransientAssistantText(snapshot.latestText) && snapshot.textStableForMs >= snapshot.stableMs && !snapshot.hasStopButton && snapshot.hasResponseActions;
+  return snapshot.latestText.trim().length > 0 && !isTransientAssistantText(snapshot.latestText) && snapshot.textStableForMs >= snapshot.stableMs && !snapshot.generation.active && !snapshot.generation.stopped && snapshot.hasResponseActions;
 }
 async function composeMessage(env, args) {
   const boot = await ensurePage3(env);
@@ -5815,9 +5963,26 @@ async function waitForMessage(env, args = {}) {
       latestText,
       stableMs,
       textStableForMs: Date.now() - lastChangedAt,
-      hasStopButton: await hasStopControl2(page),
-      hasResponseActions: await hasResponseActions(page)
+      generation: await readAssistantGenerationState(page),
+      hasResponseActions: await latestAssistantTurnHasResponseActions(page)
     };
+    if (targetReached && snapshot.generation.stopped && latestText.length > 0) {
+      return withCommandOutputText({
+        ok: false,
+        status: "partial",
+        data: {
+          complete: false,
+          responseText: latestText,
+          assistantTurnCount: latestAssistantCount,
+          elapsedMs: Date.now() - started
+        },
+        warnings: [
+          "ChatGPT generation appears to have been stopped or interrupted before completion.",
+          ...snapshot.generation.signals.map((signal) => `Generation state signal: ${signal}`)
+        ],
+        context: await contextFromPage(page)
+      });
+    }
     if (targetReached && isResponseComplete(snapshot)) {
       return withCommandOutputText(resultOk(
         { complete: true, responseText: latestText, assistantTurnCount: latestAssistantCount, elapsedMs: Date.now() - started },
@@ -5876,6 +6041,7 @@ async function readLatest(env, args = {}) {
   const data = { role, text: latest.text, format: latest.format };
   if (latest.source !== void 0) data.source = latest.source;
   if (latest.fidelity !== void 0) data.fidelity = latest.fidelity;
+  if (latest.captureLimit !== void 0) data.captureLimit = latest.captureLimit;
   if (latest.warnings !== void 0) data.warnings = latest.warnings;
   if (latest.markdown !== void 0) data.markdown = latest.markdown;
   if (latest.visibleText !== void 0) data.visibleText = latest.visibleText;
@@ -5930,11 +6096,15 @@ async function askMessage(env, args) {
       waitArgs.afterAssistantTurnCount = beforeAssistantTurnCount;
     }
     waitResult = await waitForMessage(env, waitArgs);
-    if (!waitResult.ok && waitResult.status !== "partial") {
-      if (!readRequested || readRole(args.read) === "user") {
-        return forwardFailure(waitResult);
+    if (!waitResult.ok) {
+      if (waitResult.status === "partial") {
+        waitFailure = waitResult;
+      } else {
+        if (!readRequested || readRole(args.read) === "user") {
+          return forwardFailure(waitResult);
+        }
+        waitFailure = waitResult;
       }
-      waitFailure = waitResult;
     }
   }
   let responseText = waitResult?.data?.responseText;
@@ -5946,6 +6116,7 @@ async function askMessage(env, args) {
         return forwardFailure(waitFailure);
       }
       responseText = read.data?.text;
+      warnings.push(...read.warnings);
       if (waitFailure !== void 0) {
         warnings.push(
           ...waitFailure.warnings,
@@ -5974,6 +6145,19 @@ async function askMessage(env, args) {
   if (state?.title !== void 0) {
     data.title = state.title;
   }
+  if (waitFailure !== void 0) {
+    data.complete = false;
+    return withCommandOutputText({
+      ok: false,
+      status: "partial",
+      data,
+      warnings: [
+        ...warnings,
+        `Assistant response was read after ${waitFailure.status}, but completion was not confirmed.`
+      ],
+      context: await contextFromPage(page)
+    });
+  }
   return withCommandOutputText(resultOk(data, await contextFromPage(page), warnings));
 }
 async function waitAndRead(env, args = {}) {
@@ -5998,7 +6182,22 @@ async function waitAndRead(env, args = {}) {
     }
     return forwardFailure(read);
   }
-  return withCommandOutputText(resultOk(askReadData("", read.data?.text, wait.data?.complete), read.context, wait.warnings));
+  const data = askReadData("", read.data?.text, wait.data?.complete);
+  const warnings = [...read.warnings, ...wait.warnings];
+  if (!wait.ok && wait.status === "partial") {
+    data.complete = false;
+    return withCommandOutputText({
+      ok: false,
+      status: "partial",
+      data,
+      warnings: [
+        ...warnings,
+        "Assistant response was read after partial wait, but completion was not confirmed."
+      ],
+      context: read.context
+    });
+  }
+  return withCommandOutputText(resultOk(data, read.context, warnings));
 }
 async function ensurePage3(env) {
   if (env.page !== void 0) {
@@ -6059,35 +6258,6 @@ ${language}
 ` : "\n").replace(/~~~[ \t]*([a-z0-9_+#.-]+)?/gi, (_match, language) => language && preserveFenceLanguage ? `
 ${language}
 ` : "\n").replace(/`([^`]+)`/g, "$1").replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/__([^_]+)__/g, "$1").replace(/\*([^*]+)\*/g, "$1").replace(/_([^_]+)_/g, "$1");
-}
-async function hasStopControl2(page) {
-  if (typeof page.evaluate === "function") {
-    return page.evaluate((phrases) => {
-      const text = document.body?.innerText ?? "";
-      const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return phrases.some((phrase) => new RegExp(`\\b${escape(phrase)}\\b`, "i").test(text));
-    }, [...localeLabels.stopControl]).catch(() => false);
-  }
-  return false;
-}
-async function hasResponseActions(page) {
-  try {
-    const copyButtons = copyResponseButtons(page);
-    const count = await copyButtons.count?.();
-    if (count !== void 0) {
-      return count > 0;
-    }
-    return await copyButtons.isVisible?.() === true;
-  } catch {
-    if (typeof page.evaluate === "function") {
-      return page.evaluate((phrases) => {
-        const text = document.body?.innerText ?? "";
-        const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return phrases.some((phrase) => new RegExp(`\\b${escape(phrase)}\\b`, "i").test(text));
-      }, [...localeLabels.responseActions]).catch(() => false);
-    }
-    return true;
-  }
 }
 async function readAssistantProgressSnapshot(page) {
   if (typeof page.evaluate === "function") {
@@ -6889,6 +7059,26 @@ async function copyResponse(env, args = {}) {
   }
   const page = env.page;
   try {
+    if (isLatestSelection(args.which)) {
+      const generation = await readAssistantGenerationState(page);
+      if (generation.active || generation.stopped) {
+        const latest2 = await readSelectedAssistantMessage(page, args.which, args.format ?? "markdown").catch(() => void 0);
+        const warning = generation.active ? "Response is still generating; copied content may be partial." : "Response appears to have been stopped before completion; copied content may be partial.";
+        const fallbackReason = generation.active ? "Response is still generating; returned DOM-derived partial content." : "Response appears to have been stopped before completion; returned DOM-derived partial content.";
+        const data = latest2 === void 0 ? void 0 : copiedResponseFromExtracted(latest2, "dom", fallbackReason);
+        const result = {
+          ok: false,
+          status: "partial",
+          warnings: [
+            warning,
+            ...generation.signals.map((signal) => `Generation state signal: ${signal}`)
+          ],
+          context: await contextFromPage(page)
+        };
+        if (data !== void 0) result.data = data;
+        return withCommandOutputText(result);
+      }
+    }
     if (args.prefer !== "dom") {
       const before = await readClipboard(env);
       const buttons = copyResponseButtons(page);
@@ -6951,6 +7141,9 @@ async function copyResponse(env, args = {}) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
 }
+function isLatestSelection(which) {
+  return which === void 0 || which === "latest";
+}
 function readClipboard(env) {
   return env.clipboard?.read() ?? readSystemClipboard();
 }
@@ -6974,6 +7167,7 @@ function copiedResponseFromExtracted(latest, source, fallbackReason) {
     source
   };
   if (latest.fidelity !== void 0) data.fidelity = latest.fidelity;
+  if (latest.captureLimit !== void 0) data.captureLimit = latest.captureLimit;
   if (latest.warnings !== void 0 || fallbackReason !== void 0) {
     data.warnings = [...latest.warnings ?? [], ...fallbackReason === void 0 ? [] : [fallbackReason]];
   }
@@ -6984,6 +7178,7 @@ function copiedResponseFromExtracted(latest, source, fallbackReason) {
 function mergeResponseMetadata(data, latest) {
   if (latest === void 0) return;
   if (latest.markdown !== void 0 && data.markdown === void 0) data.markdown = latest.markdown;
+  if (latest.captureLimit !== void 0) data.captureLimit = latest.captureLimit;
   if (latest.visibleText !== void 0) data.visibleText = latest.visibleText;
   if (latest.normalizedText !== void 0) data.normalizedText = latest.normalizedText;
   if (latest.html !== void 0) data.html = latest.html;
@@ -7913,7 +8108,7 @@ function interruptionFromCommandResult(result, command) {
   return interruption;
 }
 function isInterruptingResult(result) {
-  return result.blocker !== void 0 || result.status === "needs_confirmation" || result.status === "unsupported" || result.status === "timeout";
+  return result.blocker !== void 0 || result.status === "needs_confirmation" || result.status === "unsupported" || result.status === "partial" || result.status === "timeout";
 }
 function interruptionType(result, blocker) {
   switch (blocker?.kind) {
@@ -7939,6 +8134,7 @@ function interruptionType(result, blocker) {
       break;
   }
   if (result.status === "needs_confirmation") return "approval_required";
+  if (result.status === "partial") return "timeout";
   if (result.status === "timeout") return "timeout";
   return "unsupported";
 }

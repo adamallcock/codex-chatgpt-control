@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createChatGPT } from "../../src/client.js";
+import { toRunResult } from "../../src/runner/result.js";
 import type { SequencePlan, SequenceStep } from "../../src/types.js";
 
 describe("ChatGPT runner facade", () => {
@@ -201,6 +202,35 @@ describe("ChatGPT runner facade", () => {
       "Extension availability"
     ]);
     expect(result.interruptions[0]?.fix?.steps.join(" ")).toContain("scripts/http_stdio_relay.mjs");
+  });
+
+  it("keeps partial command results as partial runner output with an interruption", () => {
+    const chatgpt = createChatGPT({ now: () => new Date("2026-06-10T00:00:00.000Z") });
+    const agent = chatgpt.agent({ name: "reviewer" });
+
+    const result = toRunResult(agent, {
+      ok: false,
+      status: "partial",
+      data: {
+        prompt: "Write 500 numbered items.",
+        responseText: "I will now produce the list.",
+        complete: false
+      },
+      warnings: ["Timed out after receiving partial assistant text."],
+      context: {
+        timestamp: "2026-06-10T00:00:00.000Z",
+        url: "https://chatgpt.com/c/fixture-partial",
+        conversationId: "fixture-partial"
+      }
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("partial");
+    expect(result.output_text).toBe("I will now produce the list.");
+    expect(result.data?.outputText).toBe("I will now produce the list.");
+    expect(result.data?.thread?.conversationId).toBe("fixture-partial");
+    expect(result.interruptions[0]?.status).toBe("partial");
+    expect(result.interruptions[0]?.type).toBe("timeout");
   });
 });
 

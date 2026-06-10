@@ -66,6 +66,15 @@ class CompleteModelTests(unittest.TestCase):
         self.assertEqual(result.data["prompt"], "[redacted:19 chars]")
         self.assertEqual(result.context["timestamp"], "2026-06-06T00:00:00.000Z")
 
+    def test_command_result_fixture_preserves_capture_limit_metadata(self) -> None:
+        result = CommandResult.from_wire(load_json("read-latest-clipped.json")["result"])
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.output_text, "abcdefghij")
+        self.assertEqual(result.data["captureLimit"]["maxChars"], 10)
+        self.assertTrue(result.data["captureLimit"]["clipped"])
+        self.assertIn("maxChars=10", result.warnings[0])
+
     def test_command_descriptor_fixture_parses_descriptor(self) -> None:
         descriptor = CommandDescriptor.from_wire(load_json("describe-runner-run.json"))
 

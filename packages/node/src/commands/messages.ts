@@ -1,8 +1,8 @@
 import { readPageState } from "../browser/page-state.js";
 import { resultError, resultOk } from "../errors.js";
+import { latestAssistantTurnHasResponseActions, readAssistantGenerationState, type AssistantGenerationState } from "../dom/generation-state.js";
 import { countPageMessages, isTransientAssistantText, readLatestMessage, readLatestMessageText, readLatestMessageTextSnapshot, readMessages } from "../dom/messages.js";
-import { composerTextbox, copyResponseButtons, sendButton } from "../dom/selectors.js";
-import { localeLabels } from "../dom/locale-labels.js";
+import { composerTextbox, sendButton } from "../dom/selectors.js";
 import { normalizeLineBreaks, normalizeWhitespace } from "../dom/visible-text.js";
 import type {
   AskArgs,
@@ -27,7 +27,7 @@ import { bootstrap } from "./session.js";
 export type CompletionSnapshot = {
   textStableForMs: number;
   stableMs: number;
-  hasStopButton: boolean;
+  generation: AssistantGenerationState;
   hasResponseActions: boolean;
   latestText: string;
 };
@@ -52,7 +52,8 @@ export function isResponseComplete(snapshot: CompletionSnapshot): boolean {
   return snapshot.latestText.trim().length > 0
     && !isTransientAssistantText(snapshot.latestText)
     && snapshot.textStableForMs >= snapshot.stableMs
-    && !snapshot.hasStopButton
+    && !snapshot.generation.active
+    && !snapshot.generation.stopped
     && snapshot.hasResponseActions;
 }
 
@@ -375,9 +376,27 @@ export async function waitForMessage(
       latestText,
       stableMs,
       textStableForMs: Date.now() - lastChangedAt,
-      hasStopButton: await hasStopControl(page),
-      hasResponseActions: await hasResponseActions(page)
+      generation: await readAssistantGenerationState(page),
+      hasResponseActions: await latestAssistantTurnHasResponseActions(page)
     };
+
+    if (targetReached && snapshot.generation.stopped && latestText.length > 0) {
+      return withCommandOutputText({
+        ok: false,
+        status: "partial",
+        data: {
+          complete: false,
+          responseText: latestText,
+          assistantTurnCount: latestAssistantCount,
+          elapsedMs: Date.now() - started
+        },
+        warnings: [
+          "ChatGPT generation appears to have been stopped or interrupted before completion.",
+          ...snapshot.generation.signals.map(signal => `Generation state signal: ${signal}`)
+        ],
+        context: await contextFromPage(page)
+      } satisfies CommandResult<WaitData>);
+    }
 
     if (targetReached && isResponseComplete(snapshot)) {
       return withCommandOutputText(resultOk(
@@ -447,6 +466,7 @@ export async function readLatest(
   const data: ReadLatestData = { role, text: latest.text, format: latest.format };
   if (latest.source !== undefined) data.source = latest.source;
   if (latest.fidelity !== undefined) data.fidelity = latest.fidelity;
+  if (latest.captureLimit !== undefined) data.captureLimit = latest.captureLimit;
   if (latest.warnings !== undefined) data.warnings = latest.warnings;
   if (latest.markdown !== undefined) data.markdown = latest.markdown;
   if (latest.visibleText !== undefined) data.visibleText = latest.visibleText;
@@ -509,11 +529,15 @@ export async function askMessage(
       waitArgs.afterAssistantTurnCount = beforeAssistantTurnCount;
     }
     waitResult = await waitForMessage(env, waitArgs);
-    if (!waitResult.ok && waitResult.status !== "partial") {
-      if (!readRequested || readRole(args.read) === "user") {
-        return forwardFailure(waitResult);
+    if (!waitResult.ok) {
+      if (waitResult.status === "partial") {
+        waitFailure = waitResult;
+      } else {
+        if (!readRequested || readRole(args.read) === "user") {
+          return forwardFailure(waitResult);
+        }
+        waitFailure = waitResult;
       }
-      waitFailure = waitResult;
     }
   }
 
@@ -526,6 +550,7 @@ export async function askMessage(
         return forwardFailure(waitFailure);
       }
       responseText = read.data?.text;
+      warnings.push(...read.warnings);
       if (waitFailure !== undefined) {
         warnings.push(
           ...waitFailure.warnings,
@@ -555,6 +580,20 @@ export async function askMessage(
   }
   if (state?.title !== undefined) {
     data.title = state.title;
+  }
+
+  if (waitFailure !== undefined) {
+    data.complete = false;
+    return withCommandOutputText({
+      ok: false,
+      status: "partial",
+      data,
+      warnings: [
+        ...warnings,
+        `Assistant response was read after ${waitFailure.status}, but completion was not confirmed.`
+      ],
+      context: await contextFromPage(page)
+    } satisfies CommandResult<AskReadData>);
   }
 
   return withCommandOutputText(resultOk(data, await contextFromPage(page), warnings));
@@ -587,7 +626,23 @@ export async function waitAndRead(
     return forwardFailure(read);
   }
 
-  return withCommandOutputText(resultOk(askReadData("", read.data?.text, wait.data?.complete), read.context, wait.warnings));
+  const data = askReadData("", read.data?.text, wait.data?.complete);
+  const warnings = [...read.warnings, ...wait.warnings];
+  if (!wait.ok && wait.status === "partial") {
+    data.complete = false;
+    return withCommandOutputText({
+      ok: false,
+      status: "partial",
+      data,
+      warnings: [
+        ...warnings,
+        "Assistant response was read after partial wait, but completion was not confirmed."
+      ],
+      context: read.context
+    } satisfies CommandResult<AskReadData>);
+  }
+
+  return withCommandOutputText(resultOk(data, read.context, warnings));
 }
 
 async function ensurePage(env: RuntimeEnv): Promise<CommandResult<unknown>> {
@@ -676,37 +731,6 @@ function renderSubmittedTurnMarkdownSyntax(text: string, preserveFenceLanguage =
     .replace(/__([^_]+)__/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/_([^_]+)_/g, "$1");
-}
-
-async function hasStopControl(page: PageLike): Promise<boolean> {
-  if (typeof page.evaluate === "function") {
-    return page.evaluate((phrases: string[]) => {
-      const text = document.body?.innerText ?? "";
-      const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return phrases.some(phrase => new RegExp(`\\b${escape(phrase)}\\b`, "i").test(text));
-    }, [...localeLabels.stopControl]).catch(() => false);
-  }
-  return false;
-}
-
-async function hasResponseActions(page: PageLike): Promise<boolean> {
-  try {
-    const copyButtons = copyResponseButtons(page);
-    const count = await copyButtons.count?.();
-    if (count !== undefined) {
-      return count > 0;
-    }
-    return await copyButtons.isVisible?.() === true;
-  } catch {
-    if (typeof page.evaluate === "function") {
-      return page.evaluate((phrases: string[]) => {
-        const text = document.body?.innerText ?? "";
-        const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return phrases.some(phrase => new RegExp(`\\b${escape(phrase)}\\b`, "i").test(text));
-      }, [...localeLabels.responseActions]).catch(() => false);
-    }
-    return true;
-  }
 }
 
 async function readAssistantProgressSnapshot(page: PageLike): Promise<AssistantProgressSnapshot> {

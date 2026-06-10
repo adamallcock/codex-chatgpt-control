@@ -68,6 +68,7 @@ describe("en locale — completeness", () => {
     "signedInMarkers",
     "transientAssistant",
     "stopControl",
+    "stoppedAssistant",
     "responseActions",
     "loginBlocker",
     "captchaBlocker",

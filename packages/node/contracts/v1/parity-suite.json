@@ -189,6 +189,7 @@
         "files-preflight-success.json",
         "project-sources-plan-add.json",
         "primitive-bootstrap-blocker.json",
+        "read-latest-clipped.json",
         "workflow-ask-success.json"
       ],
       "sourceFiles": [
@@ -496,10 +497,10 @@
     },
     "messages.readLatest": {
       "surface": "workflows-primitives-diagnostics",
-      "fixtures": ["command-descriptors.json", "run-basic-success.json"],
+      "fixtures": ["command-descriptors.json", "run-basic-success.json", "read-latest-clipped.json"],
       "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/client.test.ts"],
-      "pythonTests": ["tests/test_primitives.py"],
-      "docs": ["references/backend-protocol.md", "references/python-parity.md"]
+      "pythonTests": ["tests/test_primitives.py", "tests/test_models_complete.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "references/python-parity.md"]
     },
     "messages.waitAndRead": {
       "surface": "workflows-primitives-diagnostics",
@@ -628,6 +629,12 @@
       "id": "node.contract-validate",
       "cwd": "packages/node",
       "command": "npm run contract:validate",
+      "ciRequired": true
+    },
+    {
+      "id": "node.docs-drift",
+      "cwd": "packages/node",
+      "command": "npm run docs:drift",
       "ciRequired": true
     },
     {

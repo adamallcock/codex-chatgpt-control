@@ -7,6 +7,7 @@ The Python package is a parity client over the TypeScript browser-control runtim
 - Shared fixtures live in `contracts/v1/fixtures/`.
 - `npm run contract:validate` validates every fixture against JSON Schema.
 - `npm run parity:fixtures` enforces fixture shape, stream settlement, and wire-field casing.
+- `npm run docs:drift` checks backend commands, command descriptors, blocker coverage, generated troubleshooting sections, Python facade coverage, and public-export doc anchors.
 - `npm run parity:suite` validates `contracts/v1/parity-suite.json`, which ties every public backend command and fixture to TypeScript tests, Python tests, docs, and deterministic CI gates.
 - Python tests load the same manifest and round-trip every JSON fixture through Pydantic models.
 
@@ -25,6 +26,8 @@ Wire fields stay TypeScript-compatible. Python exposes idiomatic aliases:
 | `totalBytes` | `total_bytes` |
 | `projectUrl` | `project_url` |
 | `displayPath` | `display_path` |
+
+Incomplete response capture is also shared contract behavior. Python must preserve `status == "partial"`, `output_text`, warnings, and any nested `data.captureLimit` dictionaries exactly as the TypeScript backend returns them. `partial` is not a protocol error: callers should inspect `data.complete` and run another wait/read on the same thread when they need final output.
 
 Generated-image behavior stays owned by the TypeScript runtime. Python exposes
 the same backend commands through `chatgpt.artifacts.list_latest(...)`,
@@ -135,6 +138,7 @@ Run from `packages/node`:
 ```bash
 npm run bundle:backend
 npm run contract:validate
+npm run docs:drift
 npm run parity:fixtures
 npm run parity:suite
 npm run test:backend-conformance

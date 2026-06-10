@@ -1,0 +1,210 @@
+{
+  "schemaVersion": "chatgpt.browser_control.surface_drift_policy.v1",
+  "backendCommandDescriptorExemptions": [
+    {
+      "command": "backend.version",
+      "date": "2026-06-10",
+      "reason": "Backend metadata command used by protocol clients, not a user-facing SDK command descriptor."
+    },
+    {
+      "command": "backend.health",
+      "date": "2026-06-10",
+      "reason": "Backend metadata command used by protocol clients, not a user-facing SDK command descriptor."
+    },
+    {
+      "command": "backend.capabilities",
+      "date": "2026-06-10",
+      "reason": "Backend metadata command used by protocol clients, not a user-facing SDK command descriptor."
+    },
+    {
+      "command": "runner.plan",
+      "date": "2026-06-10",
+      "reason": "Lower-level planning command covered by the runner facade and parity suite rather than a separate public descriptor."
+    },
+    {
+      "command": "runner.stream",
+      "date": "2026-06-10",
+      "reason": "Milestone streaming transport command covered by runner docs and tests rather than a separate descriptor."
+    },
+    {
+      "command": "openThread",
+      "date": "2026-06-10",
+      "reason": "Legacy workflow alias documented through threads.open and top-level workflow facade coverage."
+    },
+    {
+      "command": "readLatest",
+      "date": "2026-06-10",
+      "reason": "Legacy workflow alias documented through messages.readLatest and response capture coverage."
+    },
+    {
+      "command": "downloadLatest",
+      "date": "2026-06-10",
+      "reason": "Legacy workflow alias documented through files.downloadLatest and download coverage."
+    },
+    {
+      "command": "reports.create",
+      "date": "2026-06-10",
+      "reason": "Report helper command is represented by createReport/redacted report descriptor and report docs."
+    },
+    {
+      "command": "reports.redact",
+      "date": "2026-06-10",
+      "reason": "Report helper command is represented by createReport/redacted report descriptor and report docs."
+    },
+    {
+      "command": "reports.summarize",
+      "date": "2026-06-10",
+      "reason": "Report helper command is represented by createReport/redacted report descriptor and report docs."
+    },
+    {
+      "command": "commands",
+      "date": "2026-06-10",
+      "reason": "Command-discovery metadata command that returns descriptors; it is not itself a public descriptor."
+    },
+    {
+      "command": "describe",
+      "date": "2026-06-10",
+      "reason": "Command-discovery metadata command that returns descriptors; it is not itself a public descriptor."
+    },
+    {
+      "command": "help",
+      "date": "2026-06-10",
+      "reason": "Command-discovery metadata command that returns help text; it is not itself a public descriptor."
+    }
+  ],
+  "descriptorBackendCommandExemptions": [
+    {
+      "descriptor": "new-ask-read",
+      "date": "2026-06-10",
+      "reason": "Named sequence macro executed through runPlan, not a backend command."
+    },
+    {
+      "descriptor": "find-open-ask-read",
+      "date": "2026-06-10",
+      "reason": "Named sequence macro executed through runPlan, not a backend command."
+    },
+    {
+      "descriptor": "find-open-copy-latest",
+      "date": "2026-06-10",
+      "reason": "Named sequence macro executed through runPlan, not a backend command."
+    },
+    {
+      "descriptor": "attach-ask-read",
+      "date": "2026-06-10",
+      "reason": "Named sequence macro executed through runPlan, not a backend command."
+    },
+    {
+      "descriptor": "ask-and-download",
+      "date": "2026-06-10",
+      "reason": "Named sequence macro executed through runPlan, not a backend command."
+    },
+    {
+      "descriptor": "two-turn",
+      "date": "2026-06-10",
+      "reason": "Named sequence macro executed through runPlan, not a backend command."
+    },
+    {
+      "descriptor": "doctor-upload",
+      "date": "2026-06-10",
+      "reason": "Named sequence macro executed through runPlan, not a backend command."
+    },
+    {
+      "descriptor": "redacted-run-report",
+      "date": "2026-06-10",
+      "reason": "Named sequence macro executed through runPlan, not a backend command."
+    }
+  ],
+  "backendDispatchExemptions": [
+    {
+      "command": "runner.stream",
+      "date": "2026-06-10",
+      "reason": "Handled by BackendSession.stream instead of dispatchBackendCommand."
+    }
+  ],
+  "pythonFacadeExemptions": [
+    {
+      "command": "backend.version",
+      "date": "2026-06-10",
+      "reason": "Python exposes the generic BackendClient.request path for backend.version; health and capabilities have dedicated facades."
+    }
+  ],
+  "generatedBlockerDocs": [
+    "references/troubleshooting.md",
+    "../../tools/public-export/root/docs/troubleshooting.md",
+    "../../docs/troubleshooting.md"
+  ],
+  "docAnchors": [
+    {
+      "id": "backend-protocol-file-preflight",
+      "paths": ["references/backend-protocol.md"],
+      "terms": ["files.preflight", "does not open ChatGPT"]
+    },
+    {
+      "id": "backend-protocol-project-sources",
+      "paths": ["references/backend-protocol.md"],
+      "terms": ["projects.sources.planAdd", "confirmMutation"]
+    },
+    {
+      "id": "python-parity-file-preflight",
+      "paths": ["references/python-parity.md"],
+      "terms": ["chatgpt.files.preflight", "FilePreflightData"]
+    },
+    {
+      "id": "python-parity-project-sources",
+      "paths": ["references/python-parity.md"],
+      "terms": ["chatgpt.projects.sources", "plan_add"]
+    },
+    {
+      "id": "node-readme-blocker-explainability",
+      "paths": ["../../tools/public-export/root/packages/node/README.md", "README.md"],
+      "terms": ["explainBlocker", "structured blockers"]
+    },
+    {
+      "id": "node-readme-file-preflight",
+      "paths": ["../../tools/public-export/root/packages/node/README.md", "README.md"],
+      "terms": ["chatgpt.files.preflight", "opening ChatGPT"]
+    },
+    {
+      "id": "node-readme-project-sources",
+      "paths": ["../../tools/public-export/root/packages/node/README.md", "README.md"],
+      "terms": ["chatgpt.projects.sources.planAdd", "confirmMutation"]
+    },
+    {
+      "id": "python-readme-blocker-explainability",
+      "paths": [
+        "$pythonRoot/README.md",
+        "../../tools/public-export/root/packages/python/README.md",
+        "../python/README.md"
+      ],
+      "terms": ["explain_blocker", "structured fields"]
+    },
+    {
+      "id": "python-readme-file-preflight",
+      "paths": [
+        "$pythonRoot/README.md",
+        "../../tools/public-export/root/packages/python/README.md",
+        "../python/README.md"
+      ],
+      "terms": ["chatgpt.files.preflight", "preflight"]
+    },
+    {
+      "id": "python-readme-project-sources",
+      "paths": [
+        "$pythonRoot/README.md",
+        "../../tools/public-export/root/packages/python/README.md",
+        "../python/README.md"
+      ],
+      "terms": ["chatgpt.projects.sources.plan_add", "confirm_mutation"]
+    },
+    {
+      "id": "skill-file-preflight",
+      "paths": ["../../tools/public-export/root/skills/codex-chatgpt-control/SKILL.md", "../../skills/codex-chatgpt-control/SKILL.md"],
+      "terms": ["chatgpt.files.preflight", "does not open ChatGPT"]
+    },
+    {
+      "id": "skill-project-sources",
+      "paths": ["../../tools/public-export/root/skills/codex-chatgpt-control/SKILL.md", "../../skills/codex-chatgpt-control/SKILL.md"],
+      "terms": ["chatgpt.projects.sources.planAdd", "confirmMutation"]
+    }
+  ]
+}

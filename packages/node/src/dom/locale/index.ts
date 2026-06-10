@@ -189,6 +189,7 @@ const nonToolKeys = [
   "signedInMarkers",
   "transientAssistant",
   "stopControl",
+  "stoppedAssistant",
   "responseActions",
   "loginBlocker",
   "captchaBlocker",
@@ -230,6 +231,7 @@ export const localeLabels: {
   signedInMarkers: string[];
   transientAssistant: string[];
   stopControl: string[];
+  stoppedAssistant: string[];
   responseActions: string[];
   loginBlocker: string[];
   captchaBlocker: string[];

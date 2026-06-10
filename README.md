@@ -297,7 +297,9 @@ npm run build
 npm run bundle
 npm run bundle:backend
 npm run contract:validate
+npm run docs:drift
 npm run parity:fixtures
+npm run parity:suite
 ```
 
 Run deterministic Python gates after the backend bundle exists:

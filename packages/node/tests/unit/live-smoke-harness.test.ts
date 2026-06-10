@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { filterScenarios, requiredFailures, writeReport } from "../../src/scripts/live-smoke/harness.js";
+import { optionalScenarios } from "../../src/scripts/live-smoke/scenarios.js";
 import type { LiveSmokeScenario } from "../../src/scripts/live-smoke/types.js";
 import type { LiveSmokeScenarioResult } from "../../src/scripts/live-smoke/types.js";
 
@@ -38,6 +39,18 @@ describe("live smoke harness", () => {
       "copy-latest",
       "attach-one-file"
     ]);
+  });
+
+  it("registers long-response scenarios as explicit opt-in checks", () => {
+    const partial = optionalScenarios.find(item => item.name === "long-response-partial-short-timeout");
+    const stop = optionalScenarios.find(item => item.name === "stop-control-detection");
+
+    expect(partial?.required).toBe(false);
+    expect(stop?.required).toBe(false);
+    expect(partial?.enabled({ agent: {}, reportDir: "/tmp/reports", env: {} })).toBe(false);
+    expect(stop?.enabled({ agent: {}, reportDir: "/tmp/reports", env: {} })).toBe(false);
+    expect(partial?.enabled({ agent: {}, reportDir: "/tmp/reports", env: { CHATGPT_E2E_LONG_PARTIAL: "1" } })).toBe(true);
+    expect(stop?.enabled({ agent: {}, reportDir: "/tmp/reports", env: { CHATGPT_E2E_STOP_CONTROL: "1" } })).toBe(true);
   });
 
   it("redacts command content in persisted live-smoke reports", async () => {

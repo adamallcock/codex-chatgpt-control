@@ -266,6 +266,12 @@ export type ResponseCaptureFidelity =
   | "blocks"
   | "all";
 
+export type ResponseCaptureLimit = {
+  maxChars: number;
+  originalChars: number;
+  clipped: boolean;
+};
+
 export type ResponseBranchState = {
   current?: number;
   total?: number;
@@ -314,6 +320,7 @@ export type ReadLatestData = {
   format: Exclude<ResponseFormat, "text">;
   source?: ResponseCaptureSource;
   fidelity?: ResponseCaptureFidelity;
+  captureLimit?: ResponseCaptureLimit;
   warnings?: string[];
   markdown?: string;
   visibleText?: string;
@@ -531,6 +538,7 @@ export type CopiedResponse = {
   source: "clipboard" | "dom";
   format: Exclude<ResponseFormat, "text">;
   fidelity?: ResponseCaptureFidelity;
+  captureLimit?: ResponseCaptureLimit;
   warnings?: string[];
   markdown?: string;
   visibleText?: string;
