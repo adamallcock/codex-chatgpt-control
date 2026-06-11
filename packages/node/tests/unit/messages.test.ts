@@ -162,6 +162,49 @@ describe("extractMessagesFromHtml", () => {
     expect(result.data?.assistantTurnCount).toBe(2);
   });
 
+  it("uses the guarded fallback when assistant progress DOM reads hang", async () => {
+    let progressAttempts = 0;
+    const page: PageLike = {
+      evaluate: async <T, A = unknown>(fn: (arg: A) => T | Promise<T>, arg?: A): Promise<T> => {
+        const source = String(fn);
+        if (source.includes("document.querySelectorAll(selector).length")) {
+          return (arg === "assistant" ? 1 : 2) as T;
+        }
+        if (source.includes("document.body?.innerText")) {
+          return "New chat Chat with ChatGPT" as T;
+        }
+        if (source.includes("assistantNodes") && source.includes("latestAssistantTurnIndex")) {
+          progressAttempts += 1;
+          return await new Promise<T>(() => {});
+        }
+        if (source.includes("metadataHtml")) {
+          return [{ role: "assistant", html: "guarded fallback", metadataHtml: "guarded fallback" }] as T;
+        }
+        if (source.includes("visibleButtons")) {
+          return { active: false, stopped: false, signals: [] } as T;
+        }
+        if (source.includes("const turns = Array.from")) {
+          return true as T;
+        }
+        throw new Error(`Unexpected evaluate call: ${source}`);
+      },
+      waitForTimeout: async () => {},
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/c/abc-123"
+    };
+
+    const result = await waitForMessage({ page }, {
+      afterAssistantTurnCount: 0,
+      timeoutMs: 80,
+      stableMs: 0,
+      pollMs: 1
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.output_text).toBe("guarded fallback");
+    expect(progressAttempts).toBeGreaterThan(0);
+  });
+
   it("requires the latest assistant turn to be after the requested total turn baseline", async () => {
     const page = scriptedWaitPage([
       {

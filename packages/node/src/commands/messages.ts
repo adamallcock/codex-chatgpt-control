@@ -1,6 +1,6 @@
 import { readPageState } from "../browser/page-state.js";
 import { resultError, resultOk } from "../errors.js";
-import { latestAssistantTurnHasResponseActions, readAssistantGenerationState, type AssistantGenerationState } from "../dom/generation-state.js";
+import { EMPTY_GENERATION_STATE, latestAssistantTurnHasResponseActions, readAssistantGenerationState, type AssistantGenerationState } from "../dom/generation-state.js";
 import { countPageMessages, isTransientAssistantText, readLatestMessage, readLatestMessageText, readLatestMessageTextSnapshot, readMessages } from "../dom/messages.js";
 import { composerTextbox, sendButton } from "../dom/selectors.js";
 import { normalizeLineBreaks, normalizeWhitespace } from "../dom/visible-text.js";
@@ -23,6 +23,7 @@ import type {
 import { contextFromPage } from "./context.js";
 import { withCommandOutputText } from "./output.js";
 import { bootstrap } from "./session.js";
+import { localGuardTimeout, withTimeout } from "./timeouts.js";
 
 export type CompletionSnapshot = {
   textStableForMs: number;
@@ -347,10 +348,18 @@ export async function waitForMessage(
   const started = Date.now();
   let lastTargetText = "";
   let lastChangedAt = Date.now();
-  let latestAssistantCount = await countPageMessages(page, "assistant").catch(() => 0);
+  let latestAssistantCount = await withTimeout(
+    countPageMessages(page, "assistant"),
+    localGuardTimeout(timeoutMs, 10000),
+    "Timed out while counting assistant messages."
+  ).catch(() => 0);
 
   while (Date.now() - started < timeoutMs) {
-    const state = await readPageState(page).catch(() => undefined);
+    const state = await withTimeout(
+      readPageState(page),
+      localGuardTimeout(timeoutMs, 10000),
+      "Timed out while reading ChatGPT page state."
+    ).catch(() => undefined);
     if (state?.blocker !== undefined && state.blocker.kind !== "modal") {
       return {
         ok: false,
@@ -361,7 +370,11 @@ export async function waitForMessage(
       };
     }
 
-    const progress = await readAssistantProgressSnapshot(page)
+    const progress = await withTimeout(
+      readAssistantProgressSnapshot(page),
+      localGuardTimeout(timeoutMs, 10000),
+      "Timed out while reading assistant progress."
+    )
       .catch(() => fallbackAssistantProgressSnapshot(page, latestAssistantCount));
     latestAssistantCount = progress.assistantTurnCount;
     const targetReached = waitTargetReached(args, progress);
@@ -376,8 +389,16 @@ export async function waitForMessage(
       latestText,
       stableMs,
       textStableForMs: Date.now() - lastChangedAt,
-      generation: await readAssistantGenerationState(page),
-      hasResponseActions: await latestAssistantTurnHasResponseActions(page)
+      generation: await withTimeout(
+        readAssistantGenerationState(page),
+        localGuardTimeout(timeoutMs, 10000),
+        "Timed out while reading assistant generation state."
+      ).catch(() => EMPTY_GENERATION_STATE),
+      hasResponseActions: await withTimeout(
+        latestAssistantTurnHasResponseActions(page),
+        5000,
+        "Timed out while checking response actions."
+      ).catch(() => false)
     };
 
     if (targetReached && snapshot.generation.stopped && latestText.length > 0) {
@@ -764,7 +785,11 @@ async function fallbackAssistantProgressSnapshot(
   page: PageLike,
   previousAssistantTurnCount: number
 ): Promise<AssistantProgressSnapshot> {
-  const messages = await readMessages(page, { format: "normalized_text" }).catch(() => undefined);
+  const messages = await withTimeout(
+    readMessages(page, { format: "normalized_text" }),
+    5000,
+    "Timed out while reading messages."
+  ).catch(() => undefined);
   if (messages !== undefined) {
     let latestAssistantTurnIndex = -1;
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -785,10 +810,22 @@ async function fallbackAssistantProgressSnapshot(
   }
 
   const snapshot: AssistantProgressSnapshot = {
-    assistantTurnCount: await countPageMessages(page, "assistant").catch(() => previousAssistantTurnCount)
+    assistantTurnCount: await withTimeout(
+      countPageMessages(page, "assistant"),
+      5000,
+      "Timed out while counting assistant messages."
+    ).catch(() => previousAssistantTurnCount)
   };
-  const latestText = await readLatestMessageText(page, "assistant").catch(() => undefined);
-  const turnCount = await countPageMessages(page).catch(() => undefined);
+  const latestText = await withTimeout(
+    readLatestMessageText(page, "assistant"),
+    5000,
+    "Timed out while reading latest assistant text."
+  ).catch(() => undefined);
+  const turnCount = await withTimeout(
+    countPageMessages(page),
+    5000,
+    "Timed out while counting messages."
+  ).catch(() => undefined);
   if (latestText !== undefined) snapshot.latestText = latestText;
   if (turnCount !== undefined) snapshot.turnCount = turnCount;
   return snapshot;

@@ -8,7 +8,7 @@ export type AssistantGenerationState = {
   signals: string[];
 };
 
-const EMPTY_GENERATION_STATE: AssistantGenerationState = {
+export const EMPTY_GENERATION_STATE: AssistantGenerationState = {
   active: false,
   stopped: false,
   signals: []

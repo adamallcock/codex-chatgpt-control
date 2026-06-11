@@ -17,7 +17,17 @@ This skill is a thin workflow over the `codex-chatgpt-control` plugin. Use the s
 - Prefer a fresh thread unless the user asked to continue a specific ChatGPT thread.
 - Return Markdown by default. Use redacted reports by default; raw prompt/response content is opt-in only.
 - Treat ChatGPT Pro output as another model's judgment, not verified truth. Verify current, legal, medical, financial, or high-stakes claims with primary sources.
-- Keep each Codex tool call bounded. Submit the prompt under Pro first, then poll/read in chunks.
+- Keep each Codex tool call bounded. Submit the prompt under Pro in one call, persist the thread metadata immediately, then poll/read in separate bounded calls. Never combine submit and read in one call.
+
+## Timeout Layering
+
+Three timeout layers apply to every consult; JS-level `timeoutMs` is the innermost and cannot extend the outer two:
+
+1. Codex MCP `tools/call` cap (default 120s; `tool_timeout_sec` under `[mcp_servers.node_repl]` in `~/.codex/config.toml` raises it). When it fires, the tool call errors but the kernel usually keeps running, so variables often survive into the next call.
+2. The `node_repl` `js` tool's `timeout_ms` argument (default 30000 ms). When it fires, the kernel resets and all variables are lost. Always pass an explicit `timeout_ms` on every `js` call that touches the browser, larger than any JS-level deadline.
+3. SDK-level `timeoutMs` (for example `messages.waitAndRead`). Keep it at or below 75-90s so this is the layer that fires and returns a structured `timeout` or `partial` result.
+
+Safe pattern: `timeoutMs: 75_000` in JS, `timeout_ms: 110000` on the `js` tool call.
 
 ## Runtime Loader
 
@@ -47,15 +57,21 @@ Do not import from an older manually installed skill runtime; the plugin-bundled
 
 ## Quick Consult
 
-```js
-const TOOL_CALL_SAFE_WAIT = {
-  timeoutMs: 90_000,
-  stableMs: 2_000,
-  pollMs: 750,
-  mode: "deep_research"
-};
+Run each step as its own `node_repl` call with an explicit `timeout_ms` (110000 is a good default for browser steps).
 
-const pro = chatgpt.agent({
+Step 1 - preflight (after the Runtime Loader):
+
+```js
+var doctor = await chatgpt.doctor({ check: ["bridge", "login"] });
+console.log(JSON.stringify({ ok: doctor.ok, status: doctor.status }, null, 2));
+```
+
+Stop on bridge or login blockers. If the previous turn left ChatGPT generating a long answer, the page may be slow; prefer plain sleeps between later read attempts over tight polling.
+
+Step 2 - submit only, then validate mode and persist metadata in the same call:
+
+```js
+var pro = chatgpt.agent({
   name: "chatgpt-pro-consultant",
   instructions: [
     "You are being consulted as ChatGPT Pro from a visible ChatGPT web session.",
@@ -70,43 +86,62 @@ const pro = chatgpt.agent({
   }
 });
 
-const submitted = await chatgpt.runner.run(pro, {
+var submitted = await chatgpt.runner.run(pro, {
   input: "Review this plan and recommend improvements:\n\n...",
   thread: { type: "new" },
   mode: { model: "Pro" },
   report: { enabled: true, includeContent: false }
 });
 
-const modeStep = submitted.steps?.find(step => step.id === "mode");
-if (!submitted.ok || modeStep?.ok === false) {
-  console.log(JSON.stringify({
-    status: "blocked_before_submit_or_mode_unclean",
-    thread: submitted.state?.thread ?? submitted.data?.thread,
-    modeStep,
-    interruptions: submitted.interruptions
-  }, null, 2));
-} else {
-  const read = await chatgpt.messages.waitAndRead({
-    ...TOOL_CALL_SAFE_WAIT,
-    role: "assistant",
-    format: "markdown"
-  });
+var modeStep = submitted.steps?.find(step => step.id === "mode");
+var modeSelected = modeStep?.data?.selected ?? modeStep?.dataPreview?.selected ?? [];
+var modeCandidates = modeStep?.data?.candidates ?? modeStep?.dataPreview?.candidates ?? [];
+var PRO_LABEL = /(^|\s)pro(\s|$)/i;
+var MODE_VOCAB = /^(auto|instant|medium|high|extra high|thinking( mini)?|latest|extended|standard pro|pro( extended)?|gpt[\s-].*|o\d+.*|\d+(\.\d+)?)$/i;
+var proConfirmed = modeStep?.ok === true
+  && modeCandidates.length > 0
+  && modeCandidates.every(label => MODE_VOCAB.test(String(label).trim()))
+  && modeSelected.some(label => PRO_LABEL.test(String(label)));
 
-  if (!read.ok) {
-    console.log(JSON.stringify({
-      status: "submitted_wait_pending",
-      message: "Prompt is already submitted. Do not resubmit; run messages.waitAndRead again against this same thread.",
-      thread: submitted.state?.thread ?? submitted.data?.thread,
-      modeStep,
-      read
-    }, null, 2));
-  } else {
-    console.log(read.data?.responseText ?? "");
-  }
+var consultMeta = {
+  submittedOk: submitted.ok === true,
+  proConfirmed,
+  thread: submitted.state?.thread ?? submitted.data?.thread,
+  modeSelected,
+  modeCandidates,
+  interruptions: submitted.interruptions ?? []
+};
+var fsMod = await import("node:fs");
+fsMod.writeFileSync(`${nodeRepl.tmpDir}/chatgpt-consult-latest.json`, JSON.stringify(consultMeta, null, 2));
+console.log(JSON.stringify(consultMeta, null, 2));
+```
+
+If `proConfirmed` is false, stop and report the blocker with `modeCandidates`. A candidates list containing thread-menu labels such as `Move to project`, `Share`, or `Rename` means mode selection hit the wrong menu; treat it as selector drift even if the step reports `ok: true`, and do not trust the run.
+
+Step 3 - bounded read in a separate call. Repeat this call as needed; never resubmit:
+
+```js
+var read = await chatgpt.messages.waitAndRead({
+  timeoutMs: 75_000,
+  stableMs: 2_000,
+  pollMs: 1_500,
+  mode: "deep_research",
+  role: "assistant",
+  format: "markdown"
+});
+if (read.ok) {
+  console.log(read.data?.responseText ?? "");
+} else {
+  console.log(JSON.stringify({
+    status: "submitted_wait_pending",
+    message: "Prompt is already submitted. Do not resubmit; run this read step again.",
+    readStatus: read.status,
+    partialChars: (read.data?.responseText ?? "").length
+  }, null, 2));
 }
 ```
 
-Before trusting the answer, inspect `modeStep`. A clean Pro consult must show the mode step succeeded and selected a Pro-labelled model or mode.
+Pro and Pro Extended answers can take many minutes. On `timeout` or `partial`, run Step 3 again; the submitted thread and the metadata file from Step 2 are the source of truth.
 
 ## With Approved Files
 
@@ -143,13 +178,25 @@ await chatgpt.runner.run(pro, {
 });
 ```
 
+Existing-thread mode selection is higher risk than a fresh thread: a loaded conversation page has header/title menus that the mode opener can hit by mistake. Always apply the Step 2 `proConfirmed` validation; reject any mode step whose candidates are not model/mode labels.
+
+## Recovery After Timeout
+
+If a tool call times out or the kernel resets:
+
+1. Check whether variables survived (`typeof submitted !== "undefined"`). If the kernel reset, reload `${nodeRepl.tmpDir}/chatgpt-consult-latest.json` for the thread URL and mode evidence.
+2. Re-bootstrap the bridge if needed, then find the thread tab via `browser.user.openTabs()` by matching the `/c/<conversation-id>` URL.
+3. Run one bounded `chatgpt.messages.readLatest({ role: "assistant", format: "markdown", maxChars: 4000 })`. Do not call `goto` on a tab already showing the thread, do not take full DOM snapshots of ChatGPT threads, and do not resubmit the prompt.
+4. If reads still fail, report status `submitted-unread` with the thread URL, keep the tab open as a handoff, and let the user or a later session retrieve the answer. A confirmed-Pro submission with an unread answer is pending, not failed.
+
 ## Blockers
 
 If a run fails, report the structured blocker instead of retrying blindly.
 
 - `browser_bridge_unavailable`: bootstrap failed or the bridge remains unavailable.
 - `login_required`: ask the user to log in to ChatGPT in Chrome.
-- `selector_drift` during mode selection: report that Pro was not selectable and include candidates.
+- `selector_drift` during mode selection: report that Pro was not selectable and include candidates. This includes a mode step that "selected" a non-mode label (for example `Move to project`) from the wrong menu.
+- repeated read timeouts after a confirmed Pro submission: report `submitted-unread` with the thread URL instead of `blocked`; do not resubmit.
 - `file_permission`: tell the user to enable both Codex Chrome upload permission and Chrome extension file URL access.
 - `rate_limited`, `captcha`, or account-level confirmation: stop and ask the user to resolve it manually.
 

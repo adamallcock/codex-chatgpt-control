@@ -6002,9 +6002,17 @@ async function waitForMessage(env, args = {}) {
   const started = Date.now();
   let lastTargetText = "";
   let lastChangedAt = Date.now();
-  let latestAssistantCount = await countPageMessages(page, "assistant").catch(() => 0);
+  let latestAssistantCount = await withTimeout(
+    countPageMessages(page, "assistant"),
+    localGuardTimeout(timeoutMs, 1e4),
+    "Timed out while counting assistant messages."
+  ).catch(() => 0);
   while (Date.now() - started < timeoutMs) {
-    const state = await readPageState(page).catch(() => void 0);
+    const state = await withTimeout(
+      readPageState(page),
+      localGuardTimeout(timeoutMs, 1e4),
+      "Timed out while reading ChatGPT page state."
+    ).catch(() => void 0);
     if (state?.blocker !== void 0 && state.blocker.kind !== "modal") {
       return {
         ok: false,
@@ -6014,7 +6022,11 @@ async function waitForMessage(env, args = {}) {
         context: await contextFromPage(page)
       };
     }
-    const progress = await readAssistantProgressSnapshot(page).catch(() => fallbackAssistantProgressSnapshot(page, latestAssistantCount));
+    const progress = await withTimeout(
+      readAssistantProgressSnapshot(page),
+      localGuardTimeout(timeoutMs, 1e4),
+      "Timed out while reading assistant progress."
+    ).catch(() => fallbackAssistantProgressSnapshot(page, latestAssistantCount));
     latestAssistantCount = progress.assistantTurnCount;
     const targetReached = waitTargetReached(args, progress);
     const latestText = targetReached ? normalizeWhitespace(progress.latestText ?? "") : "";
@@ -6026,8 +6038,16 @@ async function waitForMessage(env, args = {}) {
       latestText,
       stableMs,
       textStableForMs: Date.now() - lastChangedAt,
-      generation: await readAssistantGenerationState(page),
-      hasResponseActions: await latestAssistantTurnHasResponseActions(page)
+      generation: await withTimeout(
+        readAssistantGenerationState(page),
+        localGuardTimeout(timeoutMs, 1e4),
+        "Timed out while reading assistant generation state."
+      ).catch(() => EMPTY_GENERATION_STATE),
+      hasResponseActions: await withTimeout(
+        latestAssistantTurnHasResponseActions(page),
+        5e3,
+        "Timed out while checking response actions."
+      ).catch(() => false)
     };
     if (targetReached && snapshot.generation.stopped && latestText.length > 0) {
       return withCommandOutputText({
@@ -6342,7 +6362,11 @@ async function readAssistantProgressSnapshot(page) {
   return fallbackAssistantProgressSnapshot(page, 0);
 }
 async function fallbackAssistantProgressSnapshot(page, previousAssistantTurnCount) {
-  const messages = await readMessages(page, { format: "normalized_text" }).catch(() => void 0);
+  const messages = await withTimeout(
+    readMessages(page, { format: "normalized_text" }),
+    5e3,
+    "Timed out while reading messages."
+  ).catch(() => void 0);
   if (messages !== void 0) {
     let latestAssistantTurnIndex = -1;
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -6362,10 +6386,22 @@ async function fallbackAssistantProgressSnapshot(page, previousAssistantTurnCoun
     return snapshot2;
   }
   const snapshot = {
-    assistantTurnCount: await countPageMessages(page, "assistant").catch(() => previousAssistantTurnCount)
+    assistantTurnCount: await withTimeout(
+      countPageMessages(page, "assistant"),
+      5e3,
+      "Timed out while counting assistant messages."
+    ).catch(() => previousAssistantTurnCount)
   };
-  const latestText = await readLatestMessageText(page, "assistant").catch(() => void 0);
-  const turnCount = await countPageMessages(page).catch(() => void 0);
+  const latestText = await withTimeout(
+    readLatestMessageText(page, "assistant"),
+    5e3,
+    "Timed out while reading latest assistant text."
+  ).catch(() => void 0);
+  const turnCount = await withTimeout(
+    countPageMessages(page),
+    5e3,
+    "Timed out while counting messages."
+  ).catch(() => void 0);
   if (latestText !== void 0) snapshot.latestText = latestText;
   if (turnCount !== void 0) snapshot.turnCount = turnCount;
   return snapshot;
@@ -6481,8 +6517,17 @@ function findUniqueMenuItem(items, wanted) {
   if (exact.length === 1) {
     return exact[0];
   }
-  const fuzzy = items.filter((item) => item.normalized.includes(normalized));
+  const fuzzy = items.filter((item) => visibleLabelMatches(item.normalized, normalized));
   return fuzzy.length === 1 ? fuzzy[0] : void 0;
+}
+function visibleLabelMatches(label, wanted) {
+  if (wanted.length <= 3) {
+    return new RegExp(`(^|[^a-z0-9])${escapeRegExp2(wanted)}([^a-z0-9]|$)`, "i").test(label);
+  }
+  return label.includes(wanted);
+}
+function escapeRegExp2(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // src/commands/modes.ts
@@ -6517,6 +6562,9 @@ async function setMode(env, args) {
     }
     await page.waitForTimeout?.(250);
     const candidates = await enumerateVisibleMenuItems(page);
+    if (candidates.length > 0 && !looksLikeModeMenu(candidates.map((candidate) => candidate.label))) {
+      return selectorDrift(page, "Opened menu does not look like a model/mode menu.", candidates.map((candidate) => candidate.label));
+    }
     const selected = [];
     for (const item of requested) {
       const match = findModeMenuItem(candidates, item);
@@ -6769,15 +6817,6 @@ function findUniqueVisibleLabel(labels, wanted) {
   }
   const fuzzy = labels.filter((label) => visibleLabelMatches(normalizeLabel(label), normalized));
   return fuzzy.length === 1 ? fuzzy[0] : void 0;
-}
-function visibleLabelMatches(label, wanted) {
-  if (wanted.length <= 3) {
-    return new RegExp(`(^|[^a-z0-9])${escapeRegExp2(wanted)}([^a-z0-9]|$)`, "i").test(label);
-  }
-  return label.includes(wanted);
-}
-function escapeRegExp2(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function escapeAttributeValue(value) {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -7879,12 +7918,18 @@ async function openThread(env, args, previousResults) {
         context: await contextFromPage(page)
       };
     }
-    if (target.href !== void 0 && target.href.startsWith("/")) {
-      await page.goto?.(new URL(target.href, CHATGPT_HOME2).toString(), { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
-    } else {
-      await page.goto?.(target.href ?? target.url, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
+    const targetConversationId = parseConversationId(target.url);
+    const currentUrl = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
+    const currentConversationId = typeof currentUrl === "string" ? parseConversationId(currentUrl) : void 0;
+    const alreadyOnTarget = targetConversationId !== void 0 && currentConversationId === targetConversationId;
+    if (!alreadyOnTarget) {
+      if (target.href !== void 0 && target.href.startsWith("/")) {
+        await page.goto?.(new URL(target.href, CHATGPT_HOME2).toString(), { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
+      } else {
+        await page.goto?.(target.href ?? target.url, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
+      }
     }
-    await waitForThreadHydrated(page, args.timeoutMs ?? 3e4, parseConversationId(target.url));
+    await waitForThreadHydrated(page, args.timeoutMs ?? 3e4, targetConversationId);
     const state = await readPageState(page);
     return resultOk(
       openThreadData(state.url, state.conversationId, state.title ?? target.title),
@@ -8057,9 +8102,9 @@ async function waitForThreadHydrated(page, timeoutMs, expectedConversationId) {
   await page.waitForTimeout?.(1e3);
   while (Date.now() - started < timeoutMs) {
     const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
-    const urlMatches2 = expectedConversationId === void 0 || url.includes(expectedConversationId);
-    const count = await countPageMessages(page).catch(() => 0);
-    const latestAssistantText = await readLatestMessageText(page, "assistant").catch(() => void 0);
+    const urlMatches2 = expectedConversationId === void 0 || parseConversationId(url) === expectedConversationId;
+    const count = await withTimeout(countPageMessages(page), 5e3, "Timed out while counting thread messages.").catch(() => 0);
+    const latestAssistantText = await withTimeout(readLatestMessageText(page, "assistant"), 5e3, "Timed out while reading latest assistant text.").catch(() => void 0);
     const title = typeof page.title === "function" ? await page.title().catch(() => "") : "";
     if (urlMatches2 && ((latestAssistantText?.trim().length ?? 0) > 0 || count > 0 && title.length > 0 && title !== "ChatGPT")) {
       await page.waitForTimeout?.(250);

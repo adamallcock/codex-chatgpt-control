@@ -82,6 +82,17 @@ export function findUniqueMenuItem(items: MenuItem[], wanted: string): MenuItem 
     return exact[0];
   }
 
-  const fuzzy = items.filter(item => item.normalized.includes(normalized));
+  const fuzzy = items.filter(item => visibleLabelMatches(item.normalized, normalized));
   return fuzzy.length === 1 ? fuzzy[0] : undefined;
+}
+
+export function visibleLabelMatches(label: string, wanted: string): boolean {
+  if (wanted.length <= 3) {
+    return new RegExp(`(^|[^a-z0-9])${escapeRegExp(wanted)}([^a-z0-9]|$)`, "i").test(label);
+  }
+  return label.includes(wanted);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

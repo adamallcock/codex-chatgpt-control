@@ -83,6 +83,23 @@ describe("mode and tool selection blockers", () => {
     });
   });
 
+  it("rejects a non-mode menu opened while selecting Pro", async () => {
+    const page = modeButtonMenuPage(
+      [{ text: "High" }],
+      ["Share", "Rename", "Move to project"]
+    );
+
+    const result = await setMode({ page }, { model: "Pro" });
+
+    expect(result.ok).toBe(false);
+    expect(result.blocker).toMatchObject({
+      kind: "selector_drift",
+      code: "visible_candidate_not_found",
+      message: "Opened menu does not look like a model/mode menu.",
+      candidates: [{ label: "Share" }, { label: "Rename" }, { label: "Move to project" }]
+    });
+  });
+
   it("opens the new intelligence picker from the current High button and selects Pro", async () => {
     const page = intelligencePickerPage({ current: "High" });
 

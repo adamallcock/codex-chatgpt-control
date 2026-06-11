@@ -1,5 +1,5 @@
 import { resultError, resultOk } from "../errors.js";
-import { enumerateVisibleMenuItems, findUniqueMenuItem, type MenuItem } from "../dom/menus.js";
+import { enumerateVisibleMenuItems, findUniqueMenuItem, visibleLabelMatches, type MenuItem } from "../dom/menus.js";
 import { localeLabels } from "../dom/locale-labels.js";
 import { normalizeLabel, normalizeWhitespace } from "../dom/visible-text.js";
 import type { CommandResult, LocatorLike, PageLike, RuntimeEnv, SelectToolArgs, SetModeArgs } from "../types.js";
@@ -43,6 +43,9 @@ export async function setMode(
     }
     await page.waitForTimeout?.(250);
     const candidates = await enumerateVisibleMenuItems(page);
+    if (candidates.length > 0 && !looksLikeModeMenu(candidates.map(candidate => candidate.label))) {
+      return selectorDrift(page, "Opened menu does not look like a model/mode menu.", candidates.map(candidate => candidate.label));
+    }
     const selected: string[] = [];
 
     for (const item of requested) {
@@ -361,17 +364,6 @@ function findUniqueVisibleLabel(labels: string[], wanted: string): string | unde
 
   const fuzzy = labels.filter(label => visibleLabelMatches(normalizeLabel(label), normalized));
   return fuzzy.length === 1 ? fuzzy[0] : undefined;
-}
-
-function visibleLabelMatches(label: string, wanted: string): boolean {
-  if (wanted.length <= 3) {
-    return new RegExp(`(^|[^a-z0-9])${escapeRegExp(wanted)}([^a-z0-9]|$)`, "i").test(label);
-  }
-  return label.includes(wanted);
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function escapeAttributeValue(value: string): string {

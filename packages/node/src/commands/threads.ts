@@ -16,6 +16,7 @@ import type {
 } from "../types.js";
 import { contextFromPage } from "./context.js";
 import { bootstrap } from "./session.js";
+import { withTimeout } from "./timeouts.js";
 
 const CHATGPT_HOME = "https://chatgpt.com/";
 
@@ -129,13 +130,21 @@ export async function openThread(
       };
     }
 
-    if (target.href !== undefined && target.href.startsWith("/")) {
-      await page.goto?.(new URL(target.href, CHATGPT_HOME).toString(), { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 30000 });
-    } else {
-      await page.goto?.(target.href ?? target.url, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 30000 });
+    const targetConversationId = parseConversationId(target.url);
+    const currentUrl = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
+    const currentConversationId = typeof currentUrl === "string" ? parseConversationId(currentUrl) : undefined;
+    const alreadyOnTarget = targetConversationId !== undefined
+      && currentConversationId === targetConversationId;
+
+    if (!alreadyOnTarget) {
+      if (target.href !== undefined && target.href.startsWith("/")) {
+        await page.goto?.(new URL(target.href, CHATGPT_HOME).toString(), { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 30000 });
+      } else {
+        await page.goto?.(target.href ?? target.url, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 30000 });
+      }
     }
 
-    await waitForThreadHydrated(page, args.timeoutMs ?? 30000, parseConversationId(target.url));
+    await waitForThreadHydrated(page, args.timeoutMs ?? 30000, targetConversationId);
     const state = await readPageState(page);
     return resultOk(
       openThreadData(state.url, state.conversationId, state.title ?? target.title),
@@ -354,9 +363,9 @@ async function waitForThreadHydrated(
   await page.waitForTimeout?.(1000);
   while (Date.now() - started < timeoutMs) {
     const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
-    const urlMatches = expectedConversationId === undefined || url.includes(expectedConversationId);
-    const count = await countPageMessages(page).catch(() => 0);
-    const latestAssistantText = await readLatestMessageText(page, "assistant").catch(() => undefined);
+    const urlMatches = expectedConversationId === undefined || parseConversationId(url) === expectedConversationId;
+    const count = await withTimeout(countPageMessages(page), 5000, "Timed out while counting thread messages.").catch(() => 0);
+    const latestAssistantText = await withTimeout(readLatestMessageText(page, "assistant"), 5000, "Timed out while reading latest assistant text.").catch(() => undefined);
     const title = typeof page.title === "function" ? await page.title().catch(() => "") : "";
     if (urlMatches && ((latestAssistantText?.trim().length ?? 0) > 0 || (count > 0 && title.length > 0 && title !== "ChatGPT"))) {
       await page.waitForTimeout?.(250);
