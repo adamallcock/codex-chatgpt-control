@@ -1,6 +1,6 @@
-import { readPageState } from "../browser/page-state.js";
+import { readPageState, type PageState } from "../browser/page-state.js";
 import { resultError, resultOk } from "../errors.js";
-import { latestAssistantTurnHasResponseActions, readAssistantGenerationState, type AssistantGenerationState } from "../dom/generation-state.js";
+import { EMPTY_GENERATION_STATE, latestAssistantTurnHasResponseActions, readAssistantGenerationState, type AssistantGenerationState } from "../dom/generation-state.js";
 import { countPageMessages, isTransientAssistantText, readLatestMessage, readLatestMessageText, readLatestMessageTextSnapshot, readMessages } from "../dom/messages.js";
 import { composerTextbox, sendButton } from "../dom/selectors.js";
 import { normalizeLineBreaks, normalizeWhitespace } from "../dom/visible-text.js";
@@ -21,7 +21,9 @@ import type {
   WaitData
 } from "../types.js";
 import { contextFromPage } from "./context.js";
+import { createDeadline } from "./deadline.js";
 import { withCommandOutputText } from "./output.js";
+import { createSingleFlightProbe, type ProbeResult } from "./probes.js";
 import { bootstrap } from "./session.js";
 
 export type CompletionSnapshot = {
@@ -345,24 +347,21 @@ export async function waitForMessage(
   const stableMs = args.stableMs ?? (args.mode === "deep_research" ? 10_000 : 2_000);
   const pollMs = args.pollMs ?? 750;
   const started = Date.now();
+  const deadline = createDeadline(timeoutMs, started);
+  const probeTimeoutMs = Math.max(50, Math.min(1000, Math.max(pollMs, Math.floor(timeoutMs / 4))));
+  const waitWarnings = new Set<string>();
+  const assistantProgressProbe = createSingleFlightProbe("assistant progress", readAssistantProgressSnapshot);
+  const pageStateProbe = createSingleFlightProbe("page state", readPageState);
+  const generationStateProbe = createSingleFlightProbe("assistant generation state", readAssistantGenerationState);
+  const responseActionsProbe = createSingleFlightProbe("assistant response actions", latestAssistantTurnHasResponseActions);
   let lastTargetText = "";
   let lastChangedAt = Date.now();
   let latestAssistantCount = await countPageMessages(page, "assistant").catch(() => 0);
 
   while (Date.now() - started < timeoutMs) {
-    const state = await readPageState(page).catch(() => undefined);
-    if (state?.blocker !== undefined && state.blocker.kind !== "modal") {
-      return {
-        ok: false,
-        status: "blocked",
-        warnings: [],
-        blocker: state.blocker,
-        context: await contextFromPage(page)
-      };
-    }
-
-    const progress = await readAssistantProgressSnapshot(page)
-      .catch(() => fallbackAssistantProgressSnapshot(page, latestAssistantCount));
+    const progressResult = await assistantProgressProbe(page, deadline, { timeoutMs: probeTimeoutMs });
+    addWarnings(waitWarnings, progressResult.warnings);
+    const progress = await progressSnapshotFromProbeResult(page, progressResult, latestAssistantCount);
     latestAssistantCount = progress.assistantTurnCount;
     const targetReached = waitTargetReached(args, progress);
     const latestText = targetReached ? normalizeWhitespace(progress.latestText ?? "") : "";
@@ -372,12 +371,23 @@ export async function waitForMessage(
       lastChangedAt = Date.now();
     }
 
+    const state = await pageStateFromProbe(pageStateProbe(page, deadline, { timeoutMs: probeTimeoutMs }), waitWarnings);
+    if (state?.blocker !== undefined && state.blocker.kind !== "modal") {
+      return {
+        ok: false,
+        status: "blocked",
+        warnings: [...waitWarnings],
+        blocker: state.blocker,
+        context: await contextFromPage(page)
+      };
+    }
+
     const snapshot: CompletionSnapshot = {
       latestText,
       stableMs,
       textStableForMs: Date.now() - lastChangedAt,
-      generation: await readAssistantGenerationState(page),
-      hasResponseActions: await latestAssistantTurnHasResponseActions(page)
+      generation: await generationStateFromProbe(generationStateProbe(page, deadline, { timeoutMs: probeTimeoutMs }), waitWarnings),
+      hasResponseActions: await responseActionsFromProbe(responseActionsProbe(page, deadline, { timeoutMs: probeTimeoutMs }), waitWarnings)
     };
 
     if (targetReached && snapshot.generation.stopped && latestText.length > 0) {
@@ -391,6 +401,7 @@ export async function waitForMessage(
           elapsedMs: Date.now() - started
         },
         warnings: [
+          ...waitWarnings,
           "ChatGPT generation appears to have been stopped or interrupted before completion.",
           ...snapshot.generation.signals.map(signal => `Generation state signal: ${signal}`)
         ],
@@ -401,7 +412,8 @@ export async function waitForMessage(
     if (targetReached && isResponseComplete(snapshot)) {
       return withCommandOutputText(resultOk(
         { complete: true, responseText: latestText, assistantTurnCount: latestAssistantCount, elapsedMs: Date.now() - started },
-        await contextFromPage(page)
+        await contextFromPage(page),
+        [...waitWarnings]
       ));
     }
 
@@ -418,7 +430,7 @@ export async function waitForMessage(
         assistantTurnCount: latestAssistantCount,
         elapsedMs: Date.now() - started
       },
-      warnings: ["Timed out after receiving partial assistant text."],
+      warnings: [...waitWarnings, "Timed out after receiving partial assistant text."],
       context: await contextFromPage(page)
     } satisfies CommandResult<WaitData>);
   }
@@ -426,7 +438,7 @@ export async function waitForMessage(
   return {
     ok: false,
     status: "timeout",
-    warnings: [],
+    warnings: [...waitWarnings],
     error: {
       name: "WaitTimeout",
       message: "No assistant response appeared before the timeout.",
@@ -434,6 +446,53 @@ export async function waitForMessage(
     },
     context: await contextFromPage(page)
   };
+}
+
+async function pageStateFromProbe(
+  probe: Promise<ProbeResult<PageState>>,
+  warnings: Set<string>
+): Promise<PageState | undefined> {
+  const result = await probe;
+  addWarnings(warnings, result.warnings);
+  return result.ok ? result.value : undefined;
+}
+
+async function progressSnapshotFromProbeResult(
+  page: PageLike,
+  result: ProbeResult<AssistantProgressSnapshot>,
+  previousAssistantTurnCount: number
+): Promise<AssistantProgressSnapshot> {
+  if (result.ok) {
+    return result.value;
+  }
+  if (result.timedOut === true || result.skipped === true) {
+    return { assistantTurnCount: previousAssistantTurnCount };
+  }
+  return fallbackAssistantProgressSnapshot(page, previousAssistantTurnCount);
+}
+
+async function generationStateFromProbe(
+  probe: Promise<ProbeResult<AssistantGenerationState>>,
+  warnings: Set<string>
+): Promise<AssistantGenerationState> {
+  const result = await probe;
+  addWarnings(warnings, result.warnings);
+  return result.ok ? result.value : EMPTY_GENERATION_STATE;
+}
+
+async function responseActionsFromProbe(
+  probe: Promise<ProbeResult<boolean>>,
+  warnings: Set<string>
+): Promise<boolean> {
+  const result = await probe;
+  addWarnings(warnings, result.warnings);
+  return result.ok ? result.value : false;
+}
+
+function addWarnings(target: Set<string>, warnings: readonly string[]): void {
+  for (const warning of warnings) {
+    target.add(warning);
+  }
 }
 
 export async function readLatest(

@@ -8,7 +8,13 @@ export type AssistantGenerationState = {
   signals: string[];
 };
 
-const EMPTY_GENERATION_STATE: AssistantGenerationState = {
+/**
+ * Neutral fallback used when generation state cannot be inspected.
+ *
+ * This means "no active/stopped signal observed"; it is not evidence that a
+ * response is complete.
+ */
+export const EMPTY_GENERATION_STATE: AssistantGenerationState = {
   active: false,
   stopped: false,
   signals: []
