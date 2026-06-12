@@ -19,6 +19,12 @@ export const hu = {
   addPhotosFilesMenuItem: ["Fotók és fájlok hozzáadása"],
   copyResponse: ["Válasz másolása"],
   modeLabels: ["Azonnali", "Közepes", "Magas", "Kiemelkedően magas"],
+  modeOptions: {
+    instant: ["Azonnali"],
+    medium: ["Közepes"],
+    high: ["Magas"],
+    extraHigh: ["Kiemelkedően magas"],
+  },
   modeOpenerExtra: ["Konfigurálás..."],
   tools: {
     web_search: ["Internetes keresés"],

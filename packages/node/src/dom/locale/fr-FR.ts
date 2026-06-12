@@ -21,6 +21,11 @@ export const frFR = {
   addPhotosFilesMenuItem: ["Ajouter des photos et fichiers"],
   copyResponse: ["Copier la réponse"],
   modeLabels: ["Moyen", "Avancé", "Très élevé"],
+  modeOptions: {
+    medium: ["Moyen"],
+    high: ["Avancé"],
+    extraHigh: ["Très élevé"],
+  },
   modeOpenerExtra: ["Configurer"],
   tools: {
     web_search: ["Recherche sur le Web"],

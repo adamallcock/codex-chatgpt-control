@@ -19,6 +19,13 @@ export const mn = {
   addPhotosFilesMenuItem: ["Зураг ба файл байршуулах"],
   copyResponse: ["Хариулт хуулах"],
   modeLabels: ["Шуурхай", "Дунд", "Өндөр", "Маш өндөр", "Про"],
+  modeOptions: {
+    instant: ["Шуурхай"],
+    medium: ["Дунд"],
+    high: ["Өндөр"],
+    extraHigh: ["Маш өндөр"],
+    pro: ["Про"],
+  },
   modeOpenerExtra: ["Тохируулах..."],
   tools: {
     web_search: ["Веб хайлт"],

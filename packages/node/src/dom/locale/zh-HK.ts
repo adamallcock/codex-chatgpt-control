@@ -19,6 +19,13 @@ export const zhHK = {
   addPhotosFilesMenuItem: ["加入相片和檔案"],
   copyResponse: ["複製回覆"],
   modeLabels: ["即時", "均衡", "高", "極高", "專業"],
+  modeOptions: {
+    instant: ["即時"],
+    medium: ["均衡"],
+    high: ["高"],
+    extraHigh: ["極高"],
+    pro: ["專業"],
+  },
   modeOpenerExtra: ["設定"],
   tools: {
     web_search: ["網絡搜尋"],

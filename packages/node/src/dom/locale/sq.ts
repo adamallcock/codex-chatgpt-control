@@ -19,6 +19,12 @@ export const sq = {
   addPhotosFilesMenuItem: ["Ngarko foto dhe skedarë"],
   copyResponse: ["Kopjo përgjigjen"],
   modeLabels: ["I menjëhershëm", "Mesatar", "Lartë", "Shumë i lartë"],
+  modeOptions: {
+    instant: ["I menjëhershëm"],
+    medium: ["Mesatar"],
+    high: ["Lartë"],
+    extraHigh: ["Shumë i lartë"],
+  },
   modeOpenerExtra: ["Konfiguro..."],
   tools: {
     web_search: ["Kërkim në ueb"],

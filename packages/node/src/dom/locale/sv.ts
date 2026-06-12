@@ -19,6 +19,12 @@ export const sv = {
   addPhotosFilesMenuItem: ["Ladda upp foton och filer"],
   copyResponse: ["Kopiera svar"],
   modeLabels: ["Direkt", "Balanserad", "Hög", "Extra hög"],
+  modeOptions: {
+    instant: ["Direkt"],
+    medium: ["Balanserad"],
+    high: ["Hög"],
+    extraHigh: ["Extra hög"],
+  },
   modeOpenerExtra: ["Konfigurera …"],
   tools: {
     web_search: ["Webbsökning"],

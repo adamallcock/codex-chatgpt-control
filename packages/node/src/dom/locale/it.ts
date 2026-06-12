@@ -19,6 +19,12 @@ export const it = {
   addPhotosFilesMenuItem: ["Aggiungi foto e file"],
   copyResponse: ["Copia risposta"],
   modeLabels: ["Istantanea", "Media", "Alta", "Extra elevata"],
+  modeOptions: {
+    instant: ["Istantanea"],
+    medium: ["Media"],
+    high: ["Alta"],
+    extraHigh: ["Extra elevata"],
+  },
   modeOpenerExtra: ["Configura"],
   tools: {
     web_search: ["Ricerca sul web"],

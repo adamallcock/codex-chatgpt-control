@@ -19,6 +19,13 @@ export const lt = {
   addPhotosFilesMenuItem: ["Pridėti nuotraukų ir failų"],
   copyResponse: ["Kopijuoti atsakymą"],
   modeLabels: ["Momentinis", "Vidutinis", "Aukštas", "Ypač didelis", "Profesionalus"],
+  modeOptions: {
+    instant: ["Momentinis"],
+    medium: ["Vidutinis"],
+    high: ["Aukštas"],
+    extraHigh: ["Ypač didelis"],
+    pro: ["Profesionalus"],
+  },
   modeOpenerExtra: ["Konfigūruoti..."],
   tools: {
     web_search: ["Žiniatinklio paieška"],

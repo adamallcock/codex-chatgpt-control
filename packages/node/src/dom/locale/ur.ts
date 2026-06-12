@@ -19,6 +19,12 @@ export const ur = {
   addPhotosFilesMenuItem: ["تصویریں اور فائلیں شامل کریں"],
   copyResponse: ["جواب کاپی کریں"],
   modeLabels: ["فوری", "اوسط", "اعلیٰ", "انتہائی اعلیٰ"],
+  modeOptions: {
+    instant: ["فوری"],
+    medium: ["اوسط"],
+    high: ["اعلیٰ"],
+    extraHigh: ["انتہائی اعلیٰ"],
+  },
   modeOpenerExtra: ["کنفیگر کریں..."],
   tools: {
     web_search: ["ویب پر تلاش"],

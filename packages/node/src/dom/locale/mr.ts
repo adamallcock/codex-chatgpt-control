@@ -19,6 +19,13 @@ export const mr = {
   addPhotosFilesMenuItem: ["फोटो आणि फाइल्स अपलोड करा"],
   copyResponse: ["प्रतिसाद कॉपी करा"],
   modeLabels: ["झटपट", "मध्यम", "उच्च", "अतिउच्च", "प्रो"],
+  modeOptions: {
+    instant: ["झटपट"],
+    medium: ["मध्यम"],
+    high: ["उच्च"],
+    extraHigh: ["अतिउच्च"],
+    pro: ["प्रो"],
+  },
   modeOpenerExtra: ["कॉन्फिगर करा..."],
   tools: {
     web_search: ["वेबवर शोध"],

@@ -19,6 +19,12 @@ export const nb = {
   addPhotosFilesMenuItem: ["Last opp bilder og filer"],
   copyResponse: ["Kopier svar"],
   modeLabels: ["Øyeblikkelig", "Middels", "Høy", "Ekstra høy"],
+  modeOptions: {
+    instant: ["Øyeblikkelig"],
+    medium: ["Middels"],
+    high: ["Høy"],
+    extraHigh: ["Ekstra høy"],
+  },
   modeOpenerExtra: ["Konfigurer …"],
   tools: {
     web_search: ["Nettsøk"],

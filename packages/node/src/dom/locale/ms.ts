@@ -19,6 +19,12 @@ export const ms = {
   addPhotosFilesMenuItem: ["Muat naik foto & fail"],
   copyResponse: ["Salin tindak balas"],
   modeLabels: ["Segera", "Sederhana", "Tinggi", "Sangat Tinggi"],
+  modeOptions: {
+    instant: ["Segera"],
+    medium: ["Sederhana"],
+    high: ["Tinggi"],
+    extraHigh: ["Sangat Tinggi"],
+  },
   modeOpenerExtra: ["Konfigurasikan…"],
   tools: {
     web_search: ["Carian web"],

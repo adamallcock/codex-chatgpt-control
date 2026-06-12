@@ -19,6 +19,13 @@ export const te = {
   addPhotosFilesMenuItem: ["ఫోటోలు & ఫైల్‌లను అప్‌లోడ్ చేయండి"],
   copyResponse: ["ప్రతిస్పందనను కాపీ చేయండి"],
   modeLabels: ["తక్షణం", "మధ్యస్థ", "అధిక", "అత్యధిక", "ప్రో"],
+  modeOptions: {
+    instant: ["తక్షణం"],
+    medium: ["మధ్యస్థ"],
+    high: ["అధిక"],
+    extraHigh: ["అత్యధిక"],
+    pro: ["ప్రో"],
+  },
   modeOpenerExtra: ["కాన్ఫిగర్ చేయండి"],
   tools: {
     web_search: ["వెబ్‌లో వెతకడం"],

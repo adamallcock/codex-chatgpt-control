@@ -31,6 +31,16 @@ export const en = {
 
   // --- Mode switcher (also the canonical public API keys) ---
   modeLabels: ["Latest", "Instant", "Thinking", "Extended", "Medium", "High", "Extra High", "Pro"],
+  modeOptions: {
+    latest: ["Latest"],
+    instant: ["Instant"],
+    thinking: ["Thinking"],
+    extended: ["Extended"],
+    medium: ["Medium"],
+    high: ["High"],
+    extraHigh: ["Extra High"],
+    pro: ["Pro", "Pro Extended", "Extended Pro"],
+  },
   /** Extra openers that surface the mode menu but are not selectable modes themselves. */
   modeOpenerExtra: ["Configure"],
 

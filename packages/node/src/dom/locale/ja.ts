@@ -19,6 +19,12 @@ export const ja = {
   addPhotosFilesMenuItem: ["写真とファイルを追加"],
   copyResponse: ["回答をコピーする"],
   modeLabels: ["最速", "標準", "高", "最高"],
+  modeOptions: {
+    instant: ["最速"],
+    medium: ["標準"],
+    high: ["高"],
+    extraHigh: ["最高"],
+  },
   modeOpenerExtra: ["設定する"],
   tools: {
     web_search: ["ウェブ検索"],

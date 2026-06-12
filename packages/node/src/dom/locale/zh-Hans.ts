@@ -19,6 +19,13 @@ export const zhHans = {
   addPhotosFilesMenuItem: ["添加照片和文件"],
   copyResponse: ["复制回复"],
   modeLabels: ["极速", "均衡", "高级", "超高", "专业"],
+  modeOptions: {
+    instant: ["极速"],
+    medium: ["均衡"],
+    high: ["高级"],
+    extraHigh: ["超高"],
+    pro: ["专业"],
+  },
   modeOpenerExtra: ["配置…"],
   tools: {
     web_search: ["网页搜索"],

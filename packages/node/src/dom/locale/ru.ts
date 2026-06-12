@@ -19,6 +19,9 @@ export const ru = {
   addPhotosFilesMenuItem: ["Загрузить фотографии и файлы"],
   copyResponse: ["Копировать ответ"],
   modeLabels: ["Очень высокий"],
+  modeOptions: {
+    extraHigh: ["Очень высокий"],
+  },
   modeOpenerExtra: ["Конфигурация..."],
   tools: {
     web_search: ["Поиск в сети"],

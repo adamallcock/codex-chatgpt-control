@@ -19,6 +19,11 @@ export const mk = {
   addPhotosFilesMenuItem: ["Постави фотографии и датотеки"],
   copyResponse: ["Копирај одговор"],
   modeLabels: ["Средно", "Високо", "Многу високо"],
+  modeOptions: {
+    medium: ["Средно"],
+    high: ["Високо"],
+    extraHigh: ["Многу високо"],
+  },
   modeOpenerExtra: ["Конфигурирај..."],
   tools: {
     web_search: ["Пребарување на интернет"],

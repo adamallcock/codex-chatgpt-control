@@ -19,6 +19,12 @@ export const vi = {
   addPhotosFilesMenuItem: ["Thêm ảnh và tệp"],
   copyResponse: ["Sao chép phản hồi"],
   modeLabels: ["Tức thì", "Trung bình", "Cao", "Rất cao"],
+  modeOptions: {
+    instant: ["Tức thì"],
+    medium: ["Trung bình"],
+    high: ["Cao"],
+    extraHigh: ["Rất cao"],
+  },
   modeOpenerExtra: ["Định cấu hình"],
   tools: {
     web_search: ["Tìm kiếm trên mạng"],

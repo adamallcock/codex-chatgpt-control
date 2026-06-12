@@ -120,6 +120,71 @@ describe("mode and tool selection blockers", () => {
     });
   });
 
+  it("selects a localized semantic mode without relying on menu position", async () => {
+    const page = menuPage(["حرفه‌ای"], ["حرفه‌ای"]);
+
+    const result = await setMode({ page }, { model: "Pro" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["حرفه‌ای"],
+      candidates: ["حرفه‌ای"]
+    });
+  });
+
+  it("selects a localized high intelligence row from semantic labels", async () => {
+    const page = menuPage(["متوسط", "بالا"], ["بالا"]);
+
+    const result = await setMode({ page }, { intelligence: "high" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["بالا"],
+      candidates: ["متوسط", "بالا"]
+    });
+  });
+
+  it("does not select a project action row for a short Pro model request", async () => {
+    const page = menuPage(["Move to project"], ["Move to project"]);
+
+    const result = await setMode({ page }, { model: "Pro" });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("unsupported");
+    expect(result.blocker).toMatchObject({
+      kind: "selector_drift",
+      code: "visible_candidate_not_found",
+      candidates: [{ label: "Move to project" }]
+    });
+  });
+
+  it("rejects a visible thread action menu before attempting mode selection", async () => {
+    const page = menuPage(["Share", "Rename", "Move to project"], ["Move to project"]);
+
+    const result = await setMode({ page }, { model: "Pro" });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("unsupported");
+    expect(result.blocker).toMatchObject({
+      kind: "selector_drift",
+      code: "visible_candidate_not_found",
+      message: "Visible menu appears to be a thread/action menu, not the ChatGPT mode menu.",
+      candidates: [{ label: "Share" }, { label: "Rename" }, { label: "Move to project" }]
+    });
+  });
+
+  it("does not reject a model-version-only menu as the wrong menu", async () => {
+    const page = menuPage(["5.5", "5.4"], ["5.4"]);
+
+    const result = await setMode({ page }, { version: "5.4" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["5.4"],
+      candidates: ["5.5", "5.4"]
+    });
+  });
+
   it("selects nested model versions after localized intelligence selection", async () => {
     const labels = ["فوری", "متوسط", "بالا", "بسیار زیاد", "حرفه‌ای"];
     const page = intelligencePickerPage({ current: "بالا", labels });

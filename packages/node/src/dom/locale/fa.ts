@@ -19,6 +19,13 @@ export const fa = {
   addPhotosFilesMenuItem: ["افزودن تصاویر و فایل‌ها"],
   copyResponse: ["کپی کردن پاسخ"],
   modeLabels: ["فوری", "متوسط", "بالا", "بسیار زیاد", "حرفه‌ای"],
+  modeOptions: {
+    instant: ["فوری"],
+    medium: ["متوسط"],
+    high: ["بالا"],
+    extraHigh: ["بسیار زیاد"],
+    pro: ["حرفه‌ای"],
+  },
   modeOpenerExtra: ["پیکربندی..."],
   tools: {
     web_search: ["جستجوی وب"],

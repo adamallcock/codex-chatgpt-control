@@ -19,6 +19,12 @@ export const gu = {
   addPhotosFilesMenuItem: ["ફોટા અને ફાઇલો ઉમેરો"],
   copyResponse: ["પ્રતિભાવ કૉપિ કરો"],
   modeLabels: ["તરત", "મધ્યમ", "ઉચ્ચ", "અતિ ઉચ્ચ"],
+  modeOptions: {
+    instant: ["તરત"],
+    medium: ["મધ્યમ"],
+    high: ["ઉચ્ચ"],
+    extraHigh: ["અતિ ઉચ્ચ"],
+  },
   modeOpenerExtra: ["કન્ફિગર કરો..."],
   tools: {
     web_search: ["વેબ શોધ"],

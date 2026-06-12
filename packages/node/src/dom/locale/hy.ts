@@ -19,6 +19,13 @@ export const hy = {
   addPhotosFilesMenuItem: ["Ավելացնել լուսանկարներ և ֆայլեր"],
   copyResponse: ["Պատճենել պատասխանը"],
   modeLabels: ["Ակնթարթային", "Միջին", "Բարձր", "Շատ բարձր", "Պրո"],
+  modeOptions: {
+    instant: ["Ակնթարթային"],
+    medium: ["Միջին"],
+    high: ["Բարձր"],
+    extraHigh: ["Շատ բարձր"],
+    pro: ["Պրո"],
+  },
   modeOpenerExtra: ["Կազմաձևել․․․"],
   tools: {
     web_search: ["Վեբ որոնում"],

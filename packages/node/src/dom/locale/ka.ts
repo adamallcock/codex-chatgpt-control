@@ -19,6 +19,12 @@ export const ka = {
   addPhotosFilesMenuItem: ["ფოტოების და ფაილების დამატება"],
   copyResponse: ["პასუხის კოპირება"],
   modeLabels: ["მყისიერი", "საშუალო", "მაღალი", "ძალიან მაღალი"],
+  modeOptions: {
+    instant: ["მყისიერი"],
+    medium: ["საშუალო"],
+    high: ["მაღალი"],
+    extraHigh: ["ძალიან მაღალი"],
+  },
   modeOpenerExtra: ["კონფიგურირება…"],
   tools: {
     web_search: ["ვებში ძიება"],

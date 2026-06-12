@@ -19,6 +19,13 @@ export const bn = {
   addPhotosFilesMenuItem: ["ফটো এবং ফাইল আপলোড করুন"],
   copyResponse: ["উত্তর কপি করুন"],
   modeLabels: ["তাৎক্ষণিক", "মাঝারি", "উচ্চ", "অতি উচ্চ", "প্রো"],
+  modeOptions: {
+    instant: ["তাৎক্ষণিক"],
+    medium: ["মাঝারি"],
+    high: ["উচ্চ"],
+    extraHigh: ["অতি উচ্চ"],
+    pro: ["প্রো"],
+  },
   modeOpenerExtra: ["কনফিগার করুন..."],
   tools: {
     web_search: ["ওয়েব সন্ধান"],

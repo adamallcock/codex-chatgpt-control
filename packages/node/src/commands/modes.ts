@@ -1,23 +1,62 @@
 import { resultError, resultOk } from "../errors.js";
 import { enumerateVisibleMenuItems, findUniqueMenuItem, type MenuItem } from "../dom/menus.js";
 import { localeLabels } from "../dom/locale-labels.js";
+import { normalizeForLabelMatch, visibleLabelMatches } from "../dom/label-match.js";
 import { normalizeLabel, normalizeWhitespace } from "../dom/visible-text.js";
 import type { CommandResult, LocatorLike, PageLike, RuntimeEnv, SelectToolArgs, SetModeArgs } from "../types.js";
+import type { ModeOptionId } from "../dom/locale/types.js";
 import { contextFromPage } from "./context.js";
 import { bootstrap } from "./session.js";
 
 const DEFAULT_MODE_EFFORT = "Thinking";
-const CURRENT_MODE_LABELS: string[] = [...localeLabels.modeLabels];
+const CURRENT_MODE_LABELS: string[] = dedupeLabels([
+  ...localeLabels.modeLabels,
+  ...Object.values(localeLabels.modeOptions).flat(),
+]);
 const MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter(label => label !== "Pro"), ...localeLabels.modeOpenerExtra];
 const MODEL_VERSION_FAMILY_PATTERN = /^gpt[\s-]/i;
 const MODEL_VERSION_LABEL_PATTERN = /^(?:o\d+|\d+(?:\.\d+)?)$/i;
-const CANONICAL_INTELLIGENCE_ORDER = new Map<string, number>([
+const CANONICAL_INTELLIGENCE_ORDER = new Map<ModeOptionId, number>([
   ["instant", 0],
   ["medium", 1],
   ["high", 2],
-  ["extra high", 3],
+  ["extraHigh", 3],
   ["pro", 4],
 ]);
+const MODE_OPTION_IDS: ModeOptionId[] = [
+  "latest",
+  "instant",
+  "thinking",
+  "extended",
+  "medium",
+  "high",
+  "extraHigh",
+  "pro",
+];
+const MODE_ID_ALIASES: Record<ModeOptionId, string[]> = {
+  latest: ["latest"],
+  instant: ["instant"],
+  thinking: ["thinking"],
+  extended: ["extended"],
+  medium: ["medium"],
+  high: ["high"],
+  extraHigh: ["extra high", "extra-high", "extra_high", "extrahigh"],
+  pro: ["pro"],
+};
+const THREAD_ACTION_MENU_LABELS = new Set([
+  "archive",
+  "copy link",
+  "delete",
+  "move to project",
+  "rename",
+  "share",
+]);
+
+type RequestedMode = {
+  requested: string;
+  labels: string[];
+  modeId?: ModeOptionId;
+};
 
 export async function setMode(
   env: RuntimeEnv,
@@ -31,9 +70,9 @@ export async function setMode(
   const page = env.page!;
 
   try {
-    const requested = requestedModeLabels(args);
+    const requested = requestedModeSelections(args);
     const requestedVersion = requestedModelVersion(args);
-    const requestedForOpening = requestedVersion === undefined ? requested : [...requested, requestedVersion];
+    const requestedForOpening = requestedVersion === undefined ? requested : [...requested, requestedModeSelection(requestedVersion)];
     const opened = await waitForModeMenu(page, requestedForOpening, args.timeoutMs ?? 30000);
     if (requestedVersion === undefined && opened.alreadySelected.length === requested.length) {
       return resultOk({ selected: opened.alreadySelected, candidates: opened.modeButtons }, await contextFromPage(page));
@@ -45,15 +84,26 @@ export async function setMode(
     const candidates = await enumerateVisibleMenuItems(page);
     const selected: string[] = [];
 
-    for (const item of requested) {
-      const match = findModeMenuItem(candidates, item);
+    if (requested.length > 0 && shouldRejectAsWrongModeMenu(candidates)) {
+      const candidateLabels = candidates.map(candidate => candidate.label);
+      return {
+        ok: false,
+        status: "unsupported",
+        warnings: [],
+        blocker: selectorDriftBlocker("Visible menu appears to be a thread/action menu, not the ChatGPT mode menu.", candidateLabels),
+        context: await contextFromPage(page)
+      };
+    }
+
+    for (const request of requested) {
+      const match = findModeMenuItem(candidates, request);
       if (match === undefined) {
         const candidateLabels = candidates.map(candidate => candidate.label);
         return {
           ok: false,
           status: "unsupported",
           warnings: [],
-          blocker: selectorDriftBlocker(`Mode option "${item}" was not found or was ambiguous.`, candidateLabels),
+          blocker: selectorDriftBlocker(`Mode option "${request.requested}" was not found or was ambiguous.`, candidateLabels),
           context: await contextFromPage(page)
         };
       }
@@ -91,7 +141,7 @@ type ModeMenuOpenResult = {
   modeButtons: string[];
 };
 
-async function waitForModeMenu(page: PageLike, requested: string[], timeoutMs: number): Promise<ModeMenuOpenResult> {
+async function waitForModeMenu(page: PageLike, requested: RequestedMode[], timeoutMs: number): Promise<ModeMenuOpenResult> {
   const deadline = Date.now() + timeoutMs;
   let modeButtons: string[] = [];
 
@@ -208,6 +258,29 @@ function looksLikeModeMenu(labels: string[]): boolean {
   });
 }
 
+function shouldRejectAsWrongModeMenu(items: MenuItem[]): boolean {
+  if (items.length === 0) {
+    return false;
+  }
+  const hasPositiveModeEvidence = items.some(item => {
+    if (item.testId?.startsWith("model-switcher-") === true) {
+      return true;
+    }
+    if (MODEL_VERSION_FAMILY_PATTERN.test(item.label) || MODEL_VERSION_LABEL_PATTERN.test(item.label)) {
+      return true;
+    }
+    if (item.role === "menuitemradio" && CURRENT_MODE_LABELS.some(label => visibleLabelMatches(item.label, label))) {
+      return true;
+    }
+    return CURRENT_MODE_LABELS.some(label => visibleLabelMatches(item.label, label));
+  });
+  if (hasPositiveModeEvidence) {
+    return false;
+  }
+
+  return items.some(item => THREAD_ACTION_MENU_LABELS.has(normalizeForLabelMatch(item.label)));
+}
+
 async function clickMenuItem(page: PageLike, label: string): Promise<boolean> {
   if (await clickModelSwitcherMenuItem(page, label)) {
     return true;
@@ -319,13 +392,15 @@ function toolLabels(tool: string): string[] {
   return known !== undefined ? [...known] : [tool];
 }
 
-function findModeMenuItem(candidates: MenuItem[], wanted: string): MenuItem | undefined {
-  const exact = findUniqueMenuItem(candidates, wanted);
-  if (exact !== undefined) {
-    return exact;
+function findModeMenuItem(candidates: MenuItem[], request: RequestedMode): MenuItem | undefined {
+  for (const wanted of request.labels) {
+    const exact = findUniqueMenuItem(candidates, wanted);
+    if (exact !== undefined) {
+      return exact;
+    }
   }
 
-  const wantedIndex = CANONICAL_INTELLIGENCE_ORDER.get(normalizeLabel(wanted));
+  const wantedIndex = request.modeId === undefined ? undefined : CANONICAL_INTELLIGENCE_ORDER.get(request.modeId);
   if (wantedIndex === undefined) {
     return undefined;
   }
@@ -340,12 +415,42 @@ function findModeMenuItem(candidates: MenuItem[], wanted: string): MenuItem | un
     : undefined;
 }
 
-function requestedModeLabels(args: SetModeArgs): string[] {
+function requestedModeSelections(args: SetModeArgs): RequestedMode[] {
   const requested = [args.model, args.intelligence, args.effort].filter((value): value is string => value !== undefined);
   if (requestedModelVersion(args) !== undefined && requested.length === 0) {
     return [];
   }
-  return requested.length > 0 ? requested : [DEFAULT_MODE_EFFORT];
+  return (requested.length > 0 ? requested : [DEFAULT_MODE_EFFORT]).map(requestedModeSelection);
+}
+
+function requestedModeSelection(requested: string): RequestedMode {
+  const modeId = modeOptionIdFor(requested);
+  const labels = modeId === undefined ? [requested] : localeLabels.modeOptions[modeId];
+  const request: RequestedMode = {
+    requested,
+    labels: labels.length > 0 ? [...labels] : [requested],
+  };
+  if (modeId !== undefined) {
+    request.modeId = modeId;
+  }
+  return request;
+}
+
+function modeOptionIdFor(value: string): ModeOptionId | undefined {
+  const normalized = normalizeModeLookupKey(value);
+  for (const id of MODE_OPTION_IDS) {
+    if (MODE_ID_ALIASES[id].some(alias => normalizeModeLookupKey(alias) === normalized)) {
+      return id;
+    }
+    if (localeLabels.modeOptions[id].some(label => normalizeModeLookupKey(label) === normalized)) {
+      return id;
+    }
+  }
+  return undefined;
+}
+
+function normalizeModeLookupKey(value: string): string {
+  return normalizeForLabelMatch(value).replace(/[_-]+/g, " ");
 }
 
 function requestedModelVersion(args: SetModeArgs): string | undefined {
@@ -363,13 +468,6 @@ function findUniqueVisibleLabel(labels: string[], wanted: string): string | unde
   return fuzzy.length === 1 ? fuzzy[0] : undefined;
 }
 
-function visibleLabelMatches(label: string, wanted: string): boolean {
-  if (wanted.length <= 3) {
-    return new RegExp(`(^|[^a-z0-9])${escapeRegExp(wanted)}([^a-z0-9]|$)`, "i").test(label);
-  }
-  return label.includes(wanted);
-}
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -378,10 +476,20 @@ function escapeAttributeValue(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
 }
 
-function findAlreadySelectedModes(visibleButtons: string[], requested: string[]): string[] {
+function findAlreadySelectedModes(visibleButtons: string[], requested: RequestedMode[]): string[] {
   return requested
-    .map(label => findUniqueVisibleLabel(visibleButtons, label))
+    .map(request => findUniqueVisibleLabelForRequest(visibleButtons, request))
     .filter((label): label is string => label !== undefined);
+}
+
+function findUniqueVisibleLabelForRequest(labels: string[], request: RequestedMode): string | undefined {
+  for (const label of request.labels) {
+    const found = findUniqueVisibleLabel(labels, label);
+    if (found !== undefined) {
+      return found;
+    }
+  }
+  return undefined;
 }
 
 async function selectModelVersion(
@@ -392,7 +500,7 @@ async function selectModelVersion(
 ): Promise<{ selected?: string; candidates: string[] }> {
   let candidates = await enumerateVisibleMenuItems(page);
   if (!looksLikeModeMenu(candidates.map(candidate => candidate.label))) {
-    const opened = await waitForModeMenu(page, [requestedVersion], timeoutMs);
+    const opened = await waitForModeMenu(page, [{ requested: requestedVersion, labels: [requestedVersion] }], timeoutMs);
     if (opened.opened) {
       await page.waitForTimeout?.(250);
       candidates = await enumerateVisibleMenuItems(page);

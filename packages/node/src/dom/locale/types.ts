@@ -8,6 +8,19 @@
  * `tools` is keyed by logical tool id (stable API keys — callers pass `tool: "web_search"`).
  * A locale only needs to list the tools whose display text differs from English.
  */
+export type ModeOptionId =
+  | "latest"
+  | "instant"
+  | "thinking"
+  | "extended"
+  | "medium"
+  | "high"
+  | "extraHigh"
+  | "pro";
+
+export type ModeOptionLabels = Record<ModeOptionId, string | readonly string[]>;
+export type ModeOptionContribution = Partial<ModeOptionLabels>;
+
 export type LocaleStrings = {
   // --- Primary interaction path (accessible names) ---
   composerTextbox: string | readonly string[];
@@ -30,6 +43,7 @@ export type LocaleStrings = {
 
   // --- Mode switcher ---
   modeLabels: string | readonly string[];
+  modeOptions: ModeOptionLabels;
   modeOpenerExtra: string | readonly string[];
 
   // --- Tool menu items, keyed by logical tool id ---
@@ -52,6 +66,7 @@ export type LocaleStrings = {
  * The type for non-English locale files. Every key is optional so a contributor only
  * needs to supply the strings that differ from English. `tools` is also partial.
  */
-export type LocaleContribution = Partial<Omit<LocaleStrings, "tools">> & {
+export type LocaleContribution = Partial<Omit<LocaleStrings, "tools" | "modeOptions">> & {
+  modeOptions?: ModeOptionContribution;
   tools?: Partial<Record<"web_search" | "deep_research" | "create_image", string | readonly string[]>>;
 };

@@ -19,6 +19,12 @@ export const hi = {
   addPhotosFilesMenuItem: ["फ़ोटो और फ़ाइलें जोड़ें"],
   copyResponse: ["जवाब को कॉपी करें"],
   modeLabels: ["तुरंत", "मध्यम", "उच्च", "बहुत उच्च"],
+  modeOptions: {
+    instant: ["तुरंत"],
+    medium: ["मध्यम"],
+    high: ["उच्च"],
+    extraHigh: ["बहुत उच्च"],
+  },
   modeOpenerExtra: ["कॉन्फ़िगर करें..."],
   tools: {
     web_search: ["वेब सर्च"],

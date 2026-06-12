@@ -73,6 +73,7 @@ const REQUIRED_LOCALE_KEYS = [
   "rateLimitBlocker"
 ] as const;
 const REQUIRED_TOOL_IDS = ["web_search", "deep_research", "create_image"] as const;
+const REQUIRED_MODE_OPTION_IDS = ["latest", "instant", "thinking", "extended", "medium", "high", "extraHigh", "pro"] as const;
 
 export async function doctor(env: RuntimeEnv, args: DoctorArgs = {}): Promise<CommandResult<DoctorReport>> {
   const wanted = args.check ?? DEFAULT_CHECKS;
@@ -312,24 +313,30 @@ async function filePreflightCheck(env: RuntimeEnv, args: DoctorArgs): Promise<Ca
 function localizationCheck(env: RuntimeEnv): CapabilityCheck {
   const requiredKeysMissing = REQUIRED_LOCALE_KEYS.filter(key => localeLabels[key].length === 0);
   const missingToolIds = REQUIRED_TOOL_IDS.filter(id => (localeLabels.tools[id]?.length ?? 0) === 0);
+  const missingModeOptionIds = REQUIRED_MODE_OPTION_IDS.filter(id => (localeLabels.modeOptions[id]?.length ?? 0) === 0);
   const toolIds = Object.keys(localeLabels.tools);
+  const modeOptionIds = Object.keys(localeLabels.modeOptions);
   const englishCanonicalPresent = localeLabels.composerTextbox[0] === "Chat with ChatGPT"
     && localeLabels.sendButton[0] === "Send prompt"
     && localeLabels.modeLabels.includes("Thinking")
+    && localeLabels.modeOptions.pro?.[0] === "Pro"
     && localeLabels.tools.web_search?.[0] === "Web search";
   const labelCandidateCount = REQUIRED_LOCALE_KEYS.reduce((total, key) => total + localeLabels[key].length, 0)
-    + Object.values(localeLabels.tools).reduce((total, values) => total + values.length, 0);
+    + Object.values(localeLabels.tools).reduce((total, values) => total + values.length, 0)
+    + Object.values(localeLabels.modeOptions).reduce((total, values) => total + values.length, 0);
   const details = {
     englishCanonicalPresent,
     requiredKeysMissing,
     missingToolIds,
+    missingModeOptionIds,
     toolIds,
+    modeOptionIds,
     labelCandidateCount,
     pageAvailable: env.page !== undefined,
     runtimeSelectorCoverage: "registry_only_stage_2"
   };
 
-  if (englishCanonicalPresent && requiredKeysMissing.length === 0 && missingToolIds.length === 0) {
+  if (englishCanonicalPresent && requiredKeysMissing.length === 0 && missingToolIds.length === 0 && missingModeOptionIds.length === 0) {
     return unknown("The locale registry is loaded; localized runtime selector coverage is registry-only in Stage 2 and not fully proven.", undefined, details);
   }
 

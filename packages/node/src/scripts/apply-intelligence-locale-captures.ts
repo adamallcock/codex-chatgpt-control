@@ -15,7 +15,17 @@ type ApplyOptions = {
   coveragePath: string;
 };
 
+type IntelligenceModeOptionId = "instant" | "medium" | "high" | "extraHigh" | "pro";
+
 const ENGLISH_MODE_LABELS = new Set(["Latest", "Instant", "Thinking", "Extended", "Medium", "High", "Extra High", "Pro"]);
+const INTELLIGENCE_MODE_OPTION_IDS: IntelligenceModeOptionId[] = ["instant", "medium", "high", "extraHigh", "pro"];
+const ENGLISH_INTELLIGENCE_MODE_OPTIONS: Record<IntelligenceModeOptionId, string> = {
+  instant: "Instant",
+  medium: "Medium",
+  high: "High",
+  extraHigh: "Extra High",
+  pro: "Pro",
+};
 const UPDATE_NOTE = " * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.";
 
 class ApplyUsageError extends Error {
@@ -50,7 +60,12 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   const root = packageRoot();
   const languages = await readLanguageCoverage(options.coveragePath);
   const captures = latestSuccessfulCaptures(await readFile(options.input, "utf8"));
-  const planned: Array<{ locale: string; file: string; labels: string[] }> = [];
+  const planned: Array<{
+    locale: string;
+    file: string;
+    labels: string[];
+    modeOptions: Partial<Record<IntelligenceModeOptionId, string[]>>;
+  }> = [];
 
   for (const language of languages) {
     if (/^en(?:-|$)/i.test(language.bcp47)) continue;
@@ -59,11 +74,13 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       throw new ApplyUsageError(`Missing successful capture for ${language.bcp47}.`, 1);
     }
     const labels = observedNonEnglishLabels(record);
-    if (labels.length === 0) continue;
+    const modeOptions = observedNonEnglishModeOptions(record);
+    if (labels.length === 0 && Object.keys(modeOptions).length === 0) continue;
     planned.push({
       locale: language.bcp47,
       file: resolve(root, "src/dom/locale", `${language.bcp47}.ts`),
       labels,
+      modeOptions,
     });
   }
 
@@ -77,10 +94,10 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 
   for (const change of planned) {
     const before = await readFile(change.file, "utf8");
-    const after = mergeModeLabels(before, change.labels);
+    const after = mergeModeCapture(before, change.labels, change.modeOptions);
     if (after !== before) {
       await writeFile(change.file, after, "utf8");
-      console.log(`updated ${change.locale} labels=${change.labels.length}`);
+      console.log(`updated ${change.locale} labels=${change.labels.length} modeOptions=${Object.keys(change.modeOptions).length}`);
     }
   }
 
@@ -110,21 +127,43 @@ function observedNonEnglishLabels(record: CaptureRecord): string[] {
   return labels;
 }
 
-function mergeModeLabels(source: string, labels: readonly string[]): string {
+function observedNonEnglishModeOptions(record: CaptureRecord): Partial<Record<IntelligenceModeOptionId, string[]>> {
+  const labels = record.intelligenceLabels ?? [];
+  if (labels.length !== INTELLIGENCE_MODE_OPTION_IDS.length) {
+    throw new ApplyUsageError(`${record.requestedLocale} has ${labels.length} Intelligence labels; expected ${INTELLIGENCE_MODE_OPTION_IDS.length}.`, 1);
+  }
+  const modeOptions: Partial<Record<IntelligenceModeOptionId, string[]>> = {};
+  for (let index = 0; index < INTELLIGENCE_MODE_OPTION_IDS.length; index += 1) {
+    const id = INTELLIGENCE_MODE_OPTION_IDS[index]!;
+    const label = labels[index]!;
+    if (label !== ENGLISH_INTELLIGENCE_MODE_OPTIONS[id]) {
+      modeOptions[id] = [label];
+    }
+  }
+  return modeOptions;
+}
+
+function mergeModeCapture(
+  source: string,
+  labels: readonly string[],
+  modeOptions: Partial<Record<IntelligenceModeOptionId, string[]>>
+): string {
   let text = updateComment(source);
-  const existing = parseExistingModeLabels(text);
-  const merged = dedupe([...existing, ...labels]);
-  const line = `  modeLabels: [${merged.map(label => JSON.stringify(label)).join(", ")}],`;
+  if (labels.length > 0) {
+    const existing = parseExistingModeLabels(text);
+    const merged = dedupe([...existing, ...labels]);
+    const line = `  modeLabels: [${merged.map(label => JSON.stringify(label)).join(", ")}],`;
 
-  if (/^\s*modeLabels:\s*\[[^\]]*\],/m.test(text)) {
-    return text.replace(/^\s*modeLabels:\s*\[[^\]]*\],/m, line);
+    if (/^\s*modeLabels:\s*\[[^\]]*\],/m.test(text)) {
+      text = text.replace(/^\s*modeLabels:\s*\[[^\]]*\],/m, line);
+    } else if (/^\s*copyResponse:\s*.*,\n/m.test(text)) {
+      text = text.replace(/^(\s*copyResponse:\s*.*,\n)/m, `$1${line}\n`);
+    } else {
+      text = text.replace(/^export const \w+ = \{\n/m, match => `${match}${line}\n`);
+    }
   }
 
-  if (/^\s*copyResponse:\s*.*,\n/m.test(text)) {
-    return text.replace(/^(\s*copyResponse:\s*.*,\n)/m, `$1${line}\n`);
-  }
-
-  return text.replace(/^export const \w+ = \{\n/m, match => `${match}${line}\n`);
+  return mergeModeOptions(text, modeOptions);
 }
 
 function parseExistingModeLabels(source: string): string[] {
@@ -136,6 +175,66 @@ function parseExistingModeLabels(source: string): string[] {
     labels.push(JSON.parse(`"${stringMatch[1]}"`) as string);
   }
   return labels;
+}
+
+function mergeModeOptions(
+  source: string,
+  modeOptions: Partial<Record<IntelligenceModeOptionId, string[]>>
+): string {
+  const existing = parseExistingModeOptions(source);
+  const merged: Partial<Record<IntelligenceModeOptionId, string[]>> = {};
+  for (const id of INTELLIGENCE_MODE_OPTION_IDS) {
+    const values = dedupe([...(existing[id] ?? []), ...(modeOptions[id] ?? [])]);
+    if (values.length > 0) {
+      merged[id] = values;
+    }
+  }
+  const block = formatModeOptions(merged);
+  if (block === undefined) {
+    return source;
+  }
+  if (/^\s*modeOptions:\s*\{[\s\S]*?^\s*\},\n/m.test(source)) {
+    return source.replace(/^\s*modeOptions:\s*\{[\s\S]*?^\s*\},\n/m, `${block}\n`);
+  }
+  if (/^\s*modeLabels:\s*\[[^\]]*\],\n/m.test(source)) {
+    return source.replace(/^(\s*modeLabels:\s*\[[^\]]*\],\n)/m, `$1${block}\n`);
+  }
+  return source.replace(/^export const \w+ = \{\n/m, match => `${match}${block}\n`);
+}
+
+function parseExistingModeOptions(source: string): Partial<Record<IntelligenceModeOptionId, string[]>> {
+  const options: Partial<Record<IntelligenceModeOptionId, string[]>> = {};
+  const blockMatch = /^\s*modeOptions:\s*\{(?<body>[\s\S]*?)^\s*\},/m.exec(source);
+  const body = blockMatch?.groups?.body;
+  if (body === undefined) return options;
+  for (const id of INTELLIGENCE_MODE_OPTION_IDS) {
+    const lineMatch = new RegExp(`^\\s*${id}:\\s*\\[(?<body>[^\\]]*)\\],`, "m").exec(body);
+    const lineBody = lineMatch?.groups?.body;
+    if (lineBody === undefined) continue;
+    const values: string[] = [];
+    for (const stringMatch of lineBody.matchAll(/"((?:\\"|[^"])*)"/g)) {
+      values.push(JSON.parse(`"${stringMatch[1]}"`) as string);
+    }
+    if (values.length > 0) {
+      options[id] = values;
+    }
+  }
+  return options;
+}
+
+function formatModeOptions(modeOptions: Partial<Record<IntelligenceModeOptionId, string[]>>): string | undefined {
+  const lines = INTELLIGENCE_MODE_OPTION_IDS
+    .map(id => {
+      const values = modeOptions[id];
+      return values === undefined || values.length === 0
+        ? undefined
+        : `    ${id}: [${values.map(value => JSON.stringify(value)).join(", ")}],`;
+    })
+    .filter((line): line is string => line !== undefined);
+  if (lines.length === 0) {
+    return undefined;
+  }
+  return ["  modeOptions: {", ...lines, "  },"].join("\n");
 }
 
 function updateComment(source: string): string {

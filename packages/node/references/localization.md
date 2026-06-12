@@ -77,7 +77,8 @@ Localized — lives in `src/dom/locale/en.ts` (English) and per-locale files, sa
 | `projectSourcesTab` / `projectSourcesAddSource` / `projectSourcesUploadFiles` | Project Sources tab and append-add flow | visible tab/button/menu text |
 | `copyResponse` | copy-response button | `aria-label` |
 | `download` / `downloadImage` / `imageContainerHint` | download affordances | `aria-label` / container hint |
-| `modeLabels` / `modeOpenerExtra` | model/effort switcher | visible button + menu text |
+| `modeLabels` / `modeOpenerExtra` | model/effort switcher recognition and openers | visible button + menu text |
+| `modeOptions.<semantic-id>` | selectable model/intelligence mode options | visible picker rows, keyed by stable ids such as `high`, `extraHigh`, and `pro` |
 | `tools.web_search` / `tools.deep_research` / `tools.create_image` | tool menu items | visible menu text |
 | `signedInMarkers` | signed-in detection | sidebar/shell words |
 | `transientAssistant` | streaming placeholder filter | assistant streaming text ("Thinking", etc.) |
@@ -141,7 +142,13 @@ import type { LocaleContribution } from "./types.js";
 
 export const de = {
   sendButton: ["Nachricht senden"],
-  modeLabels: ["Neueste", "Schnell", "Denken", "Erweitert", "Pro"],
+  modeLabels: ["Sofort", "Mittel", "Hoch", "Extra hoch"],
+  modeOptions: {
+    instant: ["Sofort"],
+    medium: ["Mittel"],
+    high: ["Hoch"],
+    extraHigh: ["Extra hoch"],
+  },
   tools: {
     web_search: ["Websuche"],
   },
@@ -150,11 +157,14 @@ export const de = {
 ```
 
 Leave the canonical English first (it comes from `en.ts`), and leave the API keys
-(`web_search`, the `effort` values) unchanged.
+(`web_search`, `modeOptions.pro`, `modeOptions.high`, and the other semantic ids)
+unchanged.
 
 Newer ChatGPT rollouts may expose `Medium`, `High`, `Extra High`, and `Pro`
 under an `Intelligence` picker. Add localized equivalents only after observing
-those exact labels in the target locale.
+those exact labels in the target locale. Put broad picker/opening labels in
+`modeLabels`, but put selectable labels under `modeOptions.<semantic-id>` so
+short labels such as `Pro` cannot match unrelated rows like `Move to project`.
 
 Then open [`src/dom/locale/index.ts`](../src/dom/locale/index.ts) and register the new
 locale:

@@ -19,6 +19,12 @@ export const ko = {
   addPhotosFilesMenuItem: ["사진 및 파일 추가"],
   copyResponse: ["응답 복사"],
   modeLabels: ["즉시", "중간", "높음", "매우 높음"],
+  modeOptions: {
+    instant: ["즉시"],
+    medium: ["중간"],
+    high: ["높음"],
+    extraHigh: ["매우 높음"],
+  },
   modeOpenerExtra: ["구성…"],
   tools: {
     web_search: ["웹 검색"],
