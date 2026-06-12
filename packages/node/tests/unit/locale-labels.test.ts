@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { localeLabels } from "../../src/dom/locale-labels.js";
 import { en } from "../../src/dom/locale/en.js";
-import type { LocaleStrings } from "../../src/dom/locale/types.js";
+import type { LocaleStrings, ModeOptionId } from "../../src/dom/locale/types.js";
 
 const norm = (value: string | readonly string[]): string[] =>
   typeof value === "string" ? [value] : [...value];
@@ -13,7 +13,9 @@ const norm = (value: string | readonly string[]): string[] =>
  */
 describe("localeLabels — English canonical preserved", () => {
   const nonToolKeys = (Object.keys(en) as Array<keyof LocaleStrings>)
-    .filter((key): key is Exclude<keyof LocaleStrings, "tools"> => key !== "tools");
+    .filter((key): key is Exclude<keyof LocaleStrings, "tools" | "modeOptions"> =>
+      key !== "tools" && key !== "modeOptions"
+    );
 
   for (const key of nonToolKeys) {
     it(`${key} begins with the English values`, () => {
@@ -30,10 +32,28 @@ describe("localeLabels — English canonical preserved", () => {
     });
   }
 
+  for (const id of [
+    "latest",
+    "instant",
+    "thinking",
+    "extended",
+    "medium",
+    "high",
+    "extraHigh",
+    "pro",
+  ] as const satisfies readonly ModeOptionId[]) {
+    it(`modeOptions.${id} begins with the English values`, () => {
+      const expected = norm(en.modeOptions[id]);
+      const actual = localeLabels.modeOptions[id] ?? [];
+      expect(actual.slice(0, expected.length)).toEqual(expected);
+    });
+  }
+
   it("contains no duplicate candidates in any list", () => {
     const lists = [
       ...nonToolKeys.map(key => localeLabels[key]),
-      ...Object.values(localeLabels.tools)
+      ...Object.values(localeLabels.tools),
+      ...Object.values(localeLabels.modeOptions)
     ];
     for (const list of lists) {
       expect(new Set(list).size, list.join("|")).toBe(list.length);
@@ -49,6 +69,14 @@ describe("localeLabels — English canonical preserved", () => {
       "Moyen",
       "Avancé",
       "Très élevé",
+    ]));
+    expect(localeLabels.modeOptions.pro).toEqual(expect.arrayContaining([
+      "حرفه‌ای",
+      "专业",
+    ]));
+    expect(localeLabels.modeOptions.high).toEqual(expect.arrayContaining([
+      "بالا",
+      "高级",
     ]));
   });
 });
@@ -76,6 +104,7 @@ describe("en locale — completeness", () => {
     "downloadImage",
     "imageContainerHint",
     "modeLabels",
+    "modeOptions",
     "modeOpenerExtra",
     "signedInMarkers",
     "transientAssistant",
@@ -88,6 +117,16 @@ describe("en locale — completeness", () => {
   ];
 
   const requiredToolIds = ["web_search", "deep_research", "create_image"] as const;
+  const requiredModeIds: readonly ModeOptionId[] = [
+    "latest",
+    "instant",
+    "thinking",
+    "extended",
+    "medium",
+    "high",
+    "extraHigh",
+    "pro",
+  ];
 
   it("has every required top-level key", () => {
     for (const key of requiredTopLevelKeys) {
@@ -102,6 +141,12 @@ describe("en locale — completeness", () => {
   it("has every required tool id", () => {
     for (const id of requiredToolIds) {
       expect(Object.prototype.hasOwnProperty.call(en.tools, id), `en.tools.${id} is present`).toBe(true);
+    }
+  });
+
+  it("has every required semantic mode id", () => {
+    for (const id of requiredModeIds) {
+      expect(Object.prototype.hasOwnProperty.call(en.modeOptions, id), `en.modeOptions.${id} is present`).toBe(true);
     }
   });
 });

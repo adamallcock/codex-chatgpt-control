@@ -19,6 +19,12 @@ export const is = {
   addPhotosFilesMenuItem: ["Bæta myndum og skrám við"],
   copyResponse: ["Afrita svar"],
   modeLabels: ["Strax", "Miðlungs", "Hátt", "Mjög hátt"],
+  modeOptions: {
+    instant: ["Strax"],
+    medium: ["Miðlungs"],
+    high: ["Hátt"],
+    extraHigh: ["Mjög hátt"],
+  },
   modeOpenerExtra: ["Stillir…"],
   tools: {
     web_search: ["Vefleit"],

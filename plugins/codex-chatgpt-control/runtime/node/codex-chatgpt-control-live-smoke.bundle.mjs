@@ -418,6 +418,16 @@ var en = {
   imageContainerHint: ["image"],
   // --- Mode switcher (also the canonical public API keys) ---
   modeLabels: ["Latest", "Instant", "Thinking", "Extended", "Medium", "High", "Extra High", "Pro"],
+  modeOptions: {
+    latest: ["Latest"],
+    instant: ["Instant"],
+    thinking: ["Thinking"],
+    extended: ["Extended"],
+    medium: ["Medium"],
+    high: ["High"],
+    extraHigh: ["Extra High"],
+    pro: ["Pro", "Pro Extended", "Extended Pro"]
+  },
   /** Extra openers that surface the mode menu but are not selectable modes themselves. */
   modeOpenerExtra: ["Configure"],
   // --- Tool menu items, keyed by logical tool id ---
@@ -458,6 +468,12 @@ var de = {
   addPhotosFilesMenuItem: ["Fotos und Dateien hinzuf\xFCgen"],
   copyResponse: ["Antwort kopieren"],
   modeLabels: ["Sofort", "Mittel", "Hoch", "Extra hoch"],
+  modeOptions: {
+    instant: ["Sofort"],
+    medium: ["Mittel"],
+    high: ["Hoch"],
+    extraHigh: ["Extra hoch"]
+  },
   modeOpenerExtra: ["Konfigurieren"],
   tools: {
     web_search: ["Websuche"],
@@ -479,6 +495,12 @@ var esES = {
   addPhotosFilesMenuItem: ["A\xF1adir fotos y archivos"],
   copyResponse: ["Copiar respuesta"],
   modeLabels: ["Instant\xE1nea", "Media", "Alta", "Muy alta"],
+  modeOptions: {
+    instant: ["Instant\xE1nea"],
+    medium: ["Media"],
+    high: ["Alta"],
+    extraHigh: ["Muy alta"]
+  },
   modeOpenerExtra: ["Configurar"],
   tools: {
     web_search: ["B\xFAsqueda en Internet"],
@@ -501,6 +523,11 @@ var frFR = {
   addPhotosFilesMenuItem: ["Ajouter des photos et fichiers"],
   copyResponse: ["Copier la r\xE9ponse"],
   modeLabels: ["Moyen", "Avanc\xE9", "Tr\xE8s \xE9lev\xE9"],
+  modeOptions: {
+    medium: ["Moyen"],
+    high: ["Avanc\xE9"],
+    extraHigh: ["Tr\xE8s \xE9lev\xE9"]
+  },
   modeOpenerExtra: ["Configurer"],
   tools: {
     web_search: ["Recherche sur le Web"],
@@ -523,6 +550,13 @@ var zhHK = {
   addPhotosFilesMenuItem: ["\u52A0\u5165\u76F8\u7247\u548C\u6A94\u6848"],
   copyResponse: ["\u8907\u88FD\u56DE\u8986"],
   modeLabels: ["\u5373\u6642", "\u5747\u8861", "\u9AD8", "\u6975\u9AD8", "\u5C08\u696D"],
+  modeOptions: {
+    instant: ["\u5373\u6642"],
+    medium: ["\u5747\u8861"],
+    high: ["\u9AD8"],
+    extraHigh: ["\u6975\u9AD8"],
+    pro: ["\u5C08\u696D"]
+  },
   modeOpenerExtra: ["\u8A2D\u5B9A"],
   tools: {
     web_search: ["\u7DB2\u7D61\u641C\u5C0B"],
@@ -545,6 +579,13 @@ var zhTW = {
   addPhotosFilesMenuItem: ["\u65B0\u589E\u7167\u7247\u548C\u6A94\u6848"],
   copyResponse: ["\u8907\u88FD\u56DE\u61C9"],
   modeLabels: ["\u5373\u6642", "\u4E2D\u7B49", "\u9AD8", "\u8D85\u9AD8", "\u5C08\u696D"],
+  modeOptions: {
+    instant: ["\u5373\u6642"],
+    medium: ["\u4E2D\u7B49"],
+    high: ["\u9AD8"],
+    extraHigh: ["\u8D85\u9AD8"],
+    pro: ["\u5C08\u696D"]
+  },
   modeOpenerExtra: ["\u8A2D\u5B9A"],
   tools: {
     web_search: ["\u7DB2\u9801\u641C\u5C0B"],
@@ -567,6 +608,12 @@ var ja = {
   addPhotosFilesMenuItem: ["\u5199\u771F\u3068\u30D5\u30A1\u30A4\u30EB\u3092\u8FFD\u52A0"],
   copyResponse: ["\u56DE\u7B54\u3092\u30B3\u30D4\u30FC\u3059\u308B"],
   modeLabels: ["\u6700\u901F", "\u6A19\u6E96", "\u9AD8", "\u6700\u9AD8"],
+  modeOptions: {
+    instant: ["\u6700\u901F"],
+    medium: ["\u6A19\u6E96"],
+    high: ["\u9AD8"],
+    extraHigh: ["\u6700\u9AD8"]
+  },
   modeOpenerExtra: ["\u8A2D\u5B9A\u3059\u308B"],
   tools: {
     web_search: ["\u30A6\u30A7\u30D6\u691C\u7D22"],
@@ -588,6 +635,12 @@ var it = {
   addPhotosFilesMenuItem: ["Aggiungi foto e file"],
   copyResponse: ["Copia risposta"],
   modeLabels: ["Istantanea", "Media", "Alta", "Extra elevata"],
+  modeOptions: {
+    instant: ["Istantanea"],
+    medium: ["Media"],
+    high: ["Alta"],
+    extraHigh: ["Extra elevata"]
+  },
   modeOpenerExtra: ["Configura"],
   tools: {
     web_search: ["Ricerca sul web"],
@@ -609,6 +662,12 @@ var vi = {
   addPhotosFilesMenuItem: ["Th\xEAm \u1EA3nh v\xE0 t\u1EC7p"],
   copyResponse: ["Sao ch\xE9p ph\u1EA3n h\u1ED3i"],
   modeLabels: ["T\u1EE9c th\xEC", "Trung b\xECnh", "Cao", "R\u1EA5t cao"],
+  modeOptions: {
+    instant: ["T\u1EE9c th\xEC"],
+    medium: ["Trung b\xECnh"],
+    high: ["Cao"],
+    extraHigh: ["R\u1EA5t cao"]
+  },
   modeOpenerExtra: ["\u0110\u1ECBnh c\u1EA5u h\xECnh"],
   tools: {
     web_search: ["T\xECm ki\u1EBFm tr\xEAn m\u1EA1ng"],
@@ -631,6 +690,12 @@ var am = {
   addPhotosFilesMenuItem: ["\u134E\u1276\u12CE\u127D\u1295 \u12A5\u1293 \u134B\u12ED\u120E\u127D\u1295 \u12EB\u12AD\u1209"],
   copyResponse: ["\u121D\u120B\u1239\u1295 \u12ED\u1245\u12F1"],
   modeLabels: ["\u1348\u1323\u1295", "\u1218\u12AB\u12A8\u1208\u129B", "\u12A8\u134D\u1270\u129B", "\u12A5\u1305\u130D \u12A8\u134D\u1270\u129B"],
+  modeOptions: {
+    instant: ["\u1348\u1323\u1295"],
+    medium: ["\u1218\u12AB\u12A8\u1208\u129B"],
+    high: ["\u12A8\u134D\u1270\u129B"],
+    extraHigh: ["\u12A5\u1305\u130D \u12A8\u134D\u1270\u129B"]
+  },
   modeOpenerExtra: ["\u12EB\u12CB\u1245\u1229"],
   tools: {
     web_search: ["\u12E8\u12F5\u122D \u134D\u1208\u130B"],
@@ -653,6 +718,13 @@ var ar = {
   addPhotosFilesMenuItem: ["\u0625\u0636\u0627\u0641\u0629 \u0635\u0648\u0631 \u0648\u0645\u0644\u0641\u0627\u062A"],
   copyResponse: ["\u0646\u0633\u062E \u0625\u062C\u0627\u0628\u0629"],
   modeLabels: ["\u0641\u0648\u0631\u064A", "\u0645\u062A\u0648\u0633\u0637", "\u0639\u0627\u0644\u064A", "\u0645\u0643\u062B\u0641 \u062C\u062F\u064B\u0627", "\u0627\u062D\u062A\u0631\u0627\u0641\u064A"],
+  modeOptions: {
+    instant: ["\u0641\u0648\u0631\u064A"],
+    medium: ["\u0645\u062A\u0648\u0633\u0637"],
+    high: ["\u0639\u0627\u0644\u064A"],
+    extraHigh: ["\u0645\u0643\u062B\u0641 \u062C\u062F\u064B\u0627"],
+    pro: ["\u0627\u062D\u062A\u0631\u0627\u0641\u064A"]
+  },
   modeOpenerExtra: ["\u062A\u0643\u0648\u064A\u0646"],
   tools: {
     web_search: ["\u0627\u0644\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0648\u064A\u0628"],
@@ -675,6 +747,13 @@ var bg = {
   addPhotosFilesMenuItem: ["\u0414\u043E\u0431\u0430\u0432\u044F\u043D\u0435 \u043D\u0430 \u0441\u043D\u0438\u043C\u043A\u0438 \u0438 \u0444\u0430\u0439\u043B\u043E\u0432\u0435"],
   copyResponse: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0439\u0442\u0435 \u043E\u0442\u0433\u043E\u0432\u043E\u0440\u0430"],
   modeLabels: ["\u041C\u0438\u0433\u043D\u043E\u0432\u0435\u043D", "\u0421\u0440\u0435\u0434\u0435\u043D", "\u0412\u0438\u0441\u043E\u043A", "\u041C\u043D\u043E\u0433\u043E \u0432\u0438\u0441\u043E\u043A\u043E", "\u041F\u0440\u043E"],
+  modeOptions: {
+    instant: ["\u041C\u0438\u0433\u043D\u043E\u0432\u0435\u043D"],
+    medium: ["\u0421\u0440\u0435\u0434\u0435\u043D"],
+    high: ["\u0412\u0438\u0441\u043E\u043A"],
+    extraHigh: ["\u041C\u043D\u043E\u0433\u043E \u0432\u0438\u0441\u043E\u043A\u043E"],
+    pro: ["\u041F\u0440\u043E"]
+  },
   modeOpenerExtra: ["\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0438\u0440\u0430\u0439\u0442\u0435"],
   tools: {
     web_search: ["\u0422\u044A\u0440\u0441\u0435\u043D\u0435 \u0432 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442"],
@@ -697,6 +776,12 @@ var bs = {
   addPhotosFilesMenuItem: ["Dodaj slike i datoteke"],
   copyResponse: ["Kopiraj odgovor"],
   modeLabels: ["Brzo", "Srednji", "Visoko", "Vrlo visoko"],
+  modeOptions: {
+    instant: ["Brzo"],
+    medium: ["Srednji"],
+    high: ["Visoko"],
+    extraHigh: ["Vrlo visoko"]
+  },
   modeOpenerExtra: ["Podesi"],
   tools: {
     web_search: ["Internet pretraga"],
@@ -719,6 +804,12 @@ var ca = {
   addPhotosFilesMenuItem: ["Afegeix fotos i fitxers"],
   copyResponse: ["Copia la resposta"],
   modeLabels: ["Instantani", "Mitj\xE0", "Alt", "Molt alt"],
+  modeOptions: {
+    instant: ["Instantani"],
+    medium: ["Mitj\xE0"],
+    high: ["Alt"],
+    extraHigh: ["Molt alt"]
+  },
   modeOpenerExtra: ["Configura\u2026"],
   tools: {
     web_search: ["Cerca a la xarxa"],
@@ -741,6 +832,12 @@ var cs = {
   addPhotosFilesMenuItem: ["P\u0159idat fotografie a soubory"],
   copyResponse: ["Zkop\xEDrovat odpov\u011B\u010F"],
   modeLabels: ["Okam\u017Eit\xE1", "St\u0159edn\xED", "Vysok\xE1", "Velmi vysok\xE1"],
+  modeOptions: {
+    instant: ["Okam\u017Eit\xE1"],
+    medium: ["St\u0159edn\xED"],
+    high: ["Vysok\xE1"],
+    extraHigh: ["Velmi vysok\xE1"]
+  },
   modeOpenerExtra: ["Konfigurovat\u2026"],
   tools: {
     web_search: ["Vyhled\xE1v\xE1n\xED na webu"],
@@ -763,6 +860,11 @@ var da = {
   addPhotosFilesMenuItem: ["Tilf\xF8j billeder og filer"],
   copyResponse: ["Kopi\xE9r svar"],
   modeLabels: ["\xD8jeblikkeligt", "H\xF8j", "Ekstra h\xF8j"],
+  modeOptions: {
+    instant: ["\xD8jeblikkeligt"],
+    high: ["H\xF8j"],
+    extraHigh: ["Ekstra h\xF8j"]
+  },
   modeOpenerExtra: ["Konfigurer ..."],
   tools: {
     web_search: ["Internets\xF8gning"],
@@ -785,6 +887,12 @@ var el = {
   addPhotosFilesMenuItem: ["\u03A0\u03C1\u03BF\u03C3\u03B8\u03AE\u03BA\u03B7 \u03C6\u03C9\u03C4\u03BF\u03B3\u03C1\u03B1\u03C6\u03B9\u03CE\u03BD & \u03B1\u03C1\u03C7\u03B5\u03AF\u03C9\u03BD"],
   copyResponse: ["\u0391\u03BD\u03C4\u03B9\u03B3\u03C1\u03B1\u03C6\u03AE \u03B1\u03C0\u03AC\u03BD\u03C4\u03B7\u03C3\u03B7\u03C2"],
   modeLabels: ["\u0386\u03BC\u03B5\u03C3\u03B7", "\u039C\u03B5\u03C3\u03B1\u03AF\u03B1", "\u03A5\u03C8\u03B7\u03BB\u03AE", "\u03A0\u03BF\u03BB\u03CD \u03C5\u03C8\u03B7\u03BB\u03CC"],
+  modeOptions: {
+    instant: ["\u0386\u03BC\u03B5\u03C3\u03B7"],
+    medium: ["\u039C\u03B5\u03C3\u03B1\u03AF\u03B1"],
+    high: ["\u03A5\u03C8\u03B7\u03BB\u03AE"],
+    extraHigh: ["\u03A0\u03BF\u03BB\u03CD \u03C5\u03C8\u03B7\u03BB\u03CC"]
+  },
   modeOpenerExtra: ["\u0394\u03B9\u03B1\u03BC\u03CC\u03C1\u03C6\u03C9\u03C3\u03B7\u2026"],
   tools: {
     web_search: ["\u0391\u03BD\u03B1\u03B6\u03AE\u03C4\u03B7\u03C3\u03B7 \u03C3\u03C4\u03BF\u03BD \u03B9\u03C3\u03C4\u03CC"],
@@ -807,6 +915,12 @@ var es419 = {
   addPhotosFilesMenuItem: ["Agregar fotos y archivos"],
   copyResponse: ["Copiar respuesta"],
   modeLabels: ["Instant\xE1nea", "Media", "Alta", "Muy alta"],
+  modeOptions: {
+    instant: ["Instant\xE1nea"],
+    medium: ["Media"],
+    high: ["Alta"],
+    extraHigh: ["Muy alta"]
+  },
   modeOpenerExtra: ["Configurar..."],
   tools: {
     web_search: ["Busca en la web"],
@@ -829,6 +943,12 @@ var et = {
   addPhotosFilesMenuItem: ["Lisa fotosid ja faile"],
   copyResponse: ["Kopeeri vastus"],
   modeLabels: ["Kohene", "Keskmine", "K\xF5rge", "V\xE4ga k\xF5rge"],
+  modeOptions: {
+    instant: ["Kohene"],
+    medium: ["Keskmine"],
+    high: ["K\xF5rge"],
+    extraHigh: ["V\xE4ga k\xF5rge"]
+  },
   modeOpenerExtra: ["Konfigureeri..."],
   tools: {
     web_search: ["Veebiotsing"],
@@ -851,6 +971,13 @@ var fa = {
   addPhotosFilesMenuItem: ["\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0635\u0627\u0648\u06CC\u0631 \u0648 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627"],
   copyResponse: ["\u06A9\u067E\u06CC \u06A9\u0631\u062F\u0646 \u067E\u0627\u0633\u062E"],
   modeLabels: ["\u0641\u0648\u0631\u06CC", "\u0645\u062A\u0648\u0633\u0637", "\u0628\u0627\u0644\u0627", "\u0628\u0633\u06CC\u0627\u0631 \u0632\u06CC\u0627\u062F", "\u062D\u0631\u0641\u0647\u200C\u0627\u06CC"],
+  modeOptions: {
+    instant: ["\u0641\u0648\u0631\u06CC"],
+    medium: ["\u0645\u062A\u0648\u0633\u0637"],
+    high: ["\u0628\u0627\u0644\u0627"],
+    extraHigh: ["\u0628\u0633\u06CC\u0627\u0631 \u0632\u06CC\u0627\u062F"],
+    pro: ["\u062D\u0631\u0641\u0647\u200C\u0627\u06CC"]
+  },
   modeOpenerExtra: ["\u067E\u06CC\u06A9\u0631\u0628\u0646\u062F\u06CC..."],
   tools: {
     web_search: ["\u062C\u0633\u062A\u062C\u0648\u06CC \u0648\u0628"],
@@ -873,6 +1000,12 @@ var fi = {
   addPhotosFilesMenuItem: ["Lis\xE4\xE4 valokuvia & tiedostoja"],
   copyResponse: ["Kopioi vastaus"],
   modeLabels: ["V\xE4lit\xF6n", "Keskitaso", "Korkea", "Eritt\xE4in korkea"],
+  modeOptions: {
+    instant: ["V\xE4lit\xF6n"],
+    medium: ["Keskitaso"],
+    high: ["Korkea"],
+    extraHigh: ["Eritt\xE4in korkea"]
+  },
   modeOpenerExtra: ["M\xE4\xE4rit\xE4..."],
   tools: {
     web_search: ["Verkkohaku"],
@@ -895,6 +1028,12 @@ var frCA = {
   addPhotosFilesMenuItem: ["Ajouter des photos et des fichiers"],
   copyResponse: ["Copier la r\xE9ponse"],
   modeLabels: ["Instantan\xE9", "Moyen", "\xC9lev\xE9", "Tr\xE8s \xE9lev\xE9"],
+  modeOptions: {
+    instant: ["Instantan\xE9"],
+    medium: ["Moyen"],
+    high: ["\xC9lev\xE9"],
+    extraHigh: ["Tr\xE8s \xE9lev\xE9"]
+  },
   modeOpenerExtra: ["Configurer..."],
   tools: {
     web_search: ["Recherche sur Internet"],
@@ -917,6 +1056,12 @@ var gu = {
   addPhotosFilesMenuItem: ["\u0AAB\u0ACB\u0A9F\u0ABE \u0A85\u0AA8\u0AC7 \u0AAB\u0ABE\u0A87\u0AB2\u0ACB \u0A89\u0AAE\u0AC7\u0AB0\u0ACB"],
   copyResponse: ["\u0AAA\u0ACD\u0AB0\u0AA4\u0ABF\u0AAD\u0ABE\u0AB5 \u0A95\u0AC9\u0AAA\u0ABF \u0A95\u0AB0\u0ACB"],
   modeLabels: ["\u0AA4\u0AB0\u0AA4", "\u0AAE\u0AA7\u0ACD\u0AAF\u0AAE", "\u0A89\u0A9A\u0ACD\u0A9A", "\u0A85\u0AA4\u0ABF \u0A89\u0A9A\u0ACD\u0A9A"],
+  modeOptions: {
+    instant: ["\u0AA4\u0AB0\u0AA4"],
+    medium: ["\u0AAE\u0AA7\u0ACD\u0AAF\u0AAE"],
+    high: ["\u0A89\u0A9A\u0ACD\u0A9A"],
+    extraHigh: ["\u0A85\u0AA4\u0ABF \u0A89\u0A9A\u0ACD\u0A9A"]
+  },
   modeOpenerExtra: ["\u0A95\u0AA8\u0ACD\u0AAB\u0ABF\u0A97\u0AB0 \u0A95\u0AB0\u0ACB..."],
   tools: {
     web_search: ["\u0AB5\u0AC7\u0AAC \u0AB6\u0ACB\u0AA7"],
@@ -939,6 +1084,12 @@ var hi = {
   addPhotosFilesMenuItem: ["\u092B\u093C\u094B\u091F\u094B \u0914\u0930 \u092B\u093C\u093E\u0907\u0932\u0947\u0902 \u091C\u094B\u0921\u093C\u0947\u0902"],
   copyResponse: ["\u091C\u0935\u093E\u092C \u0915\u094B \u0915\u0949\u092A\u0940 \u0915\u0930\u0947\u0902"],
   modeLabels: ["\u0924\u0941\u0930\u0902\u0924", "\u092E\u0927\u094D\u092F\u092E", "\u0909\u091A\u094D\u091A", "\u092C\u0939\u0941\u0924 \u0909\u091A\u094D\u091A"],
+  modeOptions: {
+    instant: ["\u0924\u0941\u0930\u0902\u0924"],
+    medium: ["\u092E\u0927\u094D\u092F\u092E"],
+    high: ["\u0909\u091A\u094D\u091A"],
+    extraHigh: ["\u092C\u0939\u0941\u0924 \u0909\u091A\u094D\u091A"]
+  },
   modeOpenerExtra: ["\u0915\u0949\u0928\u094D\u092B\u093C\u093F\u0917\u0930 \u0915\u0930\u0947\u0902..."],
   tools: {
     web_search: ["\u0935\u0947\u092C \u0938\u0930\u094D\u091A"],
@@ -961,6 +1112,11 @@ var hr = {
   addPhotosFilesMenuItem: ["Dodaj fotografije i datoteke"],
   copyResponse: ["Kopiraj odgovor"],
   modeLabels: ["Srednje", "Visoko", "Vrlo visoka"],
+  modeOptions: {
+    medium: ["Srednje"],
+    high: ["Visoko"],
+    extraHigh: ["Vrlo visoka"]
+  },
   modeOpenerExtra: ["Konfiguriraj\u2026"],
   tools: {
     web_search: ["Mre\u017Eno pretra\u017Eivanje"],
@@ -983,6 +1139,12 @@ var hu = {
   addPhotosFilesMenuItem: ["Fot\xF3k \xE9s f\xE1jlok hozz\xE1ad\xE1sa"],
   copyResponse: ["V\xE1lasz m\xE1sol\xE1sa"],
   modeLabels: ["Azonnali", "K\xF6zepes", "Magas", "Kiemelked\u0151en magas"],
+  modeOptions: {
+    instant: ["Azonnali"],
+    medium: ["K\xF6zepes"],
+    high: ["Magas"],
+    extraHigh: ["Kiemelked\u0151en magas"]
+  },
   modeOpenerExtra: ["Konfigur\xE1l\xE1s..."],
   tools: {
     web_search: ["Internetes keres\xE9s"],
@@ -1005,6 +1167,13 @@ var hy = {
   addPhotosFilesMenuItem: ["\u0531\u057E\u0565\u056C\u0561\u0581\u0576\u0565\u056C \u056C\u0578\u0582\u057D\u0561\u0576\u056F\u0561\u0580\u0576\u0565\u0580 \u0587 \u0586\u0561\u0575\u056C\u0565\u0580"],
   copyResponse: ["\u054A\u0561\u057F\u0573\u0565\u0576\u0565\u056C \u057A\u0561\u057F\u0561\u057D\u056D\u0561\u0576\u0568"],
   modeLabels: ["\u0531\u056F\u0576\u0569\u0561\u0580\u0569\u0561\u0575\u056B\u0576", "\u0544\u056B\u057B\u056B\u0576", "\u0532\u0561\u0580\u0571\u0580", "\u0547\u0561\u057F \u0562\u0561\u0580\u0571\u0580", "\u054A\u0580\u0578"],
+  modeOptions: {
+    instant: ["\u0531\u056F\u0576\u0569\u0561\u0580\u0569\u0561\u0575\u056B\u0576"],
+    medium: ["\u0544\u056B\u057B\u056B\u0576"],
+    high: ["\u0532\u0561\u0580\u0571\u0580"],
+    extraHigh: ["\u0547\u0561\u057F \u0562\u0561\u0580\u0571\u0580"],
+    pro: ["\u054A\u0580\u0578"]
+  },
   modeOpenerExtra: ["\u053F\u0561\u0566\u0574\u0561\u0571\u0587\u0565\u056C\u2024\u2024\u2024"],
   tools: {
     web_search: ["\u054E\u0565\u0562 \u0578\u0580\u0578\u0576\u0578\u0582\u0574"],
@@ -1027,6 +1196,12 @@ var id = {
   addPhotosFilesMenuItem: ["Tambah foto & file"],
   copyResponse: ["Salin respons"],
   modeLabels: ["Instan", "Sedang", "Tinggi", "Sangat Tinggi"],
+  modeOptions: {
+    instant: ["Instan"],
+    medium: ["Sedang"],
+    high: ["Tinggi"],
+    extraHigh: ["Sangat Tinggi"]
+  },
   modeOpenerExtra: ["Konfigurasi..."],
   tools: {
     web_search: ["Pencarian web"],
@@ -1049,6 +1224,12 @@ var is = {
   addPhotosFilesMenuItem: ["B\xE6ta myndum og skr\xE1m vi\xF0"],
   copyResponse: ["Afrita svar"],
   modeLabels: ["Strax", "Mi\xF0lungs", "H\xE1tt", "Mj\xF6g h\xE1tt"],
+  modeOptions: {
+    instant: ["Strax"],
+    medium: ["Mi\xF0lungs"],
+    high: ["H\xE1tt"],
+    extraHigh: ["Mj\xF6g h\xE1tt"]
+  },
   modeOpenerExtra: ["Stillir\u2026"],
   tools: {
     web_search: ["Vefleit"],
@@ -1071,6 +1252,12 @@ var ka = {
   addPhotosFilesMenuItem: ["\u10E4\u10DD\u10E2\u10DD\u10D4\u10D1\u10D8\u10E1 \u10D3\u10D0 \u10E4\u10D0\u10D8\u10DA\u10D4\u10D1\u10D8\u10E1 \u10D3\u10D0\u10DB\u10D0\u10E2\u10D4\u10D1\u10D0"],
   copyResponse: ["\u10DE\u10D0\u10E1\u10E3\u10EE\u10D8\u10E1 \u10D9\u10DD\u10DE\u10D8\u10E0\u10D4\u10D1\u10D0"],
   modeLabels: ["\u10DB\u10E7\u10D8\u10E1\u10D8\u10D4\u10E0\u10D8", "\u10E1\u10D0\u10E8\u10E3\u10D0\u10DA\u10DD", "\u10DB\u10D0\u10E6\u10D0\u10DA\u10D8", "\u10EB\u10D0\u10DA\u10D8\u10D0\u10DC \u10DB\u10D0\u10E6\u10D0\u10DA\u10D8"],
+  modeOptions: {
+    instant: ["\u10DB\u10E7\u10D8\u10E1\u10D8\u10D4\u10E0\u10D8"],
+    medium: ["\u10E1\u10D0\u10E8\u10E3\u10D0\u10DA\u10DD"],
+    high: ["\u10DB\u10D0\u10E6\u10D0\u10DA\u10D8"],
+    extraHigh: ["\u10EB\u10D0\u10DA\u10D8\u10D0\u10DC \u10DB\u10D0\u10E6\u10D0\u10DA\u10D8"]
+  },
   modeOpenerExtra: ["\u10D9\u10DD\u10DC\u10E4\u10D8\u10D2\u10E3\u10E0\u10D8\u10E0\u10D4\u10D1\u10D0\u2026"],
   tools: {
     web_search: ["\u10D5\u10D4\u10D1\u10E8\u10D8 \u10EB\u10D8\u10D4\u10D1\u10D0"],
@@ -1093,6 +1280,12 @@ var kk = {
   addPhotosFilesMenuItem: ["\u0424\u043E\u0442\u043E\u0441\u0443\u0440\u0435\u0442\u0442\u0435\u0440 \u043C\u0435\u043D \u0444\u0430\u0439\u043B\u0434\u0430\u0440 \u049B\u043E\u0441\u0443"],
   copyResponse: ["\u0416\u0430\u0443\u0430\u043F\u0442\u044B \u043A\u04E9\u0448\u0456\u0440\u0443"],
   modeLabels: ["\u0416\u0435\u0434\u0435\u043B", "\u041E\u0440\u0442\u0430\u0448\u0430", "\u0416\u043E\u0493\u0430\u0440\u044B", "\u0410\u0441\u0430 \u0436\u043E\u0493\u0430\u0440\u044B"],
+  modeOptions: {
+    instant: ["\u0416\u0435\u0434\u0435\u043B"],
+    medium: ["\u041E\u0440\u0442\u0430\u0448\u0430"],
+    high: ["\u0416\u043E\u0493\u0430\u0440\u044B"],
+    extraHigh: ["\u0410\u0441\u0430 \u0436\u043E\u0493\u0430\u0440\u044B"]
+  },
   modeOpenerExtra: ["\u041A\u043E\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044F\u043B\u0430\u0443..."],
   tools: {
     web_search: ["\u0406\u0437\u0434\u0435\u0443"],
@@ -1115,6 +1308,13 @@ var kn = {
   addPhotosFilesMenuItem: ["\u0CAB\u0CCB\u0C9F\u0CCA \u0CAE\u0CA4\u0CCD\u0CA4\u0CC1 \u0CAB\u0CC8\u0CB2\u0CCD\u200C\u0C97\u0CB3\u0CA8\u0CCD\u0CA8\u0CC1 \u0CB8\u0CC7\u0CB0\u0CBF\u0CB8\u0CBF"],
   copyResponse: ["\u0CAA\u0CCD\u0CB0\u0CA4\u0CBF\u0C95\u0CCD\u0CB0\u0CBF\u0CAF\u0CC6\u0CAF\u0CA8\u0CCD\u0CA8\u0CC1 \u0CA8\u0C95\u0CB2\u0CBF\u0CB8\u0CBF"],
   modeLabels: ["\u0CA4\u0C95\u0CCD\u0CB7\u0CA3", "\u0CAE\u0CA7\u0CCD\u0CAF\u0CAE", "\u0C89\u0CA8\u0CCD\u0CA8\u0CA4", "\u0C85\u0CA4\u0CBF \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CC1", "\u0CAA\u0CCD\u0CB0\u0CCA"],
+  modeOptions: {
+    instant: ["\u0CA4\u0C95\u0CCD\u0CB7\u0CA3"],
+    medium: ["\u0CAE\u0CA7\u0CCD\u0CAF\u0CAE"],
+    high: ["\u0C89\u0CA8\u0CCD\u0CA8\u0CA4"],
+    extraHigh: ["\u0C85\u0CA4\u0CBF \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CC1"],
+    pro: ["\u0CAA\u0CCD\u0CB0\u0CCA"]
+  },
   modeOpenerExtra: ["\u0C95\u0CBE\u0CA8\u0CCD\u0CAB\u0CBF\u0C97\u0CB0\u0CCD \u0CAE\u0CBE\u0CA1\u0CBF..."],
   tools: {
     web_search: ["\u0CB5\u0CC6\u0CAC\u0CCD \u0CB8\u0CB0\u0CCD\u0C9A\u0CCD"],
@@ -1137,6 +1337,12 @@ var ko = {
   addPhotosFilesMenuItem: ["\uC0AC\uC9C4 \uBC0F \uD30C\uC77C \uCD94\uAC00"],
   copyResponse: ["\uC751\uB2F5 \uBCF5\uC0AC"],
   modeLabels: ["\uC989\uC2DC", "\uC911\uAC04", "\uB192\uC74C", "\uB9E4\uC6B0 \uB192\uC74C"],
+  modeOptions: {
+    instant: ["\uC989\uC2DC"],
+    medium: ["\uC911\uAC04"],
+    high: ["\uB192\uC74C"],
+    extraHigh: ["\uB9E4\uC6B0 \uB192\uC74C"]
+  },
   modeOpenerExtra: ["\uAD6C\uC131\u2026"],
   tools: {
     web_search: ["\uC6F9 \uAC80\uC0C9"],
@@ -1159,6 +1365,13 @@ var lt = {
   addPhotosFilesMenuItem: ["Prid\u0117ti nuotrauk\u0173 ir fail\u0173"],
   copyResponse: ["Kopijuoti atsakym\u0105"],
   modeLabels: ["Momentinis", "Vidutinis", "Auk\u0161tas", "Ypa\u010D didelis", "Profesionalus"],
+  modeOptions: {
+    instant: ["Momentinis"],
+    medium: ["Vidutinis"],
+    high: ["Auk\u0161tas"],
+    extraHigh: ["Ypa\u010D didelis"],
+    pro: ["Profesionalus"]
+  },
   modeOpenerExtra: ["Konfig\u016Bruoti..."],
   tools: {
     web_search: ["\u017Diniatinklio paie\u0161ka"],
@@ -1181,6 +1394,13 @@ var zhHans = {
   addPhotosFilesMenuItem: ["\u6DFB\u52A0\u7167\u7247\u548C\u6587\u4EF6"],
   copyResponse: ["\u590D\u5236\u56DE\u590D"],
   modeLabels: ["\u6781\u901F", "\u5747\u8861", "\u9AD8\u7EA7", "\u8D85\u9AD8", "\u4E13\u4E1A"],
+  modeOptions: {
+    instant: ["\u6781\u901F"],
+    medium: ["\u5747\u8861"],
+    high: ["\u9AD8\u7EA7"],
+    extraHigh: ["\u8D85\u9AD8"],
+    pro: ["\u4E13\u4E1A"]
+  },
   modeOpenerExtra: ["\u914D\u7F6E\u2026"],
   tools: {
     web_search: ["\u7F51\u9875\u641C\u7D22"],
@@ -1203,6 +1423,12 @@ var ur = {
   addPhotosFilesMenuItem: ["\u062A\u0635\u0648\u06CC\u0631\u06CC\u06BA \u0627\u0648\u0631 \u0641\u0627\u0626\u0644\u06CC\u06BA \u0634\u0627\u0645\u0644 \u06A9\u0631\u06CC\u06BA"],
   copyResponse: ["\u062C\u0648\u0627\u0628 \u06A9\u0627\u067E\u06CC \u06A9\u0631\u06CC\u06BA"],
   modeLabels: ["\u0641\u0648\u0631\u06CC", "\u0627\u0648\u0633\u0637", "\u0627\u0639\u0644\u06CC\u0670", "\u0627\u0646\u062A\u06C1\u0627\u0626\u06CC \u0627\u0639\u0644\u06CC\u0670"],
+  modeOptions: {
+    instant: ["\u0641\u0648\u0631\u06CC"],
+    medium: ["\u0627\u0648\u0633\u0637"],
+    high: ["\u0627\u0639\u0644\u06CC\u0670"],
+    extraHigh: ["\u0627\u0646\u062A\u06C1\u0627\u0626\u06CC \u0627\u0639\u0644\u06CC\u0670"]
+  },
   modeOpenerExtra: ["\u06A9\u0646\u0641\u06CC\u06AF\u0631 \u06A9\u0631\u06CC\u06BA..."],
   tools: {
     web_search: ["\u0648\u06CC\u0628 \u067E\u0631 \u062A\u0644\u0627\u0634"],
@@ -1225,6 +1451,12 @@ var uk = {
   addPhotosFilesMenuItem: ["\u0414\u043E\u0434\u0430\u0442\u0438 \u0441\u0432\u0456\u0442\u043B\u0438\u043D\u0438 \u0442\u0430 \u0444\u0430\u0439\u043B\u0438"],
   copyResponse: ["\u041A\u043E\u043F\u0456\u044E\u0432\u0430\u0442\u0438 \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u044C"],
   modeLabels: ["\u041C\u0438\u0442\u0442\u0454\u0432\u0438\u0439", "\u0421\u0435\u0440\u0435\u0434\u043D\u0456\u0439", "\u0412\u0438\u0441\u043E\u043A\u0438\u0439", "\u0414\u0443\u0436\u0435 \u0432\u0438\u0441\u043E\u043A\u0438\u0439"],
+  modeOptions: {
+    instant: ["\u041C\u0438\u0442\u0442\u0454\u0432\u0438\u0439"],
+    medium: ["\u0421\u0435\u0440\u0435\u0434\u043D\u0456\u0439"],
+    high: ["\u0412\u0438\u0441\u043E\u043A\u0438\u0439"],
+    extraHigh: ["\u0414\u0443\u0436\u0435 \u0432\u0438\u0441\u043E\u043A\u0438\u0439"]
+  },
   modeOpenerExtra: ["\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u0442\u0438\u2026"],
   tools: {
     web_search: ["\u041F\u043E\u0448\u0443\u043A \u0432 \u0406\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0456"],
@@ -1247,6 +1479,12 @@ var ptBR = {
   addPhotosFilesMenuItem: ["Carregar fotos e arquivos"],
   copyResponse: ["Copiar resposta"],
   modeLabels: ["Instant\xE2neo", "M\xE9dio", "Alto", "Muito alta"],
+  modeOptions: {
+    instant: ["Instant\xE2neo"],
+    medium: ["M\xE9dio"],
+    high: ["Alto"],
+    extraHigh: ["Muito alta"]
+  },
   modeOpenerExtra: ["Configurar\u2026"],
   tools: {
     web_search: ["Busca na web"],
@@ -1269,6 +1507,12 @@ var ptPT = {
   addPhotosFilesMenuItem: ["Carregar fotos e ficheiros"],
   copyResponse: ["Copiar resposta"],
   modeLabels: ["Instant\xE2neo", "M\xE9dia", "Alta", "M\xE1ximo"],
+  modeOptions: {
+    instant: ["Instant\xE2neo"],
+    medium: ["M\xE9dia"],
+    high: ["Alta"],
+    extraHigh: ["M\xE1ximo"]
+  },
   modeOpenerExtra: ["Configurar..."],
   tools: {
     web_search: ["Procurar na web"],
@@ -1291,6 +1535,12 @@ var pl = {
   addPhotosFilesMenuItem: ["Prze\u015Blij zdj\u0119cia i pliki"],
   copyResponse: ["Kopiuj odpowied\u017A"],
   modeLabels: ["B\u0142yskawiczny", "\u015Aredni", "Zaawansowana", "Bardzo wysoki"],
+  modeOptions: {
+    instant: ["B\u0142yskawiczny"],
+    medium: ["\u015Aredni"],
+    high: ["Zaawansowana"],
+    extraHigh: ["Bardzo wysoki"]
+  },
   modeOpenerExtra: ["Skonfiguruj..."],
   tools: {
     web_search: ["Wyszukiwanie w sieci"],
@@ -1313,6 +1563,12 @@ var sk = {
   addPhotosFilesMenuItem: ["Nahra\u0165 fotografie a s\xFAbory"],
   copyResponse: ["Kop\xEDrova\u0165 odpove\u010F"],
   modeLabels: ["Okam\u017Eit\xE1", "Stredn\xE1", "Vysok\xE1", "Extra vysok\xE1"],
+  modeOptions: {
+    instant: ["Okam\u017Eit\xE1"],
+    medium: ["Stredn\xE1"],
+    high: ["Vysok\xE1"],
+    extraHigh: ["Extra vysok\xE1"]
+  },
   modeOpenerExtra: ["Konfigurova\u0165..."],
   tools: {
     web_search: ["Preh\u013Ead\xE1vaj web"],
@@ -1335,6 +1591,11 @@ var ro = {
   addPhotosFilesMenuItem: ["\xCEncarc\u0103 fotografii \u0219i fi\u0219iere"],
   copyResponse: ["Copiaz\u0103 r\u0103spunsul"],
   modeLabels: ["Mediu", "Ridicat", "Foarte ridicat\u0103"],
+  modeOptions: {
+    medium: ["Mediu"],
+    high: ["Ridicat"],
+    extraHigh: ["Foarte ridicat\u0103"]
+  },
   modeOpenerExtra: ["Configureaz\u0103..."],
   tools: {
     web_search: ["C\u0103utare pe internet"],
@@ -1357,6 +1618,12 @@ var nb = {
   addPhotosFilesMenuItem: ["Last opp bilder og filer"],
   copyResponse: ["Kopier svar"],
   modeLabels: ["\xD8yeblikkelig", "Middels", "H\xF8y", "Ekstra h\xF8y"],
+  modeOptions: {
+    instant: ["\xD8yeblikkelig"],
+    medium: ["Middels"],
+    high: ["H\xF8y"],
+    extraHigh: ["Ekstra h\xF8y"]
+  },
   modeOpenerExtra: ["Konfigurer \u2026"],
   tools: {
     web_search: ["Netts\xF8k"],
@@ -1379,6 +1646,13 @@ var ml = {
   addPhotosFilesMenuItem: ["\u0D2B\u0D4B\u0D1F\u0D4D\u0D1F\u0D4B\u0D15\u0D33\u0D41\u0D02 \u0D2B\u0D2F\u0D32\u0D41\u0D15\u0D33\u0D41\u0D02 \u0D05\u0D2A\u0D4D\u200C\u0D32\u0D4B\u0D21\u0D4D \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15"],
   copyResponse: ["\u0D2E\u0D31\u0D41\u0D2A\u0D1F\u0D3F \u0D15\u0D4B\u0D2A\u0D4D\u0D2A\u0D3F \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15"],
   modeLabels: ["\u0D24\u0D7D\u0D15\u0D4D\u0D37\u0D23\u0D02", "\u0D07\u0D1F\u0D24\u0D4D\u0D24\u0D30\u0D02", "\u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D", "\u0D35\u0D33\u0D30\u0D46 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28", "\u0D2A\u0D4D\u0D30\u0D4B"],
+  modeOptions: {
+    instant: ["\u0D24\u0D7D\u0D15\u0D4D\u0D37\u0D23\u0D02"],
+    medium: ["\u0D07\u0D1F\u0D24\u0D4D\u0D24\u0D30\u0D02"],
+    high: ["\u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D"],
+    extraHigh: ["\u0D35\u0D33\u0D30\u0D46 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28"],
+    pro: ["\u0D2A\u0D4D\u0D30\u0D4B"]
+  },
   modeOpenerExtra: ["\u0D15\u0D4B\u0D7A\u0D2B\u0D3F\u0D17\u0D7C \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15\u2026"],
   tools: {
     web_search: ["\u0D35\u0D46\u0D2C\u0D4D \u0D24\u0D3F\u0D30\u0D2F\u0D7D"],
@@ -1401,6 +1675,9 @@ var ru = {
   addPhotosFilesMenuItem: ["\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u0438 \u0444\u0430\u0439\u043B\u044B"],
   copyResponse: ["\u041A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043E\u0442\u0432\u0435\u0442"],
   modeLabels: ["\u041E\u0447\u0435\u043D\u044C \u0432\u044B\u0441\u043E\u043A\u0438\u0439"],
+  modeOptions: {
+    extraHigh: ["\u041E\u0447\u0435\u043D\u044C \u0432\u044B\u0441\u043E\u043A\u0438\u0439"]
+  },
   modeOpenerExtra: ["\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044F..."],
   tools: {
     web_search: ["\u041F\u043E\u0438\u0441\u043A \u0432 \u0441\u0435\u0442\u0438"],
@@ -1423,6 +1700,13 @@ var pa = {
   addPhotosFilesMenuItem: ["\u0A2B\u0A3C\u0A4B\u0A1F\u0A4B\u0A06\u0A02 \u0A05\u0A24\u0A47 \u0A2B\u0A3C\u0A3E\u0A08\u0A32\u0A3E\u0A02 \u0A05\u0A71\u0A2A\u0A32\u0A4B\u0A21 \u0A15\u0A30\u0A4B"],
   copyResponse: ["\u0A1C\u0A35\u0A3E\u0A2C \u0A15\u0A3E\u0A2A\u0A40 \u0A15\u0A30\u0A4B"],
   modeLabels: ["\u0A24\u0A41\u0A30\u0A70\u0A24", "\u0A2E\u0A71\u0A27\u0A2E", "\u0A09\u0A71\u0A1A", "\u0A05\u0A24\u0A3F \u0A09\u0A71\u0A1A", "\u0A2A\u0A4D\u0A30\u0A4B"],
+  modeOptions: {
+    instant: ["\u0A24\u0A41\u0A30\u0A70\u0A24"],
+    medium: ["\u0A2E\u0A71\u0A27\u0A2E"],
+    high: ["\u0A09\u0A71\u0A1A"],
+    extraHigh: ["\u0A05\u0A24\u0A3F \u0A09\u0A71\u0A1A"],
+    pro: ["\u0A2A\u0A4D\u0A30\u0A4B"]
+  },
   modeOpenerExtra: ["\u0A15\u0A4C\u0A28\u0A2B\u0A3F\u0A17\u0A30..."],
   tools: {
     web_search: ["\u0A35\u0A48\u0A71\u0A2C \u0A16\u0A4B\u0A1C"],
@@ -1445,6 +1729,13 @@ var mr = {
   addPhotosFilesMenuItem: ["\u092B\u094B\u091F\u094B \u0906\u0923\u093F \u092B\u093E\u0907\u0932\u094D\u0938 \u0905\u092A\u0932\u094B\u0921 \u0915\u0930\u093E"],
   copyResponse: ["\u092A\u094D\u0930\u0924\u093F\u0938\u093E\u0926 \u0915\u0949\u092A\u0940 \u0915\u0930\u093E"],
   modeLabels: ["\u091D\u091F\u092A\u091F", "\u092E\u0927\u094D\u092F\u092E", "\u0909\u091A\u094D\u091A", "\u0905\u0924\u093F\u0909\u091A\u094D\u091A", "\u092A\u094D\u0930\u094B"],
+  modeOptions: {
+    instant: ["\u091D\u091F\u092A\u091F"],
+    medium: ["\u092E\u0927\u094D\u092F\u092E"],
+    high: ["\u0909\u091A\u094D\u091A"],
+    extraHigh: ["\u0905\u0924\u093F\u0909\u091A\u094D\u091A"],
+    pro: ["\u092A\u094D\u0930\u094B"]
+  },
   modeOpenerExtra: ["\u0915\u0949\u0928\u094D\u092B\u093F\u0917\u0930 \u0915\u0930\u093E..."],
   tools: {
     web_search: ["\u0935\u0947\u092C\u0935\u0930 \u0936\u094B\u0927"],
@@ -1467,6 +1758,12 @@ var tr = {
   addPhotosFilesMenuItem: ["Foto\u011Fraf ve dosya y\xFCkle"],
   copyResponse: ["Yan\u0131t\u0131 kopyala"],
   modeLabels: ["An\u0131nda", "Orta", "Y\xFCksek", "\xC7ok Y\xFCksek"],
+  modeOptions: {
+    instant: ["An\u0131nda"],
+    medium: ["Orta"],
+    high: ["Y\xFCksek"],
+    extraHigh: ["\xC7ok Y\xFCksek"]
+  },
   modeOpenerExtra: ["Yap\u0131land\u0131r..."],
   tools: {
     web_search: ["Web aramas\u0131"],
@@ -1489,6 +1786,12 @@ var sw = {
   addPhotosFilesMenuItem: ["Pakia picha na mafaili"],
   copyResponse: ["Nakili jibu"],
   modeLabels: ["Papo hapo", "Wastani", "Juu", "Juu Zaidi"],
+  modeOptions: {
+    instant: ["Papo hapo"],
+    medium: ["Wastani"],
+    high: ["Juu"],
+    extraHigh: ["Juu Zaidi"]
+  },
   modeOpenerExtra: ["Sanidi..."],
   tools: {
     web_search: ["Utafutaji wa wavuti"],
@@ -1511,6 +1814,13 @@ var te = {
   addPhotosFilesMenuItem: ["\u0C2B\u0C4B\u0C1F\u0C4B\u0C32\u0C41 & \u0C2B\u0C48\u0C32\u0C4D\u200C\u0C32\u0C28\u0C41 \u0C05\u0C2A\u0C4D\u200C\u0C32\u0C4B\u0C21\u0C4D \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"],
   copyResponse: ["\u0C2A\u0C4D\u0C30\u0C24\u0C3F\u0C38\u0C4D\u0C2A\u0C02\u0C26\u0C28\u0C28\u0C41 \u0C15\u0C3E\u0C2A\u0C40 \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"],
   modeLabels: ["\u0C24\u0C15\u0C4D\u0C37\u0C23\u0C02", "\u0C2E\u0C27\u0C4D\u0C2F\u0C38\u0C4D\u0C25", "\u0C05\u0C27\u0C3F\u0C15", "\u0C05\u0C24\u0C4D\u0C2F\u0C27\u0C3F\u0C15", "\u0C2A\u0C4D\u0C30\u0C4B"],
+  modeOptions: {
+    instant: ["\u0C24\u0C15\u0C4D\u0C37\u0C23\u0C02"],
+    medium: ["\u0C2E\u0C27\u0C4D\u0C2F\u0C38\u0C4D\u0C25"],
+    high: ["\u0C05\u0C27\u0C3F\u0C15"],
+    extraHigh: ["\u0C05\u0C24\u0C4D\u0C2F\u0C27\u0C3F\u0C15"],
+    pro: ["\u0C2A\u0C4D\u0C30\u0C4B"]
+  },
   modeOpenerExtra: ["\u0C15\u0C3E\u0C28\u0C4D\u0C2B\u0C3F\u0C17\u0C30\u0C4D \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"],
   tools: {
     web_search: ["\u0C35\u0C46\u0C2C\u0C4D\u200C\u0C32\u0C4B \u0C35\u0C46\u0C24\u0C15\u0C21\u0C02"],
@@ -1553,6 +1863,12 @@ var th = {
   addPhotosFilesMenuItem: ["\u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E39\u0E1B\u0E41\u0E25\u0E30\u0E44\u0E1F\u0E25\u0E4C"],
   copyResponse: ["\u0E04\u0E31\u0E14\u0E25\u0E2D\u0E01\u0E04\u0E33\u0E15\u0E2D\u0E1A"],
   modeLabels: ["\u0E17\u0E31\u0E19\u0E17\u0E35", "\u0E1B\u0E32\u0E19\u0E01\u0E25\u0E32\u0E07", "\u0E2A\u0E39\u0E07", "\u0E2A\u0E39\u0E07\u0E21\u0E32\u0E01"],
+  modeOptions: {
+    instant: ["\u0E17\u0E31\u0E19\u0E17\u0E35"],
+    medium: ["\u0E1B\u0E32\u0E19\u0E01\u0E25\u0E32\u0E07"],
+    high: ["\u0E2A\u0E39\u0E07"],
+    extraHigh: ["\u0E2A\u0E39\u0E07\u0E21\u0E32\u0E01"]
+  },
   modeOpenerExtra: ["\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E04\u0E48\u0E32..."],
   tools: {
     web_search: ["\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E40\u0E27\u0E47\u0E1A"],
@@ -1575,6 +1891,13 @@ var bn = {
   addPhotosFilesMenuItem: ["\u09AB\u099F\u09CB \u098F\u09AC\u0982 \u09AB\u09BE\u0987\u09B2 \u0986\u09AA\u09B2\u09CB\u09A1 \u0995\u09B0\u09C1\u09A8"],
   copyResponse: ["\u0989\u09A4\u09CD\u09A4\u09B0 \u0995\u09AA\u09BF \u0995\u09B0\u09C1\u09A8"],
   modeLabels: ["\u09A4\u09BE\u09CE\u0995\u09CD\u09B7\u09A3\u09BF\u0995", "\u09AE\u09BE\u099D\u09BE\u09B0\u09BF", "\u0989\u099A\u09CD\u099A", "\u0985\u09A4\u09BF \u0989\u099A\u09CD\u099A", "\u09AA\u09CD\u09B0\u09CB"],
+  modeOptions: {
+    instant: ["\u09A4\u09BE\u09CE\u0995\u09CD\u09B7\u09A3\u09BF\u0995"],
+    medium: ["\u09AE\u09BE\u099D\u09BE\u09B0\u09BF"],
+    high: ["\u0989\u099A\u09CD\u099A"],
+    extraHigh: ["\u0985\u09A4\u09BF \u0989\u099A\u09CD\u099A"],
+    pro: ["\u09AA\u09CD\u09B0\u09CB"]
+  },
   modeOpenerExtra: ["\u0995\u09A8\u09AB\u09BF\u0997\u09BE\u09B0 \u0995\u09B0\u09C1\u09A8..."],
   tools: {
     web_search: ["\u0993\u09AF\u09BC\u09C7\u09AC \u09B8\u09A8\u09CD\u09A7\u09BE\u09A8"],
@@ -1597,6 +1920,12 @@ var ms = {
   addPhotosFilesMenuItem: ["Muat naik foto & fail"],
   copyResponse: ["Salin tindak balas"],
   modeLabels: ["Segera", "Sederhana", "Tinggi", "Sangat Tinggi"],
+  modeOptions: {
+    instant: ["Segera"],
+    medium: ["Sederhana"],
+    high: ["Tinggi"],
+    extraHigh: ["Sangat Tinggi"]
+  },
   modeOpenerExtra: ["Konfigurasikan\u2026"],
   tools: {
     web_search: ["Carian web"],
@@ -1619,6 +1948,12 @@ var so = {
   addPhotosFilesMenuItem: ["Soo geli sawirada & faylasha"],
   copyResponse: ["Koobiyee jawaabta"],
   modeLabels: ["Degdeg", "Dhexdhexaad", "Sare", "Aad u sarreeya"],
+  modeOptions: {
+    instant: ["Degdeg"],
+    medium: ["Dhexdhexaad"],
+    high: ["Sare"],
+    extraHigh: ["Aad u sarreeya"]
+  },
   modeOpenerExtra: ["Ku xidh..."],
   tools: {
     web_search: ["Raadi shakabada"],
@@ -1641,6 +1976,12 @@ var nl = {
   addPhotosFilesMenuItem: ["Foto's en bestanden uploaden"],
   copyResponse: ["Reactie kopi\xEBren"],
   modeLabels: ["Direct", "Gemiddeld", "Hoog", "Extra hoog"],
+  modeOptions: {
+    instant: ["Direct"],
+    medium: ["Gemiddeld"],
+    high: ["Hoog"],
+    extraHigh: ["Extra hoog"]
+  },
   modeOpenerExtra: ["Configureren..."],
   tools: {
     web_search: ["Zoeken op internet"],
@@ -1663,6 +2004,12 @@ var sv = {
   addPhotosFilesMenuItem: ["Ladda upp foton och filer"],
   copyResponse: ["Kopiera svar"],
   modeLabels: ["Direkt", "Balanserad", "H\xF6g", "Extra h\xF6g"],
+  modeOptions: {
+    instant: ["Direkt"],
+    medium: ["Balanserad"],
+    high: ["H\xF6g"],
+    extraHigh: ["Extra h\xF6g"]
+  },
   modeOpenerExtra: ["Konfigurera \u2026"],
   tools: {
     web_search: ["Webbs\xF6kning"],
@@ -1685,6 +2032,12 @@ var lv = {
   addPhotosFilesMenuItem: ["Aug\u0161upiel\u0101d\u0113t foto un failus"],
   copyResponse: ["Kop\u0113t atbildi"],
   modeLabels: ["T\u016Bl\u012Bt\u0113js", "Vid\u0113js", "Augsts", "\u013Boti augsts"],
+  modeOptions: {
+    instant: ["T\u016Bl\u012Bt\u0113js"],
+    medium: ["Vid\u0113js"],
+    high: ["Augsts"],
+    extraHigh: ["\u013Boti augsts"]
+  },
   modeOpenerExtra: ["Konfigur\u0113t..."],
   tools: {
     web_search: ["Mekl\u0113\u0161ana t\u012Bmekl\u012B"],
@@ -1707,6 +2060,11 @@ var mk = {
   addPhotosFilesMenuItem: ["\u041F\u043E\u0441\u0442\u0430\u0432\u0438 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u0438 \u0434\u0430\u0442\u043E\u0442\u0435\u043A\u0438"],
   copyResponse: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0458 \u043E\u0434\u0433\u043E\u0432\u043E\u0440"],
   modeLabels: ["\u0421\u0440\u0435\u0434\u043D\u043E", "\u0412\u0438\u0441\u043E\u043A\u043E", "\u041C\u043D\u043E\u0433\u0443 \u0432\u0438\u0441\u043E\u043A\u043E"],
+  modeOptions: {
+    medium: ["\u0421\u0440\u0435\u0434\u043D\u043E"],
+    high: ["\u0412\u0438\u0441\u043E\u043A\u043E"],
+    extraHigh: ["\u041C\u043D\u043E\u0433\u0443 \u0432\u0438\u0441\u043E\u043A\u043E"]
+  },
   modeOpenerExtra: ["\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0438\u0440\u0430\u0458..."],
   tools: {
     web_search: ["\u041F\u0440\u0435\u0431\u0430\u0440\u0443\u0432\u0430\u045A\u0435 \u043D\u0430 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442"],
@@ -1729,6 +2087,12 @@ var sq = {
   addPhotosFilesMenuItem: ["Ngarko foto dhe skedar\xEB"],
   copyResponse: ["Kopjo p\xEBrgjigjen"],
   modeLabels: ["I menj\xEBhersh\xEBm", "Mesatar", "Lart\xEB", "Shum\xEB i lart\xEB"],
+  modeOptions: {
+    instant: ["I menj\xEBhersh\xEBm"],
+    medium: ["Mesatar"],
+    high: ["Lart\xEB"],
+    extraHigh: ["Shum\xEB i lart\xEB"]
+  },
   modeOpenerExtra: ["Konfiguro..."],
   tools: {
     web_search: ["K\xEBrkim n\xEB ueb"],
@@ -1751,6 +2115,12 @@ var sl = {
   addPhotosFilesMenuItem: ["Nalo\u017Ei fotografije in datoteke"],
   copyResponse: ["Kopiraj odgovor"],
   modeLabels: ["Takoj", "Srednja", "Visoka", "Zelo visoko"],
+  modeOptions: {
+    instant: ["Takoj"],
+    medium: ["Srednja"],
+    high: ["Visoka"],
+    extraHigh: ["Zelo visoko"]
+  },
   modeOpenerExtra: ["Konfiguracija \u2026"],
   tools: {
     web_search: ["Iskanje po spletu"],
@@ -1773,6 +2143,9 @@ var sr = {
   addPhotosFilesMenuItem: ["\u041E\u0442\u043F\u0440\u0435\u043C\u0438 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0458\u0435 \u0438 \u0434\u0430\u0442\u043E\u0442\u0435\u043A\u0435"],
   copyResponse: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0458 \u043E\u0434\u0433\u043E\u0432\u043E\u0440"],
   modeLabels: ["\u0412\u0435\u043E\u043C\u0430 \u0432\u0438\u0441\u043E\u043A\u043E"],
+  modeOptions: {
+    extraHigh: ["\u0412\u0435\u043E\u043C\u0430 \u0432\u0438\u0441\u043E\u043A\u043E"]
+  },
   modeOpenerExtra: ["\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0438\u0448\u0438..."],
   tools: {
     web_search: ["\u041F\u0440\u0435\u0442\u0440\u0430\u0433\u0430 \u0432\u0435\u0431\u0430"],
@@ -1795,6 +2168,13 @@ var mn = {
   addPhotosFilesMenuItem: ["\u0417\u0443\u0440\u0430\u0433 \u0431\u0430 \u0444\u0430\u0439\u043B \u0431\u0430\u0439\u0440\u0448\u0443\u0443\u043B\u0430\u0445"],
   copyResponse: ["\u0425\u0430\u0440\u0438\u0443\u043B\u0442 \u0445\u0443\u0443\u043B\u0430\u0445"],
   modeLabels: ["\u0428\u0443\u0443\u0440\u0445\u0430\u0439", "\u0414\u0443\u043D\u0434", "\u04E8\u043D\u0434\u04E9\u0440", "\u041C\u0430\u0448 \u04E9\u043D\u0434\u04E9\u0440", "\u041F\u0440\u043E"],
+  modeOptions: {
+    instant: ["\u0428\u0443\u0443\u0440\u0445\u0430\u0439"],
+    medium: ["\u0414\u0443\u043D\u0434"],
+    high: ["\u04E8\u043D\u0434\u04E9\u0440"],
+    extraHigh: ["\u041C\u0430\u0448 \u04E9\u043D\u0434\u04E9\u0440"],
+    pro: ["\u041F\u0440\u043E"]
+  },
   modeOpenerExtra: ["\u0422\u043E\u0445\u0438\u0440\u0443\u0443\u043B\u0430\u0445..."],
   tools: {
     web_search: ["\u0412\u0435\u0431 \u0445\u0430\u0439\u043B\u0442"],
@@ -1817,6 +2197,12 @@ var my = {
   addPhotosFilesMenuItem: ["\u1013\u102C\u1010\u103A\u1015\u102F\u1036\u1019\u103B\u102C\u1038\u1014\u103E\u1004\u1037\u103A \u1016\u102D\u102F\u1004\u103A\u1019\u103B\u102C\u1038\u1000\u102D\u102F \u1010\u1004\u103A\u1015\u102B"],
   copyResponse: ["\u1010\u102F\u1036\u1037\u1015\u103C\u1014\u103A\u1019\u103E\u102F \u1000\u1030\u1038\u101A\u1030\u101B\u1014\u103A"],
   modeLabels: ["\u1001\u103B\u1000\u103A\u1001\u103B\u1004\u103A\u1038", "\u1021\u101C\u101A\u103A\u1021\u101C\u1010\u103A", "\u1019\u103C\u1004\u1037\u103A", "\u1021\u101C\u103D\u1014\u103A\u1019\u103C\u1004\u1037\u103A"],
+  modeOptions: {
+    instant: ["\u1001\u103B\u1000\u103A\u1001\u103B\u1004\u103A\u1038"],
+    medium: ["\u1021\u101C\u101A\u103A\u1021\u101C\u1010\u103A"],
+    high: ["\u1019\u103C\u1004\u1037\u103A"],
+    extraHigh: ["\u1021\u101C\u103D\u1014\u103A\u1019\u103C\u1004\u1037\u103A"]
+  },
   modeOpenerExtra: ["\u1015\u103C\u102F\u1015\u103C\u1004\u103A\u1019\u103D\u1019\u103A\u1038\u1019\u1036\u101B\u1014\u103A"],
   tools: {
     web_search: ["\u101D\u1018\u103A\u101B\u103E\u102C\u1016\u103D\u1031\u101B\u1014\u103A"],
@@ -1839,6 +2225,13 @@ var ta = {
   addPhotosFilesMenuItem: ["\u0BAA\u0B9F\u0B99\u0BCD\u0B95\u0BB3\u0BCD \u0BAE\u0BB1\u0BCD\u0BB1\u0BC1\u0BAE\u0BCD \u0B83\u0BAA\u0BC8\u0BB2\u0BCD\u0B95\u0BB3\u0BC8\u0BAA\u0BCD \u0BAA\u0BA4\u0BBF\u0BB5\u0BC7\u0BB1\u0BCD\u0BB1\u0BC1"],
   copyResponse: ["\u0BAA\u0BA4\u0BBF\u0BB2\u0BC8 \u0BA8\u0B95\u0BB2\u0BC6\u0B9F\u0BC1\u0B95\u0BCD\u0B95\u0BB2\u0BBE\u0BAE\u0BCD"],
   modeLabels: ["\u0B89\u0B9F\u0BA9\u0B9F\u0BBF", "\u0BA8\u0B9F\u0BC1\u0BA4\u0BCD\u0BA4\u0BB0", "\u0B89\u0BAF\u0BB0\u0BCD", "\u0BAE\u0BBF\u0B95 \u0B89\u0BAF\u0BB0\u0BCD\u0BB5\u0BC1", "\u0BAA\u0BCD\u0BB0\u0BCB"],
+  modeOptions: {
+    instant: ["\u0B89\u0B9F\u0BA9\u0B9F\u0BBF"],
+    medium: ["\u0BA8\u0B9F\u0BC1\u0BA4\u0BCD\u0BA4\u0BB0"],
+    high: ["\u0B89\u0BAF\u0BB0\u0BCD"],
+    extraHigh: ["\u0BAE\u0BBF\u0B95 \u0B89\u0BAF\u0BB0\u0BCD\u0BB5\u0BC1"],
+    pro: ["\u0BAA\u0BCD\u0BB0\u0BCB"]
+  },
   modeOpenerExtra: ["\u0B95\u0B9F\u0BCD\u0B9F\u0BAE\u0BC8\u0B95\u0BCD\u0B95\u0BB5\u0BC1\u0BAE\u0BCD..."],
   tools: {
     web_search: ["\u0B87\u0BA3\u0BC8\u0BAF \u0BA4\u0BC7\u0B9F\u0BB2\u0BCD"],
@@ -1852,6 +2245,16 @@ var ta = {
 // src/dom/locale/index.ts
 var locales = [en, de, esES, frFR, zhHK, zhTW, ja, it, vi, am, ar, bg, bs, ca, cs, da, el, es419, et, fa, fi, frCA, gu, hi, hr, hu, hy, id, is, ka, kk, kn, ko, lt, zhHans, ur, uk, ptBR, ptPT, pl, sk, ro, nb, ml, ru, pa, mr, tr, sw, te, tl, th, bn, ms, so, nl, sv, lv, mk, sq, sl, sr, mn, my, ta];
 var TOOL_IDS = ["web_search", "deep_research", "create_image"];
+var MODE_OPTION_IDS = [
+  "latest",
+  "instant",
+  "thinking",
+  "extended",
+  "medium",
+  "high",
+  "extraHigh",
+  "pro"
+];
 function flattenKey(localeList, key) {
   const seen = /* @__PURE__ */ new Set();
   const result = [];
@@ -1875,6 +2278,24 @@ function flattenTool(localeList, toolId) {
     const tools = locale["tools"];
     if (tools === void 0 || tools === null) continue;
     const value = tools[toolId];
+    if (value === void 0 || value === null) continue;
+    const candidates = typeof value === "string" ? [value] : value;
+    for (const candidate of candidates) {
+      if (candidate.length > 0 && !seen.has(candidate)) {
+        seen.add(candidate);
+        result.push(candidate);
+      }
+    }
+  }
+  return result;
+}
+function flattenModeOption(localeList, optionId) {
+  const seen = /* @__PURE__ */ new Set();
+  const result = [];
+  for (const locale of localeList) {
+    const modeOptions = locale["modeOptions"];
+    if (modeOptions === void 0 || modeOptions === null) continue;
+    const value = modeOptions[optionId];
     if (value === void 0 || value === null) continue;
     const candidates = typeof value === "string" ? [value] : value;
     for (const candidate of candidates) {
@@ -1919,8 +2340,12 @@ var builtLabels = Object.fromEntries(
 var builtTools = Object.fromEntries(
   TOOL_IDS.map((id2) => [id2, flattenTool(locales, id2)])
 );
+var builtModeOptions = Object.fromEntries(
+  MODE_OPTION_IDS.map((id2) => [id2, flattenModeOption(locales, id2)])
+);
 var localeLabels = {
   ...builtLabels,
+  modeOptions: builtModeOptions,
   tools: builtTools
 };
 function escapeRegExp(value) {
@@ -1950,8 +2375,17 @@ function localGuardTimeout(timeoutMs, capMs) {
 
 // src/browser/page-state.ts
 function parseConversationId(url) {
-  const match = /\/c\/([A-Za-z0-9-]+)/.exec(url);
-  return match?.[1];
+  let parsed;
+  try {
+    parsed = new URL(url, "https://chatgpt.com");
+  } catch {
+    return void 0;
+  }
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  if (segments[0] !== "c" || segments[1] === void 0 || segments[1].length === 0) {
+    return void 0;
+  }
+  return segments[1];
 }
 async function readPageState(page) {
   const rawUrl = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
@@ -3983,7 +4417,7 @@ async function contextFromPage(page, partial = {}) {
     return { timestamp: (/* @__PURE__ */ new Date()).toISOString(), ...partial };
   }
   const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => partial.url) : partial.url;
-  const title = typeof page.title === "function" ? await page.title().catch(() => void 0) : partial.title;
+  const title = typeof page.title === "function" ? await withTimeout2(page.title(), 1e3, "Timed out while reading page title.").catch(() => partial.title) : partial.title;
   const [turnCount, assistantTurnCount] = await Promise.all([
     withTimeout2(countPageMessages(page), 1e3, "Timed out while counting page messages.").catch(() => partial.turnCount),
     withTimeout2(countPageMessages(page, "assistant"), 1e3, "Timed out while counting assistant messages.").catch(() => partial.assistantTurnCount)
@@ -4031,8 +4465,51 @@ async function bootstrap(env, args = {}) {
   }
 }
 
-// src/commands/threads.ts
+// src/commands/conversation.ts
 var CHATGPT_HOME2 = "https://chatgpt.com/";
+async function ensureConversationTarget(page, target, options) {
+  const targetUrl = absoluteConversationUrl(target);
+  const expectedConversationId = parseConversationId(targetUrl);
+  const currentUrl = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
+  if (expectedConversationId !== void 0 && parseConversationId(typeof currentUrl === "string" ? currentUrl : "") === expectedConversationId) {
+    await waitForConversationHydrated(page, options.timeoutMs, expectedConversationId);
+    return ensureResult(false, targetUrl, expectedConversationId);
+  }
+  await page.goto?.(targetUrl, { waitUntil: "domcontentloaded", timeout: options.timeoutMs });
+  await waitForConversationHydrated(page, options.timeoutMs, expectedConversationId);
+  return ensureResult(true, targetUrl, expectedConversationId);
+}
+async function waitForConversationHydrated(page, timeoutMs, expectedConversationId) {
+  const started = Date.now();
+  do {
+    const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
+    const urlMatches2 = expectedConversationId === void 0 || parseConversationId(typeof url === "string" ? url : "") === expectedConversationId;
+    const count = await countPageMessages(page).catch(() => 0);
+    const latestAssistantText = await readLatestMessageText(page, "assistant").catch(() => void 0);
+    const title = typeof page.title === "function" ? await page.title().catch(() => "") : "";
+    if (urlMatches2 && ((latestAssistantText?.trim().length ?? 0) > 0 || count > 0 && title.length > 0 && title !== "ChatGPT")) {
+      await page.waitForTimeout?.(250);
+      return;
+    }
+    await page.waitForTimeout?.(500);
+  } while (Date.now() - started < timeoutMs);
+}
+function absoluteConversationUrl(target) {
+  if (target.href !== void 0 && target.href.startsWith("/")) {
+    return new URL(target.href, CHATGPT_HOME2).toString();
+  }
+  return target.href ?? target.url;
+}
+function ensureResult(navigated, targetUrl, expectedConversationId) {
+  const result = { navigated, targetUrl };
+  if (expectedConversationId !== void 0) {
+    result.expectedConversationId = expectedConversationId;
+  }
+  return result;
+}
+
+// src/commands/threads.ts
+var CHATGPT_HOME3 = "https://chatgpt.com/";
 function extractThreadSearchResultsFromHtml(html) {
   const anchors = html.matchAll(/<a\b(?<attrs>[^>]*\bhref=["'](?<href>\/c\/[^"']+)["'][^>]*)>(?<body>[\s\S]*?)<\/a>/gi);
   const results = [];
@@ -4093,7 +4570,7 @@ async function newThread(env, args = {}) {
     try {
       await newChatButton(page).click?.();
     } catch {
-      await page.goto?.(CHATGPT_HOME2, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
+      await page.goto?.(CHATGPT_HOME3, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
     }
     await page.waitForTimeout?.(500);
     const state = await readPageState(page);
@@ -4122,12 +4599,7 @@ async function openThread(env, args, previousResults) {
         context: await contextFromPage(page)
       };
     }
-    if (target.href !== void 0 && target.href.startsWith("/")) {
-      await page.goto?.(new URL(target.href, CHATGPT_HOME2).toString(), { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
-    } else {
-      await page.goto?.(target.href ?? target.url, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
-    }
-    await waitForThreadHydrated(page, args.timeoutMs ?? 3e4, parseConversationId(target.url));
+    await ensureConversationTarget(page, target, { timeoutMs: args.timeoutMs ?? 3e4 });
     const state = await readPageState(page);
     return resultOk(
       openThreadData(state.url, state.conversationId, state.title ?? target.title),
@@ -4148,21 +4620,21 @@ async function resolveOpenTarget(env, args, previousResults) {
     return { url: args.url };
   }
   if (args.conversationId !== void 0) {
-    return { url: new URL(`/c/${args.conversationId}`, CHATGPT_HOME2).toString() };
+    return { url: new URL(`/c/${args.conversationId}`, CHATGPT_HOME3).toString() };
   }
   if (args.fromStep !== void 0 && previousResults !== void 0) {
     const previous = previousResults.get(args.fromStep);
     const data = previous?.data;
     const selected = selectSearchResult(data?.results ?? [], args.select ?? "first");
     if (selected !== void 0) {
-      return { href: selected.href, url: new URL(selected.href, CHATGPT_HOME2).toString(), title: selected.title };
+      return { href: selected.href, url: new URL(selected.href, CHATGPT_HOME3).toString(), title: selected.title };
     }
   }
   if (args.title !== void 0) {
     const search = await searchThreads(env, { query: args.title, limit: 10 });
     const selected = selectSearchResult(search.data?.results ?? [], { title: args.title }) ?? search.data?.results[0];
     if (selected !== void 0) {
-      return { href: selected.href, url: new URL(selected.href, CHATGPT_HOME2).toString(), title: selected.title };
+      return { href: selected.href, url: new URL(selected.href, CHATGPT_HOME3).toString(), title: selected.title };
     }
   }
   return void 0;
@@ -4295,22 +4767,6 @@ function filterResultsByQuery(results, query) {
     return haystack.includes(wanted) || wanted.includes(normalizeForMatch(result.title));
   });
 }
-async function waitForThreadHydrated(page, timeoutMs, expectedConversationId) {
-  const started = Date.now();
-  await page.waitForTimeout?.(1e3);
-  while (Date.now() - started < timeoutMs) {
-    const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
-    const urlMatches2 = expectedConversationId === void 0 || url.includes(expectedConversationId);
-    const count = await countPageMessages(page).catch(() => 0);
-    const latestAssistantText = await readLatestMessageText(page, "assistant").catch(() => void 0);
-    const title = typeof page.title === "function" ? await page.title().catch(() => "") : "";
-    if (urlMatches2 && ((latestAssistantText?.trim().length ?? 0) > 0 || count > 0 && title.length > 0 && title !== "ChatGPT")) {
-      await page.waitForTimeout?.(250);
-      return;
-    }
-    await page.waitForTimeout?.(500);
-  }
-}
 
 // src/dom/generation-state.ts
 var EMPTY_GENERATION_STATE = {
@@ -4403,6 +4859,22 @@ function generationStateFromText(text) {
   };
 }
 
+// src/commands/deadline.ts
+function createDeadline(timeoutMs, startedAtMs = Date.now()) {
+  const safeTimeoutMs = Math.max(0, timeoutMs);
+  return {
+    startedAtMs,
+    timeoutMs: safeTimeoutMs,
+    expiresAtMs: startedAtMs + safeTimeoutMs
+  };
+}
+function remainingMs(deadline, nowMs = Date.now()) {
+  return Math.max(0, deadline.expiresAtMs - nowMs);
+}
+function childTimeoutMs(deadline, capMs, nowMs = Date.now()) {
+  return Math.max(0, Math.min(Math.max(0, capMs), remainingMs(deadline, nowMs)));
+}
+
 // src/commands/output.ts
 function commandOutputText(data) {
   if (!isRecord(data)) return void 0;
@@ -4428,6 +4900,69 @@ function withCommandOutputText(result) {
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+
+// src/commands/probes.ts
+function createSingleFlightProbe(name, probe) {
+  let inFlight;
+  return async (arg, deadline, options) => {
+    if (inFlight !== void 0) {
+      return {
+        ok: false,
+        skipped: true,
+        warnings: [`Skipped ${name} DOM probe because previous browser-side work is still in flight.`]
+      };
+    }
+    const timeoutMs = childTimeoutMs(deadline, options.timeoutMs);
+    if (timeoutMs <= 0) {
+      return {
+        ok: false,
+        timedOut: true,
+        warnings: [`Skipped ${name} DOM probe because no deadline budget remained.`]
+      };
+    }
+    const current = probe(arg);
+    inFlight = current;
+    current.finally(() => {
+      if (inFlight === current) {
+        inFlight = void 0;
+      }
+    }).catch(() => void 0);
+    let timeout;
+    try {
+      const value = await Promise.race([
+        current,
+        new Promise((_resolve, reject) => {
+          timeout = setTimeout(() => reject(new ProbeTimeoutError(timeoutMs)), timeoutMs);
+        })
+      ]);
+      return { ok: true, value, warnings: [] };
+    } catch (error) {
+      if (error instanceof ProbeTimeoutError) {
+        return {
+          ok: false,
+          timedOut: true,
+          warnings: [`Timed out waiting ${timeoutMs}ms for ${name} DOM probe; this stopped SDK waiting but did not cancel browser-side work.`]
+        };
+      }
+      return {
+        ok: false,
+        warnings: [`${name} DOM probe failed: ${error instanceof Error ? error.message : String(error)}`]
+      };
+    } finally {
+      if (timeout !== void 0) {
+        clearTimeout(timeout);
+      }
+    }
+  };
+}
+var ProbeTimeoutError = class extends Error {
+  constructor(timeoutMs) {
+    super(`Probe timed out after ${timeoutMs}ms.`);
+    this.timeoutMs = timeoutMs;
+    this.name = "ProbeTimeoutError";
+  }
+  timeoutMs;
+};
 
 // src/commands/messages.ts
 function isResponseComplete(snapshot) {
@@ -4666,21 +5201,20 @@ async function waitForMessage(env, args = {}) {
   const stableMs = args.stableMs ?? (args.mode === "deep_research" ? 1e4 : 2e3);
   const pollMs = args.pollMs ?? 750;
   const started = Date.now();
+  const deadline = createDeadline(timeoutMs, started);
+  const probeTimeoutMs = Math.max(50, Math.min(1e3, Math.max(pollMs, Math.floor(timeoutMs / 4))));
+  const waitWarnings = /* @__PURE__ */ new Set();
+  const assistantProgressProbe = createSingleFlightProbe("assistant progress", readAssistantProgressSnapshot);
+  const pageStateProbe = createSingleFlightProbe("page state", readPageState);
+  const generationStateProbe = createSingleFlightProbe("assistant generation state", readAssistantGenerationState);
+  const responseActionsProbe = createSingleFlightProbe("assistant response actions", latestAssistantTurnHasResponseActions);
   let lastTargetText = "";
   let lastChangedAt = Date.now();
   let latestAssistantCount = await countPageMessages(page, "assistant").catch(() => 0);
   while (Date.now() - started < timeoutMs) {
-    const state = await readPageState(page).catch(() => void 0);
-    if (state?.blocker !== void 0 && state.blocker.kind !== "modal") {
-      return {
-        ok: false,
-        status: "blocked",
-        warnings: [],
-        blocker: state.blocker,
-        context: await contextFromPage(page)
-      };
-    }
-    const progress = await readAssistantProgressSnapshot(page).catch(() => fallbackAssistantProgressSnapshot(page, latestAssistantCount));
+    const progressResult = await assistantProgressProbe(page, deadline, { timeoutMs: probeTimeoutMs });
+    addWarnings(waitWarnings, progressResult.warnings);
+    const progress = await progressSnapshotFromProbeResult(page, progressResult, latestAssistantCount);
     latestAssistantCount = progress.assistantTurnCount;
     const targetReached = waitTargetReached(args, progress);
     const latestText = targetReached ? normalizeWhitespace(progress.latestText ?? "") : "";
@@ -4688,12 +5222,22 @@ async function waitForMessage(env, args = {}) {
       lastTargetText = latestText;
       lastChangedAt = Date.now();
     }
+    const state = await pageStateFromProbe(pageStateProbe(page, deadline, { timeoutMs: probeTimeoutMs }), waitWarnings);
+    if (state?.blocker !== void 0 && state.blocker.kind !== "modal") {
+      return {
+        ok: false,
+        status: "blocked",
+        warnings: [...waitWarnings],
+        blocker: state.blocker,
+        context: await contextFromPage(page)
+      };
+    }
     const snapshot = {
       latestText,
       stableMs,
       textStableForMs: Date.now() - lastChangedAt,
-      generation: await readAssistantGenerationState(page),
-      hasResponseActions: await latestAssistantTurnHasResponseActions(page)
+      generation: await generationStateFromProbe(generationStateProbe(page, deadline, { timeoutMs: probeTimeoutMs }), waitWarnings),
+      hasResponseActions: await responseActionsFromProbe(responseActionsProbe(page, deadline, { timeoutMs: probeTimeoutMs }), waitWarnings)
     };
     if (targetReached && snapshot.generation.stopped && latestText.length > 0) {
       return withCommandOutputText({
@@ -4706,6 +5250,7 @@ async function waitForMessage(env, args = {}) {
           elapsedMs: Date.now() - started
         },
         warnings: [
+          ...waitWarnings,
           "ChatGPT generation appears to have been stopped or interrupted before completion.",
           ...snapshot.generation.signals.map((signal) => `Generation state signal: ${signal}`)
         ],
@@ -4715,7 +5260,8 @@ async function waitForMessage(env, args = {}) {
     if (targetReached && isResponseComplete(snapshot)) {
       return withCommandOutputText(resultOk(
         { complete: true, responseText: latestText, assistantTurnCount: latestAssistantCount, elapsedMs: Date.now() - started },
-        await contextFromPage(page)
+        await contextFromPage(page),
+        [...waitWarnings]
       ));
     }
     await sleep(page, pollMs);
@@ -4730,14 +5276,14 @@ async function waitForMessage(env, args = {}) {
         assistantTurnCount: latestAssistantCount,
         elapsedMs: Date.now() - started
       },
-      warnings: ["Timed out after receiving partial assistant text."],
+      warnings: [...waitWarnings, "Timed out after receiving partial assistant text."],
       context: await contextFromPage(page)
     });
   }
   return {
     ok: false,
     status: "timeout",
-    warnings: [],
+    warnings: [...waitWarnings],
     error: {
       name: "WaitTimeout",
       message: "No assistant response appeared before the timeout.",
@@ -4745,6 +5291,35 @@ async function waitForMessage(env, args = {}) {
     },
     context: await contextFromPage(page)
   };
+}
+async function pageStateFromProbe(probe, warnings) {
+  const result = await probe;
+  addWarnings(warnings, result.warnings);
+  return result.ok ? result.value : void 0;
+}
+async function progressSnapshotFromProbeResult(page, result, previousAssistantTurnCount) {
+  if (result.ok) {
+    return result.value;
+  }
+  if (result.timedOut === true || result.skipped === true) {
+    return { assistantTurnCount: previousAssistantTurnCount };
+  }
+  return fallbackAssistantProgressSnapshot(page, previousAssistantTurnCount);
+}
+async function generationStateFromProbe(probe, warnings) {
+  const result = await probe;
+  addWarnings(warnings, result.warnings);
+  return result.ok ? result.value : EMPTY_GENERATION_STATE;
+}
+async function responseActionsFromProbe(probe, warnings) {
+  const result = await probe;
+  addWarnings(warnings, result.warnings);
+  return result.ok ? result.value : false;
+}
+function addWarnings(target, warnings) {
+  for (const warning of warnings) {
+    target.add(warning);
+  }
 }
 async function readLatest(env, args = {}) {
   const boot2 = await ensurePage2(env);
@@ -6919,6 +7494,31 @@ async function ensurePage5(env) {
   return bootstrap(env, { preferExistingTab: true });
 }
 
+// src/dom/label-match.ts
+function normalizeForLabelMatch(text) {
+  return normalizeWhitespace(text.normalize("NFKC")).toLocaleLowerCase();
+}
+function visibleLabelMatches(label, wanted) {
+  const normalizedLabel = normalizeForLabelMatch(label);
+  const normalizedWanted = normalizeForLabelMatch(wanted);
+  if (normalizedWanted.length === 0) {
+    return false;
+  }
+  if (normalizedLabel === normalizedWanted) {
+    return true;
+  }
+  if (isShortLatinToken(normalizedWanted)) {
+    return new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp2(normalizedWanted)}([^\\p{L}\\p{N}]|$)`, "iu").test(normalizedLabel);
+  }
+  return normalizedLabel.includes(normalizedWanted);
+}
+function isShortLatinToken(value) {
+  return value.length <= 3 && /^[a-z0-9]+$/i.test(value);
+}
+function escapeRegExp2(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // src/dom/menus.ts
 function extractMenuItemsFromText(text) {
   return text.split(/\n| {2,}| • /).map((label) => normalizeWhitespace(label)).filter(Boolean).map((label) => ({ label, normalized: normalizeLabel(label) }));
@@ -6962,13 +7562,16 @@ function findUniqueMenuItem(items, wanted) {
   if (exact.length === 1) {
     return exact[0];
   }
-  const fuzzy = items.filter((item) => item.normalized.includes(normalized));
+  const fuzzy = items.filter((item) => visibleLabelMatches(item.label, wanted));
   return fuzzy.length === 1 ? fuzzy[0] : void 0;
 }
 
 // src/commands/modes.ts
 var DEFAULT_MODE_EFFORT = "Thinking";
-var CURRENT_MODE_LABELS = [...localeLabels.modeLabels];
+var CURRENT_MODE_LABELS = dedupeLabels([
+  ...localeLabels.modeLabels,
+  ...Object.values(localeLabels.modeOptions).flat()
+]);
 var MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter((label) => label !== "Pro"), ...localeLabels.modeOpenerExtra];
 var MODEL_VERSION_FAMILY_PATTERN = /^gpt[\s-]/i;
 var MODEL_VERSION_LABEL_PATTERN = /^(?:o\d+|\d+(?:\.\d+)?)$/i;
@@ -6976,8 +7579,36 @@ var CANONICAL_INTELLIGENCE_ORDER = /* @__PURE__ */ new Map([
   ["instant", 0],
   ["medium", 1],
   ["high", 2],
-  ["extra high", 3],
+  ["extraHigh", 3],
   ["pro", 4]
+]);
+var MODE_OPTION_IDS2 = [
+  "latest",
+  "instant",
+  "thinking",
+  "extended",
+  "medium",
+  "high",
+  "extraHigh",
+  "pro"
+];
+var MODE_ID_ALIASES = {
+  latest: ["latest"],
+  instant: ["instant"],
+  thinking: ["thinking"],
+  extended: ["extended"],
+  medium: ["medium"],
+  high: ["high"],
+  extraHigh: ["extra high", "extra-high", "extra_high", "extrahigh"],
+  pro: ["pro"]
+};
+var THREAD_ACTION_MENU_LABELS = /* @__PURE__ */ new Set([
+  "archive",
+  "copy link",
+  "delete",
+  "move to project",
+  "rename",
+  "share"
 ]);
 async function setMode(env, args) {
   const boot2 = await ensurePage6(env);
@@ -6986,9 +7617,9 @@ async function setMode(env, args) {
   }
   const page = env.page;
   try {
-    const requested = requestedModeLabels(args);
+    const requested = requestedModeSelections(args);
     const requestedVersion = requestedModelVersion(args);
-    const requestedForOpening = requestedVersion === void 0 ? requested : [...requested, requestedVersion];
+    const requestedForOpening = requestedVersion === void 0 ? requested : [...requested, requestedModeSelection(requestedVersion)];
     const opened = await waitForModeMenu(page, requestedForOpening, args.timeoutMs ?? 3e4);
     if (requestedVersion === void 0 && opened.alreadySelected.length === requested.length) {
       return resultOk({ selected: opened.alreadySelected, candidates: opened.modeButtons }, await contextFromPage(page));
@@ -6999,15 +7630,25 @@ async function setMode(env, args) {
     await page.waitForTimeout?.(250);
     const candidates = await enumerateVisibleMenuItems(page);
     const selected = [];
-    for (const item of requested) {
-      const match = findModeMenuItem(candidates, item);
+    if (requested.length > 0 && shouldRejectAsWrongModeMenu(candidates)) {
+      const candidateLabels2 = candidates.map((candidate) => candidate.label);
+      return {
+        ok: false,
+        status: "unsupported",
+        warnings: [],
+        blocker: selectorDriftBlocker("Visible menu appears to be a thread/action menu, not the ChatGPT mode menu.", candidateLabels2),
+        context: await contextFromPage(page)
+      };
+    }
+    for (const request of requested) {
+      const match = findModeMenuItem(candidates, request);
       if (match === void 0) {
         const candidateLabels2 = candidates.map((candidate) => candidate.label);
         return {
           ok: false,
           status: "unsupported",
           warnings: [],
-          blocker: selectorDriftBlocker(`Mode option "${item}" was not found or was ambiguous.`, candidateLabels2),
+          blocker: selectorDriftBlocker(`Mode option "${request.requested}" was not found or was ambiguous.`, candidateLabels2),
           context: await contextFromPage(page)
         };
       }
@@ -7132,6 +7773,27 @@ function looksLikeModeMenu(labels) {
     return CURRENT_MODE_LABELS.some((modeLabel) => visibleLabelMatches(normalized, normalizeLabel(modeLabel)));
   });
 }
+function shouldRejectAsWrongModeMenu(items) {
+  if (items.length === 0) {
+    return false;
+  }
+  const hasPositiveModeEvidence = items.some((item) => {
+    if (item.testId?.startsWith("model-switcher-") === true) {
+      return true;
+    }
+    if (MODEL_VERSION_FAMILY_PATTERN.test(item.label) || MODEL_VERSION_LABEL_PATTERN.test(item.label)) {
+      return true;
+    }
+    if (item.role === "menuitemradio" && CURRENT_MODE_LABELS.some((label) => visibleLabelMatches(item.label, label))) {
+      return true;
+    }
+    return CURRENT_MODE_LABELS.some((label) => visibleLabelMatches(item.label, label));
+  });
+  if (hasPositiveModeEvidence) {
+    return false;
+  }
+  return items.some((item) => THREAD_ACTION_MENU_LABELS.has(normalizeForLabelMatch(item.label)));
+}
 async function clickMenuItem(page, label) {
   if (await clickModelSwitcherMenuItem(page, label)) {
     return true;
@@ -7218,12 +7880,14 @@ function toolLabels(tool) {
   const known = localeLabels.tools[tool];
   return known !== void 0 ? [...known] : [tool];
 }
-function findModeMenuItem(candidates, wanted) {
-  const exact = findUniqueMenuItem(candidates, wanted);
-  if (exact !== void 0) {
-    return exact;
+function findModeMenuItem(candidates, request) {
+  for (const wanted of request.labels) {
+    const exact = findUniqueMenuItem(candidates, wanted);
+    if (exact !== void 0) {
+      return exact;
+    }
   }
-  const wantedIndex = CANONICAL_INTELLIGENCE_ORDER.get(normalizeLabel(wanted));
+  const wantedIndex = request.modeId === void 0 ? void 0 : CANONICAL_INTELLIGENCE_ORDER.get(request.modeId);
   if (wantedIndex === void 0) {
     return void 0;
   }
@@ -7232,12 +7896,39 @@ function findModeMenuItem(candidates, wanted) {
   );
   return intelligenceItems.length >= CANONICAL_INTELLIGENCE_ORDER.size ? intelligenceItems[wantedIndex] : void 0;
 }
-function requestedModeLabels(args) {
+function requestedModeSelections(args) {
   const requested = [args.model, args.intelligence, args.effort].filter((value) => value !== void 0);
   if (requestedModelVersion(args) !== void 0 && requested.length === 0) {
     return [];
   }
-  return requested.length > 0 ? requested : [DEFAULT_MODE_EFFORT];
+  return (requested.length > 0 ? requested : [DEFAULT_MODE_EFFORT]).map(requestedModeSelection);
+}
+function requestedModeSelection(requested) {
+  const modeId = modeOptionIdFor(requested);
+  const labels = modeId === void 0 ? [requested] : localeLabels.modeOptions[modeId];
+  const request = {
+    requested,
+    labels: labels.length > 0 ? [...labels] : [requested]
+  };
+  if (modeId !== void 0) {
+    request.modeId = modeId;
+  }
+  return request;
+}
+function modeOptionIdFor(value) {
+  const normalized = normalizeModeLookupKey(value);
+  for (const id2 of MODE_OPTION_IDS2) {
+    if (MODE_ID_ALIASES[id2].some((alias) => normalizeModeLookupKey(alias) === normalized)) {
+      return id2;
+    }
+    if (localeLabels.modeOptions[id2].some((label) => normalizeModeLookupKey(label) === normalized)) {
+      return id2;
+    }
+  }
+  return void 0;
+}
+function normalizeModeLookupKey(value) {
+  return normalizeForLabelMatch(value).replace(/[_-]+/g, " ");
 }
 function requestedModelVersion(args) {
   return args.modelVersion ?? args.version;
@@ -7251,25 +7942,25 @@ function findUniqueVisibleLabel(labels, wanted) {
   const fuzzy = labels.filter((label) => visibleLabelMatches(normalizeLabel(label), normalized));
   return fuzzy.length === 1 ? fuzzy[0] : void 0;
 }
-function visibleLabelMatches(label, wanted) {
-  if (wanted.length <= 3) {
-    return new RegExp(`(^|[^a-z0-9])${escapeRegExp2(wanted)}([^a-z0-9]|$)`, "i").test(label);
-  }
-  return label.includes(wanted);
-}
-function escapeRegExp2(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 function escapeAttributeValue(value) {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 function findAlreadySelectedModes(visibleButtons, requested) {
-  return requested.map((label) => findUniqueVisibleLabel(visibleButtons, label)).filter((label) => label !== void 0);
+  return requested.map((request) => findUniqueVisibleLabelForRequest(visibleButtons, request)).filter((label) => label !== void 0);
+}
+function findUniqueVisibleLabelForRequest(labels, request) {
+  for (const label of request.labels) {
+    const found = findUniqueVisibleLabel(labels, label);
+    if (found !== void 0) {
+      return found;
+    }
+  }
+  return void 0;
 }
 async function selectModelVersion(page, requestedVersion, currentCandidates, timeoutMs) {
   let candidates = await enumerateVisibleMenuItems(page);
   if (!looksLikeModeMenu(candidates.map((candidate) => candidate.label))) {
-    const opened2 = await waitForModeMenu(page, [requestedVersion], timeoutMs);
+    const opened2 = await waitForModeMenu(page, [{ requested: requestedVersion, labels: [requestedVersion] }], timeoutMs);
     if (opened2.opened) {
       await page.waitForTimeout?.(250);
       candidates = await enumerateVisibleMenuItems(page);
@@ -7759,6 +8450,7 @@ var REQUIRED_LOCALE_KEYS = [
   "rateLimitBlocker"
 ];
 var REQUIRED_TOOL_IDS = ["web_search", "deep_research", "create_image"];
+var REQUIRED_MODE_OPTION_IDS = ["latest", "instant", "thinking", "extended", "medium", "high", "extraHigh", "pro"];
 async function doctor(env, args = {}) {
   const wanted = args.check ?? DEFAULT_CHECKS;
   const checks = {};
@@ -7958,19 +8650,23 @@ async function filePreflightCheck(env, args) {
 function localizationCheck(env) {
   const requiredKeysMissing = REQUIRED_LOCALE_KEYS.filter((key) => localeLabels[key].length === 0);
   const missingToolIds = REQUIRED_TOOL_IDS.filter((id2) => (localeLabels.tools[id2]?.length ?? 0) === 0);
+  const missingModeOptionIds = REQUIRED_MODE_OPTION_IDS.filter((id2) => (localeLabels.modeOptions[id2]?.length ?? 0) === 0);
   const toolIds = Object.keys(localeLabels.tools);
-  const englishCanonicalPresent = localeLabels.composerTextbox[0] === "Chat with ChatGPT" && localeLabels.sendButton[0] === "Send prompt" && localeLabels.modeLabels.includes("Thinking") && localeLabels.tools.web_search?.[0] === "Web search";
-  const labelCandidateCount = REQUIRED_LOCALE_KEYS.reduce((total, key) => total + localeLabels[key].length, 0) + Object.values(localeLabels.tools).reduce((total, values) => total + values.length, 0);
+  const modeOptionIds = Object.keys(localeLabels.modeOptions);
+  const englishCanonicalPresent = localeLabels.composerTextbox[0] === "Chat with ChatGPT" && localeLabels.sendButton[0] === "Send prompt" && localeLabels.modeLabels.includes("Thinking") && localeLabels.modeOptions.pro?.[0] === "Pro" && localeLabels.tools.web_search?.[0] === "Web search";
+  const labelCandidateCount = REQUIRED_LOCALE_KEYS.reduce((total, key) => total + localeLabels[key].length, 0) + Object.values(localeLabels.tools).reduce((total, values) => total + values.length, 0) + Object.values(localeLabels.modeOptions).reduce((total, values) => total + values.length, 0);
   const details = {
     englishCanonicalPresent,
     requiredKeysMissing,
     missingToolIds,
+    missingModeOptionIds,
     toolIds,
+    modeOptionIds,
     labelCandidateCount,
     pageAvailable: env.page !== void 0,
     runtimeSelectorCoverage: "registry_only_stage_2"
   };
-  if (englishCanonicalPresent && requiredKeysMissing.length === 0 && missingToolIds.length === 0) {
+  if (englishCanonicalPresent && requiredKeysMissing.length === 0 && missingToolIds.length === 0 && missingModeOptionIds.length === 0) {
     return unknown("The locale registry is loaded; localized runtime selector coverage is registry-only in Stage 2 and not fully proven.", void 0, details);
   }
   return blocked(

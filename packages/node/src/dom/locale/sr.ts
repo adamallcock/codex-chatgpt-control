@@ -19,6 +19,9 @@ export const sr = {
   addPhotosFilesMenuItem: ["Отпреми фотографије и датотеке"],
   copyResponse: ["Копирај одговор"],
   modeLabels: ["Веома високо"],
+  modeOptions: {
+    extraHigh: ["Веома високо"],
+  },
   modeOpenerExtra: ["Конфигуриши..."],
   tools: {
     web_search: ["Претрага веба"],

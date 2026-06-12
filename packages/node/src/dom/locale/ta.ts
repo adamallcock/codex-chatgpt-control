@@ -19,6 +19,13 @@ export const ta = {
   addPhotosFilesMenuItem: ["படங்கள் மற்றும் ஃபைல்களைப் பதிவேற்று"],
   copyResponse: ["பதிலை நகலெடுக்கலாம்"],
   modeLabels: ["உடனடி", "நடுத்தர", "உயர்", "மிக உயர்வு", "ப்ரோ"],
+  modeOptions: {
+    instant: ["உடனடி"],
+    medium: ["நடுத்தர"],
+    high: ["உயர்"],
+    extraHigh: ["மிக உயர்வு"],
+    pro: ["ப்ரோ"],
+  },
   modeOpenerExtra: ["கட்டமைக்கவும்..."],
   tools: {
     web_search: ["இணைய தேடல்"],

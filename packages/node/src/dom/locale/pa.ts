@@ -19,6 +19,13 @@ export const pa = {
   addPhotosFilesMenuItem: ["ਫ਼ੋਟੋਆਂ ਅਤੇ ਫ਼ਾਈਲਾਂ ਅੱਪਲੋਡ ਕਰੋ"],
   copyResponse: ["ਜਵਾਬ ਕਾਪੀ ਕਰੋ"],
   modeLabels: ["ਤੁਰੰਤ", "ਮੱਧਮ", "ਉੱਚ", "ਅਤਿ ਉੱਚ", "ਪ੍ਰੋ"],
+  modeOptions: {
+    instant: ["ਤੁਰੰਤ"],
+    medium: ["ਮੱਧਮ"],
+    high: ["ਉੱਚ"],
+    extraHigh: ["ਅਤਿ ਉੱਚ"],
+    pro: ["ਪ੍ਰੋ"],
+  },
   modeOpenerExtra: ["ਕੌਨਫਿਗਰ..."],
   tools: {
     web_search: ["ਵੈੱਬ ਖੋਜ"],

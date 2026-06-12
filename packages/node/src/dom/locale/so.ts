@@ -19,6 +19,12 @@ export const so = {
   addPhotosFilesMenuItem: ["Soo geli sawirada & faylasha"],
   copyResponse: ["Koobiyee jawaabta"],
   modeLabels: ["Degdeg", "Dhexdhexaad", "Sare", "Aad u sarreeya"],
+  modeOptions: {
+    instant: ["Degdeg"],
+    medium: ["Dhexdhexaad"],
+    high: ["Sare"],
+    extraHigh: ["Aad u sarreeya"],
+  },
   modeOpenerExtra: ["Ku xidh..."],
   tools: {
     web_search: ["Raadi shakabada"],

@@ -19,6 +19,12 @@ export const am = {
   addPhotosFilesMenuItem: ["ፎቶዎችን እና ፋይሎችን ያክሉ"],
   copyResponse: ["ምላሹን ይቅዱ"],
   modeLabels: ["ፈጣን", "መካከለኛ", "ከፍተኛ", "እጅግ ከፍተኛ"],
+  modeOptions: {
+    instant: ["ፈጣን"],
+    medium: ["መካከለኛ"],
+    high: ["ከፍተኛ"],
+    extraHigh: ["እጅግ ከፍተኛ"],
+  },
   modeOpenerExtra: ["ያዋቅሩ"],
   tools: {
     web_search: ["የድር ፍለጋ"],

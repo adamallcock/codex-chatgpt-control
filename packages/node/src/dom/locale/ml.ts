@@ -19,6 +19,13 @@ export const ml = {
   addPhotosFilesMenuItem: ["ഫോട്ടോകളും ഫയലുകളും അപ്‌ലോഡ് ചെയ്യുക"],
   copyResponse: ["മറുപടി കോപ്പി ചെയ്യുക"],
   modeLabels: ["തൽക്ഷണം", "ഇടത്തരം", "ഉയർന്നത്", "വളരെ ഉയർന്ന", "പ്രോ"],
+  modeOptions: {
+    instant: ["തൽക്ഷണം"],
+    medium: ["ഇടത്തരം"],
+    high: ["ഉയർന്നത്"],
+    extraHigh: ["വളരെ ഉയർന്ന"],
+    pro: ["പ്രോ"],
+  },
   modeOpenerExtra: ["കോൺഫിഗർ ചെയ്യുക…"],
   tools: {
     web_search: ["വെബ് തിരയൽ"],

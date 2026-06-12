@@ -19,6 +19,13 @@ export const kn = {
   addPhotosFilesMenuItem: ["ಫೋಟೊ ಮತ್ತು ಫೈಲ್‌ಗಳನ್ನು ಸೇರಿಸಿ"],
   copyResponse: ["ಪ್ರತಿಕ್ರಿಯೆಯನ್ನು ನಕಲಿಸಿ"],
   modeLabels: ["ತಕ್ಷಣ", "ಮಧ್ಯಮ", "ಉನ್ನತ", "ಅತಿ ಹೆಚ್ಚು", "ಪ್ರೊ"],
+  modeOptions: {
+    instant: ["ತಕ್ಷಣ"],
+    medium: ["ಮಧ್ಯಮ"],
+    high: ["ಉನ್ನತ"],
+    extraHigh: ["ಅತಿ ಹೆಚ್ಚು"],
+    pro: ["ಪ್ರೊ"],
+  },
   modeOpenerExtra: ["ಕಾನ್ಫಿಗರ್ ಮಾಡಿ..."],
   tools: {
     web_search: ["ವೆಬ್ ಸರ್ಚ್"],

@@ -19,6 +19,11 @@ export const hr = {
   addPhotosFilesMenuItem: ["Dodaj fotografije i datoteke"],
   copyResponse: ["Kopiraj odgovor"],
   modeLabels: ["Srednje", "Visoko", "Vrlo visoka"],
+  modeOptions: {
+    medium: ["Srednje"],
+    high: ["Visoko"],
+    extraHigh: ["Vrlo visoka"],
+  },
   modeOpenerExtra: ["Konfiguriraj…"],
   tools: {
     web_search: ["Mrežno pretraživanje"],

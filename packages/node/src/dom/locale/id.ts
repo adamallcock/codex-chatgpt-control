@@ -19,6 +19,12 @@ export const id = {
   addPhotosFilesMenuItem: ["Tambah foto & file"],
   copyResponse: ["Salin respons"],
   modeLabels: ["Instan", "Sedang", "Tinggi", "Sangat Tinggi"],
+  modeOptions: {
+    instant: ["Instan"],
+    medium: ["Sedang"],
+    high: ["Tinggi"],
+    extraHigh: ["Sangat Tinggi"],
+  },
   modeOpenerExtra: ["Konfigurasi..."],
   tools: {
     web_search: ["Pencarian web"],

@@ -19,6 +19,12 @@ export const bs = {
   addPhotosFilesMenuItem: ["Dodaj slike i datoteke"],
   copyResponse: ["Kopiraj odgovor"],
   modeLabels: ["Brzo", "Srednji", "Visoko", "Vrlo visoko"],
+  modeOptions: {
+    instant: ["Brzo"],
+    medium: ["Srednji"],
+    high: ["Visoko"],
+    extraHigh: ["Vrlo visoko"],
+  },
   modeOpenerExtra: ["Podesi"],
   tools: {
     web_search: ["Internet pretraga"],

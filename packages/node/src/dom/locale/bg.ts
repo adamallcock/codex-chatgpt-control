@@ -19,6 +19,13 @@ export const bg = {
   addPhotosFilesMenuItem: ["Добавяне на снимки и файлове"],
   copyResponse: ["Копирайте отговора"],
   modeLabels: ["Мигновен", "Среден", "Висок", "Много високо", "Про"],
+  modeOptions: {
+    instant: ["Мигновен"],
+    medium: ["Среден"],
+    high: ["Висок"],
+    extraHigh: ["Много високо"],
+    pro: ["Про"],
+  },
   modeOpenerExtra: ["Конфигурирайте"],
   tools: {
     web_search: ["Търсене в интернет"],

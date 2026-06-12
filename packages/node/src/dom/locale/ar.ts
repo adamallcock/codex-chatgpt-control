@@ -19,6 +19,13 @@ export const ar = {
   addPhotosFilesMenuItem: ["إضافة صور وملفات"],
   copyResponse: ["نسخ إجابة"],
   modeLabels: ["فوري", "متوسط", "عالي", "مكثف جدًا", "احترافي"],
+  modeOptions: {
+    instant: ["فوري"],
+    medium: ["متوسط"],
+    high: ["عالي"],
+    extraHigh: ["مكثف جدًا"],
+    pro: ["احترافي"],
+  },
   modeOpenerExtra: ["تكوين"],
   tools: {
     web_search: ["البحث في الويب"],

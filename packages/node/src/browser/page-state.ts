@@ -14,8 +14,17 @@ export type PageState = {
 };
 
 export function parseConversationId(url: string): string | undefined {
-  const match = /\/c\/([A-Za-z0-9-]+)/.exec(url);
-  return match?.[1];
+  let parsed: URL;
+  try {
+    parsed = new URL(url, "https://chatgpt.com");
+  } catch {
+    return undefined;
+  }
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  if (segments[0] !== "c" || segments[1] === undefined || segments[1].length === 0) {
+    return undefined;
+  }
+  return segments[1];
 }
 
 export async function readPageState(page: PageLike): Promise<PageState> {

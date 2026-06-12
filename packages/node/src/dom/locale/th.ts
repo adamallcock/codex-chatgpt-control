@@ -19,6 +19,12 @@ export const th = {
   addPhotosFilesMenuItem: ["อัปโหลดรูปและไฟล์"],
   copyResponse: ["คัดลอกคำตอบ"],
   modeLabels: ["ทันที", "ปานกลาง", "สูง", "สูงมาก"],
+  modeOptions: {
+    instant: ["ทันที"],
+    medium: ["ปานกลาง"],
+    high: ["สูง"],
+    extraHigh: ["สูงมาก"],
+  },
   modeOpenerExtra: ["กำหนดค่า..."],
   tools: {
     web_search: ["ค้นหาเว็บ"],

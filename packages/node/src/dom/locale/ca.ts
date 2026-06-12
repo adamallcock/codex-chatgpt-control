@@ -19,6 +19,12 @@ export const ca = {
   addPhotosFilesMenuItem: ["Afegeix fotos i fitxers"],
   copyResponse: ["Copia la resposta"],
   modeLabels: ["Instantani", "Mitjà", "Alt", "Molt alt"],
+  modeOptions: {
+    instant: ["Instantani"],
+    medium: ["Mitjà"],
+    high: ["Alt"],
+    extraHigh: ["Molt alt"],
+  },
   modeOpenerExtra: ["Configura…"],
   tools: {
     web_search: ["Cerca a la xarxa"],

@@ -20,6 +20,12 @@ export const frCA = {
   addPhotosFilesMenuItem: ["Ajouter des photos et des fichiers"],
   copyResponse: ["Copier la réponse"],
   modeLabels: ["Instantané", "Moyen", "Élevé", "Très élevé"],
+  modeOptions: {
+    instant: ["Instantané"],
+    medium: ["Moyen"],
+    high: ["Élevé"],
+    extraHigh: ["Très élevé"],
+  },
   modeOpenerExtra: ["Configurer..."],
   tools: {
     web_search: ["Recherche sur Internet"],

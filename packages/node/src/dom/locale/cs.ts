@@ -19,6 +19,12 @@ export const cs = {
   addPhotosFilesMenuItem: ["Přidat fotografie a soubory"],
   copyResponse: ["Zkopírovat odpověď"],
   modeLabels: ["Okamžitá", "Střední", "Vysoká", "Velmi vysoká"],
+  modeOptions: {
+    instant: ["Okamžitá"],
+    medium: ["Střední"],
+    high: ["Vysoká"],
+    extraHigh: ["Velmi vysoká"],
+  },
   modeOpenerExtra: ["Konfigurovat…"],
   tools: {
     web_search: ["Vyhledávání na webu"],

@@ -19,6 +19,12 @@ export const tr = {
   addPhotosFilesMenuItem: ["Fotoğraf ve dosya yükle"],
   copyResponse: ["Yanıtı kopyala"],
   modeLabels: ["Anında", "Orta", "Yüksek", "Çok Yüksek"],
+  modeOptions: {
+    instant: ["Anında"],
+    medium: ["Orta"],
+    high: ["Yüksek"],
+    extraHigh: ["Çok Yüksek"],
+  },
   modeOpenerExtra: ["Yapılandır..."],
   tools: {
     web_search: ["Web araması"],

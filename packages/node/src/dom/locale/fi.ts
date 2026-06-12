@@ -19,6 +19,12 @@ export const fi = {
   addPhotosFilesMenuItem: ["Lisää valokuvia & tiedostoja"],
   copyResponse: ["Kopioi vastaus"],
   modeLabels: ["Välitön", "Keskitaso", "Korkea", "Erittäin korkea"],
+  modeOptions: {
+    instant: ["Välitön"],
+    medium: ["Keskitaso"],
+    high: ["Korkea"],
+    extraHigh: ["Erittäin korkea"],
+  },
   modeOpenerExtra: ["Määritä..."],
   tools: {
     web_search: ["Verkkohaku"],

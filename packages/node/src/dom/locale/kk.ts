@@ -19,6 +19,12 @@ export const kk = {
   addPhotosFilesMenuItem: ["Фотосуреттер мен файлдар қосу"],
   copyResponse: ["Жауапты көшіру"],
   modeLabels: ["Жедел", "Орташа", "Жоғары", "Аса жоғары"],
+  modeOptions: {
+    instant: ["Жедел"],
+    medium: ["Орташа"],
+    high: ["Жоғары"],
+    extraHigh: ["Аса жоғары"],
+  },
   modeOpenerExtra: ["Кофигурациялау..."],
   tools: {
     web_search: ["Іздеу"],

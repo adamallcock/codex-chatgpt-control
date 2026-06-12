@@ -19,6 +19,12 @@ export const sw = {
   addPhotosFilesMenuItem: ["Pakia picha na mafaili"],
   copyResponse: ["Nakili jibu"],
   modeLabels: ["Papo hapo", "Wastani", "Juu", "Juu Zaidi"],
+  modeOptions: {
+    instant: ["Papo hapo"],
+    medium: ["Wastani"],
+    high: ["Juu"],
+    extraHigh: ["Juu Zaidi"],
+  },
   modeOpenerExtra: ["Sanidi..."],
   tools: {
     web_search: ["Utafutaji wa wavuti"],

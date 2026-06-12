@@ -19,6 +19,12 @@ export const lv = {
   addPhotosFilesMenuItem: ["Augšupielādēt foto un failus"],
   copyResponse: ["Kopēt atbildi"],
   modeLabels: ["Tūlītējs", "Vidējs", "Augsts", "Ļoti augsts"],
+  modeOptions: {
+    instant: ["Tūlītējs"],
+    medium: ["Vidējs"],
+    high: ["Augsts"],
+    extraHigh: ["Ļoti augsts"],
+  },
   modeOpenerExtra: ["Konfigurēt..."],
   tools: {
     web_search: ["Meklēšana tīmeklī"],

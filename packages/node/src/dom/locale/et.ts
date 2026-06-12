@@ -19,6 +19,12 @@ export const et = {
   addPhotosFilesMenuItem: ["Lisa fotosid ja faile"],
   copyResponse: ["Kopeeri vastus"],
   modeLabels: ["Kohene", "Keskmine", "Kõrge", "Väga kõrge"],
+  modeOptions: {
+    instant: ["Kohene"],
+    medium: ["Keskmine"],
+    high: ["Kõrge"],
+    extraHigh: ["Väga kõrge"],
+  },
   modeOpenerExtra: ["Konfigureeri..."],
   tools: {
     web_search: ["Veebiotsing"],

@@ -19,6 +19,12 @@ export const sl = {
   addPhotosFilesMenuItem: ["Naloži fotografije in datoteke"],
   copyResponse: ["Kopiraj odgovor"],
   modeLabels: ["Takoj", "Srednja", "Visoka", "Zelo visoko"],
+  modeOptions: {
+    instant: ["Takoj"],
+    medium: ["Srednja"],
+    high: ["Visoka"],
+    extraHigh: ["Zelo visoko"],
+  },
   modeOpenerExtra: ["Konfiguracija …"],
   tools: {
     web_search: ["Iskanje po spletu"],

@@ -19,6 +19,12 @@ export const uk = {
   addPhotosFilesMenuItem: ["Додати світлини та файли"],
   copyResponse: ["Копіювати відповідь"],
   modeLabels: ["Миттєвий", "Середній", "Високий", "Дуже високий"],
+  modeOptions: {
+    instant: ["Миттєвий"],
+    medium: ["Середній"],
+    high: ["Високий"],
+    extraHigh: ["Дуже високий"],
+  },
   modeOpenerExtra: ["Налаштувати…"],
   tools: {
     web_search: ["Пошук в Інтернеті"],

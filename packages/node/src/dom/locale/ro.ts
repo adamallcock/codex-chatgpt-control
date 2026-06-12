@@ -19,6 +19,11 @@ export const ro = {
   addPhotosFilesMenuItem: ["Încarcă fotografii și fișiere"],
   copyResponse: ["Copiază răspunsul"],
   modeLabels: ["Mediu", "Ridicat", "Foarte ridicată"],
+  modeOptions: {
+    medium: ["Mediu"],
+    high: ["Ridicat"],
+    extraHigh: ["Foarte ridicată"],
+  },
   modeOpenerExtra: ["Configurează..."],
   tools: {
     web_search: ["Căutare pe internet"],

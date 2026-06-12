@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { askMessage, readLatest, submittedUserTurnMatches, submitMessage, waitForMessage } from "../../src/commands/messages.js";
+import { askMessage, isResponseComplete, readLatest, submittedUserTurnMatches, submitMessage, waitForMessage } from "../../src/commands/messages.js";
 import { copyResponse } from "../../src/commands/response-actions.js";
+import { EMPTY_GENERATION_STATE } from "../../src/dom/generation-state.js";
 import {
   countMessages,
   extractMessagesFromHtml,
@@ -13,6 +14,16 @@ import {
 import type { LocatorLike, PageLike } from "../../src/types.js";
 
 describe("extractMessagesFromHtml", () => {
+  it("does not treat the empty generation-state fallback as completion evidence", () => {
+    expect(isResponseComplete({
+      latestText: "",
+      stableMs: 0,
+      textStableForMs: 0,
+      generation: EMPTY_GENERATION_STATE,
+      hasResponseActions: true
+    })).toBe(false);
+  });
+
   it("extracts ordered user and assistant messages", () => {
     const html = readFileSync("tests/fixtures/chat-basic.html", "utf8");
     const messages = extractMessagesFromHtml(html);
@@ -317,6 +328,33 @@ describe("extractMessagesFromHtml", () => {
 
     expect(result.ok).toBe(false);
     expect(result.status).toBe("partial");
+  });
+
+  it("bounds page-state blocker scans so partial text is not lost", async () => {
+    const page = scriptedWaitPage([
+      {
+        totalCount: 2,
+        assistantCount: 1,
+        latestAssistantTurnIndex: 2,
+        latestAssistantText: "Partial text survived the page-state probe.",
+        hasStopControl: false,
+        hasResponseActions: true
+      }
+    ]);
+    page.title = async () => new Promise<string>(() => {});
+
+    const result = await waitForMessage({ page }, {
+      afterAssistantTurnCount: 0,
+      timeoutMs: 20,
+      stableMs: 0,
+      pollMs: 1
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("partial");
+    expect(result.output_text).toBe("Partial text survived the page-state probe.");
+    expect(result.warnings.join(" ")).toContain("page state DOM probe");
+    expect(result.warnings.join(" ")).toContain("did not cancel browser-side work");
   });
 
   it("falls back to a guarded read when wait misses a submitted assistant turn", async () => {

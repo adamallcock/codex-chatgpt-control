@@ -19,6 +19,12 @@ export const pl = {
   addPhotosFilesMenuItem: ["Prześlij zdjęcia i pliki"],
   copyResponse: ["Kopiuj odpowiedź"],
   modeLabels: ["Błyskawiczny", "Średni", "Zaawansowana", "Bardzo wysoki"],
+  modeOptions: {
+    instant: ["Błyskawiczny"],
+    medium: ["Średni"],
+    high: ["Zaawansowana"],
+    extraHigh: ["Bardzo wysoki"],
+  },
   modeOpenerExtra: ["Skonfiguruj..."],
   tools: {
     web_search: ["Wyszukiwanie w sieci"],

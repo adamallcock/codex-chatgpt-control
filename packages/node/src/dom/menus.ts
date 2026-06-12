@@ -1,4 +1,5 @@
 import type { PageLike } from "../types.js";
+import { visibleLabelMatches } from "./label-match.js";
 import { normalizeLabel, normalizeWhitespace } from "./visible-text.js";
 
 export type MenuItem = {
@@ -82,6 +83,6 @@ export function findUniqueMenuItem(items: MenuItem[], wanted: string): MenuItem 
     return exact[0];
   }
 
-  const fuzzy = items.filter(item => item.normalized.includes(normalized));
+  const fuzzy = items.filter(item => visibleLabelMatches(item.label, wanted));
   return fuzzy.length === 1 ? fuzzy[0] : undefined;
 }

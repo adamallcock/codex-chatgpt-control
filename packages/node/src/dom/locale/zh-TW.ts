@@ -20,6 +20,13 @@ export const zhTW = {
   addPhotosFilesMenuItem: ["新增照片和檔案"],
   copyResponse: ["複製回應"],
   modeLabels: ["即時", "中等", "高", "超高", "專業"],
+  modeOptions: {
+    instant: ["即時"],
+    medium: ["中等"],
+    high: ["高"],
+    extraHigh: ["超高"],
+    pro: ["專業"],
+  },
   modeOpenerExtra: ["設定"],
   tools: {
     web_search: ["網頁搜尋"],

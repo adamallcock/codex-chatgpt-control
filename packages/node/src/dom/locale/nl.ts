@@ -19,6 +19,12 @@ export const nl = {
   addPhotosFilesMenuItem: ["Foto's en bestanden uploaden"],
   copyResponse: ["Reactie kopiëren"],
   modeLabels: ["Direct", "Gemiddeld", "Hoog", "Extra hoog"],
+  modeOptions: {
+    instant: ["Direct"],
+    medium: ["Gemiddeld"],
+    high: ["Hoog"],
+    extraHigh: ["Extra hoog"],
+  },
   modeOpenerExtra: ["Configureren..."],
   tools: {
     web_search: ["Zoeken op internet"],

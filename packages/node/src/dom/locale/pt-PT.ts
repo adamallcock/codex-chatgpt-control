@@ -19,6 +19,12 @@ export const ptPT = {
   addPhotosFilesMenuItem: ["Carregar fotos e ficheiros"],
   copyResponse: ["Copiar resposta"],
   modeLabels: ["Instantâneo", "Média", "Alta", "Máximo"],
+  modeOptions: {
+    instant: ["Instantâneo"],
+    medium: ["Média"],
+    high: ["Alta"],
+    extraHigh: ["Máximo"],
+  },
   modeOpenerExtra: ["Configurar..."],
   tools: {
     web_search: ["Procurar na web"],

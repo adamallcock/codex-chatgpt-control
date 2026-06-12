@@ -101,7 +101,7 @@ import { sr } from "./sr.js";
 import { mn } from "./mn.js";
 import { my } from "./my.js";
 import { ta } from "./ta.js";
-import type { LocaleContribution, LocaleStrings } from "./types.js";
+import type { LocaleContribution, LocaleStrings, ModeOptionId } from "./types.js";
 
 // --- Locale registration ---
 // English MUST be first (canonical). Append additional locale objects here.
@@ -111,6 +111,16 @@ const locales: readonly (LocaleStrings | LocaleContribution)[] = [en, de, esES, 
 
 type ToolId = "web_search" | "deep_research" | "create_image";
 const TOOL_IDS: ToolId[] = ["web_search", "deep_research", "create_image"];
+const MODE_OPTION_IDS: ModeOptionId[] = [
+  "latest",
+  "instant",
+  "thinking",
+  "extended",
+  "medium",
+  "high",
+  "extraHigh",
+  "pro",
+];
 
 /**
  * Flatten contributions for a single non-tools key, deduplicating strings while
@@ -167,6 +177,35 @@ function flattenTool(
   return result;
 }
 
+/**
+ * Flatten contributions for a single semantic mode id across all locales.
+ */
+function flattenModeOption(
+  localeList: readonly (LocaleStrings | LocaleContribution)[],
+  optionId: ModeOptionId
+): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const locale of localeList) {
+    const modeOptions = (locale as Record<string, unknown>)["modeOptions"] as
+      | Partial<Record<ModeOptionId, string | readonly string[]>>
+      | undefined;
+    if (modeOptions === undefined || modeOptions === null) continue;
+    const value = modeOptions[optionId];
+    if (value === undefined || value === null) continue;
+    const candidates: readonly string[] = typeof value === "string" ? [value] : (value as readonly string[]);
+    for (const candidate of candidates) {
+      if (candidate.length > 0 && !seen.has(candidate)) {
+        seen.add(candidate);
+        result.push(candidate);
+      }
+    }
+  }
+
+  return result;
+}
+
 // Build the combined localeLabels object by flattening all locales.
 const nonToolKeys = [
   "composerTextbox",
@@ -204,6 +243,10 @@ const builtTools = Object.fromEntries(
   TOOL_IDS.map(id => [id, flattenTool(locales, id)])
 ) as Record<ToolId, string[]>;
 
+const builtModeOptions = Object.fromEntries(
+  MODE_OPTION_IDS.map(id => [id, flattenModeOption(locales, id)])
+) as Record<ModeOptionId, string[]>;
+
 /**
  * The combined locale registry. Values are `string[]` (mutable; English-first; deduped).
  * Consumers treat this identically to the previous `as const` object — the array contents
@@ -226,6 +269,7 @@ export const localeLabels: {
   downloadImage: string[];
   imageContainerHint: string[];
   modeLabels: string[];
+  modeOptions: Record<ModeOptionId, string[]>;
   modeOpenerExtra: string[];
   tools: Record<string, string[]>;
   signedInMarkers: string[];
@@ -238,6 +282,7 @@ export const localeLabels: {
   rateLimitBlocker: string[];
 } = {
   ...builtLabels,
+  modeOptions: builtModeOptions,
   tools: builtTools,
 };
 
@@ -257,4 +302,4 @@ export function anyLabelPattern(candidates: readonly string[]): RegExp {
   return new RegExp(candidates.map(escapeRegExp).join("|"), "i");
 }
 
-export type { LocaleStrings, LocaleContribution } from "./types.js";
+export type { LocaleStrings, LocaleContribution, ModeOptionId, ModeOptionLabels, ModeOptionContribution } from "./types.js";

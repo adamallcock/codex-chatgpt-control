@@ -19,6 +19,12 @@ export const my = {
   addPhotosFilesMenuItem: ["ဓာတ်ပုံများနှင့် ဖိုင်များကို တင်ပါ"],
   copyResponse: ["တုံ့ပြန်မှု ကူးယူရန်"],
   modeLabels: ["ချက်ချင်း", "အလယ်အလတ်", "မြင့်", "အလွန်မြင့်"],
+  modeOptions: {
+    instant: ["ချက်ချင်း"],
+    medium: ["အလယ်အလတ်"],
+    high: ["မြင့်"],
+    extraHigh: ["အလွန်မြင့်"],
+  },
   modeOpenerExtra: ["ပြုပြင်မွမ်းမံရန်"],
   tools: {
     web_search: ["ဝဘ်ရှာဖွေရန်"],

@@ -19,6 +19,11 @@ export const da = {
   addPhotosFilesMenuItem: ["Tilføj billeder og filer"],
   copyResponse: ["Kopiér svar"],
   modeLabels: ["Øjeblikkeligt", "Høj", "Ekstra høj"],
+  modeOptions: {
+    instant: ["Øjeblikkeligt"],
+    high: ["Høj"],
+    extraHigh: ["Ekstra høj"],
+  },
   modeOpenerExtra: ["Konfigurer ..."],
   tools: {
     web_search: ["Internetsøgning"],

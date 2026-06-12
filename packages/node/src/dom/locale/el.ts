@@ -19,6 +19,12 @@ export const el = {
   addPhotosFilesMenuItem: ["Προσθήκη φωτογραφιών & αρχείων"],
   copyResponse: ["Αντιγραφή απάντησης"],
   modeLabels: ["Άμεση", "Μεσαία", "Υψηλή", "Πολύ υψηλό"],
+  modeOptions: {
+    instant: ["Άμεση"],
+    medium: ["Μεσαία"],
+    high: ["Υψηλή"],
+    extraHigh: ["Πολύ υψηλό"],
+  },
   modeOpenerExtra: ["Διαμόρφωση…"],
   tools: {
     web_search: ["Αναζήτηση στον ιστό"],

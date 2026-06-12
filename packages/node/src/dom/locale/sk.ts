@@ -19,6 +19,12 @@ export const sk = {
   addPhotosFilesMenuItem: ["Nahrať fotografie a súbory"],
   copyResponse: ["Kopírovať odpoveď"],
   modeLabels: ["Okamžitá", "Stredná", "Vysoká", "Extra vysoká"],
+  modeOptions: {
+    instant: ["Okamžitá"],
+    medium: ["Stredná"],
+    high: ["Vysoká"],
+    extraHigh: ["Extra vysoká"],
+  },
   modeOpenerExtra: ["Konfigurovať..."],
   tools: {
     web_search: ["Prehľadávaj web"],
