@@ -6074,6 +6074,7 @@ async function sleep2(page, ms2) {
 // src/commands/files.ts
 import { access, readFile as readFile3, stat as stat4 } from "node:fs/promises";
 import { constants } from "node:fs";
+import { createHash as createHash2 } from "node:crypto";
 import path2 from "node:path";
 
 // src/platform/local-paths.ts
@@ -6188,7 +6189,17 @@ async function preflightFiles(env, args) {
         message: `File attachment exceeds the configured per-file preflight limit: ${absolute} (${fileStat.size}/${maxBytesPerFile} bytes)`
       });
     }
-    const metadata = fileMetadata(absolute, fileStat.size);
+    if (fileStat.size === 0) {
+      return filePreflightBlocker({
+        env,
+        status: "blocked",
+        kind: "upload_failed",
+        code: "file_empty",
+        fieldPath,
+        message: `File attachment path is zero bytes and ChatGPT rejects empty attachments: ${absolute}`
+      });
+    }
+    const metadata = await fileMetadata(absolute, fileStat.size, args.includeHashes === true);
     files.push(metadata);
   }
   const totalBytes = files.reduce((sum, file) => sum + file.bytes, 0);
@@ -6206,7 +6217,11 @@ async function preflightFiles(env, args) {
   return resultOk({ files, totalBytes }, filePreflightContext(env), warnings);
 }
 async function attachFiles(env, args) {
-  const preflight = await preflightFiles(env, { paths: args.paths });
+  const preflightArgs = { paths: args.paths };
+  if (args.includeDiagnostics === true && args.includeHashes !== void 0) {
+    preflightArgs.includeHashes = args.includeHashes;
+  }
+  const preflight = await preflightFiles(env, preflightArgs);
   if (!preflight.ok || preflight.data === void 0) {
     return preflight;
   }
@@ -6222,6 +6237,7 @@ async function attachFiles(env, args) {
       bytes: file.bytes
     }));
     await uploadFiles(page, files, args.timeoutMs ?? 3e4);
+    const browserInput = args.includeDiagnostics === true ? await readBrowserInputDiagnostic(page).catch(() => void 0) : void 0;
     await page.waitForTimeout?.(args.timeoutMs === void 0 ? 1e3 : Math.min(args.timeoutMs, 3e3));
     const readiness = await waitForAttachedFilesReady(page, files, args.timeoutMs ?? 3e4);
     if (!readiness.ready) {
@@ -6254,7 +6270,14 @@ async function attachFiles(env, args) {
         context: await contextFromPage(page)
       };
     }
-    return resultOk({ files }, await contextFromPage(page), preflight.warnings);
+    const data = { files };
+    if (args.includeDiagnostics === true) {
+      data.diagnostics = { preflight: preflight.data };
+      if (browserInput !== void 0) {
+        data.diagnostics.browserInput = browserInput;
+      }
+    }
+    return resultOk(data, await contextFromPage(page), preflight.warnings);
   } catch (error) {
     if (isUploadBridgeBlocker(error)) {
       return {
@@ -6293,10 +6316,10 @@ function filePreflightBlocker(args) {
 function filePreflightContext(env) {
   return { timestamp: (env.now?.() ?? /* @__PURE__ */ new Date()).toISOString() };
 }
-function fileMetadata(absolute, bytes) {
+async function fileMetadata(absolute, bytes, includeHash = false) {
   const extension = extensionForHostPath(absolute);
   const { mimeType, category } = guessFileType(extension);
-  return {
+  const metadata = {
     path: absolute,
     name: basenameForHostPath(absolute),
     bytes,
@@ -6304,6 +6327,10 @@ function fileMetadata(absolute, bytes) {
     mimeType,
     category
   };
+  if (includeHash) {
+    metadata.sha256 = createHash2("sha256").update(await readFile3(absolute)).digest("hex");
+  }
+  return metadata;
 }
 function extensionForHostPath(value) {
   return process.platform === "win32" ? path2.win32.extname(value).toLowerCase() : path2.posix.extname(value).toLowerCase();
@@ -6312,9 +6339,6 @@ function collectFilePreflightWarnings(files, warnings) {
   const byPath = /* @__PURE__ */ new Map();
   const byName = /* @__PURE__ */ new Map();
   for (const file of files) {
-    if (file.bytes === 0) {
-      warnings.push(`Zero-byte file will be attached if ChatGPT accepts it: ${file.name}`);
-    }
     const pathCount = (byPath.get(file.path) ?? 0) + 1;
     byPath.set(file.path, pathCount);
     if (pathCount === 2) {
@@ -6632,6 +6656,32 @@ async function setHiddenFileInput(page, files) {
     return;
   }
   await input.setInputFiles(files.map((file) => file.path));
+}
+async function readBrowserInputDiagnostic(page) {
+  if (typeof page.evaluate !== "function") {
+    return void 0;
+  }
+  return page.evaluate(() => {
+    const input = document.querySelector("#upload-files") || document.querySelector("input[type='file']:not([accept='image/*'])") || document.querySelector("input[type='file']");
+    if (!input) {
+      return { files: [] };
+    }
+    return {
+      files: Array.from(input.files ?? []).map((file) => {
+        const diagnostic2 = {
+          name: file.name,
+          size: file.size
+        };
+        if (file.type.length > 0) {
+          diagnostic2.type = file.type;
+        }
+        if (file.lastModified !== 0) {
+          diagnostic2.lastModified = file.lastModified;
+        }
+        return diagnostic2;
+      })
+    };
+  });
 }
 async function ensurePage4(env) {
   if (env.page !== void 0) {
@@ -9193,7 +9243,17 @@ function primitiveArgs(name) {
   if (name === "artifacts.downloadLatest") return { destDir: "download destination directory", prefer: "download_control or visible_image_source" };
   if (name === "response.copy") return { prefer: "clipboard or dom", format: "markdown, normalized_text, visible_text, html, blocks, or all" };
   if (name.startsWith("threads.search")) return { query: "history search query" };
-  if (name === "files.preflight") return { paths: "absolute local file paths", maxBytesPerFile: "optional local per-file byte limit", maxTotalBytes: "optional local total byte limit" };
+  if (name === "files.preflight") return {
+    paths: "absolute local file paths",
+    maxBytesPerFile: "optional local per-file byte limit",
+    maxTotalBytes: "optional local total byte limit",
+    includeHashes: "optional SHA-256 metadata for diagnostics; file contents are not returned"
+  };
+  if (name === "files.attach") return {
+    paths: "absolute local file paths",
+    includeDiagnostics: "optional preflight and browser input file-size metadata",
+    includeHashes: "optional SHA-256 metadata inside diagnostics; file contents are not returned"
+  };
   if (name.startsWith("files.attach")) return { paths: "absolute local file paths" };
   if (name === "projects.sources.list") return { projectUrl: "ChatGPT Project URL such as https://chatgpt.com/g/g-p-.../project", existingTab: "optional exact existing-tab policy", timeoutMs: "optional browser timeout" };
   if (name === "projects.sources.planAdd") return { projectUrl: "ChatGPT Project URL", files: "explicit absolute local file paths", batchSize: "optional upload batch size" };
@@ -9221,7 +9281,8 @@ function primitiveExamples(name) {
   }
   if (name === "files.preflight") {
     return [
-      `await chatgpt.files.preflight({ paths: ["/absolute/host/path.md"] });`
+      `await chatgpt.files.preflight({ paths: ["/absolute/host/path.md"] });`,
+      `await chatgpt.files.preflight({ paths: ["/absolute/host/path.md"], includeHashes: true });`
     ];
   }
   if (name === "files.attach") {
