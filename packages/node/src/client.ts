@@ -27,6 +27,7 @@ import type {
   SequenceStep,
   SetModeArgs,
   ThreadTarget,
+  WaitAndReadArgs,
   WaitArgs
 } from "./types.js";
 import { downloadLatestArtifact, listLatestArtifacts, waitForArtifact } from "./commands/artifacts.js";
@@ -193,7 +194,7 @@ export type ChatGPTClient = {
     ask(args: AskArgs): Promise<CommandResult<unknown>>;
     wait(args?: WaitArgs): Promise<CommandResult<unknown>>;
     readLatest(args?: ReadLatestArgs): Promise<CommandResult<unknown>>;
-    waitAndRead(args?: WaitArgs & ReadLatestArgs): Promise<CommandResult<unknown>>;
+    waitAndRead(args?: WaitAndReadArgs): Promise<CommandResult<unknown>>;
   };
   files: {
     preflight(args: FilePreflightArgs): Promise<CommandResult<FilePreflightData>>;

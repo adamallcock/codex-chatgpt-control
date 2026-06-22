@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { askMessage, isResponseComplete, readLatest, submittedUserTurnMatches, submitMessage, waitForMessage } from "../../src/commands/messages.js";
+import { askMessage, isResponseComplete, readLatest, submittedUserTurnMatches, submitMessage, waitAndRead, waitForMessage } from "../../src/commands/messages.js";
 import { copyResponse } from "../../src/commands/response-actions.js";
 import { EMPTY_GENERATION_STATE } from "../../src/dom/generation-state.js";
 import {
@@ -390,6 +390,25 @@ describe("extractMessagesFromHtml", () => {
     expect(result.data?.complete).toBe(false);
     expect(result.warnings.join(" ")).toContain("Timed out after receiving partial assistant text.");
     expect(result.warnings.join(" ")).toContain("completion was not confirmed");
+  });
+
+  it("bounds waitAndRead waits so callers can continue polling the same thread", async () => {
+    const page = askWaitFallbackPage("Earlier question.", "Earlier answer.");
+
+    const result = await waitAndRead({ page }, {
+      timeoutMs: 120000,
+      maxWaitChunkMs: 5,
+      stableMs: 0,
+      pollMs: 1,
+      format: "normalized_text"
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("partial");
+    expect(result.output_text).toBe("Earlier answer.");
+    expect(result.data?.complete).toBe(false);
+    expect(result.warnings.join(" ")).toContain("bounded 5ms wait chunk");
+    expect(result.warnings.join(" ")).toContain("same thread");
   });
 
   it("waits for the send button to become ready before clicking", async () => {

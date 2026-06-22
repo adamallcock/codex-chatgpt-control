@@ -38,6 +38,7 @@ import type {
   SelectToolArgs,
   SequencePlan,
   SetModeArgs,
+  WaitAndReadArgs,
   WaitArgs
 } from "../types.js";
 import {
@@ -119,7 +120,7 @@ export type ChatGPTBackendClient = {
     ask(args: { text: string; wait?: boolean | WaitArgs; read?: boolean | ReadLatestArgs; timeoutMs?: number }): Promise<CommandResult<unknown>>;
     wait(args?: WaitArgs): Promise<CommandResult<unknown>>;
     readLatest(args?: ReadLatestArgs): Promise<CommandResult<unknown>>;
-    waitAndRead(args?: WaitArgs & ReadLatestArgs): Promise<CommandResult<unknown>>;
+    waitAndRead(args?: WaitAndReadArgs): Promise<CommandResult<unknown>>;
   };
   files: {
     attach(args: { paths: string[]; timeoutMs?: number }): Promise<CommandResult<unknown>>;

@@ -662,7 +662,8 @@ export async function waitAndRead(
   env: RuntimeEnv,
   args: WaitAndReadArgs = {}
 ): Promise<CommandResult<AskReadData>> {
-  const wait = await waitForMessage(env, args);
+  const waitArgs = waitAndReadWaitArgs(args);
+  const wait = await waitForMessage(env, waitArgs);
   if (!wait.ok && wait.status !== "partial") {
     return forwardFailure(wait);
   }
@@ -695,6 +696,7 @@ export async function waitAndRead(
       data,
       warnings: [
         ...warnings,
+        ...waitAndReadChunkWarnings(args, waitArgs),
         "Assistant response was read after partial wait, but completion was not confirmed."
       ],
       context: read.context
@@ -702,6 +704,28 @@ export async function waitAndRead(
   }
 
   return withCommandOutputText(resultOk(data, read.context, warnings));
+}
+
+function waitAndReadWaitArgs(args: WaitAndReadArgs = {}): WaitArgs {
+  const waitArgs: WaitArgs = { ...args };
+  const requested = finitePositiveNumber(args.timeoutMs) ?? 45000;
+  const chunk = finitePositiveNumber(args.maxWaitChunkMs) ?? 45000;
+  waitArgs.timeoutMs = Math.min(requested, chunk);
+  return waitArgs;
+}
+
+function waitAndReadChunkWarnings(args: WaitAndReadArgs = {}, waitArgs: WaitArgs = {}): string[] {
+  const requested = finitePositiveNumber(args.timeoutMs);
+  if (requested !== undefined && waitArgs.timeoutMs !== undefined && waitArgs.timeoutMs < requested) {
+    return [`waitAndRead used a bounded ${waitArgs.timeoutMs}ms wait chunk; call waitAndRead again on the same thread to continue without resubmitting.`];
+  }
+  return [];
+}
+
+function finitePositiveNumber(value: unknown): number | undefined {
+  if (value === undefined) return undefined;
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? Math.max(1, numberValue) : undefined;
 }
 
 async function ensurePage(env: RuntimeEnv): Promise<CommandResult<unknown>> {

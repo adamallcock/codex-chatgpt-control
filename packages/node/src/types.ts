@@ -336,7 +336,9 @@ export type ReadLatestData = {
   sourcesAvailable?: boolean;
 };
 
-export type WaitAndReadArgs = WaitArgs & ReadLatestArgs;
+export type WaitAndReadArgs = WaitArgs & ReadLatestArgs & {
+  maxWaitChunkMs?: number;
+};
 
 export type AskArgs = {
   text: string;

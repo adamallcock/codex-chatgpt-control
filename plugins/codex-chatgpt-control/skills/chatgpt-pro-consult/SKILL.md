@@ -50,6 +50,7 @@ Do not import from an older manually installed skill runtime; the plugin-bundled
 ```js
 const TOOL_CALL_SAFE_WAIT = {
   timeoutMs: 90_000,
+  maxWaitChunkMs: 45_000,
   stableMs: 2_000,
   pollMs: 750,
   mode: "deep_research"
