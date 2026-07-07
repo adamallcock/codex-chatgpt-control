@@ -3,7 +3,8 @@ import { readPageState, type PageState } from "../browser/page-state.js";
 import { resultError, resultOk } from "../errors.js";
 import { EMPTY_GENERATION_STATE, latestAssistantTurnHasResponseActions, readAssistantGenerationState, type AssistantGenerationState } from "../dom/generation-state.js";
 import { countPageMessages, isTransientAssistantText, readLatestMessage, readLatestMessageText, readLatestMessageTextSnapshot, readMessages } from "../dom/messages.js";
-import { composerTextbox, sendButton } from "../dom/selectors.js";
+import { composerTextbox, copyResponseButtons, sendButton } from "../dom/selectors.js";
+import { readWaitDomSnapshot, waitTextMetadata, type WaitDomSnapshot } from "../dom/wait-snapshot.js";
 import { normalizeLineBreaks, normalizeWhitespace } from "../dom/visible-text.js";
 import type {
   AskArgs,
@@ -311,7 +312,16 @@ async function readVisibleTextForSubmit(page: PageLike): Promise<string | undefi
   if (typeof page.evaluate !== "function") {
     return undefined;
   }
-  return page.evaluate(() => document.body?.innerText ?? "");
+  // Attachment/upload status renders inside the composer form; prefer that region over
+  // the whole page so the not-ready poll does not serialize the full document text.
+  return page.evaluate(() => {
+    const composerForm = document.querySelector("main form") ?? document.querySelector("form");
+    const scopedText = (composerForm as HTMLElement | null)?.innerText;
+    if (scopedText !== undefined && scopedText.trim().length > 0) {
+      return scopedText;
+    }
+    return document.body?.innerText ?? "";
+  });
 }
 
 async function sendTimeoutWarnings(page: PageLike): Promise<string[]> {
@@ -351,55 +361,70 @@ export async function waitForMessage(
   const deadline = createDeadline(timeoutMs, started);
   const probeTimeoutMs = Math.max(50, Math.min(1000, Math.max(pollMs, Math.floor(timeoutMs / 4))));
   const waitWarnings = new Set<string>();
-  const assistantProgressProbe = createSingleFlightProbe("assistant progress", readAssistantProgressSnapshot);
+  // One combined DOM probe per poll: counts, latest-text metadata, generation state, and
+  // response actions come back in a single evaluate, sampled from the same DOM instant.
+  // The full assistant text never crosses the bridge during polling; it is fetched once
+  // at loop exit. Page-state blocker scans run on a coarser cadence below.
+  const waitSnapshotProbe = createSingleFlightProbe("wait snapshot", readWaitDomSnapshot);
   const pageStateProbe = createSingleFlightProbe("page state", readPageState);
-  const generationStateProbe = createSingleFlightProbe("assistant generation state", readAssistantGenerationState);
-  const responseActionsProbe = createSingleFlightProbe("assistant response actions", latestAssistantTurnHasResponseActions);
-  let lastTargetText = "";
+  const PAGE_STATE_POLL_STRIDE = 4;
+  let pollIndex = 0;
+  let lastTargetKey = "";
   let lastChangedAt = Date.now();
+  let lastObservedTextLength = 0;
   let latestAssistantCount = await countPageMessages(page, "assistant").catch(() => 0);
 
   while (Date.now() - started < timeoutMs) {
-    const progressResult = await assistantProgressProbe(page, deadline, { timeoutMs: probeTimeoutMs });
-    addWarnings(waitWarnings, progressResult.warnings);
-    const progress = await progressSnapshotFromProbeResult(page, progressResult, latestAssistantCount);
-    latestAssistantCount = progress.assistantTurnCount;
-    const targetReached = waitTargetReached(args, progress);
-    const latestText = targetReached ? normalizeWhitespace(progress.latestText ?? "") : "";
+    const probeResult = await waitSnapshotProbe(page, deadline, { timeoutMs: probeTimeoutMs });
+    addWarnings(waitWarnings, probeResult.warnings);
+    const snapshot = await waitSnapshotFromProbeResult(page, probeResult, latestAssistantCount);
+    latestAssistantCount = snapshot.assistantTurnCount;
+    const targetReached = waitTargetReached(args, snapshot);
+    const targetKey = targetReached && snapshot.text.length > 0
+      ? `${snapshot.text.length}:${snapshot.text.hash}`
+      : "";
 
-    if (latestText !== lastTargetText) {
-      lastTargetText = latestText;
+    if (targetKey !== lastTargetKey) {
+      lastTargetKey = targetKey;
       lastChangedAt = Date.now();
     }
-
-    const state = await pageStateFromProbe(pageStateProbe(page, deadline, { timeoutMs: probeTimeoutMs }), waitWarnings);
-    if (state?.blocker !== undefined && state.blocker.kind !== "modal") {
-      return {
-        ok: false,
-        status: "blocked",
-        warnings: [...waitWarnings],
-        blocker: state.blocker,
-        context: await contextFromPage(page)
-      };
+    if (targetReached && snapshot.text.length > 0) {
+      lastObservedTextLength = snapshot.text.length;
     }
 
-    const snapshot: CompletionSnapshot = {
-      latestText,
-      stableMs,
-      textStableForMs: Date.now() - lastChangedAt,
-      generation: await generationStateFromProbe(generationStateProbe(page, deadline, { timeoutMs: probeTimeoutMs }), waitWarnings),
-      hasResponseActions: await responseActionsFromProbe(responseActionsProbe(page, deadline, { timeoutMs: probeTimeoutMs }), waitWarnings)
-    };
+    if (pollIndex % PAGE_STATE_POLL_STRIDE === 0) {
+      const state = await pageStateFromProbe(pageStateProbe(page, deadline, { timeoutMs: probeTimeoutMs }), waitWarnings);
+      if (state?.blocker !== undefined && state.blocker.kind !== "modal") {
+        return {
+          ok: false,
+          status: "blocked",
+          warnings: [...waitWarnings],
+          blocker: state.blocker,
+          context: await contextFromPage(page)
+        };
+      }
+    }
+    pollIndex += 1;
 
-    if (targetReached && snapshot.generation.stopped && latestText.length > 0) {
-      const data = waitDataFromText(args, false, latestText, latestAssistantCount, Date.now() - started);
+    const hasResponseActions = await resolveResponseActions(page, snapshot);
+
+    if (targetReached && snapshot.generation.stopped && snapshot.text.length > 0) {
+      const stoppedText = normalizeWhitespace(await fetchLatestAssistantText(page) ?? "");
+      // A failed re-read must not fabricate an empty capture: real text was observed in
+      // the snapshot, so omit response content entirely and tell the caller how to get it.
+      const data = stoppedText.length > 0
+        ? waitDataFromText(args, false, stoppedText, latestAssistantCount, Date.now() - started)
+        : waitDataWithoutText(latestAssistantCount, Date.now() - started);
+      if (stoppedText.length === 0) {
+        waitWarnings.add(`The interrupted assistant text (~${snapshot.text.length} chars observed) could not be re-read at wait exit; call messages.readLatest on the same thread to capture it.`);
+      }
       return withCommandOutputText({
         ok: false,
         status: "partial",
         data,
         warnings: [
           ...waitWarnings,
-          ...responseContentWarnings(args, false),
+          ...(stoppedText.length > 0 ? responseContentWarnings(args, false) : []),
           "ChatGPT generation appears to have been stopped or interrupted before completion.",
           ...snapshot.generation.signals.map(signal => `Generation state signal: ${signal}`)
         ],
@@ -407,27 +432,57 @@ export async function waitForMessage(
       } satisfies CommandResult<WaitData>);
     }
 
-    if (targetReached && isResponseComplete(snapshot)) {
-      const data = waitDataFromText(args, true, latestText, latestAssistantCount, Date.now() - started);
-      return withCommandOutputText(resultOk(
-        data,
-        await contextFromPage(page),
-        [...waitWarnings, ...responseContentWarnings(args, true)]
-      ));
+    const metadataComplete = targetReached
+      && snapshot.text.length > 0
+      && !snapshot.text.transient
+      && Date.now() - lastChangedAt >= stableMs
+      && !snapshot.generation.active
+      && !snapshot.generation.stopped
+      && hasResponseActions;
+
+    if (metadataComplete) {
+      // Fetch the text once and confirm it still matches the stable snapshot before
+      // declaring completion; a hash mismatch means the answer moved on mid-fetch.
+      const latestText = normalizeWhitespace(await fetchLatestAssistantText(page) ?? "");
+      const fetchedMetadata = waitTextMetadata(latestText);
+      const completionSnapshot: CompletionSnapshot = {
+        latestText,
+        stableMs,
+        textStableForMs: Date.now() - lastChangedAt,
+        generation: snapshot.generation,
+        hasResponseActions
+      };
+      if (fetchedMetadata.hash === snapshot.text.hash && isResponseComplete(completionSnapshot)) {
+        const data = waitDataFromText(args, true, latestText, latestAssistantCount, Date.now() - started);
+        return withCommandOutputText(resultOk(
+          data,
+          await contextFromPage(page),
+          [...waitWarnings, ...responseContentWarnings(args, true)]
+        ));
+      }
+      if (latestText.length > 0) {
+        lastTargetKey = `${fetchedMetadata.length}:${fetchedMetadata.hash}`;
+        lastChangedAt = Date.now();
+        lastObservedTextLength = fetchedMetadata.length;
+      }
     }
 
     await sleep(page, pollMs);
   }
 
-  if (lastTargetText.length > 0) {
-    const data = waitDataFromText(args, false, lastTargetText, latestAssistantCount, Date.now() - started);
-    return withCommandOutputText({
-      ok: false,
-      status: "partial",
-      data,
-      warnings: [...waitWarnings, ...responseContentWarnings(args, false), "Timed out after receiving partial assistant text."],
-      context: await contextFromPage(page)
-    } satisfies CommandResult<WaitData>);
+  if (lastObservedTextLength > 0) {
+    const partialText = await fetchLatestAssistantText(page);
+    if (partialText !== undefined && normalizeWhitespace(partialText).length > 0) {
+      const data = waitDataFromText(args, false, normalizeWhitespace(partialText), latestAssistantCount, Date.now() - started);
+      return withCommandOutputText({
+        ok: false,
+        status: "partial",
+        data,
+        warnings: [...waitWarnings, ...responseContentWarnings(args, false), "Timed out after receiving partial assistant text."],
+        context: await contextFromPage(page)
+      } satisfies CommandResult<WaitData>);
+    }
+    waitWarnings.add(`Partial assistant text (${lastObservedTextLength} chars) was observed during polling but could not be re-read at wait exit.`);
   }
 
   return {
@@ -441,6 +496,81 @@ export async function waitForMessage(
     },
     context: await contextFromPage(page)
   };
+}
+
+async function fetchLatestAssistantText(page: PageLike): Promise<string | undefined> {
+  const first = await readLatestMessageText(page, "assistant").catch(() => undefined);
+  if (first !== undefined) {
+    return first;
+  }
+  // One retry: exit-time reads race DOM reflow/navigation, and a transient failure here
+  // would otherwise discard an answer the polling snapshots proved exists.
+  await sleep(page, 150);
+  return readLatestMessageText(page, "assistant").catch(() => undefined);
+}
+
+function waitDataWithoutText(assistantTurnCount: number, elapsedMs: number): WaitData {
+  return { complete: false, assistantTurnCount, elapsedMs };
+}
+
+async function resolveResponseActions(page: PageLike, snapshot: WaitDomSnapshot): Promise<boolean> {
+  if (snapshot.hasResponseActions !== undefined) {
+    return snapshot.hasResponseActions;
+  }
+  // No conversation-turn markers: fall back to the structural copy-button locator, as
+  // the standalone response-actions probe does.
+  try {
+    const copyButtons = copyResponseButtons(page);
+    const count = await copyButtons.count?.();
+    if (count !== undefined) {
+      return count > 0;
+    }
+    return await copyButtons.isVisible?.() === true;
+  } catch {
+    return false;
+  }
+}
+
+async function waitSnapshotFromProbeResult(
+  page: PageLike,
+  result: ProbeResult<WaitDomSnapshot | undefined>,
+  previousAssistantTurnCount: number
+): Promise<WaitDomSnapshot> {
+  if (result.ok && result.value !== undefined) {
+    return result.value;
+  }
+  if (!result.ok && (result.timedOut === true || result.skipped === true)) {
+    return {
+      turnCount: 0,
+      assistantTurnCount: previousAssistantTurnCount,
+      text: waitTextMetadata(""),
+      generation: EMPTY_GENERATION_STATE,
+      hasResponseActions: false
+    };
+  }
+  return fallbackWaitSnapshot(page, previousAssistantTurnCount);
+}
+
+/**
+ * Degraded snapshot for pages where the combined evaluate is unavailable or failed.
+ * Reuses the standalone facet probes, which carry their own content/locator fallbacks;
+ * text metadata is computed SDK-side from the extracted text.
+ */
+async function fallbackWaitSnapshot(page: PageLike, previousAssistantTurnCount: number): Promise<WaitDomSnapshot> {
+  const progress = await fallbackAssistantProgressSnapshot(page, previousAssistantTurnCount);
+  const generation = await readAssistantGenerationState(page).catch(() => EMPTY_GENERATION_STATE);
+  const hasResponseActions = await latestAssistantTurnHasResponseActions(page).catch(() => false);
+  const snapshot: WaitDomSnapshot = {
+    turnCount: progress.turnCount ?? 0,
+    assistantTurnCount: progress.assistantTurnCount,
+    text: waitTextMetadata(progress.latestText),
+    generation,
+    hasResponseActions
+  };
+  if (progress.latestAssistantTurnIndex !== undefined) {
+    snapshot.latestAssistantTurnIndex = progress.latestAssistantTurnIndex;
+  }
+  return snapshot;
 }
 
 function waitDataFromText(
@@ -483,38 +613,6 @@ async function pageStateFromProbe(
   const result = await probe;
   addWarnings(warnings, result.warnings);
   return result.ok ? result.value : undefined;
-}
-
-async function progressSnapshotFromProbeResult(
-  page: PageLike,
-  result: ProbeResult<AssistantProgressSnapshot>,
-  previousAssistantTurnCount: number
-): Promise<AssistantProgressSnapshot> {
-  if (result.ok) {
-    return result.value;
-  }
-  if (result.timedOut === true || result.skipped === true) {
-    return { assistantTurnCount: previousAssistantTurnCount };
-  }
-  return fallbackAssistantProgressSnapshot(page, previousAssistantTurnCount);
-}
-
-async function generationStateFromProbe(
-  probe: Promise<ProbeResult<AssistantGenerationState>>,
-  warnings: Set<string>
-): Promise<AssistantGenerationState> {
-  const result = await probe;
-  addWarnings(warnings, result.warnings);
-  return result.ok ? result.value : EMPTY_GENERATION_STATE;
-}
-
-async function responseActionsFromProbe(
-  probe: Promise<ProbeResult<boolean>>,
-  warnings: Set<string>
-): Promise<boolean> {
-  const result = await probe;
-  addWarnings(warnings, result.warnings);
-  return result.ok ? result.value : false;
 }
 
 function addWarnings(target: Set<string>, warnings: readonly string[]): void {
@@ -820,33 +918,6 @@ function renderSubmittedTurnMarkdownSyntax(text: string, preserveFenceLanguage =
     .replace(/_([^_]+)_/g, "$1");
 }
 
-async function readAssistantProgressSnapshot(page: PageLike): Promise<AssistantProgressSnapshot> {
-  if (typeof page.evaluate === "function") {
-    return page.evaluate(() => {
-      const nodes = Array.from(document.querySelectorAll("[data-message-author-role]"));
-      const assistantNodes = nodes.filter(node => node.getAttribute("data-message-author-role") === "assistant");
-      const latestAssistant = assistantNodes.at(-1) as HTMLElement | undefined;
-      const latestAssistantTurnIndex = latestAssistant === undefined ? undefined : nodes.indexOf(latestAssistant) + 1;
-      const snapshot: {
-        latestText?: string;
-        turnCount: number;
-        assistantTurnCount: number;
-        latestAssistantTurnIndex?: number;
-      } = {
-        turnCount: nodes.length,
-        assistantTurnCount: assistantNodes.length
-      };
-
-      const latestText = latestAssistant?.innerText ?? latestAssistant?.textContent ?? undefined;
-      if (latestText !== undefined) snapshot.latestText = latestText;
-      if (latestAssistantTurnIndex !== undefined) snapshot.latestAssistantTurnIndex = latestAssistantTurnIndex;
-      return snapshot;
-    });
-  }
-
-  return fallbackAssistantProgressSnapshot(page, 0);
-}
-
 async function fallbackAssistantProgressSnapshot(
   page: PageLike,
   previousAssistantTurnCount: number
@@ -881,7 +952,10 @@ async function fallbackAssistantProgressSnapshot(
   return snapshot;
 }
 
-function waitTargetReached(args: WaitArgs, snapshot: AssistantProgressSnapshot): boolean {
+function waitTargetReached(
+  args: WaitArgs,
+  snapshot: { assistantTurnCount: number; turnCount?: number; latestAssistantTurnIndex?: number }
+): boolean {
   const assistantTargetReached = args.afterAssistantTurnCount === undefined
     || snapshot.assistantTurnCount > args.afterAssistantTurnCount;
   const turnTargetReached = args.afterTurnCount === undefined

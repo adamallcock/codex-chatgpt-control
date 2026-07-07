@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { askMessage, isResponseComplete, readLatest, submittedUserTurnMatches, submitMessage, waitForMessage } from "../../src/commands/messages.js";
+import { waitTextMetadata } from "../../src/dom/wait-snapshot.js";
 import { copyResponse } from "../../src/commands/response-actions.js";
 import { EMPTY_GENERATION_STATE } from "../../src/dom/generation-state.js";
 import {
@@ -305,6 +306,36 @@ describe("extractMessagesFromHtml", () => {
     expect(result.warnings.join(" ")).toMatch(/stopped|interrupted/i);
   });
 
+  it("does not fabricate empty partial text when the stopped answer cannot be re-read", async () => {
+    const page = scriptedWaitPage([
+      {
+        totalCount: 2,
+        assistantCount: 1,
+        latestAssistantTurnIndex: 2,
+        latestAssistantText: "I will now produce the list.",
+        hasStopControl: false,
+        stoppedText: "Stopped thinking",
+        hasResponseActions: true,
+        failTextFetch: true
+      }
+    ]);
+
+    const result = await waitForMessage({ page }, {
+      afterAssistantTurnCount: 0,
+      timeoutMs: 5,
+      stableMs: 0,
+      pollMs: 1
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("partial");
+    expect(result.data?.complete).toBe(false);
+    expect(result.data?.responseText).toBeUndefined();
+    expect(result.data?.responseChars).toBeUndefined();
+    expect(result.output_text).toBeUndefined();
+    expect(result.warnings.join(" ")).toContain("could not be re-read at wait exit");
+  });
+
   it("does not use an older assistant turn copy action to complete a new generating answer", async () => {
     const page = scriptedWaitPage([
       {
@@ -389,7 +420,7 @@ describe("extractMessagesFromHtml", () => {
     expect(result.warnings.join(" ")).toContain("Assistant response text was omitted");
   });
 
-  it("bounds page-state blocker scans so partial text is not lost", async () => {
+  it("bounds page-state blocker scans so assistant text is not lost", async () => {
     const page = scriptedWaitPage([
       {
         totalCount: 2,
@@ -409,11 +440,43 @@ describe("extractMessagesFromHtml", () => {
       pollMs: 1
     });
 
-    expect(result.ok).toBe(false);
-    expect(result.status).toBe("partial");
+    expect(result.ok).toBe(true);
+    expect(result.data?.complete).toBe(true);
     expect(result.output_text).toBe("Partial text survived the page-state probe.");
     expect(result.warnings.join(" ")).toContain("page state DOM probe");
     expect(result.warnings.join(" ")).toContain("did not cancel browser-side work");
+  });
+
+  it("restarts the stability window when the growing answer changes between polls", async () => {
+    const page = scriptedWaitPage([
+      {
+        totalCount: 2,
+        assistantCount: 1,
+        latestAssistantTurnIndex: 2,
+        latestAssistantText: "Growing answer part one",
+        hasStopControl: false,
+        hasResponseActions: true
+      },
+      {
+        totalCount: 2,
+        assistantCount: 1,
+        latestAssistantTurnIndex: 2,
+        latestAssistantText: "Growing answer part one and part two",
+        hasStopControl: false,
+        hasResponseActions: true
+      }
+    ]);
+
+    const result = await waitForMessage({ page }, {
+      afterAssistantTurnCount: 0,
+      timeoutMs: 2000,
+      stableMs: 40,
+      pollMs: 1
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.complete).toBe(true);
+    expect(result.output_text).toBe("Growing answer part one and part two");
   });
 
   it("falls back to a guarded read when wait misses a submitted assistant turn", async () => {
@@ -901,6 +964,16 @@ function askWaitFallbackPage(prompt: string, answer: string): PageLike {
           : submitted ? answer : "Earlier answer.";
         return snapshot as T;
       }
+      if (source.includes("__combinedWaitSnapshot")) {
+        return {
+          turnCount: totalCount,
+          assistantTurnCount: assistantCount,
+          latestAssistantTurnIndex: submitted ? 4 : 2,
+          text: waitTextMetadata(submitted ? answer : "Earlier answer."),
+          generation: { active: false, stopped: false, signals: [] },
+          hasResponseActions: false
+        } as T;
+      }
       if (source.includes("assistantNodes") && source.includes("latestAssistantTurnIndex")) {
         return {
           latestText: submitted ? answer : "Earlier answer.",
@@ -982,6 +1055,8 @@ type WaitSnapshot = {
   stoppedText?: string;
   hasResponseActions: boolean;
   latestTurnHasResponseActions?: boolean;
+  /** Simulate a DOM read failure when the wait loop re-fetches the full text at exit. */
+  failTextFetch?: boolean;
 };
 
 function scriptedWaitPage(snapshots: WaitSnapshot[]): PageLike {
@@ -993,6 +1068,22 @@ function scriptedWaitPage(snapshots: WaitSnapshot[]): PageLike {
       const source = String(fn);
       const snapshot = current();
 
+      if (source.includes("__combinedWaitSnapshot")) {
+        const active = snapshot.hasStopControl || snapshot.stopButtonAria?.toLowerCase().includes("stop") === true;
+        const stopped = snapshot.stoppedText !== undefined;
+        const signals = [
+          snapshot.stopButtonAria,
+          snapshot.stoppedText
+        ].filter((value): value is string => value !== undefined);
+        return {
+          turnCount: snapshot.totalCount,
+          assistantTurnCount: snapshot.assistantCount,
+          latestAssistantTurnIndex: snapshot.latestAssistantTurnIndex ?? snapshot.totalCount,
+          text: waitTextMetadata(snapshot.latestAssistantText),
+          generation: { active, stopped, signals },
+          hasResponseActions: snapshot.latestTurnHasResponseActions ?? snapshot.hasResponseActions
+        } as T;
+      }
       if (Array.isArray(arg) && arg.includes("stop generating")) {
         return snapshot.hasStopControl as T;
       }
@@ -1026,6 +1117,9 @@ function scriptedWaitPage(snapshots: WaitSnapshot[]): PageLike {
         return { active, stopped, signals } as T;
       }
       if (source.includes("node?.innerText")) {
+        if (snapshot.failTextFetch === true) {
+          throw new Error("simulated exit-time DOM read failure");
+        }
         return snapshot.latestAssistantText as T;
       }
       if (source.includes("document.querySelectorAll(selector).length")) {
