@@ -33,7 +33,7 @@ Use `chatgpt.explainBlocker(result)` or Python `explain_blocker(result)` when re
 Do not conclude that Chrome or the extension is broken from a plain shell result, or from checking `globalThis.agent` before the Chrome plugin runtime is initialized. For a true Codex Chrome-plugin live run, bootstrap the runtime first:
 
 ```js
-const { setupBrowserRuntime } = await import("/example/user/.codex/plugins/cache/openai-bundled/chrome/26.602.40724/scripts/browser-client.mjs");
+const { setupBrowserRuntime } = await import("/example/user/.codex/plugins/cache/openai-bundled/chrome/latest/scripts/browser-client.mjs");
 await setupBrowserRuntime({ globals: globalThis });
 globalThis.browser = await agent.browsers.get("extension");
 ```
@@ -107,7 +107,7 @@ browser-side metadata instead of guessing:
 
 ## Clipboard Unavailable
 
-`response.copy` falls back to DOM text extraction when the macOS system clipboard does not change.
+`response.copy` falls back to DOM text extraction when the system clipboard does not change. Clipboard reads use `pbpaste` on macOS, PowerShell `Get-Clipboard` on Windows, and `xclip`/`xsel`/`wl-paste` on Linux; hosts without any of these tools always use the DOM fallback.
 
 ## Flattened Or Unreadable Response Capture
 
