@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0-alpha.1
+
+- Adds `experience.detect/open`, `configuration.inspect/apply`, and the Work task lifecycle command group.
+- Adds scoped Chat/Work selector profiles, strict configuration postcondition verification, and sanitized profile fixtures.
+- Adds runner/Responses experience and configuration inputs plus milestone events.
+- Preserves existing `mode`, `modes.set/get`, commands, package imports, and wire fields for backward compatibility.
+
 ## 0.3.0-alpha.1
 
 - Hardens mode-menu detection and selection against thread/sidebar action menus, with locale-registry-backed thread-action vetoes and container-scoped menu enumeration.

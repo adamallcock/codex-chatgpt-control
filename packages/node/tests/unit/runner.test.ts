@@ -96,6 +96,46 @@ describe("ChatGPT runner facade", () => {
     });
   });
 
+  it("plans surface-aware experience and strict configuration before the prompt", () => {
+    const chatgpt = createChatGPT();
+    const agent = chatgpt.agent({ name: "work-reviewer" });
+
+    const plan = chatgpt.runner.plan(agent, {
+      input: "Produce a brief.",
+      thread: { type: "new" },
+      experience: "work",
+      configuration: {
+        model: "GPT-5.6 Sol",
+        effort: "High",
+        speed: "Standard"
+      }
+    });
+
+    expect(plan.steps.map(step => step.command)).toEqual([
+      "session.bootstrap",
+      "threads.new",
+      "experience.open",
+      "configuration.apply",
+      "messages.ask"
+    ]);
+    expect(plan.steps[2]).toMatchObject({
+      command: "experience.open",
+      args: { experience: "work" }
+    });
+    expect(plan.steps[3]).toMatchObject({
+      command: "configuration.apply",
+      args: {
+        experience: "work",
+        desired: {
+          model: "GPT-5.6 Sol",
+          effort: "High",
+          speed: "Standard"
+        },
+        strict: true
+      }
+    });
+  });
+
   it("does not leak metadata-only instructions into visible prompt text", () => {
     const chatgpt = createChatGPT();
     const agent = chatgpt.agent({
@@ -214,7 +254,9 @@ describe("ChatGPT runner facade", () => {
       data: {
         prompt: "Write 500 numbered items.",
         responseText: "I will now produce the list.",
-        complete: false
+        complete: false,
+        completionState: "generating",
+        generationActive: true
       },
       warnings: ["Timed out after receiving partial assistant text."],
       context: {
@@ -228,7 +270,16 @@ describe("ChatGPT runner facade", () => {
     expect(result.status).toBe("partial");
     expect(result.output_text).toBe("I will now produce the list.");
     expect(result.data?.outputText).toBe("I will now produce the list.");
+    expect(result.data?.completionState).toBe("generating");
+    expect(result.data?.generationActive).toBe(true);
     expect(result.data?.thread?.conversationId).toBe("fixture-partial");
+    expect(result.output).toContainEqual(expect.objectContaining({
+      type: "message.in_progress",
+      completionState: "generating",
+      generationActive: true
+    }));
+    expect(result.output).not.toContainEqual(expect.objectContaining({ type: "message.completed" }));
+    expect(result.state.completionState).toBe("generating");
     expect(result.interruptions[0]?.status).toBe("partial");
     expect(result.interruptions[0]?.type).toBe("timeout");
   });

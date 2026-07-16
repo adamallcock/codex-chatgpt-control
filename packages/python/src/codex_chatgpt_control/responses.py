@@ -4,11 +4,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+from .commands import to_wire_value
 from .models import ChatGPTResponse, ChatGPTRunResult
 
 
 UNSUPPORTED_ALTERNATIVES = {
-    "model": "Use mode for visible ChatGPT UI mode preference. This does not select an API model.",
+    "model": "Use experience plus configuration for visible ChatGPT UI preferences. Legacy mode remains supported. These do not select an API model.",
     "temperature": "No browser-control equivalent. ChatGPT web does not expose API temperature.",
     "top_p": "No browser-control equivalent. ChatGPT web does not expose API nucleus sampling.",
     "seed": "No browser-control equivalent. Visible ChatGPT web does not expose deterministic API seeds.",
@@ -25,6 +26,10 @@ UNSUPPORTED_ALTERNATIVES = {
 ACCEPTED_TOP_LEVEL_FIELDS = {
     "input",
     "thread",
+    "existingTab",
+    "preferExistingTab",
+    "experience",
+    "configuration",
     "attachments",
     "mode",
     "tools",
@@ -85,9 +90,17 @@ class ResponsesClient:
 
 
 def normalize_create_args(args: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(args)
+    normalized = {
+        key: to_wire_value(value)
+        for key, value in args.items()
+        if value is not None
+    }
     if "instructions_mode" in normalized and "instructionsMode" not in normalized:
         normalized["instructionsMode"] = normalized.pop("instructions_mode")
+    if "existing_tab" in normalized and "existingTab" not in normalized:
+        normalized["existingTab"] = normalized.pop("existing_tab")
+    if "prefer_existing_tab" in normalized and "preferExistingTab" not in normalized:
+        normalized["preferExistingTab"] = normalized.pop("prefer_existing_tab")
     return normalized
 
 
@@ -181,7 +194,17 @@ def responses_create_args_to_run_input(args: dict[str, Any]) -> dict[str, Any]:
         "input": args["input"],
         "response": {"format": text_format or "markdown"},
     }
-    for key in ("thread", "attachments", "mode", "tools", "report"):
+    for key in (
+        "thread",
+        "existingTab",
+        "preferExistingTab",
+        "experience",
+        "configuration",
+        "attachments",
+        "mode",
+        "tools",
+        "report",
+    ):
         if key in args:
             run_input[key] = args[key]
     return run_input
@@ -201,6 +224,15 @@ def response_from_run_result(result: ChatGPTRunResult, now: datetime) -> ChatGPT
             browser_control["thread"] = data["thread"]
         if isinstance(data.get("reportPath"), str):
             browser_control["reportPath"] = data["reportPath"]
+        for key in ("submissionState", "completionState", "generationActive"):
+            if key in data:
+                browser_control[key] = data[key]
+    state = getattr(result, "state", None)
+    if state is not None:
+        state_wire = state.to_wire() if hasattr(state, "to_wire") else {}
+        for key in ("submissionState", "completionState"):
+            if key in state_wire:
+                browser_control[key] = state_wire[key]
     if result.report_path is not None:
         browser_control["reportPath"] = result.report_path
 

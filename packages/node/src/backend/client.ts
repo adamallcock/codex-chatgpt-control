@@ -26,19 +26,40 @@ import type { ReportRedactionOptions } from "../safety/report-redaction.js";
 import type {
   ArtifactDownloadArgs,
   ArtifactWaitArgs,
+  ApplyConfigurationData,
+  ApplyConfigurationArgs,
   BootstrapArgs,
+  ChatGPTExperience,
   CommandResult,
+  ConfigurationInspectionData,
   CopyResponseArgs,
+  DetectExperienceArgs,
+  DetectExperienceData,
   DownloadLatestArgs,
+  GetModeArgs,
+  GetModeData,
+  InspectConfigurationArgs,
   ListArtifactsArgs,
+  MessageStatusArgs,
   NewThreadArgs,
   OpenThreadArgs,
+  OpenExperienceData,
   ReadLatestArgs,
+  ReadWorkLatestArgs,
+  ReadWorkLatestData,
   SearchThreadsArgs,
   SelectToolArgs,
   SequencePlan,
   SetModeArgs,
-  WaitArgs
+  StartWorkArgs,
+  StartWorkData,
+  SteerWorkArgs,
+  SteerWorkData,
+  WaitArgs,
+  WorkStatusArgs,
+  WorkStatusData,
+  WorkWaitArgs,
+  WorkWaitData
 } from "../types.js";
 import {
   BACKEND_REQUEST_SCHEMA_VERSION,
@@ -108,6 +129,26 @@ export type ChatGPTBackendClient = {
   session: {
     bootstrap(args?: BootstrapArgs): Promise<CommandResult<unknown>>;
   };
+  experience: {
+    detect(args?: DetectExperienceArgs): Promise<CommandResult<DetectExperienceData>>;
+    open(args: { experience: Exclude<ChatGPTExperience, "unknown">; timeoutMs?: number }): Promise<CommandResult<OpenExperienceData>>;
+  };
+  configuration: {
+    inspect(args?: InspectConfigurationArgs): Promise<CommandResult<ConfigurationInspectionData>>;
+    apply(args: ApplyConfigurationArgs): Promise<CommandResult<ApplyConfigurationData>>;
+  };
+  work: {
+    start(args: StartWorkArgs): Promise<CommandResult<StartWorkData>>;
+    status(args?: WorkStatusArgs): Promise<CommandResult<WorkStatusData>>;
+    wait(args?: WorkWaitArgs): Promise<CommandResult<WorkWaitData>>;
+    steer(args: SteerWorkArgs): Promise<CommandResult<SteerWorkData>>;
+    readLatest(args?: ReadWorkLatestArgs): Promise<CommandResult<ReadWorkLatestData>>;
+    artifacts: {
+      listLatest(args?: ListArtifactsArgs): Promise<CommandResult<unknown>>;
+      wait(args?: ArtifactWaitArgs): Promise<CommandResult<unknown>>;
+      downloadLatest(args: ArtifactDownloadArgs): Promise<CommandResult<unknown>>;
+    };
+  };
   threads: {
     "new"(args?: NewThreadArgs): Promise<CommandResult<unknown>>;
     search(args: SearchThreadsArgs): Promise<CommandResult<unknown>>;
@@ -119,6 +160,7 @@ export type ChatGPTBackendClient = {
     ask(args: { text: string; wait?: boolean | WaitArgs; read?: boolean | ReadLatestArgs; timeoutMs?: number }): Promise<CommandResult<unknown>>;
     wait(args?: WaitArgs): Promise<CommandResult<unknown>>;
     readLatest(args?: ReadLatestArgs): Promise<CommandResult<unknown>>;
+    status(args?: MessageStatusArgs): Promise<CommandResult<unknown>>;
     waitAndRead(args?: WaitArgs & ReadLatestArgs): Promise<CommandResult<unknown>>;
   };
   files: {
@@ -127,6 +169,7 @@ export type ChatGPTBackendClient = {
   };
   modes: {
     set(args: SetModeArgs): Promise<CommandResult<unknown>>;
+    get(args?: GetModeArgs): Promise<CommandResult<GetModeData>>;
   };
   tools: {
     select(args: SelectToolArgs): Promise<CommandResult<unknown>>;
@@ -191,6 +234,26 @@ export function createChatGPTBackendClient(transport: BackendTransport): ChatGPT
     session: {
       bootstrap: args => request("session.bootstrap", args as Record<string, unknown> | undefined ?? {})
     },
+    experience: {
+      detect: args => request("experience.detect", args as Record<string, unknown> | undefined ?? {}),
+      open: args => request("experience.open", args as Record<string, unknown>)
+    },
+    configuration: {
+      inspect: args => request("configuration.inspect", args as Record<string, unknown> | undefined ?? {}),
+      apply: args => request("configuration.apply", args as unknown as Record<string, unknown>)
+    },
+    work: {
+      start: args => request("work.start", args as unknown as Record<string, unknown>),
+      status: args => request("work.status", args as Record<string, unknown> | undefined ?? {}),
+      wait: args => request("work.wait", args as Record<string, unknown> | undefined ?? {}),
+      steer: args => request("work.steer", args as unknown as Record<string, unknown>),
+      readLatest: args => request("work.readLatest", args as Record<string, unknown> | undefined ?? {}),
+      artifacts: {
+        listLatest: args => request("artifacts.listLatest", args as Record<string, unknown> | undefined ?? {}),
+        wait: args => request("artifacts.wait", args as Record<string, unknown> | undefined ?? {}),
+        downloadLatest: args => request("artifacts.downloadLatest", args as unknown as Record<string, unknown>)
+      }
+    },
     threads: {
       new: args => request("threads.new", args as Record<string, unknown> | undefined ?? {}),
       search: args => request("threads.search", args as unknown as Record<string, unknown>),
@@ -202,6 +265,7 @@ export function createChatGPTBackendClient(transport: BackendTransport): ChatGPT
       ask: args => request("messages.ask", args as Record<string, unknown>),
       wait: args => request("messages.wait", args as Record<string, unknown> | undefined ?? {}),
       readLatest: args => request("messages.readLatest", args as Record<string, unknown> | undefined ?? {}),
+      status: args => request("messages.status", args as Record<string, unknown> | undefined ?? {}),
       waitAndRead: args => request("messages.waitAndRead", args as Record<string, unknown>)
     },
     artifacts: {
@@ -214,7 +278,8 @@ export function createChatGPTBackendClient(transport: BackendTransport): ChatGPT
       downloadLatest: args => request("files.downloadLatest", args as unknown as Record<string, unknown>)
     },
     modes: {
-      set: args => request("modes.set", args as Record<string, unknown>)
+      set: args => request("modes.set", args as Record<string, unknown>),
+      get: args => request("modes.get", args as Record<string, unknown> | undefined ?? {})
     },
     tools: {
       select: args => request("tools.select", args as Record<string, unknown>)

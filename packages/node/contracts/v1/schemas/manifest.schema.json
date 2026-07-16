@@ -21,7 +21,8 @@
         "backendRequest",
         "backendResponse",
         "backendEvent",
-        "capabilities"
+        "capabilities",
+        "surfaceProfile"
       ],
       "additionalProperties": false,
       "properties": {
@@ -35,7 +36,8 @@
         "backendRequest": { "type": "string", "minLength": 1 },
         "backendResponse": { "type": "string", "minLength": 1 },
         "backendEvent": { "type": "string", "minLength": 1 },
-        "capabilities": { "type": "string", "minLength": 1 }
+        "capabilities": { "type": "string", "minLength": 1 },
+        "surfaceProfile": { "type": "string", "minLength": 1 }
       }
     },
     "fixtures": {
@@ -58,7 +60,8 @@
               "backendRequest",
               "backendResponse",
               "backendEvent",
-              "capabilities"
+              "capabilities",
+              "surfaceProfile"
             ]
           },
           "case": { "type": "string", "minLength": 1 }

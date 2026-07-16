@@ -1,6 +1,6 @@
 ---
 name: codex-chatgpt-control
-description: Use when Codex agents need to operate visible ChatGPT web sessions through the codex-chatgpt-control SDK, including prompts, threads, files, downloads, reports, browser bridge blockers, and local source smokes.
+description: Use when Codex agents need to operate visible ChatGPT Chat or Work through the codex-chatgpt-control SDK, including verified configuration, prompts, tasks, progress, steering, files, artifacts, reports, blockers, and source smokes.
 ---
 
 # codex-chatgpt-control
@@ -18,6 +18,7 @@ This skill is for visible, user-directed ChatGPT workflows only. It is not an Op
 5. Ask for explicit user confirmation before public, destructive, third-party, paid, account-level, or externally visible actions.
 6. Redact run reports by default. Raw prompt/response content is opt-in only.
 7. Attach only files the user approved.
+8. Use official Codex capabilities for local repository editing, commands, tests, branches, and deployment. This SDK controls visible ChatGPT surfaces.
 
 ## Runtime Requirements
 
@@ -105,6 +106,39 @@ Instructions are visible prompt text by default. Use `instructionsMode` intentio
 - `metadata_only`: keep instructions local; they are not sent to ChatGPT.
 
 ## Common Workflows
+
+Inspect the visible Chat or Work surface:
+
+```ts
+const surface = await chatgpt.experience.detect();
+const capabilities = await chatgpt.configuration.inspect();
+```
+
+Apply strict Work configuration and start a task once:
+
+```ts
+await chatgpt.configuration.apply({
+  experience: "work",
+  desired: {
+    model: "GPT-5.6 Sol",
+    effort: "High",
+    speed: "Standard"
+  },
+  strict: true
+});
+
+await chatgpt.work.start({
+  prompt: "Produce a decision-ready implementation brief.",
+  newTask: true,
+  wait: false,
+  read: false
+});
+```
+
+After submission use `chatgpt.work.status`, `work.wait`, `work.steer`,
+`work.readLatest`, and `work.artifacts`; do not resubmit after an ambiguous
+timeout. Existing `mode` inputs and `modes.set/get` remain supported, while new
+code should prefer `experience` and strict `configuration`.
 
 Ask in a new or selected thread:
 

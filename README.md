@@ -7,25 +7,27 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Node](https://img.shields.io/badge/Node-20%2B-green)
 
-Unofficial alpha SDK facade for Codex agents that need to run user-directed workflows in a visible ChatGPT web session.
+Unofficial alpha SDK for agents that need to delegate user-directed workflows to the visible ChatGPT Chat and Work experiences.
 
 https://github.com/user-attachments/assets/6ca38f2d-6646-490d-8e4d-8a6dc21e926f
 
 
 ## Why This Exists
 
-This project exists because Codex and ChatGPT are useful in different parts of the same work loop. Codex is the execution environment: it can read and edit the local repo, run commands, test changes, and prepare branches. ChatGPT, meanwhile, may expose different frontier models, Pro-tier reasoning modes, larger context windows, canvases, connectors, browsing/research tools, memory, or company knowledge at any given time.
+This project exists because one desktop shell can still contain distinct execution experiences. Codex is the supported home for local repository work: editing, commands, tests, branches, and deployment. Visible ChatGPT Chat and Work carry different conversation/task state, controls, files, progress, and artifacts.
 
-In practice, that means a user can end up doing real work by hand across two surfaces:
+In practice, that means a user can still end up moving work by hand across product surfaces:
 
-> I am flicking between Codex for execution, and ChatGPT with Pro for deep planning, information gathering, consensus building, branding, and research tasks.
+> I am using Codex for local execution, Chat for conversational review, and Work for longer tasks and deliverables.
 
-`codex-chatgpt-control` turns that manual tab switch into a structured, visible, user-directed bridge. It lets an agent stay inside Codex while asking ChatGPT web to help with the kinds of work where ChatGPT may currently be the stronger product surface: deep planning, long-context review, research synthesis, naming, positioning, brainstorming, design critique, and second-opinion analysis.
+`codex-chatgpt-control` turns that handoff into a structured, visible, user-directed bridge. It detects Chat versus Work, inspects the controls actually available to the signed-in user, applies configuration with postcondition verification, and preserves thread/task identity while waiting, steering, reading, and retrieving artifacts.
 
-- **Keep Codex as home base:** preserve the local execution loop while optionally consulting ChatGPT web for planning or research-heavy steps.
+- **Keep Codex as home base:** preserve the supported local execution loop while delegating suitable review, research, or deliverable work to visible ChatGPT.
+- **Treat Chat and Work as capabilities, not model folklore:** discover each surface and its nested configuration instead of assuming one flat picker.
+- **Submit once:** separate Work start, status, wait, steer, read, and artifact operations so timeouts do not create duplicate tasks.
 - **Visible-session only:** drive chatgpt.com through a compatible Codex/browser bridge and user-visible UI controls, including file uploads and visible downloads where available.
 - **Workflow primitives, not a ChatGPT API:** support prompts, thread workflows, response capture, clear stop reasons, and privacy-preserving local reports without private endpoint access.
-- **Narrow by design:** built for Codex -> browser -> chatgpt.com workflows; it is not a generic browser automation framework, scraping tool, OpenAI API wrapper, or official OpenAI project.
+- **Narrow by design:** built for agent -> browser -> chatgpt.com workflows; it is not a generic browser automation framework, scraping tool, OpenAI API wrapper, official OpenAI project, or replacement for the official Codex SDK.
 
 This project is not affiliated with, endorsed by, or sponsored by OpenAI.
 
@@ -33,15 +35,19 @@ This project is not affiliated with, endorsed by, or sponsored by OpenAI.
 
 Use `codex-chatgpt-control` when a Codex-style agent needs to work with the real ChatGPT web product that the user can see:
 
+- detect and open Chat or Work
+- inspect available model/intelligence/effort/speed controls without mutation
+- apply explicit visible configuration and verify the final state
 - start or continue visible ChatGPT threads
+- start, poll, steer, and read visible Work tasks
 - submit prompts and read Markdown responses
 - attach approved local files through visible upload controls
-- download visible generated files
+- download visible generated files and artifacts
 - wait for and download image-only generated artifacts
 - tell the agent exactly why it could not continue when ChatGPT needs login, captcha, permissions, or UI review
 - save local run reports that omit prompt and response content by default
 
-This project deliberately does not provide hidden ChatGPT access, account automation, or a replacement for the OpenAI API.
+This project deliberately does not provide hidden ChatGPT access, account automation, a replacement for the OpenAI API, or a replacement for the official Codex SDK/CLI.
 
 -----
 
@@ -50,16 +56,20 @@ This project deliberately does not provide hidden ChatGPT access, account automa
 Node:
 
 ```bash
-npm install codex-chatgpt-control
+npm install codex-chatgpt-control@next
 ```
 
 Python:
 
 ```bash
-python -m pip install codex-chatgpt-control
+python -m pip install --pre codex-chatgpt-control
 ```
 
 The Node package is the browser-control runtime authority. The Python package is a parity client over the same local backend protocol.
+
+The project is prerelease software. npm prereleases are published under
+`next`, so plain `npm install codex-chatgpt-control` may intentionally resolve
+to an older `latest` release.
 
 ## Codex Desktop Setup
 
@@ -81,8 +91,9 @@ codex plugin add codex-chatgpt-control@codex-chatgpt-control
 
 The plugin contains:
 
-- `codex-chatgpt-control`: the broad visible ChatGPT web workflow and diagnostics skill.
-- `chatgpt-pro-consult`: a focused ChatGPT Pro second-opinion workflow.
+- `codex-chatgpt-control`: the broad visible Chat/Work workflow and diagnostics skill.
+- `chatgpt-delegate`: the preferred surface-neutral Chat/Work delegation workflow.
+- `chatgpt-pro-consult`: a backward-compatible visible Chat Pro-setting alias.
 - bundled Node runtime files for bridge-enabled imports.
 
 Manual skill-only install is still available as a fallback at [skills/codex-chatgpt-control/SKILL.md](skills/codex-chatgpt-control/SKILL.md):
@@ -121,11 +132,53 @@ const reviewer = chatgpt.agent({
 const result = await chatgpt.runner.run(reviewer, {
   input: "Reply with a one-sentence summary of this project.",
   thread: { type: "new" },
+  experience: "chat",
   response: { format: "markdown" }
 });
 
 console.log(result.output_text);
 ```
+
+Inspect and apply visible configuration:
+
+```ts
+const surface = await chatgpt.experience.detect();
+const capabilities = await chatgpt.configuration.inspect();
+
+await chatgpt.configuration.apply({
+  experience: "work",
+  desired: {
+    model: "GPT-5.6 Sol",
+    effort: "High",
+    speed: "Standard"
+  },
+  strict: true
+});
+```
+
+Start Work once, then poll or steer the same task:
+
+```ts
+const started = await chatgpt.work.start({
+  prompt: "Produce a decision-ready implementation brief.",
+  newTask: true,
+  wait: false,
+  read: false
+});
+
+const status = await chatgpt.work.status({ includeArtifacts: true });
+await chatgpt.work.steer({
+  prompt: "Add a prioritized migration sequence.",
+  wait: false,
+  read: false
+});
+const latest = await chatgpt.work.readLatest({ format: "markdown" });
+```
+
+`newTask` defaults to true. If a current Work task is loaded and no unique
+new-task control can be verified, the SDK blocks instead of appending
+accidentally. After a partial or timeout result, use `work.status`,
+`work.wait`, or `work.readLatest`; do not resubmit the original task.
 
 Continue a user-open ChatGPT thread without replacing the tab:
 
@@ -167,8 +220,8 @@ text/thread commands do not automatically replace the user's tab.
 The Python package talks to the Node backend. Build or install a backend command first, then point Python at it:
 
 ```bash
-python -m pip install codex-chatgpt-control
-npm install codex-chatgpt-control
+python -m pip install --pre codex-chatgpt-control
+npm install codex-chatgpt-control@next
 ```
 
 ```python
@@ -230,13 +283,14 @@ The main Node entrypoint is `createChatGPT({ agent })`. It exposes:
 - `chatgpt.agent(...)` and `chatgpt.runner.run(...)` for Agents-style visible-session workflows.
 - `chatgpt.ask(...)`, `askInThread(...)`, `askWithFiles(...)`, and `askAndDownload(...)` for common task flows.
 - `chatgpt.responses.create(...)` for a narrow Responses-shaped adapter over the same visible browser runner.
-- Primitive groups for `session`, `threads`, `messages`, `artifacts`, `files`, `modes`, `tools`, and `response`.
+- Primitive groups for `session`, `experience`, `configuration`, `work`, `threads`, `messages`, `artifacts`, `files`, `modes`, `tools`, and `response`.
 - Discovery helpers: `chatgpt.help()`, `chatgpt.commands()`, and `chatgpt.describe(name)`.
 - Local run reports through `chatgpt.createReport(...)` and `chatgpt.reports`; prompt and response content is omitted unless explicitly enabled.
 
 Useful repo links:
 
 - [Bundled Codex skill](skills/codex-chatgpt-control/SKILL.md)
+- [Chat and Work migration](docs/chat-work-migration.md)
 - [Architecture](docs/architecture.md)
 - [Browser bridge](docs/browser-bridge.md)
 - [Safety model](docs/safety.md)
@@ -314,6 +368,17 @@ python scripts/live_smoke.py --mode ordinary-shell
 ```
 
 Ordinary-shell smoke checks are expected to return structured browser-bridge blockers for browser-required actions. A real ChatGPT run requires a compatible visible browser session and bridge.
+
+To prepare a sanitized locale/rollout fixture draft from an already-open
+authorized ChatGPT tab:
+
+```bash
+cd packages/node
+npm run capture:surface-profile -- --id work-basic-en --locale en-US
+```
+
+The draft defaults to `unverified`, strips conversation identity/content, and
+must pass contract validation and human review before being committed.
 
 ## Package Coordinates
 

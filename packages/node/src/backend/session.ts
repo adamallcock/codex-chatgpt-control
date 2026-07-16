@@ -162,6 +162,24 @@ async function dispatchBackendCommand(client: ChatGPTClient, request: BackendReq
       );
     case "session.bootstrap":
       return client.session.bootstrap(emptyToUndefined(payload));
+    case "experience.detect":
+      return client.experience.detect(emptyToUndefined(payload));
+    case "experience.open":
+      return client.experience.open(payload as Parameters<ChatGPTClient["experience"]["open"]>[0]);
+    case "configuration.inspect":
+      return client.configuration.inspect(emptyToUndefined(payload));
+    case "configuration.apply":
+      return client.configuration.apply(payload as Parameters<ChatGPTClient["configuration"]["apply"]>[0]);
+    case "work.start":
+      return client.work.start(payload as Parameters<ChatGPTClient["work"]["start"]>[0]);
+    case "work.status":
+      return client.work.status(emptyToUndefined(payload));
+    case "work.wait":
+      return client.work.wait(emptyToUndefined(payload));
+    case "work.steer":
+      return client.work.steer(payload as Parameters<ChatGPTClient["work"]["steer"]>[0]);
+    case "work.readLatest":
+      return client.work.readLatest(emptyToUndefined(payload));
     case "threads.new":
       return client.threads.new(emptyToUndefined(payload));
     case "threads.search":
@@ -178,6 +196,8 @@ async function dispatchBackendCommand(client: ChatGPTClient, request: BackendReq
       return client.messages.wait(emptyToUndefined(payload));
     case "messages.readLatest":
       return client.messages.readLatest(emptyToUndefined(payload));
+    case "messages.status":
+      return client.messages.status(emptyToUndefined(payload));
     case "messages.waitAndRead":
       return client.messages.waitAndRead(payload as Parameters<ChatGPTClient["messages"]["waitAndRead"]>[0]);
     case "artifacts.listLatest":

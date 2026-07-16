@@ -33,8 +33,11 @@ export async function readPageState(page: PageLike): Promise<PageState> {
   const rawTitle = typeof page.title === "function" ? await page.title().catch(() => undefined) : undefined;
   const title = typeof rawTitle === "string" ? rawTitle : undefined;
   const visibleText = await readVisibleText(page);
-  const blocker = classifyVisibleText(visibleText);
-  const signedIn = isLikelySignedIn(visibleText) && blocker?.kind !== "login_required";
+  const signedIn = isLikelySignedIn(visibleText);
+  const classifiedBlocker = classifyVisibleText(visibleText);
+  const blocker = classifiedBlocker?.kind === "login_required" && signedIn
+    ? undefined
+    : classifiedBlocker;
   const conversationId = parseConversationId(url);
 
   const state: PageState = {

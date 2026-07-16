@@ -21,6 +21,28 @@ class SessionClient:
         return command_result(self._backend, "session.bootstrap", wire_kwargs(**kwargs))
 
 
+class ExperienceClient:
+    def __init__(self, backend: Any) -> None:
+        self._backend = backend
+
+    def detect(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "experience.detect", wire_kwargs(**kwargs))
+
+    def open(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "experience.open", wire_kwargs(**kwargs))
+
+
+class ConfigurationClient:
+    def __init__(self, backend: Any) -> None:
+        self._backend = backend
+
+    def inspect(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "configuration.inspect", wire_kwargs(**kwargs))
+
+    def apply(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "configuration.apply", wire_kwargs(**kwargs))
+
+
 class ThreadsClient:
     def __init__(self, backend: Any) -> None:
         self._backend = backend
@@ -53,6 +75,9 @@ class MessagesClient:
 
     def read_latest(self, **kwargs: Any) -> CommandResult:
         return command_result(self._backend, "messages.readLatest", wire_kwargs(**kwargs))
+
+    def status(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "messages.status", wire_kwargs(**kwargs))
 
     def wait_and_read(self, **kwargs: Any) -> CommandResult:
         return command_result(self._backend, "messages.waitAndRead", wire_kwargs(**kwargs))
@@ -103,6 +128,27 @@ class ArtifactsClient:
 
     def download_latest(self, **kwargs: Any) -> CommandResult:
         return command_result(self._backend, "artifacts.downloadLatest", wire_kwargs(**kwargs))
+
+
+class WorkClient:
+    def __init__(self, backend: Any) -> None:
+        self._backend = backend
+        self.artifacts = ArtifactsClient(backend)
+
+    def start(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "work.start", wire_kwargs(**kwargs))
+
+    def status(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "work.status", wire_kwargs(**kwargs))
+
+    def wait(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "work.wait", wire_kwargs(**kwargs))
+
+    def steer(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "work.steer", wire_kwargs(**kwargs))
+
+    def read_latest(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "work.readLatest", wire_kwargs(**kwargs))
 
 
 class ModesClient:

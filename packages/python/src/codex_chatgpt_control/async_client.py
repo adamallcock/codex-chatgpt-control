@@ -283,6 +283,22 @@ class AsyncProjectsClient:
         })
 
 
+class AsyncWorkClient(AsyncPrimitiveGroup):
+    def __init__(self, backend: Any) -> None:
+        super().__init__(backend, {
+            "start": "work.start",
+            "status": "work.status",
+            "wait": "work.wait",
+            "steer": "work.steer",
+            "read_latest": "work.readLatest",
+        })
+        self.artifacts = AsyncPrimitiveGroup(backend, {
+            "list_latest": "artifacts.listLatest",
+            "wait": "artifacts.wait",
+            "download_latest": "artifacts.downloadLatest",
+        })
+
+
 class AsyncChatGPT:
     def __init__(self, transport: Any) -> None:
         self._backend = transport
@@ -291,6 +307,15 @@ class AsyncChatGPT:
         self._workflows = AsyncWorkflowClient(transport)
         self._commands = AsyncCommandClient(transport)
         self.session = AsyncPrimitiveGroup(transport, {"bootstrap": "session.bootstrap"})
+        self.experience = AsyncPrimitiveGroup(transport, {
+            "detect": "experience.detect",
+            "open": "experience.open",
+        })
+        self.configuration = AsyncPrimitiveGroup(transport, {
+            "inspect": "configuration.inspect",
+            "apply": "configuration.apply",
+        })
+        self.work = AsyncWorkClient(transport)
         self.threads = AsyncPrimitiveGroup(transport, {"new": "threads.new", "search": "threads.search", "open": "threads.open"})
         self.messages = AsyncPrimitiveGroup(transport, {
             "compose": "messages.compose",
@@ -298,6 +323,7 @@ class AsyncChatGPT:
             "ask": "messages.ask",
             "wait": "messages.wait",
             "read_latest": "messages.readLatest",
+            "status": "messages.status",
             "wait_and_read": "messages.waitAndRead",
         })
         self.files = AsyncPrimitiveGroup(transport, {"preflight": "files.preflight", "attach": "files.attach", "download_latest": "files.downloadLatest"})

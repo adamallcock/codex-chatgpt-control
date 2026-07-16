@@ -6,7 +6,7 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
+ * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
  */
 export const gu = {
   composerTextbox: ["ChatGPT સાથે ચૅટ"],
@@ -33,4 +33,5 @@ export const gu = {
   },
   signedInMarkers: ["નવી ચેટ", "ચેટ શોધો", "તાજેતર", "ચેટ ઇતિહાસ", "પ્રોજેક્ટ", "ChatGPT સાથે ચૅટ"],
   responseActions: ["પ્રતિભાવ કૉપિ કરો"],
+  stopControl: ["જવાબ આપવાનું બંધ કરો"],
 } satisfies LocaleContribution;

@@ -6,7 +6,7 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
+ * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
  */
 export const my = {
   composerTextbox: ["တစ်ခုခု မေးပါ…"],
@@ -33,4 +33,5 @@ export const my = {
   },
   signedInMarkers: ["ချတ်အသစ်", "ချတ်များ ရှာရန်", "လတ်တလော", "ချတ် မှတ်တမ်း", "စီမံကိန်းများ", "တစ်ခုခု မေးပါ…"],
   responseActions: ["တုံ့ပြန်မှု ကူးယူရန်"],
+  stopControl: ["ဖြေဆိုခြင်း ရပ်ရန်"],
 } satisfies LocaleContribution;

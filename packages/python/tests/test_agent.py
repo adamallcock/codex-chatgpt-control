@@ -39,6 +39,26 @@ class AgentTests(unittest.TestCase):
         self.assertNotIn("instructions_mode", wire)
         self.assertEqual(ChatGPTAgentModel.from_wire(wire).kind, "chatgpt_browser_agent")
 
+    def test_surface_defaults_recursively_normalize_to_wire(self) -> None:
+        agent = Agent(
+            name="work-reviewer",
+            defaults={
+                "experience": "work",
+                "configuration": {
+                    "model": "GPT-5.6 Sol",
+                    "model_version": "5.6",
+                },
+            },
+        )
+
+        wire = agent.to_wire()
+
+        self.assertEqual(wire["defaults"]["experience"], "work")
+        self.assertEqual(
+            wire["defaults"]["configuration"],
+            {"model": "GPT-5.6 Sol", "modelVersion": "5.6"},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

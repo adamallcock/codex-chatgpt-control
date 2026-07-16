@@ -1,9 +1,9 @@
 ---
 name: codex-chatgpt-control
-description: Use when Codex agents need to operate visible ChatGPT web sessions through the codex-chatgpt-control plugin, including prompts, existing threads, files, downloads, reports, browser bridge blockers, live smokes, or SDK source work.
+description: Use when Codex agents need to operate visible ChatGPT Chat or Work through the codex-chatgpt-control plugin, including verified configuration, prompts, tasks, progress, steering, files, artifacts, reports, blockers, live smokes, or SDK source work.
 ---
 
-# Codex ChatGPT Control
+# ChatGPT Surface Control
 
 Use this skill when a user asks Codex to work with ChatGPT web through a visible browser session, or when a task involves the `codex-chatgpt-control` SDK/plugin.
 
@@ -19,6 +19,7 @@ This skill is for visible, user-directed ChatGPT workflows only. It is not an Op
 6. Redact run reports by default. Raw prompt/response content is opt-in only.
 7. Attach only files the user approved.
 8. Load reference files only for the issue at hand; do not read every reference by default.
+9. Route local repository editing, terminal execution, testing, and deployment to official Codex capabilities. This plugin controls visible ChatGPT Chat and Work; it does not replace Codex.
 
 ## Plugin Runtime
 
@@ -65,6 +66,7 @@ const reviewer = chatgpt.agent({
 const result = await chatgpt.runner.run(reviewer, {
   input: "Review this design.",
   thread: { type: "new" },
+  experience: "chat",
   response: { format: "markdown" }
 });
 
@@ -80,6 +82,59 @@ Instructions are visible prompt text by default. Use `instructionsMode` intentio
 - `visible_prefix`: include instructions in the submitted user message.
 - `visible_setup_message`: submit instructions as a separate visible setup turn.
 - `metadata_only`: keep instructions local; they are not sent to ChatGPT.
+
+## Chat And Work Surfaces
+
+Detect the visible surface and inspect its actual capability graph:
+
+```js
+const surface = await chatgpt.experience.detect();
+const configuration = await chatgpt.configuration.inspect({
+  experience: surface.data?.experience === "unknown"
+    ? undefined
+    : surface.data?.experience
+});
+```
+
+Open a surface explicitly and apply only verified visible controls:
+
+```js
+await chatgpt.experience.open({ experience: "work" });
+await chatgpt.configuration.apply({
+  experience: "work",
+  desired: {
+    model: "GPT-5.6 Sol",
+    effort: "High",
+    speed: "Standard"
+  },
+  strict: true
+});
+```
+
+Selector profiles describe observed UI shapes (`chat_legacy_v1`, `chat_simplified_v1`, `work_basic_v1`, and `work_advanced_v1`). They are not plan or entitlement labels. Treat unavailable controls and rollout differences as structured results instead of guessing.
+
+Start Work exactly once, then poll or steer the same task:
+
+```js
+const started = await chatgpt.work.start({
+  prompt: "Produce a decision-ready implementation brief.",
+  newTask: true,
+  wait: false,
+  read: false
+});
+
+const status = await chatgpt.work.status({ includeArtifacts: true });
+await chatgpt.work.steer({
+  prompt: "Add a prioritized migration sequence.",
+  wait: false,
+  read: false
+});
+const latest = await chatgpt.work.readLatest({ format: "markdown" });
+```
+
+`newTask` defaults to true. When an existing Work task is loaded and no unique new-task control can be verified, the SDK blocks instead of appending accidentally. Never resubmit a task after a partial or timeout result; use `work.status`, `work.wait`, or `work.readLatest`.
+
+Use `chatgpt-delegate` for the focused surface-neutral delegation workflow. `chatgpt-pro-consult`, `mode`, and `modes.set/get` remain compatibility aliases for existing callers; new work should use `experience` and `configuration`.
 
 ## Common Workflows
 
@@ -139,7 +194,7 @@ const latest = await chatgpt.messages.waitAndRead({
 
 Use `format: "normalized_text"` only for compact assertions, polling checks, or simple exact-string smoke tests.
 
-For long Pro, Thinking, Deep Research, or file-backed answers, poll with `chatgpt.messages.wait({ responseContent: "metadata", ... })` so repeated partial polls return status metadata instead of re-emitting the growing answer body. Call `readLatest({ format: "markdown" })` once the wait confirms completion.
+For long Chat, Work, Thinking, Deep Research, or file-backed answers, poll with `chatgpt.messages.wait({ responseContent: "metadata", ... })` or `chatgpt.work.wait(...)` so repeated partial polls return status metadata instead of re-emitting the growing answer body. Call the matching `readLatest({ format: "markdown" })` once completion is confirmed.
 
 See `references/response-capture.md` for fidelity warnings and report handling.
 

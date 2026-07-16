@@ -1,13 +1,16 @@
 import type { CommandResult, RuntimeEnv, SequencePlan, SequencePolicy, SequenceStep, SequenceStepResult } from "../types.js";
 import { downloadLatestArtifact, listLatestArtifacts, waitForArtifact } from "./artifacts.js";
+import { applyConfiguration, inspectConfiguration } from "./configuration.js";
+import { detectExperience, openExperience } from "./experience.js";
 import { attachFiles, downloadLatestFile } from "./files.js";
 import { addProjectSources, buildProjectSourceAddPlan, listProjectSources } from "./project-sources.js";
-import { askMessage, composeMessage, readLatest, submitMessage, waitAndRead, waitForMessage } from "./messages.js";
+import { askMessage, composeMessage, messageStatus, readLatest, submitMessage, waitAndRead, waitForMessage } from "./messages.js";
 import { copyResponse } from "./response-actions.js";
 import { bootstrap } from "./session.js";
 import { newThread, openThread, searchThreads } from "./threads.js";
 import { setMode, selectTool } from "./modes.js";
 import { withCommandOutputText } from "./output.js";
+import { readLatestWork, startWork, steerWork, waitForWork, workStatus } from "./work.js";
 
 export type SequenceExecutor = (
   step: SequenceStep,
@@ -69,6 +72,24 @@ export async function executeStep(
   switch (step.command) {
     case "session.bootstrap":
       return bootstrap(env, step.args);
+    case "experience.detect":
+      return detectExperience(env, step.args);
+    case "experience.open":
+      return openExperience(env, step.args);
+    case "configuration.inspect":
+      return inspectConfiguration(env, step.args);
+    case "configuration.apply":
+      return applyConfiguration(env, step.args);
+    case "work.start":
+      return startWork(env, step.args);
+    case "work.status":
+      return workStatus(env, step.args);
+    case "work.wait":
+      return waitForWork(env, step.args);
+    case "work.steer":
+      return steerWork(env, step.args);
+    case "work.readLatest":
+      return readLatestWork(env, step.args);
     case "threads.search":
       return searchThreads(env, step.args);
     case "threads.open":
@@ -85,6 +106,8 @@ export async function executeStep(
       return waitForMessage(env, step.args);
     case "messages.readLatest":
       return readLatest(env, step.args);
+    case "messages.status":
+      return messageStatus(env, step.args);
     case "messages.waitAndRead":
       return waitAndRead(env, step.args);
     case "artifacts.listLatest":

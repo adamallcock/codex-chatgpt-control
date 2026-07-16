@@ -7,7 +7,7 @@ import { copyResponseButtons } from "../dom/selectors.js";
 import type { CommandResult, CopiedResponse, CopyResponseArgs, PageLike, RuntimeEnv } from "../types.js";
 import { contextFromPage } from "./context.js";
 import { withCommandOutputText } from "./output.js";
-import { bootstrap } from "./session.js";
+import { ensurePage } from "./session.js";
 
 export async function copyResponse(
   env: RuntimeEnv,
@@ -185,11 +185,4 @@ function mergeResponseMetadata(
   if (latest.actions !== undefined) data.actions = latest.actions;
   if (latest.thoughtDurationText !== undefined) data.thoughtDurationText = latest.thoughtDurationText;
   if (latest.sourcesAvailable !== undefined) data.sourcesAvailable = latest.sourcesAvailable;
-}
-
-async function ensurePage(env: RuntimeEnv): Promise<CommandResult<unknown>> {
-  if (env.page !== undefined) {
-    return resultOk({}, await contextFromPage(env.page));
-  }
-  return bootstrap(env, { preferExistingTab: true });
 }

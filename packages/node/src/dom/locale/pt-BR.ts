@@ -6,7 +6,7 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
+ * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
  */
 export const ptBR = {
   composerTextbox: ["Pergunte alguma coisa"],
@@ -33,4 +33,5 @@ export const ptBR = {
   },
   signedInMarkers: ["Novo chat", "Buscar chats", "Recentes", "Histórico de chats", "Projetos", "Pergunte alguma coisa"],
   responseActions: ["Copiar resposta"],
+  stopControl: ["Parar de responder"],
 } satisfies LocaleContribution;

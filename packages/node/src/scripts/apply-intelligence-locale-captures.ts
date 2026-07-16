@@ -7,6 +7,8 @@ type CaptureRecord = {
   status: "ok" | "blocked";
   requestedLocale: string;
   intelligenceLabels?: string[];
+  generationStopLabels?: string[];
+  generationStoppedLabels?: string[];
 };
 
 type ApplyOptions = {
@@ -18,6 +20,8 @@ type ApplyOptions = {
 type IntelligenceModeOptionId = "instant" | "medium" | "high" | "extraHigh" | "pro";
 
 const ENGLISH_MODE_LABELS = new Set(["Latest", "Instant", "Thinking", "Extended", "Medium", "High", "Extra High", "Pro"]);
+const ENGLISH_STOP_CONTROL = new Set(["stop generating", "stop streaming", "stop answering", "cancel"]);
+const ENGLISH_STOPPED_ASSISTANT = new Set(["stopped thinking", "stopped answering", "generation stopped"]);
 const INTELLIGENCE_MODE_OPTION_IDS: IntelligenceModeOptionId[] = ["instant", "medium", "high", "extraHigh", "pro"];
 const ENGLISH_INTELLIGENCE_MODE_OPTIONS: Record<IntelligenceModeOptionId, string> = {
   instant: "Instant",
@@ -26,7 +30,7 @@ const ENGLISH_INTELLIGENCE_MODE_OPTIONS: Record<IntelligenceModeOptionId, string
   extraHigh: "Extra High",
   pro: "Pro",
 };
-const UPDATE_NOTE = " * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.";
+const UPDATE_NOTE = " * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.";
 
 class ApplyUsageError extends Error {
   constructor(message: string, readonly exitCode = 2) {
@@ -65,6 +69,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     file: string;
     labels: string[];
     modeOptions: Partial<Record<IntelligenceModeOptionId, string[]>>;
+    stopControl: string[];
+    stoppedAssistant: string[];
   }> = [];
 
   for (const language of languages) {
@@ -75,12 +81,16 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     }
     const labels = observedNonEnglishLabels(record);
     const modeOptions = observedNonEnglishModeOptions(record);
-    if (labels.length === 0 && Object.keys(modeOptions).length === 0) continue;
+    const stopControl = observedNonEnglishGenerationLabels(record.generationStopLabels, ENGLISH_STOP_CONTROL);
+    const stoppedAssistant = observedNonEnglishGenerationLabels(record.generationStoppedLabels, ENGLISH_STOPPED_ASSISTANT);
+    if (labels.length === 0 && Object.keys(modeOptions).length === 0 && stopControl.length === 0 && stoppedAssistant.length === 0) continue;
     planned.push({
       locale: language.bcp47,
       file: resolve(root, "src/dom/locale", `${language.bcp47}.ts`),
       labels,
       modeOptions,
+      stopControl,
+      stoppedAssistant,
     });
   }
 
@@ -94,10 +104,13 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 
   for (const change of planned) {
     const before = await readFile(change.file, "utf8");
-    const after = mergeModeCapture(before, change.labels, change.modeOptions);
+    const after = mergeCapture(before, change.labels, change.modeOptions, {
+      stopControl: change.stopControl,
+      stoppedAssistant: change.stoppedAssistant,
+    });
     if (after !== before) {
       await writeFile(change.file, after, "utf8");
-      console.log(`updated ${change.locale} labels=${change.labels.length} modeOptions=${Object.keys(change.modeOptions).length}`);
+      console.log(`updated ${change.locale} labels=${change.labels.length} modeOptions=${Object.keys(change.modeOptions).length} stopControl=${change.stopControl.length} stoppedAssistant=${change.stoppedAssistant.length}`);
     }
   }
 
@@ -143,10 +156,23 @@ function observedNonEnglishModeOptions(record: CaptureRecord): Partial<Record<In
   return modeOptions;
 }
 
-function mergeModeCapture(
+function observedNonEnglishGenerationLabels(
+  values: readonly string[] | undefined,
+  englishValues: ReadonlySet<string>
+): string[] {
+  return dedupe((values ?? [])
+    .map(value => value.replace(/\s+/g, " ").trim())
+    .filter(value => value.length > 0 && !englishValues.has(value.toLowerCase())));
+}
+
+export function mergeCapture(
   source: string,
   labels: readonly string[],
-  modeOptions: Partial<Record<IntelligenceModeOptionId, string[]>>
+  modeOptions: Partial<Record<IntelligenceModeOptionId, string[]>>,
+  generationLabels: {
+    stopControl?: readonly string[];
+    stoppedAssistant?: readonly string[];
+  } = {}
 ): string {
   let text = updateComment(source);
   if (labels.length > 0) {
@@ -163,7 +189,10 @@ function mergeModeCapture(
     }
   }
 
-  return mergeModeOptions(text, modeOptions);
+  text = mergeModeOptions(text, modeOptions);
+  text = mergeStringArrayProperty(text, "stopControl", generationLabels.stopControl ?? []);
+  text = mergeStringArrayProperty(text, "stoppedAssistant", generationLabels.stoppedAssistant ?? []);
+  return text;
 }
 
 function parseExistingModeLabels(source: string): string[] {
@@ -237,6 +266,35 @@ function formatModeOptions(modeOptions: Partial<Record<IntelligenceModeOptionId,
   return ["  modeOptions: {", ...lines, "  },"].join("\n");
 }
 
+function mergeStringArrayProperty(source: string, property: "stopControl" | "stoppedAssistant", values: readonly string[]): string {
+  if (values.length === 0) return source;
+  const existing = parseExistingStringArrayProperty(source, property);
+  const merged = dedupe([...existing, ...values]);
+  const line = `  ${property}: [${merged.map(value => JSON.stringify(value)).join(", ")}],`;
+  const propertyPattern = new RegExp(`^\\s*${property}:\\s*\\[[^\\]]*\\],`, "m");
+  if (propertyPattern.test(source)) {
+    return source.replace(propertyPattern, line);
+  }
+  if (/^\s*responseActions:\s*.*,\n/m.test(source)) {
+    return source.replace(/^(\s*responseActions:\s*.*,\n)/m, `$1${line}\n`);
+  }
+  if (/^\s*modeOptions:\s*\{[\s\S]*?^\s*\},\n/m.test(source)) {
+    return source.replace(/^(\s*modeOptions:\s*\{[\s\S]*?^\s*\},\n)/m, `$1${line}\n`);
+  }
+  return source.replace(/^export const \w+ = \{\n/m, match => `${match}${line}\n`);
+}
+
+function parseExistingStringArrayProperty(source: string, property: string): string[] {
+  const match = new RegExp(`^\\s*${property}:\\s*\\[(?<body>[^\\]]*)\\],`, "m").exec(source);
+  const body = match?.groups?.body;
+  if (body === undefined) return [];
+  const values: string[] = [];
+  for (const stringMatch of body.matchAll(/"((?:\\"|[^"])*)"/g)) {
+    values.push(JSON.parse(`"${stringMatch[1]}"`) as string);
+  }
+  return values;
+}
+
 function updateComment(source: string): string {
   let text = source.replace(
     /\n \* Omitted because they match English case-insensitively: `modeLabels`[\s\S]*?blocker copy\.\n/g,
@@ -305,7 +363,7 @@ function packageRoot(): string {
   return resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (typeof process !== "undefined" && process.argv[1] === fileURLToPath(import.meta.url)) {
   const exitCode = await main();
   process.exitCode = exitCode;
 }

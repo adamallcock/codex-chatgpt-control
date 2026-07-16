@@ -20,18 +20,28 @@
         "redacted": true
       },
       {
-        "type": "message.completed",
+        "type": "message.in_progress",
         "role": "assistant",
         "output_text": "Partial assistant text captured before timeout.",
-        "format": "markdown"
+        "preview": "Partial assistant text captured before timeout.",
+        "format": "markdown",
+        "completionState": "generating",
+        "generationActive": true,
+        "textLength": 47,
+        "textHash": "fbbad5b3"
       }
     ],
     "newItems": [
       {
-        "type": "message.completed",
+        "type": "message.in_progress",
         "role": "assistant",
         "output_text": "Partial assistant text captured before timeout.",
-        "format": "markdown"
+        "preview": "Partial assistant text captured before timeout.",
+        "format": "markdown",
+        "completionState": "generating",
+        "generationActive": true,
+        "textLength": 47,
+        "textHash": "fbbad5b3"
       }
     ],
     "interruptions": [
@@ -53,6 +63,7 @@
         "url": "https://chatgpt.com/c/example-timeout",
         "conversationId": "example-timeout"
       },
+      "completionState": "generating",
       "nextStepId": "read-latest"
     },
     "activeAgentName": "reviewer",

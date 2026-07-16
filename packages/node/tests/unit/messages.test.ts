@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { askMessage, isResponseComplete, readLatest, submittedUserTurnMatches, submitMessage, waitForMessage } from "../../src/commands/messages.js";
+import { askMessage, isResponseComplete, messageStatus, readLatest, submittedUserTurnMatches, submitMessage, waitForMessage } from "../../src/commands/messages.js";
 import { waitTextMetadata } from "../../src/dom/wait-snapshot.js";
 import { copyResponse } from "../../src/commands/response-actions.js";
-import { EMPTY_GENERATION_STATE } from "../../src/dom/generation-state.js";
+import { EMPTY_GENERATION_STATE, readAssistantGenerationState } from "../../src/dom/generation-state.js";
+import { localeLabels } from "../../src/dom/locale-labels.js";
 import {
   countMessages,
   extractMessagesFromHtml,
@@ -34,6 +35,37 @@ describe("extractMessagesFromHtml", () => {
       { role: "assistant", text: "hi", format: "markdown", markdown: "hi" }
     ]);
     expect(messages[0]?.actions).toBeUndefined();
+  });
+
+  it("detects localized active generation labels from the locale registry", async () => {
+    const label = "Controle QA localise";
+    localeLabels.stopControl.push(label);
+    try {
+      const state = await readAssistantGenerationState(contentPage(`<button aria-label="${label}"></button>`));
+
+      expect(state).toMatchObject({
+        active: true,
+        stopped: false,
+        signals: [label]
+      });
+    } finally {
+      localeLabels.stopControl.splice(localeLabels.stopControl.indexOf(label), 1);
+    }
+  });
+
+  it("detects localized stopped generation labels from the locale registry", async () => {
+    localeLabels.stoppedAssistant.push("Réflexion arrêtée");
+    try {
+      const state = await readAssistantGenerationState(contentPage("<main>Réflexion arrêtée</main>"));
+
+      expect(state).toMatchObject({
+        active: false,
+        stopped: true,
+        signals: ["Réflexion arrêtée"]
+      });
+    } finally {
+      localeLabels.stoppedAssistant.splice(localeLabels.stoppedAssistant.indexOf("Réflexion arrêtée"), 1);
+    }
   });
 
   it("counts messages by role", () => {
@@ -512,6 +544,57 @@ describe("extractMessagesFromHtml", () => {
     expect(result.data?.complete).toBe(false);
     expect(result.warnings.join(" ")).toContain("Timed out after receiving partial assistant text.");
     expect(result.warnings.join(" ")).toContain("completion was not confirmed");
+  });
+
+  it("accepts prompt as a messages.ask compatibility alias", async () => {
+    const page = askWaitFallbackPage("Write 500 numbered items.", "I will now produce the list.");
+
+    const result = await askMessage({ page }, {
+      prompt: "Write 500 numbered items.",
+      wait: { timeoutMs: 5, stableMs: 0, pollMs: 1 },
+      read: { format: "normalized_text" }
+    });
+
+    expect(result.status).toBe("partial");
+    expect(result.data?.prompt).toBe("Write 500 numbered items.");
+    expect(result.output_text).toBe("I will now produce the list.");
+  });
+
+  it("rejects conflicting text and prompt aliases before submitting", async () => {
+    const result = await askMessage({}, {
+      text: "first",
+      prompt: "second",
+      wait: false,
+      read: false
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("error");
+    expect(result.error?.message).toContain("both text and prompt");
+  });
+
+  it("reports active assistant generation through messages.status", async () => {
+    const page = scriptedWaitPage([
+      {
+        totalCount: 2,
+        assistantCount: 1,
+        latestAssistantTurnIndex: 2,
+        latestAssistantText: "I will now produce the list.",
+        hasStopControl: true,
+        stopButtonAria: "Stop answering",
+        hasResponseActions: false
+      }
+    ]);
+
+    const result = await messageStatus({ page }, { maxPreviewChars: 12 });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({
+      completionState: "generating",
+      generationActive: true,
+      latestAssistantPreview: "I will now ...",
+      latestAssistantTextLength: 28
+    });
   });
 
   it("waits for the send button to become ready before clicking", async () => {

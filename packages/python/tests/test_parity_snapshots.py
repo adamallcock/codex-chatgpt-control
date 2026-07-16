@@ -11,6 +11,7 @@ from codex_chatgpt_control.models import (
     CommandDescriptor,
     CommandResult,
     SequencePlan,
+    SurfaceProfile,
 )
 
 
@@ -56,6 +57,8 @@ class PythonParitySnapshotTests(unittest.TestCase):
                     )
                     self.assertEqual(request.to_wire(), payload)
                     continue
+                elif fixture["schema"] == "surfaceProfile":
+                    model = SurfaceProfile.from_wire(payload)
                 else:
                     self.fail(f"Unhandled JSON fixture schema {fixture['schema']} for {fixture['file']}")
 

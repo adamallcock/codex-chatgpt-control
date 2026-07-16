@@ -2,19 +2,29 @@ import type {
   AskArgs,
   ArtifactDownloadArgs,
   ArtifactWaitArgs,
+  ApplyConfigurationData,
+  ApplyConfigurationArgs,
   AttachFilesArgs,
   BootstrapArgs,
+  ChatGPTExperience,
   CommandResult,
+  ConfigurationInspectionData,
+  ConfigurationSelection,
   CopyResponseArgs,
+  DetectExperienceArgs,
+  DetectExperienceData,
   DownloadLatestArgs,
   FilePreflightArgs,
   FilePreflightData,
   ExistingTabPolicy,
   GetModeArgs,
   GetModeData,
+  InspectConfigurationArgs,
   ListArtifactsArgs,
+  MessageStatusArgs,
   NewThreadArgs,
   OpenThreadArgs,
+  OpenExperienceData,
   ProjectSourcesAddArgs,
   ProjectSourcesAddData,
   ProjectSourcesAddPlanData,
@@ -23,26 +33,39 @@ import type {
   ProjectSourcesPlanAddArgs,
   ReadLatestArgs,
   RuntimeEnv,
+  ReadWorkLatestArgs,
+  ReadWorkLatestData,
   SearchThreadsArgs,
   SelectToolArgs,
   SequencePlan,
   SequenceStep,
   SetModeArgs,
+  StartWorkArgs,
+  StartWorkData,
+  SteerWorkArgs,
+  SteerWorkData,
   ThreadTarget,
-  WaitArgs
+  WaitArgs,
+  WorkStatusArgs,
+  WorkStatusData,
+  WorkWaitArgs,
+  WorkWaitData
 } from "./types.js";
 import { downloadLatestArtifact, listLatestArtifacts, waitForArtifact } from "./commands/artifacts.js";
 import { attachFiles, downloadLatestFile, preflightFiles } from "./commands/files.js";
 import { addProjectSources, buildProjectSourceAddPlan, listProjectSources } from "./commands/project-sources.js";
 import { doctor, type DoctorArgs, type DoctorReport } from "./commands/doctor.js";
-import { askMessage, composeMessage, readLatest, submitMessage, waitAndRead, waitForMessage } from "./commands/messages.js";
+import { askMessage, composeMessage, messageStatus, readLatest, submitMessage, waitAndRead, waitForMessage } from "./commands/messages.js";
 import { getMode, selectTool, setMode } from "./commands/modes.js";
+import { applyConfiguration, inspectConfiguration } from "./commands/configuration.js";
+import { detectExperience, openExperience } from "./commands/experience.js";
 import { createRunReport, type RunReportData, type RunReportOptions } from "./commands/reports.js";
 import { copyResponse } from "./commands/response-actions.js";
 import { commandDescriptors, describeCommand, helpText, type CommandDescriptor } from "./commands/registry.js";
 import { runSequence } from "./commands/sequence.js";
 import { bootstrap } from "./commands/session.js";
 import { newThread, openThread, searchThreads } from "./commands/threads.js";
+import { readLatestWork, startWork, steerWork, waitForWork, workStatus } from "./commands/work.js";
 import { resultError, resultOk } from "./errors.js";
 import { createChatGPTAgent } from "./runner/agent.js";
 import type {
@@ -69,6 +92,8 @@ import { explainCommandBlocker, type BlockerExplanation, type ExplainBlockerOpti
 
 export type ChatGPTClientOptions = RuntimeEnv & {
   defaults?: {
+    experience?: Exclude<ChatGPTExperience, "unknown">;
+    configuration?: ConfigurationSelection;
     mode?: SetModeArgs;
     wait?: boolean | WaitArgs;
     read?: boolean | ReadLatestArgs;
@@ -105,6 +130,8 @@ export type AskWorkflowArgs = {
   thread?: WorkflowThread;
   existingTab?: BootstrapArgs["existingTab"];
   preferExistingTab?: boolean;
+  experience?: Exclude<ChatGPTExperience, "unknown">;
+  configuration?: ConfigurationSelection;
   mode?: SetModeArgs;
   tools?: SelectToolArgs[];
   files?: FileInput[];
@@ -131,6 +158,8 @@ export type RunMessagesArgs = {
   thread?: WorkflowThread;
   existingTab?: BootstrapArgs["existingTab"];
   preferExistingTab?: boolean;
+  experience?: Exclude<ChatGPTExperience, "unknown">;
+  configuration?: ConfigurationSelection;
   mode?: SetModeArgs;
   messages: Array<{
     id?: string;
@@ -184,6 +213,26 @@ export type ChatGPTClient = {
   session: {
     bootstrap(args?: BootstrapArgs): Promise<CommandResult<unknown>>;
   };
+  experience: {
+    detect(args?: DetectExperienceArgs): Promise<CommandResult<DetectExperienceData>>;
+    open(args: { experience: Exclude<ChatGPTExperience, "unknown">; timeoutMs?: number }): Promise<CommandResult<OpenExperienceData>>;
+  };
+  configuration: {
+    inspect(args?: InspectConfigurationArgs): Promise<CommandResult<ConfigurationInspectionData>>;
+    apply(args: ApplyConfigurationArgs): Promise<CommandResult<ApplyConfigurationData>>;
+  };
+  work: {
+    start(args: StartWorkArgs): Promise<CommandResult<StartWorkData>>;
+    status(args?: WorkStatusArgs): Promise<CommandResult<WorkStatusData>>;
+    wait(args?: WorkWaitArgs): Promise<CommandResult<WorkWaitData>>;
+    steer(args: SteerWorkArgs): Promise<CommandResult<SteerWorkData>>;
+    readLatest(args?: ReadWorkLatestArgs): Promise<CommandResult<ReadWorkLatestData>>;
+    artifacts: {
+      listLatest(args?: ListArtifactsArgs): Promise<CommandResult<unknown>>;
+      wait(args?: ArtifactWaitArgs): Promise<CommandResult<unknown>>;
+      downloadLatest(args: ArtifactDownloadArgs): Promise<CommandResult<unknown>>;
+    };
+  };
   threads: {
     "new"(args?: NewThreadArgs): Promise<CommandResult<unknown>>;
     search(args: SearchThreadsArgs): Promise<CommandResult<unknown>>;
@@ -195,6 +244,7 @@ export type ChatGPTClient = {
     ask(args: AskArgs): Promise<CommandResult<unknown>>;
     wait(args?: WaitArgs): Promise<CommandResult<unknown>>;
     readLatest(args?: ReadLatestArgs): Promise<CommandResult<unknown>>;
+    status(args?: MessageStatusArgs): Promise<CommandResult<unknown>>;
     waitAndRead(args?: WaitArgs & ReadLatestArgs): Promise<CommandResult<unknown>>;
   };
   files: {
@@ -265,6 +315,26 @@ export function createChatGPT(options: ChatGPTClientOptions = {}): ChatGPTClient
     session: {
       bootstrap: args => bootstrap(env, args)
     },
+    experience: {
+      detect: args => detectExperience(env, args),
+      open: args => openExperience(env, args)
+    },
+    configuration: {
+      inspect: args => inspectConfiguration(env, args),
+      apply: args => applyConfiguration(env, args)
+    },
+    work: {
+      start: args => startWork(env, args),
+      status: args => workStatus(env, args),
+      wait: args => waitForWork(env, args),
+      steer: args => steerWork(env, args),
+      readLatest: args => readLatestWork(env, args),
+      artifacts: {
+        listLatest: args => listLatestArtifacts(env, args),
+        wait: args => waitForArtifact(env, args),
+        downloadLatest: args => downloadLatestArtifact(env, args)
+      }
+    },
     threads: {
       new: args => newThread(env, args),
       search: args => searchThreads(env, args),
@@ -276,6 +346,7 @@ export function createChatGPT(options: ChatGPTClientOptions = {}): ChatGPTClient
       ask: args => askMessage(env, args),
       wait: args => waitForMessage(env, args),
       readLatest: args => readLatest(env, args),
+      status: args => messageStatus(env, args),
       waitAndRead: args => waitAndRead(env, args)
     },
     files: {
@@ -382,6 +453,38 @@ function pathsFromAttachStep(step: Extract<SequenceStep, { command: "files.attac
   return paths.every(item => typeof item === "string") ? paths : [];
 }
 
+function appendSurfaceConfigurationSteps(
+  steps: SequencePlan["steps"],
+  preferences: {
+    experience: Exclude<ChatGPTExperience, "unknown"> | undefined;
+    configuration: ConfigurationSelection | undefined;
+    mode: SetModeArgs | undefined;
+  }
+): void {
+  if (preferences.experience !== undefined) {
+    steps.push({
+      id: "experience",
+      command: "experience.open",
+      args: { experience: preferences.experience }
+    });
+  }
+  if (preferences.configuration !== undefined) {
+    steps.push({
+      id: "configuration",
+      command: "configuration.apply",
+      args: {
+        ...(preferences.experience === undefined ? {} : { experience: preferences.experience }),
+        desired: preferences.configuration,
+        strict: true
+      }
+    });
+    return;
+  }
+  if (preferences.mode !== undefined) {
+    steps.push({ id: "mode", command: "modes.set", args: preferences.mode });
+  }
+}
+
 function normalizeLimits(limits: Partial<RunLimits> | undefined): RunLimits {
   return {
     maxPromptsPerRun: limits?.maxPromptsPerRun ?? 5,
@@ -395,7 +498,7 @@ function normalizeLimits(limits: Partial<RunLimits> | undefined): RunLimits {
 function checkRunBudget(plan: SequencePlan, limits: RunLimits): CommandResult<unknown> | undefined {
   const prompts = plan.steps.filter(step => step.command === "messages.ask" || step.command === "messages.submit").length;
   const threads = plan.steps.filter(step => step.command === "threads.new" || step.command === "threads.open").length;
-  const reads = plan.steps.filter(step => step.command === "messages.readLatest" || step.command === "messages.waitAndRead" || step.command === "response.copy").length
+  const reads = plan.steps.filter(step => step.command === "messages.readLatest" || step.command === "messages.status" || step.command === "messages.waitAndRead" || step.command === "response.copy").length
     + plan.steps.filter(step => step.command === "messages.ask" && askStepReads(step.args)).length;
 
   const violations: string[] = [];
@@ -504,6 +607,8 @@ type NormalizedRunnerInput = {
   thread?: WorkflowThread;
   existingTab?: BootstrapArgs["existingTab"];
   preferExistingTab?: boolean;
+  experience?: Exclude<ChatGPTExperience, "unknown">;
+  configuration?: ConfigurationSelection;
   mode?: SetModeArgs;
   tools: SelectToolArgs[];
   files: string[];
@@ -532,10 +637,11 @@ function planAgentWorkflowFromNormalized<TOutput>(
     ...threadSteps(thread)
   ];
 
-  const mode = input.mode ?? agent.defaults.mode ?? defaults.mode;
-  if (mode !== undefined) {
-    steps.push({ id: "mode", command: "modes.set", args: mode });
-  }
+  appendSurfaceConfigurationSteps(steps, {
+    experience: input.experience ?? agent.defaults.experience ?? defaults.experience,
+    configuration: input.configuration ?? agent.defaults.configuration ?? defaults.configuration,
+    mode: input.mode ?? agent.defaults.mode ?? defaults.mode
+  });
   for (const [index, tool] of input.tools.entries()) {
     steps.push({ id: `tool${index + 1}`, command: "tools.select", args: tool });
   }
@@ -604,6 +710,8 @@ function normalizeRunnerInput<TOutput>(agent: ChatGPTAgent<TOutput>, input: Chat
   if (args.thread !== undefined) normalized.thread = args.thread;
   if (args.existingTab !== undefined) normalized.existingTab = args.existingTab;
   if (args.preferExistingTab !== undefined) normalized.preferExistingTab = args.preferExistingTab;
+  if (args.experience !== undefined) normalized.experience = args.experience;
+  if (args.configuration !== undefined) normalized.configuration = args.configuration;
   if (mode !== undefined) normalized.mode = mode;
   if (args.response !== undefined) normalized.read = args.response;
   if (args.download !== undefined) normalized.download = args.download;
@@ -743,10 +851,11 @@ function planAskWorkflow(args: AskWorkflowArgs, defaults: ChatGPTClientOptions["
     ...threadSteps(thread)
   ];
 
-  const mode = args.mode ?? defaults.mode;
-  if (mode !== undefined) {
-    steps.push({ id: "mode", command: "modes.set", args: mode });
-  }
+  appendSurfaceConfigurationSteps(steps, {
+    experience: args.experience ?? defaults.experience,
+    configuration: args.configuration ?? defaults.configuration,
+    mode: args.mode ?? defaults.mode
+  });
   for (const [index, tool] of (args.tools ?? []).entries()) {
     steps.push({ id: `tool${index + 1}`, command: "tools.select", args: tool });
   }
@@ -824,10 +933,11 @@ function planRunMessages(args: RunMessagesArgs, defaults: ChatGPTClientOptions["
     ...threadSteps(thread)
   ];
 
-  const mode = args.mode ?? defaults.mode;
-  if (mode !== undefined) {
-    steps.push({ id: "mode", command: "modes.set", args: mode });
-  }
+  appendSurfaceConfigurationSteps(steps, {
+    experience: args.experience ?? defaults.experience,
+    configuration: args.configuration ?? defaults.configuration,
+    mode: args.mode ?? defaults.mode
+  });
 
   args.messages.forEach((message, index) => {
     steps.push({

@@ -9,11 +9,14 @@
       "url": "https://chatgpt.com/"
     },
     "data": {
+      "completionState": "complete",
       "finalOutput": {
         "score": 1,
         "verdict": "ok"
       },
+      "generationActive": false,
       "outputText": "{\"verdict\":\"ok\",\"score\":1}",
+      "submissionState": "submitted",
       "thread": {
         "title": "ChatGPT",
         "url": "https://chatgpt.com/"
@@ -67,8 +70,10 @@
     ],
     "output_text": "{\"verdict\":\"ok\",\"score\":1}",
     "state": {
+      "completionState": "complete",
       "id": "run_fixed",
       "resumable": false,
+      "submissionState": "submitted",
       "thread": {
         "title": "ChatGPT",
         "url": "https://chatgpt.com/"
@@ -108,8 +113,12 @@
         "command": "messages.ask",
         "dataPreview": {
           "complete": true,
+          "completionState": "complete",
+          "generationActive": false,
+          "generationSignals": [],
           "prompt": "Return a JSON verdict.",
           "responseText": "{\"verdict\":\"ok\",\"score\":1}",
+          "submissionState": "submitted",
           "title": "ChatGPT"
         },
         "endedAt": "2026-06-06T00:00:00.000Z",

@@ -142,6 +142,7 @@ describe("createChatGPT", () => {
     expect(typeof chatgpt.session.bootstrap).toBe("function");
     expect(typeof chatgpt.threads.search).toBe("function");
     expect(typeof chatgpt.messages.readLatest).toBe("function");
+    expect(typeof chatgpt.messages.status).toBe("function");
     expect(typeof chatgpt.artifacts.downloadLatest).toBe("function");
     expect(typeof chatgpt.files.preflight).toBe("function");
     expect(typeof chatgpt.files.attach).toBe("function");
@@ -549,9 +550,21 @@ describe("createChatGPT", () => {
         englishCanonicalPresent: true,
         requiredKeysMissing: [],
         runtimeSelectorCoverage: "registry_only_stage_2",
+        runningStateLabelCoverage: {
+          support: "partial",
+          nonEnglishStopControlLocaleCount: expect.any(Number),
+          nonEnglishStoppedAssistantLocaleCount: 0,
+          stopControlCandidateCount: expect.any(Number),
+          stoppedAssistantCandidateCount: expect.any(Number)
+        },
         toolIds: expect.arrayContaining(["web_search", "deep_research", "create_image"])
       }
     });
+    const coverage = result.data?.checks.localization?.details?.runningStateLabelCoverage as {
+      nonEnglishLocaleCount?: number;
+      nonEnglishStopControlLocaleCount?: number;
+    } | undefined;
+    expect(coverage?.nonEnglishStopControlLocaleCount).toBe(coverage?.nonEnglishLocaleCount);
   });
 
   it("doctor verifies report output policy and existing directory writability", async () => {
@@ -689,6 +702,26 @@ describe("createChatGPT", () => {
         selectorsAvailable: true,
         downloadEventsAvailable: true
       }
+    });
+  });
+
+  it("blocks direct primitives when the claimed tab changes after bootstrap", async () => {
+    const page = fakeChatGPTPage() as PageLike;
+    page.id = "tab-1";
+    const browser: BrowserLike = { name: "chrome", tabs: { selected: () => page } };
+    const chatgpt = createChatGPT({ browser });
+
+    const boot = await chatgpt.session.bootstrap({ preferExistingTab: true });
+    page.id = "tab-2";
+    const result = await chatgpt.messages.status();
+
+    expect(boot.ok).toBe(true);
+    expect(boot.context.tabId).toBe("tab-1");
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("blocked");
+    expect(result.blocker).toMatchObject({
+      kind: "selector_drift",
+      code: "tab_affinity_lost"
     });
   });
 });

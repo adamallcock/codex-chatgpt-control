@@ -101,11 +101,45 @@ import { sr } from "./sr.js";
 import { mn } from "./mn.js";
 import { my } from "./my.js";
 import { ta } from "./ta.js";
-import type { LocaleContribution, LocaleStrings, ModeOptionId } from "./types.js";
+import type {
+  ConfigurationAxisLabelId,
+  ConfigurationOptionId,
+  ExperienceOptionId,
+  LocaleContribution,
+  LocaleStrings,
+  ModeOptionId
+} from "./types.js";
 
 // --- Locale registration ---
 // English MUST be first (canonical). Append additional locale objects here.
 const locales: readonly (LocaleStrings | LocaleContribution)[] = [en, de, esES, frFR, zhHK, zhTW, ja, it, vi, am, ar, bg, bs, ca, cs, da, el, es419, et, fa, fi, frCA, gu, hi, hr, hu, hy, id, isIS, ka, kk, kn, ko, lt, zhHans, ur, uk, ptBR, ptPT, pl, sk, ro, nb, ml, ru, pa, mr, tr, sw, te, tl, th, bn, ms, so, nl, sv, lv, mk, sq, sl, sr, mn, my, ta] as const;
+
+function hasLocaleKey(
+  locale: LocaleStrings | LocaleContribution,
+  key: keyof LocaleStrings
+): boolean {
+  const value = (locale as Record<string, unknown>)[key];
+  if (typeof value === "string") return value.trim().length > 0;
+  return Array.isArray(value) && value.some(candidate => typeof candidate === "string" && candidate.trim().length > 0);
+}
+
+function countLocalesWithKey(
+  localeList: readonly (LocaleStrings | LocaleContribution)[],
+  key: keyof LocaleStrings
+): number {
+  return localeList.filter(locale => hasLocaleKey(locale, key)).length;
+}
+
+export const localeCoverageSummary = {
+  registeredLocaleCount: locales.length,
+  nonEnglishLocaleCount: Math.max(0, locales.length - 1),
+  runningState: {
+    stopControlLocaleCount: countLocalesWithKey(locales, "stopControl"),
+    stoppedAssistantLocaleCount: countLocalesWithKey(locales, "stoppedAssistant"),
+    nonEnglishStopControlLocaleCount: countLocalesWithKey(locales.slice(1), "stopControl"),
+    nonEnglishStoppedAssistantLocaleCount: countLocalesWithKey(locales.slice(1), "stoppedAssistant")
+  }
+} as const;
 
 // --- Combiner ---
 
@@ -120,6 +154,26 @@ const MODE_OPTION_IDS: ModeOptionId[] = [
   "high",
   "extraHigh",
   "pro",
+];
+const EXPERIENCE_OPTION_IDS: ExperienceOptionId[] = ["chat", "work"];
+const CONFIGURATION_AXIS_IDS: ConfigurationAxisLabelId[] = [
+  "model",
+  "intelligence",
+  "effort",
+  "speed",
+  "advanced",
+];
+const CONFIGURATION_OPTION_IDS: ConfigurationOptionId[] = [
+  "instant",
+  "light",
+  "medium",
+  "high",
+  "extraHigh",
+  "max",
+  "ultra",
+  "pro",
+  "standard",
+  "fast",
 ];
 
 /**
@@ -206,9 +260,37 @@ function flattenModeOption(
   return result;
 }
 
+function flattenNestedLabel<TId extends string>(
+  localeList: readonly (LocaleStrings | LocaleContribution)[],
+  group: "experienceOptions" | "configurationAxes" | "configurationOptions",
+  id: TId
+): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const locale of localeList) {
+    const contribution = (locale as Record<string, unknown>)[group] as
+      | Partial<Record<TId, string | readonly string[]>>
+      | undefined;
+    const value = contribution?.[id];
+    if (value === undefined) continue;
+    const candidates = typeof value === "string" ? [value] : value;
+    for (const candidate of candidates) {
+      if (candidate.length > 0 && !seen.has(candidate)) {
+        seen.add(candidate);
+        result.push(candidate);
+      }
+    }
+  }
+
+  return result;
+}
+
 // Build the combined localeLabels object by flattening all locales.
 const nonToolKeys = [
   "composerTextbox",
+  "workComposerTextbox",
+  "newWork",
   "sendButton",
   "searchChatsButton",
   "searchChatsPlaceholder",
@@ -235,7 +317,10 @@ const nonToolKeys = [
   "loginBlocker",
   "captchaBlocker",
   "rateLimitBlocker",
-] as const satisfies ReadonlyArray<Exclude<keyof LocaleStrings, "tools">>;
+] as const satisfies ReadonlyArray<Exclude<
+  keyof LocaleStrings,
+  "tools" | "modeOptions" | "experienceOptions" | "configurationAxes" | "configurationOptions"
+>>;
 
 const builtLabels = Object.fromEntries(
   nonToolKeys.map(key => [key, flattenKey(locales, key)])
@@ -248,6 +333,15 @@ const builtTools = Object.fromEntries(
 const builtModeOptions = Object.fromEntries(
   MODE_OPTION_IDS.map(id => [id, flattenModeOption(locales, id)])
 ) as Record<ModeOptionId, string[]>;
+const builtExperienceOptions = Object.fromEntries(
+  EXPERIENCE_OPTION_IDS.map(id => [id, flattenNestedLabel(locales, "experienceOptions", id)])
+) as Record<ExperienceOptionId, string[]>;
+const builtConfigurationAxes = Object.fromEntries(
+  CONFIGURATION_AXIS_IDS.map(id => [id, flattenNestedLabel(locales, "configurationAxes", id)])
+) as Record<ConfigurationAxisLabelId, string[]>;
+const builtConfigurationOptions = Object.fromEntries(
+  CONFIGURATION_OPTION_IDS.map(id => [id, flattenNestedLabel(locales, "configurationOptions", id)])
+) as Record<ConfigurationOptionId, string[]>;
 
 /**
  * The combined locale registry. Values are `string[]` (mutable; English-first; deduped).
@@ -256,6 +350,8 @@ const builtModeOptions = Object.fromEntries(
  */
 export const localeLabels: {
   composerTextbox: string[];
+  workComposerTextbox: string[];
+  newWork: string[];
   sendButton: string[];
   searchChatsButton: string[];
   searchChatsPlaceholder: string[];
@@ -273,6 +369,9 @@ export const localeLabels: {
   modeLabels: string[];
   modeOptions: Record<ModeOptionId, string[]>;
   modeOpenerExtra: string[];
+  experienceOptions: Record<ExperienceOptionId, string[]>;
+  configurationAxes: Record<ConfigurationAxisLabelId, string[]>;
+  configurationOptions: Record<ConfigurationOptionId, string[]>;
   threadActionMenuItems: string[];
   threadActionPrefixes: string[];
   tools: Record<string, string[]>;
@@ -287,6 +386,9 @@ export const localeLabels: {
 } = {
   ...builtLabels,
   modeOptions: builtModeOptions,
+  experienceOptions: builtExperienceOptions,
+  configurationAxes: builtConfigurationAxes,
+  configurationOptions: builtConfigurationOptions,
   tools: builtTools,
 };
 
@@ -306,4 +408,19 @@ export function anyLabelPattern(candidates: readonly string[]): RegExp {
   return new RegExp(candidates.map(escapeRegExp).join("|"), "i");
 }
 
-export type { LocaleStrings, LocaleContribution, ModeOptionId, ModeOptionLabels, ModeOptionContribution } from "./types.js";
+export type {
+  ConfigurationAxisContribution,
+  ConfigurationAxisLabelId,
+  ConfigurationAxisLabels,
+  ConfigurationOptionContribution,
+  ConfigurationOptionId,
+  ConfigurationOptionLabels,
+  ExperienceOptionContribution,
+  ExperienceOptionId,
+  ExperienceOptionLabels,
+  LocaleContribution,
+  LocaleStrings,
+  ModeOptionContribution,
+  ModeOptionId,
+  ModeOptionLabels
+} from "./types.js";

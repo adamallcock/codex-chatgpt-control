@@ -13,6 +13,11 @@ const CHATGPT_HOME = "https://chatgpt.com/";
 const DEFAULT_SWITCH_TIMEOUT_MS = 15_000;
 const DEFAULT_SETTLE_MS = 1_500;
 const DEFAULT_LIMIT = 25;
+const DEFAULT_GENERATION_CAPTURE_TIMEOUT_MS = 8_000;
+const DEFAULT_GENERATION_PROMPT = [
+  "Localization probe: count upward from 1 to 2000, one number per line.",
+  "Do not explain. Keep going until I stop you."
+].join(" ");
 
 type CaptureStatus = "ok" | "blocked";
 
@@ -39,6 +44,9 @@ type CaptureRecord = {
   selectedIntelligenceLabel?: string | undefined;
   versionFamilyLabels?: string[] | undefined;
   modelVersionLabels?: string[] | undefined;
+  generationStopLabels?: string[] | undefined;
+  generationStoppedLabels?: string[] | undefined;
+  generationSignals?: string[] | undefined;
   warnings: string[];
   blocker?: {
     kind: string;
@@ -57,6 +65,9 @@ type CaptureOptions = {
   limit: number | undefined;
   locales: string[] | undefined;
   openVersionSubmenu: boolean;
+  captureGenerationState: boolean;
+  generationPrompt: string;
+  generationCaptureTimeoutMs: number;
   restore: boolean;
   settleMs: number;
   switchTimeoutMs: number;
@@ -71,6 +82,29 @@ type CaptureRuntime = {
 };
 
 type TimingOptions = Pick<CaptureOptions, "settleMs" | "switchTimeoutMs">;
+
+type GenerationUiSnapshot = {
+  controls: CapturedGenerationControl[];
+  shortLatestAssistantTexts: string[];
+};
+
+type CapturedGenerationControl = {
+  label: string;
+  text?: string | undefined;
+  ariaLabel?: string | undefined;
+  title?: string | undefined;
+  testId?: string | undefined;
+  role?: string | undefined;
+};
+
+type GenerationStateCapture = {
+  stopLabels: string[];
+  stoppedLabels: string[];
+  signals: string[];
+  warnings: string[];
+  submitted: boolean;
+  stopped: boolean;
+};
 
 class CaptureUsageError extends Error {
   constructor(message: string, readonly exitCode = 2) {
@@ -98,6 +132,10 @@ const USAGE = [
   "  --locales                      Comma-separated BCP47 ids to sweep instead of first --limit languages.",
   "  --open-version-submenu         Capture GPT-* model version submenu labels. Default: true.",
   "  --no-open-version-submenu      Do not open the model-version submenu.",
+  "  --capture-generation-state     Submit one bounded probe per locale to capture localized running/stopped generation labels. Default: false.",
+  "  --no-capture-generation-state  Disable generation-state capture.",
+  "  --generation-prompt            Override the redacted probe prompt used only for generation-state capture.",
+  "  --generation-timeout-ms        Wait for generation controls after submit. Default: 8000.",
   "  --restore                      Restore the initially selected language after a sweep. Default with --auto-switch.",
   "  --no-restore                   Leave ChatGPT on the last swept language.",
   "  --settle-ms                    Wait after language switches and menu opens. Default: 1500.",
@@ -179,6 +217,9 @@ export function parseArgs(argv: readonly string[]): CaptureOptions {
   let limit: number | undefined;
   let locales: string[] | undefined;
   let openVersionSubmenu = true;
+  let captureGenerationState = false;
+  let generationPrompt = DEFAULT_GENERATION_PROMPT;
+  let generationCaptureTimeoutMs = DEFAULT_GENERATION_CAPTURE_TIMEOUT_MS;
   let restore: boolean | undefined;
   let settleMs = DEFAULT_SETTLE_MS;
   let switchTimeoutMs = DEFAULT_SWITCH_TIMEOUT_MS;
@@ -223,6 +264,18 @@ export function parseArgs(argv: readonly string[]): CaptureOptions {
       case "--no-open-version-submenu":
         openVersionSubmenu = false;
         break;
+      case "--capture-generation-state":
+        captureGenerationState = true;
+        break;
+      case "--no-capture-generation-state":
+        captureGenerationState = false;
+        break;
+      case "--generation-prompt":
+        generationPrompt = requiredValue(argv, ++index, arg);
+        break;
+      case "--generation-timeout-ms":
+        generationCaptureTimeoutMs = parsePositiveInteger(requiredValue(argv, ++index, arg), arg);
+        break;
       case "--restore":
         restore = true;
         break;
@@ -264,6 +317,9 @@ export function parseArgs(argv: readonly string[]): CaptureOptions {
     limit,
     locales,
     openVersionSubmenu,
+    captureGenerationState,
+    generationPrompt,
+    generationCaptureTimeoutMs,
     restore: restore ?? autoSwitch,
     settleMs,
     switchTimeoutMs,
@@ -330,8 +386,15 @@ async function captureOne(page: PageLike, language: CoverageLanguage, options: C
     }
 
     await closeSettingsIfOpen(page);
+    await returnToChatSurface(page, options);
     const picker = await captureIntelligencePicker(page, options);
-    return {
+    const generation = options.captureGenerationState
+      ? await captureGenerationStateLabels(page, options)
+      : undefined;
+    if (generation !== undefined) {
+      warnings.push(...generation.warnings);
+    }
+    const record: CaptureRecord = {
       schemaVersion: SCHEMA_VERSION,
       status: "ok",
       capturedAt: new Date().toISOString(),
@@ -346,6 +409,12 @@ async function captureOne(page: PageLike, language: CoverageLanguage, options: C
       modelVersionLabels: picker.modelVersionLabels,
       warnings
     };
+    if (generation !== undefined) {
+      record.generationStopLabels = generation.stopLabels;
+      record.generationStoppedLabels = generation.stoppedLabels;
+      record.generationSignals = generation.signals;
+    }
+    return record;
   } catch (error) {
     const proof = await renderedProof(page).catch(() => ({}));
     return blockedRecord(language, proof, warnings, "capture_failed", error instanceof Error ? error.message : String(error));
@@ -459,6 +528,18 @@ async function closeSettingsIfOpen(page: PageLike): Promise<void> {
   if (await isSettingsOpen(page)) {
     throw new Error("Settings modal did not close.");
   }
+}
+
+async function returnToChatSurface(page: PageLike, options: Pick<CaptureOptions, "settleMs">): Promise<void> {
+  const proof: { htmlLang?: string; url?: string } = await renderedProof(page).catch(() => ({}));
+  if (proof.url?.includes("#settings") !== true) return;
+  if (page.goto !== undefined) {
+    await page.goto(CHATGPT_HOME).catch(() => undefined);
+    await wait(options.settleMs);
+    return;
+  }
+  await page.keyboard?.press?.("Escape").catch(() => undefined);
+  await wait(options.settleMs);
 }
 
 async function closeFloatingMenus(page: PageLike): Promise<void> {
@@ -660,6 +741,340 @@ async function openVersionSubmenu(page: PageLike): Promise<void> {
   }
 }
 
+async function captureGenerationStateLabels(
+  page: PageLike,
+  options: Pick<CaptureOptions, "generationPrompt" | "generationCaptureTimeoutMs" | "settleMs">
+): Promise<GenerationStateCapture> {
+  const warnings: string[] = [];
+  const before = await readGenerationUiSnapshot(page).catch((): GenerationUiSnapshot => ({ controls: [], shortLatestAssistantTexts: [] }));
+  let submitted = false;
+  let stopped = false;
+  let active = before;
+  let stopLabels: string[] = [];
+
+  try {
+    if (snapshotLooksActive(before)) {
+      warnings.push("Generation controls were already visible before the probe; capturing existing controls without submitting another prompt.");
+    } else {
+      submitted = await submitGenerationProbePrompt(page, options.generationPrompt);
+    }
+
+    active = await waitForGenerationUiSnapshot(page, before, options.generationCaptureTimeoutMs).catch(error => {
+      warnings.push(`Generation control capture timed out: ${error instanceof Error ? error.message : String(error)}`);
+      return before;
+    });
+    stopLabels = generationStopLabels(before, active);
+    if (stopLabels.length === 0) {
+      warnings.push("No generation stop labels were observed; leaving stopControl unchanged for this locale.");
+    }
+  } catch (error) {
+    warnings.push(`Generation probe failed: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    if (submitted || stopLabels.length > 0 || snapshotLooksActive(active)) {
+      stopped = await stopGenerationIfVisible(page, stopLabels).catch(error => {
+        warnings.push(`Unable to stop generation after probe: ${error instanceof Error ? error.message : String(error)}`);
+        return false;
+      });
+      await wait(options.settleMs);
+    }
+  }
+
+  const afterStop = await readGenerationUiSnapshot(page).catch((): GenerationUiSnapshot => ({ controls: [], shortLatestAssistantTexts: [] }));
+  const stoppedLabels = stopped ? generationStoppedLabels(before, active, afterStop) : [];
+  if (submitted && !stopped) {
+    warnings.push("Generation probe was submitted but no stop action was confirmed.");
+  }
+
+  return {
+    stopLabels,
+    stoppedLabels,
+    signals: dedupeStrings([
+      ...stopLabels,
+      ...stoppedLabels,
+      ...active.controls.map(control => control.label)
+    ]).slice(0, 20),
+    warnings,
+    submitted,
+    stopped
+  };
+}
+
+async function submitGenerationProbePrompt(page: PageLike, prompt: string): Promise<boolean> {
+  await closeFloatingMenus(page);
+  const textbox = page.locator?.("textarea, [contenteditable='true']")?.last?.()
+    ?? page.getByRole?.("textbox")?.last?.();
+  if (textbox?.click === undefined || textbox.fill === undefined) {
+    throw new Error("Composer textbox was not available for generation probe.");
+  }
+  await textbox.click();
+  await textbox.fill(prompt);
+  if (page.keyboard?.press !== undefined) {
+    await page.keyboard.press("Enter");
+    return true;
+  }
+  const clicked = await clickSubmitControlByDom(page);
+  if (!clicked) {
+    throw new Error("No structural submit control was available for generation probe.");
+  }
+  return true;
+}
+
+async function clickSubmitControlByDom(page: PageLike): Promise<boolean> {
+  const structuralSelectors = [
+    "form button[data-testid='send-button']",
+    "form button#composer-submit-button",
+    "button[data-testid='send-button']",
+    "button#composer-submit-button"
+  ];
+  for (const selector of structuralSelectors) {
+    const button = page.locator?.(selector)?.last?.();
+    if (button?.click === undefined) continue;
+    const clicked = await button.click().then(() => true, () => false);
+    if (clicked) return true;
+  }
+
+  if (typeof page.evaluate !== "function") return false;
+  return page.evaluate(() => {
+    const isButtonElement = (element: Element): element is HTMLButtonElement =>
+      element.tagName.toLowerCase() === "button";
+    const visible = (element: HTMLElement) => {
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      return rect.width > 0
+        && rect.height > 0
+        && style.display !== "none"
+        && style.visibility !== "hidden"
+        && style.opacity !== "0";
+    };
+    const buttons = Array.from(document.querySelectorAll("form button, button"))
+      .filter((button): button is HTMLButtonElement => {
+        if (!isButtonElement(button)) return false;
+        if ((button as HTMLButtonElement).disabled || button.getAttribute("aria-disabled") === "true") return false;
+        if (!visible(button)) return false;
+        const text = [
+          button.textContent,
+          button.getAttribute("aria-label"),
+          button.getAttribute("title"),
+          button.getAttribute("data-testid")
+        ].filter(Boolean).join(" ");
+        return /send|submit|composer-submit|arrow-up/i.test(text);
+      });
+    let button = buttons.at(-1);
+    if (button === undefined) {
+      const structural = Array.from(document.querySelectorAll("form button"))
+        .filter((candidate): candidate is HTMLButtonElement => {
+          if (!isButtonElement(candidate)) return false;
+          if ((candidate as HTMLButtonElement).disabled || candidate.getAttribute("aria-disabled") === "true") return false;
+          if (!visible(candidate)) return false;
+          const text = [
+            candidate.textContent,
+            candidate.getAttribute("aria-label"),
+            candidate.getAttribute("title"),
+            candidate.getAttribute("data-testid"),
+            candidate.id
+          ].filter(Boolean).join(" ");
+          return !/composer-plus|plus|attach|file|microphone|mic|dictat|voice|audio|intelligence|model|tool/i.test(text);
+        })
+        .sort((left, right) => {
+          const leftRect = left.getBoundingClientRect();
+          const rightRect = right.getBoundingClientRect();
+          return (rightRect.bottom + rightRect.right / 10) - (leftRect.bottom + leftRect.right / 10);
+        });
+      button = structural[0];
+    }
+    if (button === undefined) return false;
+    button.click();
+    return true;
+  }).catch(() => false);
+}
+
+async function waitForGenerationUiSnapshot(
+  page: PageLike,
+  before: GenerationUiSnapshot,
+  timeoutMs: number
+): Promise<GenerationUiSnapshot> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const current = await readGenerationUiSnapshot(page);
+    if (generationStopLabels(before, current).length > 0 || snapshotLooksActive(current)) {
+      return current;
+    }
+    if (Date.now() >= deadline) {
+      throw new Error("Timed out waiting for generation controls.");
+    }
+    await wait(500);
+  }
+}
+
+async function readGenerationUiSnapshot(page: PageLike): Promise<GenerationUiSnapshot> {
+  if (typeof page.evaluate !== "function") {
+    return { controls: [], shortLatestAssistantTexts: [] };
+  }
+  return page.evaluate(() => {
+    const normalize = (value: string | null | undefined) => (value ?? "").replace(/\s+/g, " ").trim();
+    const visible = (element: Element) => {
+      if (typeof (element as HTMLElement).getBoundingClientRect !== "function") return false;
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      return rect.width > 0
+        && rect.height > 0
+        && style.display !== "none"
+        && style.visibility !== "hidden"
+        && style.opacity !== "0"
+        && element.getAttribute("aria-hidden") !== "true";
+    };
+    const relevantSurface = (element: Element) =>
+      element.closest("main, form") !== null
+      && element.closest("nav, aside") === null;
+    const controls = Array.from(document.querySelectorAll("main button, main [role='button'], form button, form [role='button']"))
+      .filter(visible)
+      .filter(relevantSurface)
+      .map(element => {
+        const html = element as HTMLElement;
+        const text = normalize(html.innerText || html.textContent);
+        const ariaLabel = normalize(html.getAttribute("aria-label"));
+        const title = normalize(html.getAttribute("title"));
+        const testId = normalize(html.getAttribute("data-testid"));
+        const label = ariaLabel || title || text || testId;
+        return {
+          label,
+          text: text || undefined,
+          ariaLabel: ariaLabel || undefined,
+          title: title || undefined,
+          testId: testId || undefined,
+          role: html.getAttribute("role") ?? undefined
+        };
+      })
+      .filter(control => control.label.length > 0);
+
+    const turns = Array.from(document.querySelectorAll("main [data-testid^='conversation-turn']"));
+    const latestAssistant = turns.reverse().find(turn =>
+      turn.querySelector("[data-message-author-role='assistant']") !== null
+    );
+    const shortLatestAssistantTexts = latestAssistant === undefined
+      ? []
+      : Array.from(latestAssistant.querySelectorAll("[data-message-author-role='assistant'] *"))
+        .map(element => normalize((element as HTMLElement).innerText || element.textContent))
+        .filter(text => text.length > 0 && text.length <= 80);
+
+    return { controls, shortLatestAssistantTexts };
+  }).catch(() => ({ controls: [], shortLatestAssistantTexts: [] }));
+}
+
+function generationStopLabels(before: GenerationUiSnapshot, active: GenerationUiSnapshot): string[] {
+  const beforeLabels = new Set(before.controls.map(control => normalizedControlKey(control.label)));
+  const candidates = active.controls
+    .filter(control => !beforeLabels.has(normalizedControlKey(control.label)) || looksLikeStopControl(control))
+    .map(control => control.label)
+    .filter(isUsefulGenerationLabel);
+  return dedupeStrings(candidates);
+}
+
+function generationStoppedLabels(
+  before: GenerationUiSnapshot,
+  active: GenerationUiSnapshot,
+  afterStop: GenerationUiSnapshot
+): string[] {
+  const previous = new Set([...before.shortLatestAssistantTexts, ...active.shortLatestAssistantTexts].map(normalizedControlKey));
+  const candidates = afterStop.shortLatestAssistantTexts
+    .filter(text => !previous.has(normalizedControlKey(text)))
+    .filter(isUsefulStoppedText);
+  return dedupeStrings(candidates);
+}
+
+function snapshotLooksActive(snapshot: GenerationUiSnapshot): boolean {
+  return snapshot.controls.some(looksLikeStopControl);
+}
+
+function looksLikeStopControl(control: CapturedGenerationControl): boolean {
+  return /stop|cancel|abort|interromp|unterbrech|gestoppt|arr[eê]t|detener|parar|interrumpir/i.test([
+    control.label,
+    control.text,
+    control.ariaLabel,
+    control.title,
+    control.testId
+  ].filter(Boolean).join(" "));
+}
+
+function isUsefulGenerationLabel(label: string): boolean {
+  const normalized = normalizedControlKey(label);
+  if (normalized.length < 2 || normalized.length > 80) return false;
+  if (/^(send|send prompt|voice|dictate|start dictation|attach|add files|new chat|copy response|more actions|pro|instant|thinking|extended thinking)$/i.test(normalized)) return false;
+  return true;
+}
+
+function isUsefulStoppedText(text: string): boolean {
+  const normalized = normalizedControlKey(text);
+  if (normalized.length < 2 || normalized.length > 80) return false;
+  if (/^[\d\s.,:;!?()[\]-]+$/.test(normalized)) return false;
+  if (/^localization probe/i.test(normalized)) return false;
+  return true;
+}
+
+async function stopGenerationIfVisible(page: PageLike, labels: readonly string[]): Promise<boolean> {
+  for (const label of labels) {
+    const roleButton = page.getByRole?.("button", { name: label, exact: true })?.last?.();
+    if (roleButton?.click !== undefined) {
+      await roleButton.click().catch(() => undefined);
+      await wait(500);
+      return true;
+    }
+  }
+  if (typeof page.evaluate !== "function") return false;
+  return page.evaluate((wantedLabels: string[]) => {
+    const normalize = (value: string | null | undefined) => (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+    const wanted = new Set(wantedLabels.map(label => label.toLowerCase()));
+    const relevantSurface = (element: Element) =>
+      element.closest("main, form") !== null
+      && element.closest("nav, aside") === null;
+    const visible = (element: HTMLElement) => {
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      return rect.width > 0
+        && rect.height > 0
+        && style.display !== "none"
+        && style.visibility !== "hidden"
+        && style.opacity !== "0";
+    };
+    const buttons = Array.from(document.querySelectorAll("main button, main [role='button'], form button, form [role='button']"))
+      .filter((button): button is HTMLElement =>
+        typeof (button as HTMLElement).getBoundingClientRect === "function" && visible(button as HTMLElement)
+      )
+      .filter(relevantSurface);
+    const match = buttons.find(button => {
+      const label = [
+        button.getAttribute("aria-label"),
+        button.getAttribute("title"),
+        button.innerText,
+        button.textContent,
+        button.getAttribute("data-testid")
+      ].map(normalize).filter(Boolean).join(" ");
+      return wanted.has(label)
+        || /stop|cancel|abort|interromp|unterbrech|gestoppt|arr[eê]t|detener|parar|interrumpir/i.test(label);
+    });
+    if (match === undefined) return false;
+    match.click();
+    return true;
+  }, [...labels]).catch(() => false);
+}
+
+function normalizedControlKey(label: string): string {
+  return label.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function dedupeStrings(values: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const trimmed = value.replace(/\s+/g, " ").trim();
+    const key = trimmed.toLowerCase();
+    if (trimmed.length === 0 || seen.has(key)) continue;
+    seen.add(key);
+    result.push(trimmed);
+  }
+  return result;
+}
+
 async function renderedProof(page: PageLike): Promise<{ htmlLang?: string; url?: string }> {
   return page.evaluate?.(() => ({
     htmlLang: document.documentElement.lang,
@@ -711,7 +1126,7 @@ async function appendRecord(path: string, record: CaptureRecord): Promise<void> 
 
 function printCaptureRecord(record: CaptureRecord, out: string): void {
   if (record.status === "ok") {
-    console.log(`captured ${record.requestedLocale} htmlLang=${record.htmlLang ?? "unknown"} intelligence=${record.intelligenceLabels?.length ?? 0} versions=${record.modelVersionLabels?.length ?? 0} out=${out}`);
+    console.log(`captured ${record.requestedLocale} htmlLang=${record.htmlLang ?? "unknown"} intelligence=${record.intelligenceLabels?.length ?? 0} versions=${record.modelVersionLabels?.length ?? 0} generationStop=${record.generationStopLabels?.length ?? 0} generationStopped=${record.generationStoppedLabels?.length ?? 0} out=${out}`);
   } else {
     console.log(`blocked ${record.requestedLocale} htmlLang=${record.htmlLang ?? "unknown"} code=${record.blocker?.code ?? "unknown"} out=${out}`);
   }
@@ -787,7 +1202,7 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (typeof process !== "undefined" && process.argv[1] === fileURLToPath(import.meta.url)) {
   const exitCode = await main();
   process.exitCode = exitCode;
 }

@@ -1,6 +1,6 @@
 import type { RunReportOptions } from "../commands/reports.js";
 import { renderUntrustedOutputReturnEnvelope } from "../safety/untrusted-output.js";
-import type { BootstrapArgs, ResponseFormat } from "../types.js";
+import type { BootstrapArgs, ChatGPTExperience, ConfigurationSelection, ResponseFormat } from "../types.js";
 import type {
   ChatGPTAttachmentInput,
   ChatGPTInputItem,
@@ -18,6 +18,8 @@ const acceptedTopLevelFields = new Set([
   "thread",
   "existingTab",
   "preferExistingTab",
+  "experience",
+  "configuration",
   "attachments",
   "mode",
   "tools",
@@ -29,7 +31,7 @@ const acceptedTopLevelFields = new Set([
 ]);
 
 const unsupportedAlternatives: Record<string, string> = {
-  model: "Use mode for visible ChatGPT UI mode preference. This does not select an API model.",
+  model: "Use experience plus configuration for visible ChatGPT UI preferences. Legacy mode remains supported. These do not select an API model.",
   temperature: "No browser-control equivalent. ChatGPT web does not expose API temperature.",
   top_p: "No browser-control equivalent. ChatGPT web does not expose API nucleus sampling.",
   seed: "No browser-control equivalent. Visible ChatGPT web does not expose deterministic API seeds.",
@@ -58,6 +60,8 @@ export type ChatGPTResponsesCreateArgs = {
   thread?: ChatGPTThreadSelector;
   existingTab?: BootstrapArgs["existingTab"];
   preferExistingTab?: boolean;
+  experience?: Exclude<ChatGPTExperience, "unknown">;
+  configuration?: ConfigurationSelection;
   attachments?: ChatGPTAttachmentInput[];
   mode?: ChatGPTVisibleModePreference;
   tools?: ChatGPTVisibleToolPreference[];
@@ -154,6 +158,8 @@ export function responsesCreateArgsToRunInput(args: ChatGPTResponsesCreateArgs):
   if (args.thread !== undefined) runInput.thread = args.thread;
   if (args.existingTab !== undefined) runInput.existingTab = args.existingTab;
   if (args.preferExistingTab !== undefined) runInput.preferExistingTab = args.preferExistingTab;
+  if (args.experience !== undefined) runInput.experience = args.experience;
+  if (args.configuration !== undefined) runInput.configuration = args.configuration;
   if (args.attachments !== undefined) runInput.attachments = args.attachments;
   if (args.mode !== undefined) runInput.mode = args.mode;
   if (args.tools !== undefined) runInput.tools = args.tools;
@@ -173,6 +179,12 @@ export function responseFromRunResult<TOutput>(
   if (result.data?.thread !== undefined) browserControl.thread = result.data.thread;
   const reportPath = result.data?.reportPath ?? result.reportPath;
   if (reportPath !== undefined) browserControl.reportPath = reportPath;
+  const submissionState = result.state.submissionState ?? result.data?.submissionState;
+  const completionState = result.state.completionState ?? result.data?.completionState;
+  const generationActive = result.data?.generationActive;
+  if (submissionState !== undefined) browserControl.submissionState = submissionState;
+  if (completionState !== undefined) browserControl.completionState = completionState;
+  if (generationActive !== undefined) browserControl.generationActive = generationActive;
   if (result.output_text.length > 0) {
     const envelopeArgs: Parameters<typeof renderUntrustedOutputReturnEnvelope>[0] = {
       outputText: result.output_text,

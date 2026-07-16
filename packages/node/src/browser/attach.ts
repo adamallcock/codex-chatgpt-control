@@ -37,7 +37,7 @@ export async function attachChatGPTBrowser(
     browserName: browser.name ?? "chrome"
   };
 
-  const tabId = getTabId(page);
+  const tabId = tabIdFromPage(page);
   if (tabId !== undefined) {
     attached.tabId = tabId;
   }
@@ -419,7 +419,7 @@ function mismatchReasonForNoMatches(
 async function pageMatchesExistingTarget(page: PageLike, policy: ExistingTabPolicy): Promise<boolean> {
   const url = await Promise.resolve(page.url?.()).catch(() => undefined);
   const title = await Promise.resolve(page.title?.()).catch(() => undefined);
-  const tab: BrowserUserTabInfo = { id: getTabId(page) ?? "" };
+  const tab: BrowserUserTabInfo = { id: tabIdFromPage(page) ?? "" };
   if (url !== undefined) tab.url = url;
   if (title !== undefined) tab.title = title;
   return userTabMatchesTarget(tab, policy);
@@ -665,7 +665,7 @@ function normalizePage(pageOrTab: unknown): PageLike {
   return pageOrTab as PageLike;
 }
 
-function getTabId(page: PageLike): string | undefined {
+export function tabIdFromPage(page: PageLike): string | undefined {
   const maybe = page as Record<string, unknown>;
   const id = maybe.id ?? maybe.tabId;
   return typeof id === "string" ? id : undefined;

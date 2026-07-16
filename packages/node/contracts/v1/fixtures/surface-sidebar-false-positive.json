@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "chatgpt.browser_control.surface_profile.v1",
+  "id": "chat-sidebar-pro-false-positive-en",
+  "observedAt": "2026-07-15",
+  "provenance": "Sanitized regression profile for a sidebar thread title containing Pro.",
+  "locale": "en-US",
+  "region": "not-recorded",
+  "accountScope": "not-recorded",
+  "planScope": "not-recorded",
+  "workspaceScope": "not-recorded",
+  "supportState": "current",
+  "snapshot": {
+    "url": "https://chatgpt.com/c/sanitized",
+    "composerLabels": ["Ask ChatGPT"],
+    "mainControls": ["Send prompt"],
+    "mainText": "Where should we begin?"
+  },
+  "panel": {
+    "axisRows": [],
+    "advancedVisible": false
+  },
+  "menuItems": [],
+  "expected": {
+    "experience": "chat",
+    "selectorProfile": "chat_simplified_v1",
+    "availableAxes": [],
+    "active": {}
+  }
+}

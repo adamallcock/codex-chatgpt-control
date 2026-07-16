@@ -19,7 +19,7 @@ import type {
   RuntimeEnv
 } from "../types.js";
 import { contextFromPage } from "./context.js";
-import { bootstrap } from "./session.js";
+import { ensurePage } from "./session.js";
 import { localGuardTimeout, withTimeout } from "./timeouts.js";
 
 export async function listLatestArtifacts(
@@ -562,13 +562,6 @@ function artifactDownloadBlocker<T>(error: unknown, context: CommandResult["cont
     },
     context
   };
-}
-
-async function ensurePage(env: RuntimeEnv): Promise<CommandResult<unknown>> {
-  if (env.page !== undefined) {
-    return resultOk({}, await contextFromPage(env.page));
-  }
-  return bootstrap(env, { preferExistingTab: true });
 }
 
 async function hasStopControl(page: RuntimeEnv["page"] & {}, timeoutMs: number): Promise<boolean> {

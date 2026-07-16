@@ -52,9 +52,9 @@ workflow selector.
 
 Two rules that never change regardless of language:
 
-- **API keys stay English.** Callers pass `model: "Pro"`,
-  `intelligence: "Pro"`, `modelVersion: "5.4"`, `effort: "Thinking"`, or
-  `tool: "web_search"`. Only the *matched DOM text* is localized. You add the
+- **API keys stay English.** Callers pass `experience: "work"`,
+  `model: "GPT-5.6 Sol"`, `intelligence: "Pro"`, `effort: "High"`,
+  `speed: "Standard"`, or `tool: "web_search"`. Only the *matched DOM text* is localized. You add the
   German label to the registry array; the caller-facing key is untouched.
 - **Structural anchors are language-agnostic and are not in this file.** Element ids
   (`#composer-plus-btn`, `#upload-files`), `data-message-author-role`,
@@ -68,6 +68,11 @@ Localized — lives in `src/dom/locale/en.ts` (English) and per-locale files, sa
 | Registry key | Surface | Capture from |
 |---|---|---|
 | `composerTextbox` | composer textbox | `aria-label` |
+| `workComposerTextbox` | Work composer textbox | `aria-label` / placeholder |
+| `newWork` | start-another-Work-task control | visible button or link text |
+| `experienceOptions.chat` / `.work` | Chat/Work switch controls | visible button, tab, link, or menu text |
+| `configurationAxes.*` | model/intelligence/effort/speed/advanced rows | visible row text |
+| `configurationOptions.*` | Chat and Work configuration values | visible menu text |
 | `sendButton` | send button | `aria-label` |
 | `searchChatsButton` | search-chats button | `aria-label` |
 | `searchChatsPlaceholder` | search input | `placeholder` (mind the ellipsis — see caveats) |
@@ -100,6 +105,27 @@ Localized — lives in `src/dom/locale/en.ts` (English) and per-locale files, sa
 
 The type definitions for `LocaleStrings` (complete) and `LocaleContribution` (partial, for
 non-English files) live in [`src/dom/locale/types.ts`](../src/dom/locale/types.ts).
+
+The first Chat/Work profile fixtures are English evidence. The nested locale
+combiner lets existing locale files omit the new groups without breaking
+compilation, but that is not proof that Work configuration is localized in
+those languages. Add observed labels and a sanitized surface-profile fixture
+before claiming support for a new locale/profile combination.
+
+Create a read-only draft from an already-open authorized ChatGPT tab:
+
+```bash
+npm run capture:surface-profile -- \
+  --id work-basic-de \
+  --locale de-DE
+```
+
+The command defaults region, plan, account, and workspace metadata to
+`not-recorded`, defaults support state to `unverified`, strips conversation
+identifiers, and excludes prompt/response/sidebar text. Review the draft under
+`outputs/surface-profiles/`, add only verified localized labels to the registry,
+then move a sanitized fixture into `contracts/v1/fixtures/` and update the
+manifest/parity matrix.
 
 ## Adding a new language
 
@@ -249,9 +275,11 @@ Notes:
 - All consumer import paths (`from "../dom/locale-labels.js"`) are unchanged — the barrel
   `locale-labels.ts` re-exports everything from `locale/index.ts`.
 - `doctor({ check: ["localization"] })` verifies that the registry is populated and
-  canonical English values are present. It does not yet prove full localized selector
-  coverage; treat localized workflow failures as selector-wiring work unless the registry
-  is missing the observed labels.
+  canonical English values are present. It also reports running-state localization coverage
+  separately from the flattened selector list, because `stopControl` and
+  `stoppedAssistant` require a live mid-generation capture. It does not yet prove full
+  localized selector coverage; treat localized workflow failures as selector-wiring work
+  unless the registry is missing the observed labels.
 - The public-export plugin bundles under `plugins/codex-chatgpt-control/runtime/node/` are
   produced by a separate pipeline (`tools/public-export/export-public.mjs`) and are not
   updated by the sync above.

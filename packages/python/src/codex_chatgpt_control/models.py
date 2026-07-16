@@ -39,6 +39,8 @@ class ChatGPTRunState(WireModel):
     resumable: bool
     thread: dict[str, Any] | None = None
     next_step_id: str | None = Field(default=None, alias="nextStepId")
+    submission_state: str | None = Field(default=None, alias="submissionState")
+    completion_state: str | None = Field(default=None, alias="completionState")
 
 
 class SequencePolicy(WireModel):
@@ -166,6 +168,8 @@ class ChatGPTRunInput(WireModel):
     thread: dict[str, Any] | None = None
     existing_tab: dict[str, Any] | bool | None = Field(default=None, alias="existingTab")
     prefer_existing_tab: bool | None = Field(default=None, alias="preferExistingTab")
+    experience: Literal["chat", "work"] | None = None
+    configuration: dict[str, Any] | None = None
     attachments: list[dict[str, Any]] | None = None
     mode: dict[str, Any] | None = None
     tools: list[dict[str, Any]] | None = None
@@ -174,6 +178,109 @@ class ChatGPTRunInput(WireModel):
     copy_: dict[str, Any] | bool | None = Field(default=None, alias="copy")
     report: dict[str, Any] | bool | None = None
     metadata: dict[str, Any] | None = None
+
+
+ChatGPTExperience = Literal["chat", "work", "unknown"]
+SurfaceSelectorProfile = Literal[
+    "chat_legacy_v1",
+    "chat_simplified_v1",
+    "work_basic_v1",
+    "work_advanced_v1",
+    "unknown",
+]
+ConfigurationAxis = Literal["model", "intelligence", "effort", "speed", "modelVersion"]
+
+
+class ExperienceEvidence(WireModel):
+    source: Literal["url", "composer", "control", "menu", "heading"]
+    label: str
+
+
+class DetectExperienceData(WireModel):
+    experience: ChatGPTExperience
+    selector_profile: SurfaceSelectorProfile = Field(alias="selectorProfile")
+    confidence: Literal["high", "medium", "low"]
+    evidence: list[ExperienceEvidence]
+
+
+class OpenExperienceData(WireModel):
+    experience: Literal["chat", "work"]
+    previous_experience: ChatGPTExperience = Field(alias="previousExperience")
+    changed: bool
+    selector_profile: SurfaceSelectorProfile = Field(alias="selectorProfile")
+
+
+class ConfigurationOption(WireModel):
+    id: str
+    label: str
+    selected: bool
+    disabled: bool | None = None
+    description: str | None = None
+    has_submenu: bool | None = Field(default=None, alias="hasSubmenu")
+
+
+class ConfigurationInspectionData(WireModel):
+    experience: ChatGPTExperience
+    selector_profile: SurfaceSelectorProfile = Field(alias="selectorProfile")
+    available_axes: list[ConfigurationAxis] = Field(alias="availableAxes")
+    active: dict[str, str]
+    options: dict[str, list[ConfigurationOption]]
+    verified: bool
+    evidence: list[ExperienceEvidence]
+
+
+class AppliedConfigurationSelection(WireModel):
+    axis: ConfigurationAxis
+    requested: str
+    selected: str
+
+
+class ApplyConfigurationData(WireModel):
+    requested: dict[str, Any]
+    selected: list[AppliedConfigurationSelection]
+    before: ConfigurationInspectionData
+    after: ConfigurationInspectionData
+    verified: bool
+
+
+class WorkTaskRef(WireModel):
+    url: str | None = None
+    conversation_id: str | None = Field(default=None, alias="conversationId")
+    title: str | None = None
+    baseline_turn_count: int | None = Field(default=None, alias="baselineTurnCount")
+    baseline_assistant_turn_count: int | None = Field(default=None, alias="baselineAssistantTurnCount")
+
+
+class StartWorkData(WireModel):
+    task: WorkTaskRef
+    submitted: dict[str, Any]
+    configuration: ApplyConfigurationData | None = None
+    wait: dict[str, Any] | None = None
+    response: dict[str, Any] | None = None
+
+
+class WorkStatusData(WireModel):
+    experience: Literal["work"]
+    task: WorkTaskRef
+    message: dict[str, Any]
+    artifacts: dict[str, Any] | None = None
+
+
+class SurfaceProfile(WireModel):
+    schema_version: Literal["chatgpt.browser_control.surface_profile.v1"] = Field(alias="schemaVersion")
+    id: str
+    observed_at: str = Field(alias="observedAt")
+    provenance: str
+    locale: str
+    region: str
+    account_scope: str = Field(alias="accountScope")
+    plan_scope: str = Field(alias="planScope")
+    workspace_scope: str = Field(alias="workspaceScope")
+    support_state: Literal["current", "compatibility", "unverified", "retired"] = Field(alias="supportState")
+    snapshot: dict[str, Any]
+    panel: dict[str, Any]
+    menu_items: list[dict[str, Any]] = Field(alias="menuItems")
+    expected: dict[str, Any]
 
 
 class CommandDescriptor(WireModel):

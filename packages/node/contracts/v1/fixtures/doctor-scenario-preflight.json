@@ -71,7 +71,7 @@
         "localization": {
           "details": {
             "englishCanonicalPresent": true,
-            "labelCandidateCount": 1542,
+            "labelCandidateCount": 1544,
             "missingModeOptionIds": [],
             "missingToolIds": [],
             "modeOptionIds": [
@@ -85,15 +85,47 @@
               "pro"
             ],
             "pageAvailable": false,
+            "proAliases": [
+              "Pro",
+              "Pro Extended",
+              "Pro • Extended",
+              "Extended Pro",
+              "專業",
+              "احترافي",
+              "Про",
+              "حرفه‌ای",
+              "Պրո",
+              "ಪ್ರೊ",
+              "Profesionalus",
+              "专业",
+              "പ്രോ",
+              "ਪ੍ਰੋ",
+              "प्रो",
+              "ప్రో",
+              "প্রো",
+              "ப்ரோ"
+            ],
             "requiredKeysMissing": [],
+            "runningStateLabelCoverage": {
+              "nonEnglishLocaleCount": 64,
+              "nonEnglishStopControlLocaleCount": 64,
+              "nonEnglishStoppedAssistantLocaleCount": 0,
+              "registeredLocaleCount": 65,
+              "stopControlCandidateCount": 65,
+              "stopControlLocaleCount": 65,
+              "stoppedAssistantCandidateCount": 3,
+              "stoppedAssistantLocaleCount": 1,
+              "support": "partial"
+            },
             "runtimeSelectorCoverage": "registry_only_stage_2",
+            "supportsProExtendedAlias": true,
             "toolIds": [
               "web_search",
               "deep_research",
               "create_image"
             ]
           },
-          "message": "The locale registry is loaded; localized runtime selector coverage is registry-only in Stage 2 and not fully proven.",
+          "message": "The locale registry is loaded; localized runtime selector coverage is registry-only in Stage 2 and running-state labels are partially localized.",
           "status": "unknown"
         },
         "reports": {

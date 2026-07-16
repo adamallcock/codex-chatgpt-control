@@ -4,7 +4,10 @@
   "result": [
     {
       "args": {
+        "configuration": "optional surface-aware visible configuration",
         "existingTab": "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
+        "experience": "optional chat or work surface",
+        "mode": "legacy visible mode preference",
         "prompt": "message to send or workflow-specific input",
         "report": "optional redacted report settings",
         "thread": "optional thread selector"
@@ -34,7 +37,10 @@
     },
     {
       "args": {
+        "configuration": "optional surface-aware visible configuration",
         "existingTab": "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
+        "experience": "optional chat or work surface",
+        "mode": "legacy visible mode preference",
         "prompt": "message to send or workflow-specific input",
         "report": "optional redacted report settings",
         "thread": "optional thread selector"
@@ -65,7 +71,9 @@
     },
     {
       "args": {
+        "configuration": "optional strict visible configuration such as { intelligence: \"Pro\" } or Work model/effort/speed",
         "existingTab": "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
+        "experience": "optional chat or work surface",
         "files": "absolute local file paths to attach before submitting",
         "mode": "optional visible mode selection, e.g. { model: \"Pro\" } or { intelligence: \"Pro\", modelVersion: \"5.4\" }",
         "prompt": "message to send after files are attached",
@@ -89,17 +97,21 @@
       },
       "defaultTimeoutMs": 120000,
       "examples": [
-        "await chatgpt.askWithFiles({ thread: { type: \"url\", url: \"https://chatgpt.com/c/<conversation-id>\" }, existingTab: true, mode: { model: \"Pro\" }, files: [\"/absolute/host/path/brief.md\"], prompt: \"Summarize this.\", wait: true, read: { format: \"markdown\" } });"
+        "await chatgpt.askWithFiles({ thread: { type: \"url\", url: \"https://chatgpt.com/c/<conversation-id>\" }, existingTab: true, experience: \"chat\", configuration: { intelligence: \"Pro\" }, files: [\"/absolute/host/path/brief.md\"], prompt: \"Summarize this.\", wait: true, read: { format: \"markdown\" } });",
+        "await chatgpt.askWithFiles({ mode: { model: \"Pro\" }, files: [\"/absolute/host/path/image.jpg\"], prompt: \"Describe this image.\", wait: true });"
       ],
       "layer": "workflow",
       "name": "askWithFiles",
       "retryPolicy": "Return structured CommandResult failures; do not resubmit prompts unless the sequence policy permits unmatched-turn recovery.",
       "risk": "medium",
-      "summary": "Attach absolute local file paths, optionally set mode, ask, wait, and read."
+      "summary": "Attach absolute local file paths, optionally open/configure Chat or Work, ask, wait, and read."
     },
     {
       "args": {
+        "configuration": "optional surface-aware visible configuration",
         "existingTab": "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
+        "experience": "optional chat or work surface",
+        "mode": "legacy visible mode preference",
         "prompt": "message to send or workflow-specific input",
         "report": "optional redacted report settings",
         "thread": "optional thread selector"
@@ -129,7 +141,10 @@
     },
     {
       "args": {
+        "configuration": "optional surface-aware visible configuration",
         "existingTab": "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
+        "experience": "optional chat or work surface",
+        "mode": "legacy visible mode preference",
         "prompt": "message to send or workflow-specific input",
         "report": "optional redacted report settings",
         "thread": "optional thread selector"
@@ -159,7 +174,10 @@
     },
     {
       "args": {
+        "configuration": "optional surface-aware visible configuration",
         "existingTab": "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
+        "experience": "optional chat or work surface",
+        "mode": "legacy visible mode preference",
         "prompt": "message to send or workflow-specific input",
         "report": "optional redacted report settings",
         "thread": "optional thread selector"
@@ -179,18 +197,21 @@
       },
       "defaultTimeoutMs": 120000,
       "examples": [
-        "const agent = chatgpt.agent({ name: \"reviewer\", instructions: \"Review deeply.\" }); await chatgpt.runner.run(agent, { input: \"Review this.\", thread: { type: \"new\" } });",
+        "const agent = chatgpt.agent({ name: \"reviewer\", instructions: \"Review deeply.\" }); await chatgpt.runner.run(agent, { input: \"Review this.\", thread: { type: \"new\" }, experience: \"chat\" });",
         "await chatgpt.runner.run(agent, { input: \"Continue.\", thread: { type: \"url\", url: \"https://chatgpt.com/c/<conversation-id>\" }, existingTab: true });"
       ],
       "layer": "workflow",
       "name": "runner.run",
       "retryPolicy": "Return structured CommandResult failures; do not resubmit prompts unless the sequence policy permits unmatched-turn recovery.",
       "risk": "medium",
-      "summary": "Agents-style facade: run a visible ChatGPT browser-control agent against input, files, thread, existing-tab, mode, and response options."
+      "summary": "Agents-style facade: run a visible ChatGPT agent against input, files, thread, existing-tab, experience, configuration, legacy mode, and response options."
     },
     {
       "args": {
+        "configuration": "optional surface-aware visible configuration",
         "existingTab": "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
+        "experience": "optional chat or work surface",
+        "mode": "legacy visible mode preference",
         "prompt": "message to send or workflow-specific input",
         "report": "optional redacted report settings",
         "thread": "optional thread selector"
@@ -220,7 +241,42 @@
     },
     {
       "args": {
+        "configuration": "optional Work model, effort, and speed values",
+        "files": "optional absolute local file paths",
+        "newTask": "start from a blank Work task; defaults to true",
+        "prompt": "visible Work task prompt",
+        "read": "optional response capture behavior",
+        "wait": "optional wait behavior"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "captcha",
+        "rate_limit",
+        "selector_drift"
+      ],
+      "defaults": {
+        "read": {
+          "format": "markdown"
+        },
+        "wait": true
+      },
+      "defaultTimeoutMs": 120000,
+      "examples": [
+        "await chatgpt.work.start({ prompt: \"Analyze the attached package.\", files: [\"/absolute/path/package.tgz\"], configuration: { model: \"GPT-5.6 Sol\", effort: \"High\", speed: \"Fast\" }, wait: true, read: { format: \"markdown\" } });"
+      ],
+      "layer": "workflow",
+      "name": "work.start",
+      "retryPolicy": "Return structured CommandResult failures; do not resubmit prompts unless the sequence policy permits unmatched-turn recovery.",
+      "risk": "medium",
+      "summary": "Open Work, optionally apply model/effort/speed configuration, submit one task, and optionally wait/read without blind resubmission."
+    },
+    {
+      "args": {
+        "configuration": "optional surface-aware visible configuration",
         "existingTab": "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
+        "experience": "optional chat or work surface",
+        "mode": "legacy visible mode preference",
         "prompt": "message to send or workflow-specific input",
         "report": "optional redacted report settings",
         "thread": "optional thread selector"
@@ -248,7 +304,10 @@
     },
     {
       "args": {
+        "configuration": "optional surface-aware visible configuration",
         "existingTab": "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
+        "experience": "optional chat or work surface",
+        "mode": "legacy visible mode preference",
         "prompt": "message to send or workflow-specific input",
         "report": "optional redacted report settings",
         "thread": "optional thread selector"
@@ -541,6 +600,178 @@
       "summary": "Attach to ChatGPT in Chrome and detect login/blocker state."
     },
     {
+      "args": {
+        "timeoutMs": "optional timeout for attaching to the ChatGPT page"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 30000,
+      "examples": [
+        "await chatgpt.experience.detect();"
+      ],
+      "layer": "primitive",
+      "name": "experience.detect",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "low",
+      "summary": "Detect whether the scoped visible composer is Chat, Work, or unknown and return its selector profile."
+    },
+    {
+      "args": {
+        "experience": "chat or work",
+        "timeoutMs": "optional verified-switch timeout"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 30000,
+      "examples": [
+        "await chatgpt.experience.open({ experience: \"work\" });"
+      ],
+      "layer": "primitive",
+      "name": "experience.open",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "medium",
+      "summary": "Open Chat or Work and verify the target surface from scoped composer evidence."
+    },
+    {
+      "args": {
+        "experience": "optional expected chat or work surface",
+        "includeOptions": "open visible axis menus to enumerate options; defaults to true",
+        "timeoutMs": "optional inspection timeout"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 30000,
+      "examples": [
+        "await chatgpt.configuration.inspect({ experience: \"work\" });"
+      ],
+      "layer": "primitive",
+      "name": "configuration.inspect",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "low",
+      "summary": "Inspect the active Chat or Work selector profile, axes, options, and selected values."
+    },
+    {
+      "args": {
+        "desired": "model, intelligence, effort, speed, and/or modelVersion values",
+        "experience": "optional target chat or work surface",
+        "strict": "fail when visible postconditions are not verified; defaults to true",
+        "timeoutMs": "optional selection timeout"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 30000,
+      "examples": [
+        "await chatgpt.configuration.apply({ experience: \"work\", desired: { model: \"GPT-5.6 Sol\", effort: \"High\", speed: \"Fast\" }, strict: true });"
+      ],
+      "layer": "primitive",
+      "name": "configuration.apply",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "medium",
+      "summary": "Apply model/intelligence/effort/speed configuration one axis at a time and verify the final visible state."
+    },
+    {
+      "args": {
+        "includeArtifacts": "include the latest visible artifact inventory; defaults to false for lightweight polling",
+        "maxPreviewChars": "maximum assistant preview characters"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 5000,
+      "examples": [
+        "await chatgpt.work.status();"
+      ],
+      "layer": "primitive",
+      "name": "work.status",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "medium",
+      "summary": "Read current Work task progress and optionally enumerate visible artifacts."
+    },
+    {
+      "args": {
+        "pollMs": "polling interval",
+        "stableMs": "required response stability window",
+        "timeoutMs": "optional Work wait timeout"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 120000,
+      "examples": [
+        "await chatgpt.work.wait({ timeoutMs: 600000 });"
+      ],
+      "layer": "primitive",
+      "name": "work.wait",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "low",
+      "summary": "Wait for the current Work task response to stabilize."
+    },
+    {
+      "args": {
+        "prompt": "visible steering message for the current task",
+        "read": "optional response capture behavior",
+        "wait": "optional wait behavior"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 120000,
+      "examples": [
+        "await chatgpt.work.steer({ prompt: \"Focus the comparison on deployment ergonomics.\" });"
+      ],
+      "layer": "primitive",
+      "name": "work.steer",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "medium",
+      "summary": "Submit a visible steering message to the current Work task without opening a new task."
+    },
+    {
+      "args": {
+        "format": "markdown, normalized_text, visible_text, html, blocks, or all",
+        "maxChars": "optional capture limit"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "selector_drift"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 30000,
+      "examples": [
+        "await chatgpt.work.readLatest({ format: \"markdown\" });"
+      ],
+      "layer": "primitive",
+      "name": "work.readLatest",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "medium",
+      "summary": "Read the latest response from the current Work task."
+    },
+    {
       "args": {},
       "blockers": [
         "browser_bridge_unavailable",
@@ -694,6 +925,26 @@
       "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
       "risk": "medium",
       "summary": "Read the latest message as Markdown, normalized text, blocks, or HTML."
+    },
+    {
+      "args": {
+        "maxPreviewChars": "maximum latest-assistant preview characters to return; defaults to 240"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "captcha",
+        "rate_limit",
+        "selector_drift"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 5000,
+      "examples": [],
+      "layer": "primitive",
+      "name": "messages.status",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "medium",
+      "summary": "Read a compact latest-assistant progress snapshot without treating partial text as complete."
     },
     {
       "args": {},
@@ -967,7 +1218,7 @@
       "name": "modes.set",
       "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
       "risk": "medium",
-      "summary": "Select a visible model, intelligence, effort, or nested model-version candidate when unambiguous."
+      "summary": "Legacy compatibility command: select a visible model/intelligence/effort/version candidate with historical warning-oriented verification."
     },
     {
       "args": {
@@ -988,7 +1239,7 @@
       "name": "modes.get",
       "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
       "risk": "low",
-      "summary": "Read the mode labels shown on the visible composer controls without changing them."
+      "summary": "Legacy compatibility command: read mode labels shown on visible composer controls without changing them."
     },
     {
       "args": {},

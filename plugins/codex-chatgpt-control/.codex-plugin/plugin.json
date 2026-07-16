@@ -1,7 +1,7 @@
 {
   "name": "codex-chatgpt-control",
-  "version": "0.1.0-alpha.1+codex.20260608.1",
-  "description": "Use visible ChatGPT web from Codex for threads, files, Pro review, response capture, and safe blocker reporting.",
+  "version": "0.5.0-alpha.1+codex.20260716.1",
+  "description": "Control visible ChatGPT Chat and Work from Codex with verified configuration, task progress, files, artifacts, and safe blockers.",
   "author": {
     "name": "Adam Allcock",
     "url": "https://github.com/adamallcock"
@@ -15,13 +15,14 @@
     "browser",
     "visible-ui",
     "agents",
-    "pro-consult"
+    "surface-control",
+    "work-tasks"
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "ChatGPT Control for Codex",
-    "shortDescription": "Use visible ChatGPT web from Codex for threads, files, Pro review, response capture, and blockers",
-    "longDescription": "ChatGPT Control for Codex lets Codex agents work with the ChatGPT web product the user can see. It supports user-directed prompts, thread reuse, file attachments, visible downloads, Markdown response capture, redacted reports, Pro consultation workflows, and structured blockers for login, captcha, permissions, selector drift, rate limits, and missing browser bridge state. It does not bypass ChatGPT login, call hidden endpoints, read cookies, or replace the OpenAI API.",
+    "displayName": "ChatGPT Surface Control",
+    "shortDescription": "Delegate to visible ChatGPT Chat or Work with verified controls, progress, files, and artifacts",
+    "longDescription": "ChatGPT Surface Control lets Codex agents work with the visible ChatGPT Chat and Work experiences. It supports surface detection, verified configuration, user-directed prompts, thread and Work-task continuation, progress polling, steering, file attachments, visible artifacts and downloads, Markdown response capture, redacted reports, and structured blockers. It retains legacy mode and Pro-consult aliases, but does not bypass ChatGPT login, call hidden endpoints, read cookies, or replace the OpenAI API or official Codex SDK.",
     "developerName": "Adam Allcock",
     "category": "Developer Tools",
     "capabilities": [
@@ -33,9 +34,9 @@
     "privacyPolicyURL": "https://github.com/adamallcock/codex-chatgpt-control/blob/main/docs/plugin-privacy.md",
     "termsOfServiceURL": "https://github.com/adamallcock/codex-chatgpt-control/blob/main/docs/plugin-terms.md",
     "defaultPrompt": [
-      "Use ChatGPT Pro to critique this plan.",
-      "Continue the ChatGPT thread open in Chrome.",
-      "Diagnose ChatGPT file upload from Codex."
+      "Delegate this review to the most appropriate visible ChatGPT surface.",
+      "Start a visible Work task and report progress without duplicate submission.",
+      "Continue the ChatGPT thread open in Chrome."
     ],
     "brandColor": "#10A37F",
     "composerIcon": "./assets/composer-icon.png",

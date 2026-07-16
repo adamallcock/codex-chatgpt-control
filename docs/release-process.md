@@ -73,8 +73,9 @@ contributors can review the public-facing history.
 
 1. Confirm the marketplace file is present at `.agents/plugins/marketplace.json`.
 2. Confirm the plugin manifest is present at `plugins/codex-chatgpt-control/.codex-plugin/plugin.json`.
-3. Confirm the plugin exposes exactly two V1 skills:
+3. Confirm the plugin exposes exactly three V1 skills:
    - `codex-chatgpt-control`
+   - `chatgpt-delegate`
    - `chatgpt-pro-consult`
 4. Install locally from the checkout:
 
@@ -124,8 +125,8 @@ the package upload itself reproducible and tokenless.
 3. Create and push a `v*` tag that matches the Node package version:
 
    ```bash
-   git tag v0.2.0-alpha.1
-   git push origin v0.2.0-alpha.1
+   git tag v0.5.0-alpha.1
+   git push origin v0.5.0-alpha.1
    ```
 
 4. Approve the `release` environment deployment in GitHub Actions.

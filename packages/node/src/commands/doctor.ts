@@ -3,6 +3,7 @@ import { access, stat } from "node:fs/promises";
 import { readSystemClipboard } from "../browser/clipboard.js";
 import { readPageState } from "../browser/page-state.js";
 import { localeLabels } from "../dom/locale-labels.js";
+import { localeCoverageSummary } from "../dom/locale/index.js";
 import { BROWSER_BRIDGE_REMEDIATION, resultOk } from "../errors.js";
 import { explainCommandBlocker } from "../diagnostics/blockers.js";
 import { preflightFiles } from "./files.js";
@@ -74,6 +75,7 @@ const REQUIRED_LOCALE_KEYS = [
 ] as const;
 const REQUIRED_TOOL_IDS = ["web_search", "deep_research", "create_image"] as const;
 const REQUIRED_MODE_OPTION_IDS = ["latest", "instant", "thinking", "extended", "medium", "high", "extraHigh", "pro"] as const;
+type RunningStateLocalizationSupport = "complete" | "partial" | "english_only" | "missing";
 
 export async function doctor(env: RuntimeEnv, args: DoctorArgs = {}): Promise<CommandResult<DoctorReport>> {
   const wanted = args.check ?? DEFAULT_CHECKS;
@@ -316,6 +318,18 @@ function localizationCheck(env: RuntimeEnv): CapabilityCheck {
   const missingModeOptionIds = REQUIRED_MODE_OPTION_IDS.filter(id => (localeLabels.modeOptions[id]?.length ?? 0) === 0);
   const toolIds = Object.keys(localeLabels.tools);
   const modeOptionIds = Object.keys(localeLabels.modeOptions);
+  const proAliases = [...localeLabels.modeOptions.pro];
+  const supportsProExtendedAlias = proAliases.some(alias => /pro\s*(?:•\s*)?extended/i.test(alias))
+    && proAliases.some(alias => /extended\s+pro/i.test(alias));
+  const runningStateLocalizationSupport = runningStateSupport();
+  const runningStateLabelCoverage = {
+    support: runningStateLocalizationSupport,
+    stopControlCandidateCount: localeLabels.stopControl.length,
+    stoppedAssistantCandidateCount: localeLabels.stoppedAssistant.length,
+    ...localeCoverageSummary.runningState,
+    registeredLocaleCount: localeCoverageSummary.registeredLocaleCount,
+    nonEnglishLocaleCount: localeCoverageSummary.nonEnglishLocaleCount
+  };
   const englishCanonicalPresent = localeLabels.composerTextbox[0] === "Chat with ChatGPT"
     && localeLabels.sendButton[0] === "Send prompt"
     && localeLabels.modeLabels.includes("Thinking")
@@ -331,13 +345,23 @@ function localizationCheck(env: RuntimeEnv): CapabilityCheck {
     missingModeOptionIds,
     toolIds,
     modeOptionIds,
+    proAliases,
+    supportsProExtendedAlias,
+    runningStateLabelCoverage,
     labelCandidateCount,
     pageAvailable: env.page !== undefined,
     runtimeSelectorCoverage: "registry_only_stage_2"
   };
 
   if (englishCanonicalPresent && requiredKeysMissing.length === 0 && missingToolIds.length === 0 && missingModeOptionIds.length === 0) {
-    return unknown("The locale registry is loaded; localized runtime selector coverage is registry-only in Stage 2 and not fully proven.", undefined, details);
+    const runningStateMessage = runningStateLocalizationSupport === "complete"
+      ? "running-state labels are present for every registered non-English locale"
+      : runningStateLocalizationSupport === "partial"
+        ? "running-state labels are partially localized"
+        : runningStateLocalizationSupport === "english_only"
+          ? "running-state labels are English-only"
+          : "running-state labels are missing";
+    return unknown(`The locale registry is loaded; localized runtime selector coverage is registry-only in Stage 2 and ${runningStateMessage}.`, undefined, details);
   }
 
   return blocked(
@@ -346,6 +370,19 @@ function localizationCheck(env: RuntimeEnv): CapabilityCheck {
     details,
     "selector_drift"
   );
+}
+
+function runningStateSupport(): RunningStateLocalizationSupport {
+  const coverage = localeCoverageSummary.runningState;
+  const hasEnglishStop = coverage.stopControlLocaleCount > coverage.nonEnglishStopControlLocaleCount;
+  const hasEnglishStopped = coverage.stoppedAssistantLocaleCount > coverage.nonEnglishStoppedAssistantLocaleCount;
+  const hasEnglishFallback = hasEnglishStop && hasEnglishStopped;
+  const allNonEnglishCovered = localeCoverageSummary.nonEnglishLocaleCount > 0
+    && coverage.nonEnglishStopControlLocaleCount >= localeCoverageSummary.nonEnglishLocaleCount
+    && coverage.nonEnglishStoppedAssistantLocaleCount >= localeCoverageSummary.nonEnglishLocaleCount;
+  if (allNonEnglishCovered) return "complete";
+  if (coverage.nonEnglishStopControlLocaleCount > 0 || coverage.nonEnglishStoppedAssistantLocaleCount > 0) return "partial";
+  return hasEnglishFallback ? "english_only" : "missing";
 }
 
 async function reportsCheck(options: RunReportOptions | undefined): Promise<CapabilityCheck> {

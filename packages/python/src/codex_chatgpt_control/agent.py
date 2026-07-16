@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from .commands import to_wire_value
+
 
 InstructionsMode = Literal["visible_prefix", "visible_setup_message", "metadata_only"]
 
@@ -29,16 +31,16 @@ class Agent:
             "kind": "chatgpt_browser_agent",
             "name": self.name,
             "instructionsMode": self.instructions_mode,
-            "defaults": self.defaults,
-            "tools": self.tools,
-            "guardrails": self.guardrails,
+            "defaults": to_wire_value(self.defaults),
+            "tools": to_wire_value(self.tools),
+            "guardrails": to_wire_value(self.guardrails),
         }
         if self.instructions is not None:
             payload["instructions"] = self.instructions
         if self.output is not None:
-            payload["output"] = self.output
+            payload["output"] = to_wire_value(self.output)
         if self.metadata is not None:
-            payload["metadata"] = self.metadata
+            payload["metadata"] = to_wire_value(self.metadata)
         return payload
 
 

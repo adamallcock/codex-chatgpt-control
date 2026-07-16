@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.codex-chatgpt-control/contracts/v1/surface-profile.schema.json",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "observedAt",
+    "provenance",
+    "locale",
+    "region",
+    "accountScope",
+    "planScope",
+    "workspaceScope",
+    "supportState",
+    "snapshot",
+    "panel",
+    "menuItems",
+    "expected"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "chatgpt.browser_control.surface_profile.v1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "observedAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "provenance": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "locale": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 35
+    },
+    "region": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "accountScope": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "planScope": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "workspaceScope": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "supportState": {
+      "enum": ["current", "compatibility", "unverified", "retired"]
+    },
+    "snapshot": {
+      "type": "object",
+      "required": ["url", "composerLabels", "mainControls", "mainText"],
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string", "maxLength": 256 },
+        "composerLabels": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "string", "maxLength": 200 }
+        },
+        "mainControls": {
+          "type": "array",
+          "maxItems": 80,
+          "items": { "type": "string", "maxLength": 200 }
+        },
+        "mainText": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "panel": {
+      "type": "object",
+      "required": ["axisRows", "advancedVisible"],
+      "additionalProperties": false,
+      "properties": {
+        "openerLabel": { "type": "string" },
+        "axisRows": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": ["axis", "label"],
+            "additionalProperties": false,
+            "properties": {
+              "axis": {
+                "enum": ["model", "intelligence", "effort", "speed", "modelVersion"]
+              },
+              "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+              "value": { "type": "string", "maxLength": 200 }
+            }
+          }
+        },
+        "advancedVisible": { "type": "boolean" }
+      }
+    },
+    "menuItems": {
+      "type": "array",
+      "maxItems": 120,
+      "items": {
+        "type": "object",
+        "required": ["label", "normalized"],
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "normalized": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "role": { "type": "string", "maxLength": 64 },
+          "checked": { "type": "boolean" },
+          "expanded": { "type": "boolean" },
+          "hasPopup": { "type": "boolean" },
+          "testId": { "type": "string", "maxLength": 160 },
+          "ariaLabel": { "type": "string", "maxLength": 200 }
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "required": ["experience", "selectorProfile", "availableAxes", "active"],
+      "additionalProperties": false,
+      "properties": {
+        "experience": {
+          "enum": ["chat", "work", "unknown"]
+        },
+        "selectorProfile": {
+          "enum": [
+            "chat_legacy_v1",
+            "chat_simplified_v1",
+            "work_basic_v1",
+            "work_advanced_v1",
+            "unknown"
+          ]
+        },
+        "availableAxes": {
+          "type": "array",
+          "items": {
+            "enum": ["model", "intelligence", "effort", "speed", "modelVersion"]
+          }
+        },
+        "active": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    }
+  }
+}

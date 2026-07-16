@@ -134,6 +134,16 @@ function assertCapabilities(capabilities, fixtureFile) {
   assertNoPythonSnakeCase(capabilities, fixtureFile);
 }
 
+function assertSurfaceProfile(profile, fixtureFile) {
+  assert(profile && typeof profile === "object", `${fixtureFile} missing surface profile.`);
+  assert(profile.schemaVersion === "chatgpt.browser_control.surface_profile.v1", `${fixtureFile} invalid surface profile schemaVersion.`);
+  assert(typeof profile.id === "string", `${fixtureFile} missing profile id.`);
+  assert(profile.snapshot && Array.isArray(profile.snapshot.composerLabels), `${fixtureFile} missing snapshot composer labels.`);
+  assert(profile.panel && Array.isArray(profile.panel.axisRows), `${fixtureFile} missing panel axis rows.`);
+  assert(profile.expected && typeof profile.expected.experience === "string", `${fixtureFile} missing expected experience.`);
+  assertNoPythonSnakeCase(profile, fixtureFile);
+}
+
 function assertBackendResponse(response, fixtureFile) {
   assert(response && typeof response === "object", `${fixtureFile} missing backend response.`);
   assert(response.schemaVersion === "chatgpt.browser_control.backend_response.v1", `${fixtureFile} invalid backend response schemaVersion.`);
@@ -206,6 +216,8 @@ for (const fixture of manifest.fixtures) {
     assertAgent(payload, fixture.file);
   } else if (fixture.schema === "capabilities") {
     assertCapabilities(payload, fixture.file);
+  } else if (fixture.schema === "surfaceProfile") {
+    assertSurfaceProfile(payload, fixture.file);
   } else if (fixture.schema === "backendResponse") {
     assertBackendResponse(payload, fixture.file);
   } else if (fixture.schema === "backendRequest") {

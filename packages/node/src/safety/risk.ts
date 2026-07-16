@@ -2,6 +2,15 @@ export type RiskLevel = "low" | "medium" | "high";
 
 export const commandRisk = {
   "session.bootstrap": "low",
+  "experience.detect": "low",
+  "experience.open": "medium",
+  "configuration.inspect": "low",
+  "configuration.apply": "medium",
+  "work.start": "medium",
+  "work.status": "medium",
+  "work.wait": "low",
+  "work.steer": "medium",
+  "work.readLatest": "medium",
   "threads.search": "medium",
   "threads.open": "medium",
   "threads.new": "low",
@@ -10,6 +19,7 @@ export const commandRisk = {
   "messages.ask": "medium",
   "messages.wait": "low",
   "messages.readLatest": "medium",
+  "messages.status": "medium",
   "messages.waitAndRead": "medium",
   "artifacts.listLatest": "medium",
   "artifacts.wait": "low",

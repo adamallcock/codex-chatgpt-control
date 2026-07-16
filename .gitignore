@@ -10,6 +10,7 @@ __pycache__/
 .ruff_cache/
 .pyright/
 reports/
+outputs/surface-profiles/
 *.log
 .DS_Store
 .env

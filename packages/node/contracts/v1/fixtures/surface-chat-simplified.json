@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "chatgpt.browser_control.surface_profile.v1",
+  "id": "chat-simplified-en",
+  "observedAt": "2026-07-15",
+  "provenance": "Sanitized profile derived from the user-provided current Chat selector screenshot.",
+  "locale": "en-US",
+  "region": "not-recorded",
+  "accountScope": "not-recorded",
+  "planScope": "not-recorded",
+  "workspaceScope": "not-recorded",
+  "supportState": "current",
+  "snapshot": {
+    "url": "https://chatgpt.com/",
+    "composerLabels": ["Ask ChatGPT"],
+    "mainControls": ["Pro", "Send prompt"],
+    "mainText": "Where should we begin?"
+  },
+  "panel": {
+    "openerLabel": "Pro",
+    "axisRows": [],
+    "advancedVisible": false
+  },
+  "menuItems": [
+    { "label": "Instant 5.5", "normalized": "instant 5.5", "role": "menuitemradio" },
+    { "label": "Medium", "normalized": "medium", "role": "menuitemradio" },
+    { "label": "High", "normalized": "high", "role": "menuitemradio" },
+    { "label": "Extra High", "normalized": "extra high", "role": "menuitemradio" },
+    { "label": "Pro", "normalized": "pro", "role": "menuitemradio", "checked": true },
+    { "label": "GPT-5.6 Sol", "normalized": "gpt-5.6 sol", "role": "menuitem", "hasPopup": true }
+  ],
+  "expected": {
+    "experience": "chat",
+    "selectorProfile": "chat_simplified_v1",
+    "availableAxes": ["intelligence", "modelVersion"],
+    "active": { "intelligence": "Pro" }
+  }
+}

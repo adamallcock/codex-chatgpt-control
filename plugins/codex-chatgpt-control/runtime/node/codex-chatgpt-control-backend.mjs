@@ -141,7 +141,9 @@ function classifyVisibleText(text) {
 // src/dom/locale/en.ts
 var en = {
   // --- Primary interaction path (accessible names) ---
-  composerTextbox: ["Chat with ChatGPT"],
+  composerTextbox: ["Chat with ChatGPT", "Ask ChatGPT"],
+  workComposerTextbox: ["Work on anything", "Work on something"],
+  newWork: ["Work on something else", "New work", "New task"],
   sendButton: ["Send prompt"],
   searchChatsButton: ["Search chats"],
   searchChatsPlaceholder: ["Search chats..."],
@@ -169,10 +171,34 @@ var en = {
     medium: ["Medium"],
     high: ["High"],
     extraHigh: ["Extra High"],
-    pro: ["Pro", "Pro Extended", "Extended Pro"]
+    pro: ["Pro", "Pro Extended", "Pro \u2022 Extended", "Extended Pro"]
   },
   /** Extra openers that surface the mode menu but are not selectable modes themselves. */
   modeOpenerExtra: ["Configure"],
+  // --- Chat / Work surfaces and capability-driven configuration ---
+  experienceOptions: {
+    chat: ["Chat", "Quick chat"],
+    work: ["Work"]
+  },
+  configurationAxes: {
+    model: ["Model"],
+    intelligence: ["Intelligence"],
+    effort: ["Effort"],
+    speed: ["Speed"],
+    advanced: ["Advanced"]
+  },
+  configurationOptions: {
+    instant: ["Instant"],
+    light: ["Light"],
+    medium: ["Medium"],
+    high: ["High"],
+    extraHigh: ["Extra High"],
+    max: ["Max"],
+    ultra: ["Ultra"],
+    pro: ["Pro"],
+    standard: ["Standard"],
+    fast: ["Fast"]
+  },
   // --- Thread/action menu rejection (wrong-menu veto for mode selection) ---
   /** Exact thread/conversation action menu items; a menu containing these is not the mode menu. */
   threadActionMenuItems: ["Archive", "Copy link", "Delete", "Move to project", "Rename", "Share"],
@@ -228,7 +254,8 @@ var de = {
     create_image: ["Bild erstellen"]
   },
   signedInMarkers: ["Neuer Chat", "Chats durchsuchen", "Letzte", "Bibliothek", "Projekte", "Mit ChatGPT chatten"],
-  responseActions: ["Antwort kopieren"]
+  responseActions: ["Antwort kopieren"],
+  stopControl: ["Antwort stoppen"]
 };
 
 // src/dom/locale/es-ES.ts
@@ -256,7 +283,8 @@ var esES = {
     create_image: ["Crea una imagen"]
   },
   signedInMarkers: ["Nuevo chat", "Buscar chats", "Recientes", "Biblioteca", "Proyectos", "Chatear con ChatGPT"],
-  responseActions: ["Copiar respuesta"]
+  responseActions: ["Copiar respuesta"],
+  stopControl: ["Detener respuesta"]
 };
 
 // src/dom/locale/fr-FR.ts
@@ -283,7 +311,8 @@ var frFR = {
     create_image: ["Cr\xE9er une image"]
   },
   signedInMarkers: ["Nouveau chat", "Rechercher dans les chats", "R\xE9cents", "Biblioth\xE8que", "Projets", "Discuter avec ChatGPT"],
-  responseActions: ["Copier la r\xE9ponse"]
+  responseActions: ["Copier la r\xE9ponse"],
+  stopControl: ["Interrompre la r\xE9ponse"]
 };
 
 // src/dom/locale/zh-HK.ts
@@ -297,10 +326,10 @@ var zhHK = {
   addFilesOpenerCandidates: ["\u4E0A\u8F09\u6A94\u6848\u548C\u5176\u4ED6\u5185\u5BB9"],
   addPhotosFilesMenuItem: ["\u52A0\u5165\u76F8\u7247\u548C\u6A94\u6848"],
   copyResponse: ["\u8907\u88FD\u56DE\u8986"],
-  modeLabels: ["\u5373\u6642", "\u5747\u8861", "\u9AD8", "\u6975\u9AD8", "\u5C08\u696D"],
+  modeLabels: ["\u5373\u6642", "\u5747\u8861", "\u9AD8", "\u6975\u9AD8", "\u5C08\u696D", "\u4E2D\u7B49"],
   modeOptions: {
     instant: ["\u5373\u6642"],
-    medium: ["\u5747\u8861"],
+    medium: ["\u5747\u8861", "\u4E2D\u7B49"],
     high: ["\u9AD8"],
     extraHigh: ["\u6975\u9AD8"],
     pro: ["\u5C08\u696D"]
@@ -312,7 +341,8 @@ var zhHK = {
     create_image: ["\u5275\u4F5C\u5716\u50CF"]
   },
   signedInMarkers: ["\u65B0\u5C0D\u8A71", "\u641C\u5C0B\u5C0D\u8A71", "\u6700\u8FD1\u5C0D\u8A71", "\u5716\u5EAB", "\u9805\u76EE", "\u8207 ChatGPT \u5C0D\u8A71"],
-  responseActions: ["\u8907\u88FD\u56DE\u8986"]
+  responseActions: ["\u8907\u88FD\u56DE\u8986"],
+  stopControl: ["\u505C\u6B62\u56DE\u61C9"]
 };
 
 // src/dom/locale/zh-TW.ts
@@ -341,7 +371,8 @@ var zhTW = {
     create_image: ["\u5275\u4F5C\u5716\u50CF"]
   },
   signedInMarkers: ["\u65B0\u5C0D\u8A71", "\u641C\u5C0B\u5C0D\u8A71", "\u6700\u8FD1\u7684\u5C0D\u8A71", "\u5716\u5EAB", "\u5C08\u6848", "\u8207 ChatGPT \u5C0D\u8A71"],
-  responseActions: ["\u8907\u88FD\u56DE\u61C9"]
+  responseActions: ["\u8907\u88FD\u56DE\u61C9"],
+  stopControl: ["\u505C\u6B62\u56DE\u61C9"]
 };
 
 // src/dom/locale/ja.ts
@@ -368,7 +399,8 @@ var ja = {
     create_image: ["\u753B\u50CF\u3092\u4F5C\u6210\u3059\u308B"]
   },
   signedInMarkers: ["\u65B0\u3057\u3044\u30C1\u30E3\u30C3\u30C8", "\u30C1\u30E3\u30C3\u30C8\u3092\u691C\u7D22", "\u6700\u8FD1\u306E\u30C1\u30E3\u30C3\u30C8", "\u30E9\u30A4\u30D6\u30E9\u30EA", "\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8", "ChatGPT \u3068\u30C1\u30E3\u30C3\u30C8\u3059\u308B"],
-  responseActions: ["\u56DE\u7B54\u3092\u30B3\u30D4\u30FC\u3059\u308B"]
+  responseActions: ["\u56DE\u7B54\u3092\u30B3\u30D4\u30FC\u3059\u308B"],
+  stopControl: ["\u56DE\u7B54\u3092\u505C\u6B62"]
 };
 
 // src/dom/locale/it.ts
@@ -395,7 +427,8 @@ var it = {
     create_image: ["Crea immagine"]
   },
   signedInMarkers: ["Nuova chat", "Cerca chat", "Chat recenti", "Libreria", "Progetti", "Chatta con ChatGPT"],
-  responseActions: ["Copia risposta"]
+  responseActions: ["Copia risposta"],
+  stopControl: ["Interrompi risposta"]
 };
 
 // src/dom/locale/vi.ts
@@ -423,7 +456,8 @@ var vi = {
     create_image: ["T\u1EA1o h\xECnh \u1EA3nh"]
   },
   signedInMarkers: ["\u0110o\u1EA1n chat m\u1EDBi", "T\xECm ki\u1EBFm \u0111o\u1EA1n chat", "G\u1EA7n \u0111\xE2y", "Th\u01B0 vi\u1EC7n", "D\u1EF1 \xE1n", "Tr\xF2 chuy\u1EC7n v\u1EDBi ChatGPT"],
-  responseActions: ["Sao ch\xE9p ph\u1EA3n h\u1ED3i"]
+  responseActions: ["Sao ch\xE9p ph\u1EA3n h\u1ED3i"],
+  stopControl: ["D\u1EEBng tr\u1EA3 l\u1EDDi"]
 };
 
 // src/dom/locale/am.ts
@@ -451,7 +485,8 @@ var am = {
     create_image: ["\u121D\u1235\u120D \u134D\u1320\u122D"]
   },
   signedInMarkers: ["\u12A0\u12F2\u1235 \u12CD\u12ED\u12ED\u1275", "\u12CD\u12ED\u12ED\u1276\u127D\u1295 \u1348\u120D\u130D", "\u12E8\u1245\u122D\u1265 \u130A\u12DC\u12CE\u127D", "\u120B\u12ED\u1265\u1228\u122A", "\u1355\u122E\u1300\u12AD\u1276\u127D", "\u12A8ChatGPT \u130B\u122D \u12ED\u12C8\u12EB\u12E9"],
-  responseActions: ["\u121D\u120B\u1239\u1295 \u12ED\u1245\u12F1"]
+  responseActions: ["\u121D\u120B\u1239\u1295 \u12ED\u1245\u12F1"],
+  stopControl: ["\u1218\u120D\u1235 \u1218\u1235\u1320\u1275 \u12A0\u1241\u121D"]
 };
 
 // src/dom/locale/ar.ts
@@ -480,7 +515,8 @@ var ar = {
     create_image: ["\u0625\u0646\u0634\u0627\u0621 \u0635\u0648\u0631\u0629"]
   },
   signedInMarkers: ["\u062F\u0631\u062F\u0634\u0629 \u062C\u062F\u064A\u062F\u0629", "\u0627\u0644\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u062F\u0631\u062F\u0634\u0627\u062A", "\u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0627\u062A \u0627\u0644\u0623\u062E\u064A\u0631\u0629", "\u0627\u0644\u0645\u0643\u062A\u0628\u0629", "\u0627\u0644\u0645\u0634\u0631\u0648\u0639\u0627\u062A", "\u0627\u0644\u062F\u0631\u062F\u0634\u0629 \u0645\u0639 ChatGPT"],
-  responseActions: ["\u0646\u0633\u062E \u0625\u062C\u0627\u0628\u0629"]
+  responseActions: ["\u0646\u0633\u062E \u0625\u062C\u0627\u0628\u0629"],
+  stopControl: ["\u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0631\u062F"]
 };
 
 // src/dom/locale/bg.ts
@@ -509,7 +545,8 @@ var bg = {
     create_image: ["\u0421\u044A\u0437\u0434\u0430\u0432\u0430\u043D\u0435 \u043D\u0430 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435"]
   },
   signedInMarkers: ["\u041D\u043E\u0432 \u0447\u0430\u0442", "\u0422\u044A\u0440\u0441\u0435\u043D\u0435 \u043D\u0430 \u0447\u0430\u0442\u043E\u0432\u0435", "\u0421\u043A\u043E\u0440\u043E\u0448\u043D\u0438 \u0447\u0430\u0442\u043E\u0432\u0435", "\u041A\u0430\u0442\u0430\u043B\u043E\u0433", "\u041F\u0440\u043E\u0435\u043A\u0442\u0438", "\u0427\u0430\u0442 \u0441 ChatGPT"],
-  responseActions: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0439\u0442\u0435 \u043E\u0442\u0433\u043E\u0432\u043E\u0440\u0430"]
+  responseActions: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0439\u0442\u0435 \u043E\u0442\u0433\u043E\u0432\u043E\u0440\u0430"],
+  stopControl: ["\u0421\u043F\u0440\u0438 \u043E\u0442\u0433\u043E\u0432\u043E\u0440\u0430"]
 };
 
 // src/dom/locale/bs.ts
@@ -537,7 +574,8 @@ var bs = {
     create_image: ["Kreirajte sliku"]
   },
   signedInMarkers: ["Novi razgovor", "Pretra\u017Ei razgovore", "Nedavno", "Biblioteka", "Projekti", "Razgovarajte pomo\u0107u ChatGPT-a"],
-  responseActions: ["Kopiraj odgovor"]
+  responseActions: ["Kopiraj odgovor"],
+  stopControl: ["Zaustavi odgovaranje"]
 };
 
 // src/dom/locale/ca.ts
@@ -565,7 +603,8 @@ var ca = {
     create_image: ["Crea una imatge"]
   },
   signedInMarkers: ["Xat nou", "Cerca xats", "Recents", "Hist\xF2ria de xats", "Projectes", "Xateja amb el ChatGPT"],
-  responseActions: ["Copia la resposta"]
+  responseActions: ["Copia la resposta"],
+  stopControl: ["Atura la resposta"]
 };
 
 // src/dom/locale/cs.ts
@@ -593,7 +632,8 @@ var cs = {
     create_image: ["Vytvo\u0159 obr\xE1zek"]
   },
   signedInMarkers: ["Nov\xFD chat", "Hledat chaty", "Ned\xE1vn\xE9", "Historie chatu", "Projekty", "Chatovat s ChatGPT"],
-  responseActions: ["Zkop\xEDrovat odpov\u011B\u010F"]
+  responseActions: ["Zkop\xEDrovat odpov\u011B\u010F"],
+  stopControl: ["Zastavit odpov\xEDd\xE1n\xED"]
 };
 
 // src/dom/locale/da.ts
@@ -620,7 +660,8 @@ var da = {
     create_image: ["Lav et billede"]
   },
   signedInMarkers: ["Ny chat", "S\xF8g i chats", "Seneste", "Chathistorik", "Projekter", "Chat med ChatGPT"],
-  responseActions: ["Kopi\xE9r svar"]
+  responseActions: ["Kopi\xE9r svar"],
+  stopControl: ["Afbryd svar"]
 };
 
 // src/dom/locale/el.ts
@@ -648,7 +689,8 @@ var el = {
     create_image: ["\u0394\u03B7\u03BC\u03B9\u03BF\u03C5\u03C1\u03B3\u03AF\u03B1 \u03B5\u03B9\u03BA\u03CC\u03BD\u03B1\u03C2"]
   },
   signedInMarkers: ["\u039D\u03AD\u03B1 \u03C3\u03C5\u03BD\u03BF\u03BC\u03B9\u03BB\u03AF\u03B1", "\u0391\u03BD\u03B1\u03B6\u03AE\u03C4\u03B7\u03C3\u03B7 \u03C3\u03C5\u03BD\u03BF\u03BC\u03B9\u03BB\u03B9\u03CE\u03BD", "\u03A0\u03C1\u03CC\u03C3\u03C6\u03B1\u03C4\u03B5\u03C2", "\u0399\u03C3\u03C4\u03BF\u03C1\u03B9\u03BA\u03CC \u03C3\u03C5\u03BD\u03BF\u03BC\u03B9\u03BB\u03B9\u03CE\u03BD", "\u0388\u03C1\u03B3\u03B1", "\u03A3\u03C5\u03BD\u03BF\u03BC\u03B9\u03BB\u03AF\u03B1 \u03BC\u03B5 \u03C4\u03BF ChatGPT"],
-  responseActions: ["\u0391\u03BD\u03C4\u03B9\u03B3\u03C1\u03B1\u03C6\u03AE \u03B1\u03C0\u03AC\u03BD\u03C4\u03B7\u03C3\u03B7\u03C2"]
+  responseActions: ["\u0391\u03BD\u03C4\u03B9\u03B3\u03C1\u03B1\u03C6\u03AE \u03B1\u03C0\u03AC\u03BD\u03C4\u03B7\u03C3\u03B7\u03C2"],
+  stopControl: ["\u0394\u03B9\u03B1\u03BA\u03BF\u03C0\u03AE \u03B1\u03C0\u03AC\u03BD\u03C4\u03B7\u03C3\u03B7\u03C2"]
 };
 
 // src/dom/locale/es-419.ts
@@ -676,7 +718,8 @@ var es419 = {
     create_image: ["Crea una imagen"]
   },
   signedInMarkers: ["Nuevo chat", "Buscar chats", "Recientes", "Historial del chat", "Proyectos", "Chatear con ChatGPT"],
-  responseActions: ["Copiar respuesta"]
+  responseActions: ["Copiar respuesta"],
+  stopControl: ["Detener respuesta"]
 };
 
 // src/dom/locale/et.ts
@@ -704,7 +747,8 @@ var et = {
     create_image: ["Loo pilt"]
   },
   signedInMarkers: ["Uus vestlus", "Otsi vestlusi", "Hiljutised", "Vestlusajalugu", "Projektid", "Vestle ChatGPT-ga"],
-  responseActions: ["Kopeeri vastus"]
+  responseActions: ["Kopeeri vastus"],
+  stopControl: ["Peata vastamine"]
 };
 
 // src/dom/locale/fa.ts
@@ -733,7 +777,8 @@ var fa = {
     create_image: ["\u0627\u06CC\u062C\u0627\u062F \u062A\u0635\u0648\u06CC\u0631"]
   },
   signedInMarkers: ["\u06AF\u0641\u062A\u06AF\u0648\u06CC \u062C\u062F\u06CC\u062F", "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u0686\u062A\u200C\u0647\u0627", "\u0645\u0648\u0627\u0631\u062F \u0627\u062E\u06CC\u0631", "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u06AF\u0641\u062A\u06AF\u0648", "\u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627", "\u06AF\u0641\u062A\u06AF\u0648 \u0628\u0627 ChatGPT"],
-  responseActions: ["\u06A9\u067E\u06CC \u06A9\u0631\u062F\u0646 \u067E\u0627\u0633\u062E"]
+  responseActions: ["\u06A9\u067E\u06CC \u06A9\u0631\u062F\u0646 \u067E\u0627\u0633\u062E"],
+  stopControl: ["\u062A\u0648\u0642\u0641 \u067E\u0627\u0633\u062E \u06AF\u0648\u06CC\u06CC"]
 };
 
 // src/dom/locale/fi.ts
@@ -761,7 +806,8 @@ var fi = {
     create_image: ["Luo kuva"]
   },
   signedInMarkers: ["Uusi keskustelu", "Hae keskusteluista", "\xC4skett\xE4iset", "Keskusteluhistoria", "Projektit", "Keskustele ChatGPT:n kanssa"],
-  responseActions: ["Kopioi vastaus"]
+  responseActions: ["Kopioi vastaus"],
+  stopControl: ["Lopeta vastaaminen"]
 };
 
 // src/dom/locale/fr-CA.ts
@@ -789,7 +835,8 @@ var frCA = {
     create_image: ["Cr\xE9er une image"]
   },
   signedInMarkers: ["Nouvelle session de clavardage", "Rechercher les clavardages", "R\xE9centes", "Historique des clavardages", "Projets", "Converser avec ChatGPT"],
-  responseActions: ["Copier la r\xE9ponse"]
+  responseActions: ["Copier la r\xE9ponse"],
+  stopControl: ["Arr\xEAter de r\xE9pondre"]
 };
 
 // src/dom/locale/gu.ts
@@ -817,7 +864,8 @@ var gu = {
     create_image: ["\u0A9B\u0AAC\u0AC0 \u0AAC\u0AA8\u0ABE\u0AB5\u0ACB"]
   },
   signedInMarkers: ["\u0AA8\u0AB5\u0AC0 \u0A9A\u0AC7\u0A9F", "\u0A9A\u0AC7\u0A9F \u0AB6\u0ACB\u0AA7\u0ACB", "\u0AA4\u0ABE\u0A9C\u0AC7\u0AA4\u0AB0", "\u0A9A\u0AC7\u0A9F \u0A87\u0AA4\u0ABF\u0AB9\u0ABE\u0AB8", "\u0AAA\u0ACD\u0AB0\u0ACB\u0A9C\u0AC7\u0A95\u0ACD\u0A9F", "ChatGPT \u0AB8\u0ABE\u0AA5\u0AC7 \u0A9A\u0AC5\u0A9F"],
-  responseActions: ["\u0AAA\u0ACD\u0AB0\u0AA4\u0ABF\u0AAD\u0ABE\u0AB5 \u0A95\u0AC9\u0AAA\u0ABF \u0A95\u0AB0\u0ACB"]
+  responseActions: ["\u0AAA\u0ACD\u0AB0\u0AA4\u0ABF\u0AAD\u0ABE\u0AB5 \u0A95\u0AC9\u0AAA\u0ABF \u0A95\u0AB0\u0ACB"],
+  stopControl: ["\u0A9C\u0AB5\u0ABE\u0AAC \u0A86\u0AAA\u0AB5\u0ABE\u0AA8\u0AC1\u0A82 \u0AAC\u0A82\u0AA7 \u0A95\u0AB0\u0ACB"]
 };
 
 // src/dom/locale/hi.ts
@@ -845,7 +893,8 @@ var hi = {
     create_image: ["\u0907\u092E\u0947\u091C \u092C\u0928\u093E\u090F\u0901"]
   },
   signedInMarkers: ["\u0928\u0908 \u091A\u0948\u091F", "\u091A\u0948\u091F \u0916\u094B\u091C\u0947\u0902", "\u0939\u093E\u0932\u093F\u092F\u093E", "\u091A\u0948\u091F \u0939\u093F\u0938\u094D\u091F\u0930\u0940", "\u092A\u094D\u0930\u094B\u091C\u0947\u0915\u094D\u091F\u094D\u0938", "ChatGPT \u0915\u0947 \u0938\u093E\u0925 \u091A\u0948\u091F \u0915\u0930\u0947\u0902"],
-  responseActions: ["\u091C\u0935\u093E\u092C \u0915\u094B \u0915\u0949\u092A\u0940 \u0915\u0930\u0947\u0902"]
+  responseActions: ["\u091C\u0935\u093E\u092C \u0915\u094B \u0915\u0949\u092A\u0940 \u0915\u0930\u0947\u0902"],
+  stopControl: ["\u0909\u0924\u094D\u0924\u0930 \u0930\u094B\u0915\u0947\u0902"]
 };
 
 // src/dom/locale/hr.ts
@@ -872,7 +921,8 @@ var hr = {
     create_image: ["Stvaranje slike"]
   },
   signedInMarkers: ["Novi razgovor", "Pretra\u017Ei razgovore", "Nedavni sadr\u017Eaj", "Povijest razgovora", "Projekti", "Razgovor s ChatGPT-om"],
-  responseActions: ["Kopiraj odgovor"]
+  responseActions: ["Kopiraj odgovor"],
+  stopControl: ["Zaustavi odgovaranje"]
 };
 
 // src/dom/locale/hu.ts
@@ -900,7 +950,8 @@ var hu = {
     create_image: ["K\xE9p l\xE9trehoz\xE1sa"]
   },
   signedInMarkers: ["\xDAj cseveg\xE9s", "Besz\xE9lget\xE9sek keres\xE9se", "Legut\xF3bbiak", "Cseveg\xE9si el\u0151zm\xE9nyek", "Projektek", "Cseveg\xE9s a ChatGPT-vel"],
-  responseActions: ["V\xE1lasz m\xE1sol\xE1sa"]
+  responseActions: ["V\xE1lasz m\xE1sol\xE1sa"],
+  stopControl: ["V\xE1lasz le\xE1ll\xEDt\xE1sa"]
 };
 
 // src/dom/locale/hy.ts
@@ -929,7 +980,8 @@ var hy = {
     create_image: ["\u054D\u057F\u0565\u0572\u056E\u0565\u056C \u057A\u0561\u057F\u056F\u0565\u0580"]
   },
   signedInMarkers: ["\u0546\u0578\u0580 \u0566\u0580\u0578\u0582\u0575\u0581", "\u0548\u0580\u0578\u0576\u0565\u056C \u0566\u0580\u0578\u0582\u0575\u0581\u0576\u0565\u0580\u0568", "\u0539\u0561\u0580\u0574", "\u0536\u0580\u0578\u0582\u0575\u0581\u0576\u0565\u0580\u056B \u057A\u0561\u057F\u0574\u0578\u0582\u0569\u0575\u0578\u0582\u0576", "\u0546\u0561\u056D\u0561\u0563\u056E\u0565\u0580", "\u0536\u0580\u0578\u0582\u0575\u0581 ChatGPT-\u056B \u0570\u0565\u057F"],
-  responseActions: ["\u054A\u0561\u057F\u0573\u0565\u0576\u0565\u056C \u057A\u0561\u057F\u0561\u057D\u056D\u0561\u0576\u0568"]
+  responseActions: ["\u054A\u0561\u057F\u0573\u0565\u0576\u0565\u056C \u057A\u0561\u057F\u0561\u057D\u056D\u0561\u0576\u0568"],
+  stopControl: ["\u0534\u0561\u0564\u0561\u0580\u0565\u0581\u0576\u0565\u056C \u057A\u0561\u057F\u0561\u057D\u056D\u0561\u0576\u0565\u056C\u0568"]
 };
 
 // src/dom/locale/id.ts
@@ -957,7 +1009,8 @@ var id = {
     create_image: ["Buat gambar"]
   },
   signedInMarkers: ["Obrolan baru", "Cari obrolan", "Terkini", "Riwayat obrolan", "Proyek", "Obrolan dengan ChatGPT"],
-  responseActions: ["Salin respons"]
+  responseActions: ["Salin respons"],
+  stopControl: ["Hentikan jawaban"]
 };
 
 // src/dom/locale/is.ts
@@ -985,7 +1038,8 @@ var is = {
     create_image: ["B\xFAa til mynd"]
   },
   signedInMarkers: ["N\xFDtt spjall", "Leita \xED spj\xF6llum", "N\xFDlegt", "Spjallferill", "Verkefni", "Spjalla\xF0u vi\xF0 ChatGPT"],
-  responseActions: ["Afrita svar"]
+  responseActions: ["Afrita svar"],
+  stopControl: ["H\xE6tta a\xF0 svara"]
 };
 
 // src/dom/locale/ka.ts
@@ -1013,7 +1067,8 @@ var ka = {
     create_image: ["\u10E8\u10D4\u10E5\u10DB\u10D4\u10DC\u10D8 \u10E1\u10E3\u10E0\u10D0\u10D7\u10D8"]
   },
   signedInMarkers: ["\u10D0\u10EE\u10D0\u10DA\u10D8 \u10E9\u10D0\u10E2\u10D8", "\u10E9\u10D0\u10E2\u10D4\u10D1\u10D8\u10E1 \u10EB\u10D8\u10D4\u10D1\u10D0", "\u10D1\u10DD\u10DA\u10DD\u10D3\u10E0\u10DD\u10D8\u10DC\u10D3\u10D4\u10DA\u10D8", "\u10E9\u10D0\u10E2\u10D8\u10E1 \u10D8\u10E1\u10E2\u10DD\u10E0\u10D8\u10D0", "\u10DE\u10E0\u10DD\u10D4\u10E5\u10E2\u10D4\u10D1\u10D8", "\u10E1\u10D0\u10E3\u10D1\u10D0\u10E0\u10D8 ChatGPT-\u10E1\u10D7\u10D0\u10DC"],
-  responseActions: ["\u10DE\u10D0\u10E1\u10E3\u10EE\u10D8\u10E1 \u10D9\u10DD\u10DE\u10D8\u10E0\u10D4\u10D1\u10D0"]
+  responseActions: ["\u10DE\u10D0\u10E1\u10E3\u10EE\u10D8\u10E1 \u10D9\u10DD\u10DE\u10D8\u10E0\u10D4\u10D1\u10D0"],
+  stopControl: ["\u10DE\u10D0\u10E1\u10E3\u10EE\u10D8\u10E1 \u10E8\u10D4\u10EC\u10E7\u10D5\u10D4\u10E2\u10D0"]
 };
 
 // src/dom/locale/kk.ts
@@ -1041,7 +1096,8 @@ var kk = {
     create_image: ["\u0421\u0443\u0440\u0435\u0442 \u0436\u0430\u0441\u0430"]
   },
   signedInMarkers: ["\u0416\u0430\u04A3\u0430 \u0447\u0430\u0442", "\u0427\u0430\u0442\u0442\u0430\u0440\u0434\u044B \u0456\u0437\u0434\u0435\u0443", "\u0421\u043E\u04A3\u0493\u044B\u043B\u0430\u0440\u044B", "\u0427\u0430\u0442 \u0442\u0430\u0440\u0438\u0445\u044B", "\u0416\u043E\u0431\u0430\u043B\u0430\u0440", "ChatGPT-\u043C\u0435\u043D \u0447\u0430\u0442"],
-  responseActions: ["\u0416\u0430\u0443\u0430\u043F\u0442\u044B \u043A\u04E9\u0448\u0456\u0440\u0443"]
+  responseActions: ["\u0416\u0430\u0443\u0430\u043F\u0442\u044B \u043A\u04E9\u0448\u0456\u0440\u0443"],
+  stopControl: ["\u0416\u0430\u0443\u0430\u043F \u0431\u0435\u0440\u0443\u0434\u0456 \u0442\u043E\u049B\u0442\u0430\u0442\u0443"]
 };
 
 // src/dom/locale/kn.ts
@@ -1070,7 +1126,8 @@ var kn = {
     create_image: ["\u0C87\u0CAE\u0CC7\u0C9C\u0CCD \u0CB0\u0C9A\u0CBF\u0CB8\u0CBF"]
   },
   signedInMarkers: ["\u0CB9\u0CCA\u0CB8 \u0C9A\u0CBE\u0C9F\u0CCD", "\u0C9A\u0CBE\u0C9F\u0CCD\u200C\u0C97\u0CB3\u0CA8\u0CCD\u0CA8\u0CC1 \u0CB9\u0CC1\u0CA1\u0CC1\u0C95\u0CBF", "\u0C87\u0CA4\u0CCD\u0CA4\u0CC0\u0C9A\u0CBF\u0CA8\u0CA6\u0CC1", "\u0C9A\u0CBE\u0C9F\u0CCD \u0C87\u0CA4\u0CBF\u0CB9\u0CBE\u0CB8", "\u0CAA\u0CCD\u0CB0\u0CBE\u0C9C\u0CC6\u0C95\u0CCD\u0C9F\u0CCD\u200C\u0C97\u0CB3\u0CC1", "ChatGPT \u0C9C\u0CCA\u0CA4\u0CC6\u0C97\u0CC6 \u0C9A\u0CBE\u0C9F\u0CCD \u0CAE\u0CBE\u0CA1\u0CBF"],
-  responseActions: ["\u0CAA\u0CCD\u0CB0\u0CA4\u0CBF\u0C95\u0CCD\u0CB0\u0CBF\u0CAF\u0CC6\u0CAF\u0CA8\u0CCD\u0CA8\u0CC1 \u0CA8\u0C95\u0CB2\u0CBF\u0CB8\u0CBF"]
+  responseActions: ["\u0CAA\u0CCD\u0CB0\u0CA4\u0CBF\u0C95\u0CCD\u0CB0\u0CBF\u0CAF\u0CC6\u0CAF\u0CA8\u0CCD\u0CA8\u0CC1 \u0CA8\u0C95\u0CB2\u0CBF\u0CB8\u0CBF"],
+  stopControl: ["\u0C89\u0CA4\u0CCD\u0CA4\u0CB0\u0CBF\u0CB8\u0CC1\u0CB5\u0CC1\u0CA6\u0CA8\u0CCD\u0CA8\u0CC1 \u0CA8\u0CBF\u0CB2\u0CCD\u0CB2\u0CBF\u0CB8\u0CBF"]
 };
 
 // src/dom/locale/ko.ts
@@ -1098,7 +1155,8 @@ var ko = {
     create_image: ["\uC774\uBBF8\uC9C0 \uB9CC\uB4E4\uAE30"]
   },
   signedInMarkers: ["\uC0C8 \uCC44\uD305", "\uCC44\uD305 \uAC80\uC0C9", "\uCD5C\uADFC", "\uCC44\uD305 \uAE30\uB85D", "\uD504\uB85C\uC81D\uD2B8", "ChatGPT\uC640 \uCC44\uD305"],
-  responseActions: ["\uC751\uB2F5 \uBCF5\uC0AC"]
+  responseActions: ["\uC751\uB2F5 \uBCF5\uC0AC"],
+  stopControl: ["\uB2F5\uBCC0 \uC911\uC9C0"]
 };
 
 // src/dom/locale/lt.ts
@@ -1127,7 +1185,8 @@ var lt = {
     create_image: ["Sukurti vaizd\u0105"]
   },
   signedInMarkers: ["Naujas pokalbis", "Ie\u0161koti pokalbiuose", "V\u0117liausieji", "Pokalbi\u0173 istorija", "Projektai", 'Pokalbis su \u201EChatGPT"'],
-  responseActions: ["Kopijuoti atsakym\u0105"]
+  responseActions: ["Kopijuoti atsakym\u0105"],
+  stopControl: ["Stabdyti atsakym\u0105"]
 };
 
 // src/dom/locale/zh-Hans.ts
@@ -1156,7 +1215,8 @@ var zhHans = {
     create_image: ["\u521B\u5EFA\u56FE\u7247"]
   },
   signedInMarkers: ["\u65B0\u804A\u5929", "\u641C\u7D22\u804A\u5929", "\u6700\u8FD1", "\u5386\u53F2\u804A\u5929\u8BB0\u5F55", "\u9879\u76EE", "\u6709\u95EE\u9898\uFF0C\u5C3D\u7BA1\u95EE"],
-  responseActions: ["\u590D\u5236\u56DE\u590D"]
+  responseActions: ["\u590D\u5236\u56DE\u590D"],
+  stopControl: ["\u505C\u6B62\u56DE\u7B54"]
 };
 
 // src/dom/locale/ur.ts
@@ -1184,7 +1244,8 @@ var ur = {
     create_image: ["\u062A\u0635\u0648\u06CC\u0631 \u0628\u0646\u0627\u0626\u06CC\u06BA"]
   },
   signedInMarkers: ["\u0646\u0626\u06CC \u0686\u06CC\u0679", "\u0686\u06CC\u0679\u0633 \u062A\u0644\u0627\u0634 \u06A9\u0631\u06CC\u06BA", "\u062D\u0627\u0644\u06CC\u06C1", "\u0686\u06CC\u0679 \u06C1\u0633\u0679\u0631\u06CC", "\u067E\u0631\u0627\u062C\u06CC\u06A9\u0679\u0633", "\u06A9\u0648\u0626\u06CC \u0628\u06BE\u06CC \u0686\u06CC\u0632 \u067E\u0648\u0686\u06BE\u06CC\u06BA\u06D4\u06D4\u06D4"],
-  responseActions: ["\u062C\u0648\u0627\u0628 \u06A9\u0627\u067E\u06CC \u06A9\u0631\u06CC\u06BA"]
+  responseActions: ["\u062C\u0648\u0627\u0628 \u06A9\u0627\u067E\u06CC \u06A9\u0631\u06CC\u06BA"],
+  stopControl: ["\u062C\u0648\u0627\u0628 \u0631\u0648\u06A9\u06CC\u06BA"]
 };
 
 // src/dom/locale/uk.ts
@@ -1212,7 +1273,8 @@ var uk = {
     create_image: ["\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u043D\u044F"]
   },
   signedInMarkers: ["\u041D\u043E\u0432\u0438\u0439 \u0447\u0430\u0442", "\u041F\u043E\u0448\u0443\u043A \u0447\u0430\u0442\u0456\u0432", "\u041D\u0435\u0449\u043E\u0434\u0430\u0432\u043D\u0456", "\u0406\u0441\u0442\u043E\u0440\u0456\u044F \u0447\u0430\u0442\u0456\u0432", "\u041F\u0440\u043E\u0454\u043A\u0442\u0438", "\u0417\u0430\u043F\u0438\u0442\u0430\u0439\u0442\u0435 \u0431\u0443\u0434\u044C-\u0449\u043E"],
-  responseActions: ["\u041A\u043E\u043F\u0456\u044E\u0432\u0430\u0442\u0438 \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u044C"]
+  responseActions: ["\u041A\u043E\u043F\u0456\u044E\u0432\u0430\u0442\u0438 \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u044C"],
+  stopControl: ["\u0417\u0443\u043F\u0438\u043D\u0438\u0442\u0438 \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u044C"]
 };
 
 // src/dom/locale/pt-BR.ts
@@ -1240,7 +1302,8 @@ var ptBR = {
     create_image: ["Criar imagem"]
   },
   signedInMarkers: ["Novo chat", "Buscar chats", "Recentes", "Hist\xF3rico de chats", "Projetos", "Pergunte alguma coisa"],
-  responseActions: ["Copiar resposta"]
+  responseActions: ["Copiar resposta"],
+  stopControl: ["Parar de responder"]
 };
 
 // src/dom/locale/pt-PT.ts
@@ -1268,7 +1331,8 @@ var ptPT = {
     create_image: ["Criar imagem"]
   },
   signedInMarkers: ["Novo chat", "Pesquisar chats", "Recentes", "Hist\xF3rico de chat", "Projetos", "Pergunte qualquer coisa"],
-  responseActions: ["Copiar resposta"]
+  responseActions: ["Copiar resposta"],
+  stopControl: ["Parar resposta"]
 };
 
 // src/dom/locale/pl.ts
@@ -1296,7 +1360,8 @@ var pl = {
     create_image: ["Stw\xF3rz obraz"]
   },
   signedInMarkers: ["Nowy czat", "Szukaj czat\xF3w", "Ostatnie", "Historia czatu", "Projekty", "Zapytaj o cokolwiek"],
-  responseActions: ["Kopiuj odpowied\u017A"]
+  responseActions: ["Kopiuj odpowied\u017A"],
+  stopControl: ["Przerwij odpowied\u017A"]
 };
 
 // src/dom/locale/sk.ts
@@ -1324,7 +1389,8 @@ var sk = {
     create_image: ["Vytvor obr\xE1zok"]
   },
   signedInMarkers: ["Nov\xFD \u010Det", "H\u013Eada\u0165 v \u010Detoch", "Ned\xE1vne", "Hist\xF3ria \u010Detov", "Projekty", "Sp\xFDtaj sa hoci\u010Do\u2026"],
-  responseActions: ["Kop\xEDrova\u0165 odpove\u010F"]
+  responseActions: ["Kop\xEDrova\u0165 odpove\u010F"],
+  stopControl: ["Zastavi\u0165 odpove\u010F"]
 };
 
 // src/dom/locale/ro.ts
@@ -1351,7 +1417,8 @@ var ro = {
     create_image: ["Creeaz\u0103 o imagine"]
   },
   signedInMarkers: ["Discu\u021Bie nou\u0103", "Caut\u0103 discu\u021Bii", "Recente", "Istoricul discu\u021Biilor", "Proiecte", "\xCEntreab\u0103 orice"],
-  responseActions: ["Copiaz\u0103 r\u0103spunsul"]
+  responseActions: ["Copiaz\u0103 r\u0103spunsul"],
+  stopControl: ["Opre\u0219te r\u0103spunsul"]
 };
 
 // src/dom/locale/nb.ts
@@ -1379,7 +1446,8 @@ var nb = {
     create_image: ["Lag et bilde"]
   },
   signedInMarkers: ["Ny chat", "S\xF8k i samtaler", "Nylige", "Chattehistorikk", "Prosjekter", "Sp\xF8r om hva som helst"],
-  responseActions: ["Kopier svar"]
+  responseActions: ["Kopier svar"],
+  stopControl: ["Avbryt svar"]
 };
 
 // src/dom/locale/ml.ts
@@ -1408,7 +1476,8 @@ var ml = {
     create_image: ["\u0D1A\u0D3F\u0D24\u0D4D\u0D30\u0D02 \u0D38\u0D43\u0D37\u0D4D\u0D1F\u0D3F\u0D15\u0D4D\u0D15\u0D41\u0D15"]
   },
   signedInMarkers: ["\u0D2A\u0D41\u0D24\u0D3F\u0D2F \u0D1A\u0D3E\u0D31\u0D4D\u0D31\u0D4D", "\u0D1A\u0D3E\u0D31\u0D4D\u0D31\u0D41\u0D15\u0D7E \u0D24\u0D3F\u0D30\u0D2F\u0D41\u0D15", "\u0D38\u0D2E\u0D40\u0D2A\u0D15\u0D3E\u0D32\u0D24\u0D4D\u0D24\u0D41\u0D33\u0D4D\u0D33", "\u0D1A\u0D3E\u0D31\u0D4D\u0D31\u0D4D \u0D1A\u0D30\u0D3F\u0D24\u0D4D\u0D30\u0D02", "\u0D2A\u0D4D\u0D30\u0D4B\u0D1C\u0D15\u0D4D\u0D31\u0D4D\u0D31\u0D41\u0D15\u0D7E", "\u0D0E\u0D28\u0D4D\u0D24\u0D41\u0D02 \u0D1A\u0D4B\u0D26\u0D3F\u0D15\u0D4D\u0D15\u0D41\u0D15"],
-  responseActions: ["\u0D2E\u0D31\u0D41\u0D2A\u0D1F\u0D3F \u0D15\u0D4B\u0D2A\u0D4D\u0D2A\u0D3F \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15"]
+  responseActions: ["\u0D2E\u0D31\u0D41\u0D2A\u0D1F\u0D3F \u0D15\u0D4B\u0D2A\u0D4D\u0D2A\u0D3F \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15"],
+  stopControl: ["\u0D2E\u0D31\u0D41\u0D2A\u0D1F\u0D3F \u0D28\u0D3F\u0D7C\u0D24\u0D4D\u0D24\u0D41\u0D15"]
 };
 
 // src/dom/locale/ru.ts
@@ -1433,7 +1502,8 @@ var ru = {
     create_image: ["\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435"]
   },
   signedInMarkers: ["\u041D\u043E\u0432\u044B\u0439 \u0447\u0430\u0442", "\u0418\u0441\u043A\u0430\u0442\u044C \u0447\u0430\u0442\u044B", "\u041D\u0435\u0434\u0430\u0432\u043D\u0435\u0435", "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0447\u0430\u0442\u0430", "\u041F\u0440\u043E\u0435\u043A\u0442\u044B", "\u0421\u043F\u0440\u043E\u0441\u0438\u0442\u0435 ChatGPT"],
-  responseActions: ["\u041A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043E\u0442\u0432\u0435\u0442"]
+  responseActions: ["\u041A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043E\u0442\u0432\u0435\u0442"],
+  stopControl: ["\u041E\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043E\u0442\u0432\u0435\u0442"]
 };
 
 // src/dom/locale/pa.ts
@@ -1462,7 +1532,8 @@ var pa = {
     create_image: ["\u0A24\u0A38\u0A35\u0A40\u0A30 \u0A2C\u0A23\u0A3E\u0A09"]
   },
   signedInMarkers: ["\u0A28\u0A35\u0A40\u0A02 \u0A1A\u0A48\u0A1F", "\u0A1A\u0A48\u0A1F\u0A3E\u0A02 \u0A16\u0A4B\u0A1C\u0A4B", "\u0A39\u0A3E\u0A32\u0A40\u0A06", "\u0A1A\u0A48\u0A1F \u0A39\u0A3F\u0A38\u0A1F\u0A30\u0A40", "\u0A2A\u0A4D\u0A30\u0A4B\u0A1C\u0A48\u0A15\u0A1F", "\u0A15\u0A41\u0A1D \u0A35\u0A40 \u0A2A\u0A41\u0A71\u0A1B\u0A4B"],
-  responseActions: ["\u0A1C\u0A35\u0A3E\u0A2C \u0A15\u0A3E\u0A2A\u0A40 \u0A15\u0A30\u0A4B"]
+  responseActions: ["\u0A1C\u0A35\u0A3E\u0A2C \u0A15\u0A3E\u0A2A\u0A40 \u0A15\u0A30\u0A4B"],
+  stopControl: ["\u0A1C\u0A35\u0A3E\u0A2C \u0A26\u0A47\u0A23\u0A3E \u0A2C\u0A70\u0A26 \u0A15\u0A30\u0A4B"]
 };
 
 // src/dom/locale/mr.ts
@@ -1491,7 +1562,8 @@ var mr = {
     create_image: ["\u092A\u094D\u0930\u0924\u093F\u092E\u093E \u0924\u092F\u093E\u0930 \u0915\u0930\u093E"]
   },
   signedInMarkers: ["\u0928\u0935\u0940\u0928 \u091A\u0945\u091F", "\u091A\u0945\u091F\u094D\u0938 \u0936\u094B\u0927\u093E", "\u0905\u0932\u0940\u0915\u0921\u0940\u0932", "\u091A\u0945\u091F \u0907\u0924\u093F\u0939\u093E\u0938", "\u092A\u094D\u0930\u094B\u091C\u0947\u0915\u094D\u091F\u094D\u0938", "\u0915\u093E\u0939\u0940\u0939\u0940 \u0935\u093F\u091A\u093E\u0930\u093E"],
-  responseActions: ["\u092A\u094D\u0930\u0924\u093F\u0938\u093E\u0926 \u0915\u0949\u092A\u0940 \u0915\u0930\u093E"]
+  responseActions: ["\u092A\u094D\u0930\u0924\u093F\u0938\u093E\u0926 \u0915\u0949\u092A\u0940 \u0915\u0930\u093E"],
+  stopControl: ["\u0909\u0924\u094D\u0924\u0930 \u0925\u093E\u0902\u092C\u0935\u093E"]
 };
 
 // src/dom/locale/tr.ts
@@ -1519,7 +1591,8 @@ var tr = {
     create_image: ["G\xF6rsel olu\u015Ftur"]
   },
   signedInMarkers: ["Yeni sohbet", "Sohbetlerde ara", "Yak\u0131n zamandakiler", "Sohbet ge\xE7mi\u015Fi", "Projeler", "Herhangi bir \u015Fey sor"],
-  responseActions: ["Yan\u0131t\u0131 kopyala"]
+  responseActions: ["Yan\u0131t\u0131 kopyala"],
+  stopControl: ["Yan\u0131tlamay\u0131 durdur"]
 };
 
 // src/dom/locale/sw.ts
@@ -1547,7 +1620,8 @@ var sw = {
     create_image: ["Unda picha"]
   },
   signedInMarkers: ["Chati mpya", "Tafuta mazungumzo", "Hivi karibuni", "Historia ya chati", "Miradi", "Uliza chochote"],
-  responseActions: ["Nakili jibu"]
+  responseActions: ["Nakili jibu"],
+  stopControl: ["Sitisha kujibu"]
 };
 
 // src/dom/locale/te.ts
@@ -1576,7 +1650,8 @@ var te = {
     create_image: ["\u0C1A\u0C3F\u0C24\u0C4D\u0C30\u0C3E\u0C28\u0C4D\u0C28\u0C3F \u0C38\u0C43\u0C37\u0C4D\u0C1F\u0C3F\u0C02\u0C1A\u0C41"]
   },
   signedInMarkers: ["\u0C15\u0C4A\u0C24\u0C4D\u0C24 \u0C1A\u0C3E\u0C1F\u0C4D", "\u0C1A\u0C3E\u0C1F\u0C4D\u200C\u0C32\u0C28\u0C41 \u0C36\u0C4B\u0C27\u0C3F\u0C02\u0C1A\u0C02\u0C21\u0C3F", "\u0C07\u0C1F\u0C40\u0C35\u0C32\u0C3F\u0C35\u0C3F", "\u0C1A\u0C3E\u0C1F\u0C4D \u0C1A\u0C30\u0C3F\u0C24\u0C4D\u0C30", "\u0C2A\u0C4D\u0C30\u0C3E\u0C1C\u0C46\u0C15\u0C4D\u0C1F\u0C4D\u200C\u0C32\u0C41", "\u0C0F\u0C26\u0C48\u0C28\u0C3E \u0C05\u0C21\u0C17\u0C02\u0C21\u0C3F"],
-  responseActions: ["\u0C2A\u0C4D\u0C30\u0C24\u0C3F\u0C38\u0C4D\u0C2A\u0C02\u0C26\u0C28\u0C28\u0C41 \u0C15\u0C3E\u0C2A\u0C40 \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"]
+  responseActions: ["\u0C2A\u0C4D\u0C30\u0C24\u0C3F\u0C38\u0C4D\u0C2A\u0C02\u0C26\u0C28\u0C28\u0C41 \u0C15\u0C3E\u0C2A\u0C40 \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"],
+  stopControl: ["\u0C38\u0C2E\u0C3E\u0C27\u0C3E\u0C28\u0C02 \u0C07\u0C35\u0C4D\u0C35\u0C21\u0C02 \u0C06\u0C2A\u0C41"]
 };
 
 // src/dom/locale/tl.ts
@@ -1596,7 +1671,8 @@ var tl = {
     create_image: ["Gumawa ng larawan"]
   },
   signedInMarkers: ["Bagong chat", "Maghanap sa mga chat", "Mga kamakailan", "History ng chat", "Mga proyekto", "Mag-chat sa ChatGPT"],
-  responseActions: ["Kopyahin ang sagot"]
+  responseActions: ["Kopyahin ang sagot"],
+  stopControl: ["Itigil ang pagsagot"]
 };
 
 // src/dom/locale/th.ts
@@ -1624,7 +1700,8 @@ var th = {
     create_image: ["\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E39\u0E1B\u0E20\u0E32\u0E1E"]
   },
   signedInMarkers: ["\u0E41\u0E0A\u0E15\u0E43\u0E2B\u0E21\u0E48", "\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E41\u0E0A\u0E15", "\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E40\u0E23\u0E47\u0E27\u0E46 \u0E19\u0E35\u0E49", "\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E01\u0E32\u0E23\u0E41\u0E0A\u0E15", "\u0E42\u0E04\u0E23\u0E07\u0E01\u0E32\u0E23", "\u0E16\u0E32\u0E21\u0E2D\u0E30\u0E44\u0E23\u0E01\u0E47\u0E44\u0E14\u0E49"],
-  responseActions: ["\u0E04\u0E31\u0E14\u0E25\u0E2D\u0E01\u0E04\u0E33\u0E15\u0E2D\u0E1A"]
+  responseActions: ["\u0E04\u0E31\u0E14\u0E25\u0E2D\u0E01\u0E04\u0E33\u0E15\u0E2D\u0E1A"],
+  stopControl: ["\u0E2B\u0E22\u0E38\u0E14\u0E15\u0E2D\u0E1A"]
 };
 
 // src/dom/locale/bn.ts
@@ -1653,7 +1730,8 @@ var bn = {
     create_image: ["\u099B\u09AC\u09BF \u09A4\u09C8\u09B0\u09BF \u0995\u09B0\u09C1\u09A8"]
   },
   signedInMarkers: ["\u09A8\u09A4\u09C1\u09A8 \u099A\u09CD\u09AF\u09BE\u099F", "\u099A\u09CD\u09AF\u09BE\u099F \u0996\u09C1\u0981\u099C\u09C1\u09A8", "\u09B8\u09BE\u09AE\u09CD\u09AA\u09CD\u09B0\u09A4\u09BF\u0995", "\u099A\u09CD\u09AF\u09BE\u099F\u09C7\u09B0 \u0987\u09A4\u09BF\u09B9\u09BE\u09B8", "\u09AA\u09CD\u09B0\u09CB\u099C\u09C7\u0995\u09CD\u099F", "\u09AF\u09C7 \u0995\u09CB\u09A8 \u0995\u09BF\u099B\u09C1 \u099C\u09BF\u099C\u09CD\u099E\u09C7\u09B8 \u0995\u09B0\u09C1\u09A8\u2026"],
-  responseActions: ["\u0989\u09A4\u09CD\u09A4\u09B0 \u0995\u09AA\u09BF \u0995\u09B0\u09C1\u09A8"]
+  responseActions: ["\u0989\u09A4\u09CD\u09A4\u09B0 \u0995\u09AA\u09BF \u0995\u09B0\u09C1\u09A8"],
+  stopControl: ["\u0989\u09A4\u09CD\u09A4\u09B0 \u09A5\u09BE\u09AE\u09BE\u09A8"]
 };
 
 // src/dom/locale/ms.ts
@@ -1681,7 +1759,8 @@ var ms = {
     create_image: ["Cipta imej"]
   },
   signedInMarkers: ["Sembang baharu", "Cari sembang", "Terbaharu", "Sejarah sembang", "Projek", "Tanya apa-apa sahaja..."],
-  responseActions: ["Salin tindak balas"]
+  responseActions: ["Salin tindak balas"],
+  stopControl: ["Hentikan jawapan"]
 };
 
 // src/dom/locale/so.ts
@@ -1709,7 +1788,8 @@ var so = {
     create_image: ["Abuur sawir"]
   },
   signedInMarkers: ["Wada Sheekeysi cusub", "Raadi wada-sheekaysiyada", "Waxyaabihii dhawaa", "Taariikhda sheekeysiga", "Mashruucyada", "Waydii waxkasta"],
-  responseActions: ["Koobiyee jawaabta"]
+  responseActions: ["Koobiyee jawaabta"],
+  stopControl: ["Jooji jawaabista"]
 };
 
 // src/dom/locale/nl.ts
@@ -1737,7 +1817,8 @@ var nl = {
     create_image: ["Maak een afbeelding"]
   },
   signedInMarkers: ["Nieuwe chat", "Chats doorzoeken", "Recente items", "Chatgeschiedenis", "Projecten", "Stel een vraag"],
-  responseActions: ["Reactie kopi\xEBren"]
+  responseActions: ["Reactie kopi\xEBren"],
+  stopControl: ["Prompt versturen"]
 };
 
 // src/dom/locale/sv.ts
@@ -1765,7 +1846,8 @@ var sv = {
     create_image: ["Skapa en bild"]
   },
   signedInMarkers: ["Ny chatt", "S\xF6k i chattar", "Senaste", "Chatthistorik", "Projekt", "Fr\xE5ga vad som helst"],
-  responseActions: ["Kopiera svar"]
+  responseActions: ["Kopiera svar"],
+  stopControl: ["Sluta svara"]
 };
 
 // src/dom/locale/lv.ts
@@ -1793,7 +1875,8 @@ var lv = {
     create_image: ["Izveido att\u0113lu"]
   },
   signedInMarkers: ["Jauna t\u0113rz\u0113tava", "Mekl\u0113t t\u0113rz\u0113\u0161anas", "Nesen\u0101s sarunas", "T\u0113rz\u0113\u0161anas v\u0113sture", "Projekti", "Jaut\u0101 jebko"],
-  responseActions: ["Kop\u0113t atbildi"]
+  responseActions: ["Kop\u0113t atbildi"],
+  stopControl: ["P\u0101rtraukt atbildi"]
 };
 
 // src/dom/locale/mk.ts
@@ -1820,7 +1903,8 @@ var mk = {
     create_image: ["\u041A\u0440\u0435\u0438\u0440\u0430\u0458 \u0441\u043B\u0438\u043A\u0430"]
   },
   signedInMarkers: ["\u041D\u043E\u0432 \u0440\u0430\u0437\u0433\u043E\u0432\u043E\u0440", "\u041F\u0440\u0435\u0431\u0430\u0440\u0430\u0458 \u0440\u0430\u0437\u0433\u043E\u0432\u043E\u0440\u0438", "\u041D\u0435\u043E\u0434\u0430\u043C\u043D\u0435\u0448\u043D\u0438", "\u0418\u0441\u0442\u043E\u0440\u0438\u0458\u0430 \u043D\u0430 \u0440\u0430\u0437\u0433\u043E\u0432\u043E\u0440\u0438", "\u041F\u0440\u043E\u0435\u043A\u0442\u0438", "\u041F\u0440\u0430\u0448\u0430\u0458 \u0448\u0442\u043E \u0431\u0438\u043B\u043E"],
-  responseActions: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0458 \u043E\u0434\u0433\u043E\u0432\u043E\u0440"]
+  responseActions: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0458 \u043E\u0434\u0433\u043E\u0432\u043E\u0440"],
+  stopControl: ["\u0421\u043E\u043F\u0440\u0438 \u043E\u0434\u0433\u043E\u0432\u0430\u0440\u0430\u045A\u0435"]
 };
 
 // src/dom/locale/sq.ts
@@ -1848,7 +1932,8 @@ var sq = {
     create_image: ["Krijo nj\xEB imazh"]
   },
   signedInMarkers: ["Bised\xEB e re", "K\xEBrko bisedat", "M\xEB t\xEB fundit", "Historia e bised\xEBs", "Projektet", "Pyet p\xEBr \xE7do gj\xEB"],
-  responseActions: ["Kopjo p\xEBrgjigjen"]
+  responseActions: ["Kopjo p\xEBrgjigjen"],
+  stopControl: ["Ndalo p\xEBrgjigjen"]
 };
 
 // src/dom/locale/sl.ts
@@ -1876,7 +1961,8 @@ var sl = {
     create_image: ["Ustvari sliko"]
   },
   signedInMarkers: ["Nov klepet", "I\u0161\u010Di po klepetih", "Nedavno", "Zgodovina klepetov", "Projekti", "Vpra\u0161ajte kar koli"],
-  responseActions: ["Kopiraj odgovor"]
+  responseActions: ["Kopiraj odgovor"],
+  stopControl: ["Ustavi odgovarjanje"]
 };
 
 // src/dom/locale/sr.ts
@@ -1901,7 +1987,8 @@ var sr = {
     create_image: ["\u041D\u0430\u043F\u0440\u0430\u0432\u0438 \u0441\u043B\u0438\u043A\u0443"]
   },
   signedInMarkers: ["\u041D\u043E\u0432\u043E \u045B\u0430\u0441\u043A\u0430\u045A\u0435", "\u041F\u0440\u0435\u0442\u0440\u0430\u0436\u0438 \u045B\u0430\u0441\u043A\u0430\u045A\u0430", "\u0421\u043A\u043E\u0440\u0430\u0448\u045A\u0438", "\u0418\u0441\u0442\u043E\u0440\u0438\u0458\u0430 \u045B\u0430\u0441\u043A\u0430\u045A\u0430", "\u041F\u0440\u043E\u0458\u0435\u043A\u0442\u0438", "\u041F\u0438\u0442\u0430\u0458 \u0431\u0438\u043B\u043E \u0448\u0442\u0430"],
-  responseActions: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0458 \u043E\u0434\u0433\u043E\u0432\u043E\u0440"]
+  responseActions: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0458 \u043E\u0434\u0433\u043E\u0432\u043E\u0440"],
+  stopControl: ["\u0417\u0430\u0443\u0441\u0442\u0430\u0432\u0438 \u043E\u0434\u0433\u043E\u0432\u0430\u0440\u0430\u045A\u0435"]
 };
 
 // src/dom/locale/mn.ts
@@ -1930,7 +2017,8 @@ var mn = {
     create_image: ["\u0417\u0443\u0440\u0430\u0433 \u04AF\u04AF\u0441\u0433\u044D\u0445"]
   },
   signedInMarkers: ["\u0428\u0438\u043D\u044D \u0447\u0430\u0442", "\u0427\u0430\u0442 \u0445\u0430\u0439\u0445", "\u0421\u0430\u044F\u0445\u043D\u044B \u0437\u04AF\u0439\u043B\u0441", "\u0427\u0430\u0442\u044B\u043D \u0442\u04AF\u04AF\u0445", "\u0422\u04E9\u0441\u043B\u04AF\u04AF\u0434", "\u0414\u0443\u0440\u044B\u043D \u0437\u04AF\u0439\u043B \u0430\u0441\u0443\u0443\u0433\u0430\u0430\u0440\u0430\u0439..."],
-  responseActions: ["\u0425\u0430\u0440\u0438\u0443\u043B\u0442 \u0445\u0443\u0443\u043B\u0430\u0445"]
+  responseActions: ["\u0425\u0430\u0440\u0438\u0443\u043B\u0442 \u0445\u0443\u0443\u043B\u0430\u0445"],
+  stopControl: ["\u0425\u0430\u0440\u0438\u0443\u043B\u0442\u044B\u0433 \u0437\u043E\u0433\u0441\u043E\u043E\u0445"]
 };
 
 // src/dom/locale/my.ts
@@ -1958,7 +2046,8 @@ var my = {
     create_image: ["\u101B\u102F\u1015\u103A\u1015\u102F\u1036\u1016\u1014\u103A\u1010\u102E\u1038\u1015\u102B"]
   },
   signedInMarkers: ["\u1001\u103B\u1010\u103A\u1021\u101E\u1005\u103A", "\u1001\u103B\u1010\u103A\u1019\u103B\u102C\u1038 \u101B\u103E\u102C\u101B\u1014\u103A", "\u101C\u1010\u103A\u1010\u101C\u1031\u102C", "\u1001\u103B\u1010\u103A \u1019\u103E\u1010\u103A\u1010\u1019\u103A\u1038", "\u1005\u102E\u1019\u1036\u1000\u102D\u1014\u103A\u1038\u1019\u103B\u102C\u1038", "\u1010\u1005\u103A\u1001\u102F\u1001\u102F \u1019\u1031\u1038\u1015\u102B\u2026"],
-  responseActions: ["\u1010\u102F\u1036\u1037\u1015\u103C\u1014\u103A\u1019\u103E\u102F \u1000\u1030\u1038\u101A\u1030\u101B\u1014\u103A"]
+  responseActions: ["\u1010\u102F\u1036\u1037\u1015\u103C\u1014\u103A\u1019\u103E\u102F \u1000\u1030\u1038\u101A\u1030\u101B\u1014\u103A"],
+  stopControl: ["\u1016\u103C\u1031\u1006\u102D\u102F\u1001\u103C\u1004\u103A\u1038 \u101B\u1015\u103A\u101B\u1014\u103A"]
 };
 
 // src/dom/locale/ta.ts
@@ -1987,11 +2076,30 @@ var ta = {
     create_image: ["\u0BAA\u0B9F\u0BA4\u0BCD\u0BA4\u0BC8 \u0B89\u0BB0\u0BC1\u0BB5\u0BBE\u0B95\u0BCD\u0B95\u0BB5\u0BC1\u0BAE\u0BCD"]
   },
   signedInMarkers: ["\u0BAA\u0BC1\u0BA4\u0BBF\u0BAF \u0B85\u0BB0\u0B9F\u0BCD\u0B9F\u0BC8", "\u0B85\u0BB0\u0B9F\u0BCD\u0B9F\u0BC8\u0B95\u0BB3\u0BC8\u0BA4\u0BCD \u0BA4\u0BC7\u0B9F\u0BC1", "\u0B9A\u0BAE\u0BC0\u0BAA\u0BA4\u0BCD\u0BA4\u0BBF\u0BAF\u0BA4\u0BC1", "\u0B85\u0BB0\u0B9F\u0BCD\u0B9F\u0BC8 \u0BB5\u0BB0\u0BB2\u0BBE\u0BB1\u0BC1", "\u0BA4\u0BBF\u0B9F\u0BCD\u0B9F\u0B99\u0BCD\u0B95\u0BB3\u0BCD", "\u0B8E\u0BA4\u0BC8\u0BAF\u0BC1\u0BAE\u0BCD \u0B95\u0BC7\u0BB3\u0BC1\u0B99\u0BCD\u0B95\u0BB3\u0BCD"],
-  responseActions: ["\u0BAA\u0BA4\u0BBF\u0BB2\u0BC8 \u0BA8\u0B95\u0BB2\u0BC6\u0B9F\u0BC1\u0B95\u0BCD\u0B95\u0BB2\u0BBE\u0BAE\u0BCD"]
+  responseActions: ["\u0BAA\u0BA4\u0BBF\u0BB2\u0BC8 \u0BA8\u0B95\u0BB2\u0BC6\u0B9F\u0BC1\u0B95\u0BCD\u0B95\u0BB2\u0BBE\u0BAE\u0BCD"],
+  stopControl: ["\u0BAA\u0BA4\u0BBF\u0BB2\u0BB3\u0BBF\u0BAA\u0BCD\u0BAA\u0BA4\u0BC8 \u0BA8\u0BBF\u0BB1\u0BC1\u0BA4\u0BCD\u0BA4\u0BC1"]
 };
 
 // src/dom/locale/index.ts
 var locales = [en, de, esES, frFR, zhHK, zhTW, ja, it, vi, am, ar, bg, bs, ca, cs, da, el, es419, et, fa, fi, frCA, gu, hi, hr, hu, hy, id, is, ka, kk, kn, ko, lt, zhHans, ur, uk, ptBR, ptPT, pl, sk, ro, nb, ml, ru, pa, mr, tr, sw, te, tl, th, bn, ms, so, nl, sv, lv, mk, sq, sl, sr, mn, my, ta];
+function hasLocaleKey(locale, key) {
+  const value = locale[key];
+  if (typeof value === "string") return value.trim().length > 0;
+  return Array.isArray(value) && value.some((candidate) => typeof candidate === "string" && candidate.trim().length > 0);
+}
+function countLocalesWithKey(localeList, key) {
+  return localeList.filter((locale) => hasLocaleKey(locale, key)).length;
+}
+var localeCoverageSummary = {
+  registeredLocaleCount: locales.length,
+  nonEnglishLocaleCount: Math.max(0, locales.length - 1),
+  runningState: {
+    stopControlLocaleCount: countLocalesWithKey(locales, "stopControl"),
+    stoppedAssistantLocaleCount: countLocalesWithKey(locales, "stoppedAssistant"),
+    nonEnglishStopControlLocaleCount: countLocalesWithKey(locales.slice(1), "stopControl"),
+    nonEnglishStoppedAssistantLocaleCount: countLocalesWithKey(locales.slice(1), "stoppedAssistant")
+  }
+};
 var TOOL_IDS = ["web_search", "deep_research", "create_image"];
 var MODE_OPTION_IDS = [
   "latest",
@@ -2002,6 +2110,26 @@ var MODE_OPTION_IDS = [
   "high",
   "extraHigh",
   "pro"
+];
+var EXPERIENCE_OPTION_IDS = ["chat", "work"];
+var CONFIGURATION_AXIS_IDS = [
+  "model",
+  "intelligence",
+  "effort",
+  "speed",
+  "advanced"
+];
+var CONFIGURATION_OPTION_IDS = [
+  "instant",
+  "light",
+  "medium",
+  "high",
+  "extraHigh",
+  "max",
+  "ultra",
+  "pro",
+  "standard",
+  "fast"
 ];
 function flattenKey(localeList, key) {
   const seen = /* @__PURE__ */ new Set();
@@ -2055,8 +2183,27 @@ function flattenModeOption(localeList, optionId) {
   }
   return result;
 }
+function flattenNestedLabel(localeList, group, id2) {
+  const seen = /* @__PURE__ */ new Set();
+  const result = [];
+  for (const locale of localeList) {
+    const contribution = locale[group];
+    const value = contribution?.[id2];
+    if (value === void 0) continue;
+    const candidates = typeof value === "string" ? [value] : value;
+    for (const candidate of candidates) {
+      if (candidate.length > 0 && !seen.has(candidate)) {
+        seen.add(candidate);
+        result.push(candidate);
+      }
+    }
+  }
+  return result;
+}
 var nonToolKeys = [
   "composerTextbox",
+  "workComposerTextbox",
+  "newWork",
   "sendButton",
   "searchChatsButton",
   "searchChatsPlaceholder",
@@ -2093,9 +2240,21 @@ var builtTools = Object.fromEntries(
 var builtModeOptions = Object.fromEntries(
   MODE_OPTION_IDS.map((id2) => [id2, flattenModeOption(locales, id2)])
 );
+var builtExperienceOptions = Object.fromEntries(
+  EXPERIENCE_OPTION_IDS.map((id2) => [id2, flattenNestedLabel(locales, "experienceOptions", id2)])
+);
+var builtConfigurationAxes = Object.fromEntries(
+  CONFIGURATION_AXIS_IDS.map((id2) => [id2, flattenNestedLabel(locales, "configurationAxes", id2)])
+);
+var builtConfigurationOptions = Object.fromEntries(
+  CONFIGURATION_OPTION_IDS.map((id2) => [id2, flattenNestedLabel(locales, "configurationOptions", id2)])
+);
 var localeLabels = {
   ...builtLabels,
   modeOptions: builtModeOptions,
+  experienceOptions: builtExperienceOptions,
+  configurationAxes: builtConfigurationAxes,
+  configurationOptions: builtConfigurationOptions,
   tools: builtTools
 };
 function escapeRegExp(value) {
@@ -2125,8 +2284,9 @@ async function readPageState(page) {
   const rawTitle = typeof page.title === "function" ? await page.title().catch(() => void 0) : void 0;
   const title = typeof rawTitle === "string" ? rawTitle : void 0;
   const visibleText = await readVisibleText(page);
-  const blocker = classifyVisibleText(visibleText);
-  const signedIn = isLikelySignedIn(visibleText) && blocker?.kind !== "login_required";
+  const signedIn = isLikelySignedIn(visibleText);
+  const classifiedBlocker = classifyVisibleText(visibleText);
+  const blocker = classifiedBlocker?.kind === "login_required" && signedIn ? void 0 : classifiedBlocker;
   const conversationId = parseConversationId(url);
   const state = {
     url,
@@ -2385,7 +2545,12 @@ function composerTextbox(page) {
   if (typeof page.getByRole !== "function") {
     return requiredLocator(page, "[contenteditable='true'], textarea");
   }
-  return page.getByRole("textbox", { name: anyLabelPattern(localeLabels.composerTextbox) });
+  return page.getByRole("textbox", {
+    name: anyLabelPattern([
+      ...localeLabels.composerTextbox,
+      ...localeLabels.workComposerTextbox
+    ])
+  });
 }
 function sendButton(page) {
   if (typeof page.getByRole !== "function") {
@@ -3266,7 +3431,7 @@ async function attachChatGPTBrowser(env, args = {}) {
     page,
     browserName: browser.name ?? "chrome"
   };
-  const tabId = getTabId(page);
+  const tabId = tabIdFromPage(page);
   if (tabId !== void 0) {
     attached.tabId = tabId;
   }
@@ -3551,7 +3716,7 @@ function mismatchReasonForNoMatches(policy, tabs, chatgptTabs) {
 async function pageMatchesExistingTarget(page, policy) {
   const url = await Promise.resolve(page.url?.()).catch(() => void 0);
   const title = await Promise.resolve(page.title?.()).catch(() => void 0);
-  const tab = { id: getTabId(page) ?? "" };
+  const tab = { id: tabIdFromPage(page) ?? "" };
   if (url !== void 0) tab.url = url;
   if (title !== void 0) tab.title = title;
   return userTabMatchesTarget(tab, policy);
@@ -3764,7 +3929,7 @@ function normalizePage(pageOrTab) {
   }
   return pageOrTab;
 }
-function getTabId(page) {
+function tabIdFromPage(page) {
   const maybe = page;
   const id2 = maybe.id ?? maybe.tabId;
   return typeof id2 === "string" ? id2 : void 0;
@@ -3776,6 +3941,9 @@ async function bootstrap(env, args = {}) {
     const attached = await attachChatGPTBrowser(env, args);
     env.browser = attached.browser;
     env.page = attached.page;
+    if (attached.tabId !== void 0) {
+      env.expectedTabId = attached.tabId;
+    }
     const state = await readPageState(attached.page);
     const data = {
       browserName: attached.browserName,
@@ -3788,6 +3956,50 @@ async function bootstrap(env, args = {}) {
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)));
   }
+}
+async function ensurePage(env) {
+  if (env.page === void 0) {
+    return bootstrap(env, { preferExistingTab: true });
+  }
+  const affinity = await verifyTabAffinity(env);
+  if (affinity !== void 0) {
+    return affinity;
+  }
+  return resultOk({}, await contextFromPage(env.page, tabContext(env)));
+}
+async function verifyTabAffinity(env) {
+  if (env.expectedTabId === void 0 || env.page === void 0) {
+    return void 0;
+  }
+  const actualTabId = tabIdFromPage(env.page);
+  if (actualTabId === env.expectedTabId) {
+    return void 0;
+  }
+  const code = actualTabId === void 0 ? "tab_affinity_unverifiable" : "tab_affinity_lost";
+  const message = actualTabId === void 0 ? `ChatGPT command cannot verify it is still attached to expected tab ${env.expectedTabId}.` : `ChatGPT command would run on tab ${actualTabId}, but the workflow expected tab ${env.expectedTabId}.`;
+  return {
+    ok: false,
+    status: "blocked",
+    warnings: [],
+    blocker: {
+      kind: "selector_drift",
+      code,
+      message,
+      remediation: [
+        {
+          label: "Reclaim the intended tab",
+          instruction: "Run session.bootstrap again with an exact existingTab target, or pass the correct page/tab to createChatGPT before retrying.",
+          userActionRequired: false
+        }
+      ],
+      resumable: false
+    },
+    context: await contextFromPage(env.page, tabContext(env, actualTabId))
+  };
+}
+function tabContext(env, actualTabId = tabIdFromPage(env.page)) {
+  const tabId = actualTabId ?? env.expectedTabId;
+  return tabId === void 0 ? {} : { tabId };
 }
 
 // src/commands/artifacts.ts
@@ -4173,12 +4385,6 @@ function artifactDownloadBlocker(error, context) {
     context
   };
 }
-async function ensurePage(env) {
-  if (env.page !== void 0) {
-    return resultOk({}, await contextFromPage(env.page));
-  }
-  return bootstrap(env, { preferExistingTab: true });
-}
 async function hasStopControl(page, timeoutMs) {
   if (typeof page.evaluate !== "function") return false;
   return withTimeout(
@@ -4342,7 +4548,7 @@ async function attachFiles(env, args) {
   if (!preflight.ok || preflight.data === void 0) {
     return preflight;
   }
-  const boot = await ensurePage2(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -4709,7 +4915,7 @@ async function locatorCount(locator) {
   return locator.count();
 }
 async function downloadLatestFile(env, args) {
-  const boot = await ensurePage2(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -4799,12 +5005,6 @@ async function readBrowserInputDiagnostic(page) {
       })
     };
   });
-}
-async function ensurePage2(env) {
-  if (env.page !== void 0) {
-    return resultOk({}, await contextFromPage(env.page));
-  }
-  return bootstrap(env, { preferExistingTab: true });
 }
 async function setFilesViaDomDataTransfer(page, files) {
   const totalBytes = files.reduce((sum, file) => sum + file.bytes, 0);
@@ -6049,6 +6249,17 @@ function localizationCheck(env) {
   const missingModeOptionIds = REQUIRED_MODE_OPTION_IDS.filter((id2) => (localeLabels.modeOptions[id2]?.length ?? 0) === 0);
   const toolIds = Object.keys(localeLabels.tools);
   const modeOptionIds = Object.keys(localeLabels.modeOptions);
+  const proAliases = [...localeLabels.modeOptions.pro];
+  const supportsProExtendedAlias = proAliases.some((alias) => /pro\s*(?:•\s*)?extended/i.test(alias)) && proAliases.some((alias) => /extended\s+pro/i.test(alias));
+  const runningStateLocalizationSupport = runningStateSupport();
+  const runningStateLabelCoverage = {
+    support: runningStateLocalizationSupport,
+    stopControlCandidateCount: localeLabels.stopControl.length,
+    stoppedAssistantCandidateCount: localeLabels.stoppedAssistant.length,
+    ...localeCoverageSummary.runningState,
+    registeredLocaleCount: localeCoverageSummary.registeredLocaleCount,
+    nonEnglishLocaleCount: localeCoverageSummary.nonEnglishLocaleCount
+  };
   const englishCanonicalPresent = localeLabels.composerTextbox[0] === "Chat with ChatGPT" && localeLabels.sendButton[0] === "Send prompt" && localeLabels.modeLabels.includes("Thinking") && localeLabels.modeOptions.pro?.[0] === "Pro" && localeLabels.tools.web_search?.[0] === "Web search";
   const labelCandidateCount = REQUIRED_LOCALE_KEYS.reduce((total, key) => total + localeLabels[key].length, 0) + Object.values(localeLabels.tools).reduce((total, values) => total + values.length, 0) + Object.values(localeLabels.modeOptions).reduce((total, values) => total + values.length, 0);
   const details = {
@@ -6058,12 +6269,16 @@ function localizationCheck(env) {
     missingModeOptionIds,
     toolIds,
     modeOptionIds,
+    proAliases,
+    supportsProExtendedAlias,
+    runningStateLabelCoverage,
     labelCandidateCount,
     pageAvailable: env.page !== void 0,
     runtimeSelectorCoverage: "registry_only_stage_2"
   };
   if (englishCanonicalPresent && requiredKeysMissing.length === 0 && missingToolIds.length === 0 && missingModeOptionIds.length === 0) {
-    return unknown("The locale registry is loaded; localized runtime selector coverage is registry-only in Stage 2 and not fully proven.", void 0, details);
+    const runningStateMessage = runningStateLocalizationSupport === "complete" ? "running-state labels are present for every registered non-English locale" : runningStateLocalizationSupport === "partial" ? "running-state labels are partially localized" : runningStateLocalizationSupport === "english_only" ? "running-state labels are English-only" : "running-state labels are missing";
+    return unknown(`The locale registry is loaded; localized runtime selector coverage is registry-only in Stage 2 and ${runningStateMessage}.`, void 0, details);
   }
   return blocked(
     "The locale registry is missing canonical labels required for selector fallback.",
@@ -6071,6 +6286,16 @@ function localizationCheck(env) {
     details,
     "selector_drift"
   );
+}
+function runningStateSupport() {
+  const coverage = localeCoverageSummary.runningState;
+  const hasEnglishStop = coverage.stopControlLocaleCount > coverage.nonEnglishStopControlLocaleCount;
+  const hasEnglishStopped = coverage.stoppedAssistantLocaleCount > coverage.nonEnglishStoppedAssistantLocaleCount;
+  const hasEnglishFallback = hasEnglishStop && hasEnglishStopped;
+  const allNonEnglishCovered = localeCoverageSummary.nonEnglishLocaleCount > 0 && coverage.nonEnglishStopControlLocaleCount >= localeCoverageSummary.nonEnglishLocaleCount && coverage.nonEnglishStoppedAssistantLocaleCount >= localeCoverageSummary.nonEnglishLocaleCount;
+  if (allNonEnglishCovered) return "complete";
+  if (coverage.nonEnglishStopControlLocaleCount > 0 || coverage.nonEnglishStoppedAssistantLocaleCount > 0) return "partial";
+  return hasEnglishFallback ? "english_only" : "missing";
 }
 async function reportsCheck(options) {
   const destDir = options?.destDir ?? "reports/runs";
@@ -6465,7 +6690,7 @@ function isResponseComplete(snapshot) {
   return snapshot.latestText.trim().length > 0 && !isTransientAssistantText(snapshot.latestText) && snapshot.textStableForMs >= snapshot.stableMs && !snapshot.generation.active && !snapshot.generation.stopped && snapshot.hasResponseActions;
 }
 async function composeMessage(env, args) {
-  const boot = await ensurePage3(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -6496,7 +6721,7 @@ async function composeMessage(env, args) {
   }
 }
 async function submitMessage(env, args = {}) {
-  const boot = await ensurePage3(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -6550,10 +6775,20 @@ async function submitMessage(env, args = {}) {
     }
     if (userTurn === void 0) {
       const latestUser = await readLatestMessage(page, "user", "normalized_text");
+      const generation = await readAssistantGenerationState(page).catch(() => EMPTY_GENERATION_STATE);
+      const turnCount = await countPageMessages(page).catch(() => void 0);
       if (submittedUserTurnMatches(latestUser?.text, args.text)) {
         return resultOk(
-          submitData(latestUser?.text, await countPageMessages(page).catch(() => void 0)),
+          submitData(latestUser?.text, turnCount, generation.active ? "submitted_generating" : "submitted", generation),
           await contextFromPage(page)
+        );
+      }
+      const turnAdvanced = previousTurnCount !== void 0 && turnCount !== void 0 && turnCount > previousTurnCount;
+      if (turnAdvanced || generation.active) {
+        return resultOk(
+          submitData(void 0, turnCount, generation.active ? "submitted_generating" : "submitted_unconfirmed", generation),
+          await contextFromPage(page),
+          ["Submitted prompt could not be matched to a rendered user turn yet, but ChatGPT page state indicates progress."]
         );
       }
       return {
@@ -6569,7 +6804,12 @@ async function submitMessage(env, args = {}) {
       };
     }
     return resultOk(
-      submitData(userTurn, await countPageMessages(page).catch(() => void 0)),
+      submitData(
+        userTurn,
+        await countPageMessages(page).catch(() => void 0),
+        "submitted",
+        await readAssistantGenerationState(page).catch(() => EMPTY_GENERATION_STATE)
+      ),
       await contextFromPage(page)
     );
   } catch (error) {
@@ -6695,7 +6935,7 @@ function describeSendState(state) {
   return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 async function waitForMessage(env, args = {}) {
-  const boot = await ensurePage3(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -6715,6 +6955,7 @@ async function waitForMessage(env, args = {}) {
   let lastChangedAt = Date.now();
   let lastObservedTextLength = 0;
   let latestAssistantCount = await countPageMessages(page, "assistant").catch(() => 0);
+  let lastGeneration = EMPTY_GENERATION_STATE;
   while (Date.now() - started < timeoutMs) {
     const probeResult = await waitSnapshotProbe(page, deadline, { timeoutMs: probeTimeoutMs });
     addWarnings(waitWarnings, probeResult.warnings);
@@ -6743,9 +6984,13 @@ async function waitForMessage(env, args = {}) {
     }
     pollIndex += 1;
     const hasResponseActions = await resolveResponseActions(page, snapshot);
+    lastGeneration = snapshot.generation;
     if (targetReached && snapshot.generation.stopped && snapshot.text.length > 0) {
       const stoppedText = normalizeWhitespace(await fetchLatestAssistantText(page) ?? "");
       const data = stoppedText.length > 0 ? waitDataFromText(args, false, stoppedText, latestAssistantCount, Date.now() - started) : waitDataWithoutText(latestAssistantCount, Date.now() - started);
+      data.completionState = "stopped";
+      data.generationActive = snapshot.generation.active;
+      data.generationSignals = snapshot.generation.signals;
       if (stoppedText.length === 0) {
         waitWarnings.add(`The interrupted assistant text (~${snapshot.text.length} chars observed) could not be re-read at wait exit; call messages.readLatest on the same thread to capture it.`);
       }
@@ -6775,6 +7020,9 @@ async function waitForMessage(env, args = {}) {
       };
       if (fetchedMetadata.hash === snapshot.text.hash && isResponseComplete(completionSnapshot)) {
         const data = waitDataFromText(args, true, latestText, latestAssistantCount, Date.now() - started);
+        data.completionState = "complete";
+        data.generationActive = false;
+        data.generationSignals = snapshot.generation.signals;
         return withCommandOutputText(resultOk(
           data,
           await contextFromPage(page),
@@ -6792,7 +7040,11 @@ async function waitForMessage(env, args = {}) {
   if (lastObservedTextLength > 0) {
     const partialText = await fetchLatestAssistantText(page);
     if (partialText !== void 0 && normalizeWhitespace(partialText).length > 0) {
-      const data = waitDataFromText(args, false, normalizeWhitespace(partialText), latestAssistantCount, Date.now() - started);
+      const normalizedPartialText = normalizeWhitespace(partialText);
+      const data = waitDataFromText(args, false, normalizedPartialText, latestAssistantCount, Date.now() - started);
+      data.completionState = completionStateFromGeneration(lastGeneration, false, normalizedPartialText.length > 0);
+      data.generationActive = lastGeneration.active;
+      data.generationSignals = lastGeneration.signals;
       return withCommandOutputText({
         ok: false,
         status: "partial",
@@ -6904,7 +7156,7 @@ function addWarnings(target, warnings) {
   }
 }
 async function readLatest(env, args = {}) {
-  const boot = await ensurePage3(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -6941,17 +7193,51 @@ async function readLatest(env, args = {}) {
   if (latest.actions !== void 0) data.actions = latest.actions;
   if (latest.thoughtDurationText !== void 0) data.thoughtDurationText = latest.thoughtDurationText;
   if (latest.sourcesAvailable !== void 0) data.sourcesAvailable = latest.sourcesAvailable;
+  if (role === "assistant") {
+    const generation = await readAssistantGenerationState(page).catch(() => EMPTY_GENERATION_STATE);
+    data.completionState = completionStateFromGeneration(generation, void 0, latest.text.trim().length > 0);
+    data.generationActive = generation.active;
+    data.generationSignals = generation.signals;
+  }
   return withCommandOutputText(resultOk(data, await contextFromPage(page), data.warnings ?? []));
 }
+async function messageStatus(env, args = {}) {
+  const boot = await ensurePage(env);
+  if (!boot.ok) {
+    return boot;
+  }
+  const page = env.page;
+  const snapshot = await readWaitDomSnapshot(page).catch(() => void 0) ?? await fallbackWaitSnapshot(page, 0);
+  const maxPreviewChars = Math.max(0, args.maxPreviewChars ?? 240);
+  const latestText = snapshot.text.length > 0 ? normalizeWhitespace(await fetchLatestAssistantText(page) ?? "") : "";
+  const data = {
+    turnCount: snapshot.turnCount,
+    assistantTurnCount: snapshot.assistantTurnCount,
+    completionState: completionStateFromGeneration(snapshot.generation, void 0, latestText.length > 0),
+    generationActive: snapshot.generation.active,
+    generationSignals: snapshot.generation.signals
+  };
+  if (snapshot.latestAssistantTurnIndex !== void 0) data.latestAssistantTurnIndex = snapshot.latestAssistantTurnIndex;
+  if (latestText.length > 0) {
+    data.latestAssistantTextLength = latestText.length;
+    data.latestAssistantPreview = latestText.length > maxPreviewChars ? `${latestText.slice(0, Math.max(0, maxPreviewChars - 1))}...` : latestText;
+  }
+  return resultOk(data, await contextFromPage(page));
+}
 async function askMessage(env, args) {
-  const boot = await ensurePage3(env);
+  const normalizedPrompt = normalizeAskPrompt(args);
+  if (!normalizedPrompt.ok) {
+    return normalizedPrompt.result;
+  }
+  const prompt = normalizedPrompt.text;
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
   const page = env.page;
   const beforeTurnCount = await countPageMessages(page).catch(() => void 0);
   const beforeAssistantTurnCount = await countPageMessages(page, "assistant").catch(() => void 0);
-  const composeArgs = { text: args.text, mode: "replace" };
+  const composeArgs = { text: prompt, mode: "replace" };
   if (args.timeoutMs !== void 0) {
     composeArgs.timeoutMs = args.timeoutMs;
   }
@@ -6959,7 +7245,7 @@ async function askMessage(env, args) {
   if (!compose.ok) {
     return forwardFailure(compose);
   }
-  const submitArgs = { text: args.text };
+  const submitArgs = { text: prompt };
   if (beforeTurnCount !== void 0) {
     submitArgs.previousTurnCount = beforeTurnCount;
   }
@@ -7017,7 +7303,7 @@ async function askMessage(env, args) {
     return forwardFailure(waitFailure);
   }
   const state = await readPageState(page).catch(() => void 0);
-  const data = { prompt: args.text };
+  const data = { prompt };
   const complete = waitResult?.data?.complete ?? (waitResult === void 0 ? void 0 : false);
   if (complete !== void 0) {
     data.complete = complete;
@@ -7031,6 +7317,7 @@ async function askMessage(env, args) {
   if (state?.title !== void 0) {
     data.title = state.title;
   }
+  applyMessageState(data, submit.data, waitResult?.data);
   if (waitFailure !== void 0) {
     data.complete = false;
     return withCommandOutputText({
@@ -7068,7 +7355,7 @@ async function waitAndRead(env, args = {}) {
     }
     return forwardFailure(read);
   }
-  const data = askReadData("", read.data?.text, wait.data?.complete);
+  const data = askReadData("", read.data?.text, wait.data?.complete, wait.data, read.data);
   const warnings = [...read.warnings, ...wait.warnings];
   if (!wait.ok && wait.status === "partial") {
     data.complete = false;
@@ -7084,12 +7371,6 @@ async function waitAndRead(env, args = {}) {
     });
   }
   return withCommandOutputText(resultOk(data, read.context, warnings));
-}
-async function ensurePage3(env) {
-  if (env.page !== void 0) {
-    return resultOk({}, await contextFromPage(env.page));
-  }
-  return bootstrap(env, { preferExistingTab: true });
 }
 async function waitForSubmittedUserTurn(page, text, previousTurnCount, timeoutMs) {
   const started = Date.now();
@@ -7195,7 +7476,7 @@ async function sleep2(page, ms2) {
   }
   await new Promise((resolve3) => setTimeout(resolve3, ms2));
 }
-function submitData(userTurnText, turnCount) {
+function submitData(userTurnText, turnCount, submissionState, generation) {
   const data = { submitted: true };
   if (userTurnText !== void 0) {
     data.userTurnText = userTurnText;
@@ -7203,9 +7484,13 @@ function submitData(userTurnText, turnCount) {
   if (turnCount !== void 0) {
     data.turnCount = turnCount;
   }
+  data.submissionState = submissionState;
+  data.completionState = completionStateFromGeneration(generation);
+  data.generationActive = generation.active;
+  data.generationSignals = generation.signals;
   return data;
 }
-function askReadData(prompt, responseText, complete) {
+function askReadData(prompt, responseText, complete, wait, read) {
   const data = { prompt };
   if (responseText !== void 0) {
     data.responseText = responseText;
@@ -7213,7 +7498,62 @@ function askReadData(prompt, responseText, complete) {
   if (complete !== void 0) {
     data.complete = complete;
   }
+  applyMessageState(data, void 0, wait, read);
   return data;
+}
+function applyMessageState(data, submit, wait, read) {
+  if (submit?.submissionState !== void 0) data.submissionState = submit.submissionState;
+  const completionState = wait?.completionState ?? read?.completionState ?? submit?.completionState;
+  if (completionState !== void 0) data.completionState = completionState;
+  const generationActive = wait?.generationActive ?? read?.generationActive ?? submit?.generationActive;
+  if (generationActive !== void 0) data.generationActive = generationActive;
+  const generationSignals = wait?.generationSignals ?? read?.generationSignals ?? submit?.generationSignals;
+  if (generationSignals !== void 0) data.generationSignals = generationSignals;
+}
+function completionStateFromGeneration(generation, complete, hasPartialText = false) {
+  if (complete === true) return "complete";
+  if (generation.active) return "generating";
+  if (generation.stopped) return "stopped";
+  if (complete === false || hasPartialText) return "partial";
+  return "unknown";
+}
+function normalizeAskPrompt(args) {
+  const text = args.text;
+  const prompt = args.prompt;
+  if (text !== void 0 && prompt !== void 0 && text !== prompt) {
+    return {
+      ok: false,
+      result: {
+        ok: false,
+        status: "error",
+        warnings: [],
+        error: {
+          name: "InvalidAskArgs",
+          message: "messages.ask received both text and prompt with different values.",
+          recoverable: false
+        },
+        context: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+      }
+    };
+  }
+  const normalized = text ?? prompt;
+  if (normalized === void 0 || normalized.trim().length === 0) {
+    return {
+      ok: false,
+      result: {
+        ok: false,
+        status: "error",
+        warnings: [],
+        error: {
+          name: "InvalidAskArgs",
+          message: "messages.ask requires a non-empty text or prompt argument.",
+          recoverable: false
+        },
+        context: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+      }
+    };
+  }
+  return { ok: true, text: normalized };
 }
 function readRole(read) {
   return typeof read === "object" ? read.role : void 0;
@@ -7321,7 +7661,8 @@ function findUniqueMenuItem(items, wanted) {
 var DEFAULT_MODE_EFFORT = "Thinking";
 var CURRENT_MODE_LABELS = dedupeLabels([
   ...localeLabels.modeLabels,
-  ...Object.values(localeLabels.modeOptions).flat()
+  ...Object.values(localeLabels.modeOptions).flat(),
+  ...Object.values(localeLabels.configurationOptions).flat()
 ]);
 var MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter((label) => label !== "Pro"), ...localeLabels.modeOpenerExtra];
 var MODEL_VERSION_FAMILY_PATTERN = /^gpt[\s-]/i;
@@ -7356,7 +7697,7 @@ var MODE_ID_ALIASES = {
 var THREAD_ACTION_MENU_LABELS = new Set(localeLabels.threadActionMenuItems.map(normalizeForLabelMatch));
 var THREAD_ACTION_PREFIXES = localeLabels.threadActionPrefixes.map(normalizeForLabelMatch).filter((prefix) => prefix.length > 0);
 async function setMode(env, args) {
-  const boot = await ensurePage4(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -7444,7 +7785,7 @@ async function modeVerificationWarnings(page, requested, selected) {
 }
 async function getMode(env, args = {}) {
   void args;
-  const boot = await ensurePage4(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -7481,7 +7822,7 @@ async function waitForModeMenu(page, requested, timeoutMs) {
   return { opened: false, alreadySelected: [], modeButtons };
 }
 async function selectTool(env, args) {
-  const boot = await ensurePage4(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -7521,12 +7862,6 @@ async function selectTool(env, args) {
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
-}
-async function ensurePage4(env) {
-  if (env.page !== void 0) {
-    return resultOk({}, await contextFromPage(env.page));
-  }
-  return bootstrap(env, { preferExistingTab: true });
 }
 async function clickFirstUniqueButton(page, labels) {
   for (const label of labels) {
@@ -7777,17 +8112,33 @@ async function selectModelVersion(page, requestedVersion, currentCandidates, tim
       candidates = await enumerateVisibleMenuItems(page);
     }
   }
-  let exact = findExactMenuItem(candidates, requestedVersion);
+  let exact = findExactSelectableMenuItem(candidates, requestedVersion);
   if (exact !== void 0) {
-    return await clickMenuItem(page, exact.label) ? { selected: exact.label, candidates: candidates.map((candidate) => candidate.label) } : { candidates: candidates.map((candidate) => candidate.label) };
+    return await clickResolvedMenuItem(page, exact) ? { selected: exact.label, candidates: candidates.map((candidate) => candidate.label) } : { candidates: candidates.map((candidate) => candidate.label) };
   }
   const opened = await openModelVersionSubmenu(page, currentCandidates);
   candidates = await enumerateVisibleMenuItems(page);
-  exact = findExactMenuItem(candidates, requestedVersion);
+  exact = findExactSelectableMenuItem(candidates, requestedVersion);
   if (!opened || exact === void 0) {
     return { candidates: candidates.map((candidate) => candidate.label) };
   }
-  return await clickMenuItem(page, exact.label) ? { selected: exact.label, candidates: candidates.map((candidate) => candidate.label) } : { candidates: candidates.map((candidate) => candidate.label) };
+  return await clickResolvedMenuItem(page, exact) ? { selected: exact.label, candidates: candidates.map((candidate) => candidate.label) } : { candidates: candidates.map((candidate) => candidate.label) };
+}
+function isModelVersionSubmenuOpener(item) {
+  return item.hasPopup === true || item.role !== "menuitemradio" && MODEL_VERSION_FAMILY_PATTERN.test(item.label);
+}
+async function clickResolvedMenuItem(page, item) {
+  if (item.testId !== void 0 && await clickIfUnique(
+    page.locator?.(`[data-testid="${escapeAttributeValue(item.testId)}"]`)
+  )) {
+    return true;
+  }
+  if (item.role !== void 0 && await clickIfUnique(
+    page.getByRole?.(item.role, { name: item.label, exact: true })
+  )) {
+    return true;
+  }
+  return clickMenuItem(page, item.label);
 }
 async function openModelVersionSubmenu(page, candidates) {
   const submenuOpeners = candidates.filter((item) => item.hasPopup === true || MODEL_VERSION_FAMILY_PATTERN.test(item.label));
@@ -7862,9 +8213,11 @@ async function menuItemCenter(page, item, roles = ["menuitem", "menuitemradio", 
 async function modelVersionMenuItemsAreVisible(page) {
   return (await enumerateVisibleMenuItems(page)).some((candidate) => candidate.role === "menuitemradio" && MODEL_VERSION_LABEL_PATTERN.test(candidate.label));
 }
-function findExactMenuItem(items, wanted) {
+function findExactSelectableMenuItem(items, wanted) {
   const normalized = normalizeLabel(wanted);
-  const matches = items.filter((item) => item.normalized === normalized);
+  const matches = items.filter(
+    (item) => item.normalized === normalized && !isModelVersionSubmenuOpener(item)
+  );
   return matches.length === 1 ? matches[0] : void 0;
 }
 function dedupeLabels(labels) {
@@ -7920,8 +8273,12 @@ async function visibleModeButtonLabelList(page) {
       }
       return text.includes(token);
     };
+    const scopedRoots = Array.from(document.querySelectorAll(
+      "main form, main [data-testid*='composer' i], main [class*='composer' i]"
+    ));
     return Array.from(document.querySelectorAll("button, [role='button']")).map((node) => {
       const element = node;
+      if (scopedRoots.length > 0 && !scopedRoots.some((root) => root.contains(node))) return "";
       const visibleText = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim();
       const ariaLabel = (element.getAttribute("aria-label") ?? "").replace(/\s+/g, " ").trim();
       const label = visibleText.length > 0 ? visibleText : ariaLabel;
@@ -7930,10 +8287,900 @@ async function visibleModeButtonLabelList(page) {
       if (/open profile menu/i.test(label)) return "";
       if (visibleText.length === 0 && /feedback|conversation options|dismiss/i.test(ariaLabel)) return "";
       const normalized = label.toLowerCase();
-      if (!normalizedModeLabels.some((modeLabel) => tokenMatches(normalized, modeLabel))) return "";
+      const structuralModelControl = /model-switcher|model-selector|mode-selector/i.test(testId) || /\b(?:gpt|sol|luna|terra)\b/i.test(label);
+      if (!structuralModelControl && !normalizedModeLabels.some((modeLabel) => tokenMatches(normalized, modeLabel))) return "";
       return label;
     }).filter(Boolean).slice(0, 30);
   }, CURRENT_MODE_LABELS).then((labels) => labels.map(normalizeWhitespace)).catch(() => []);
+}
+
+// src/commands/experience.ts
+async function detectExperience(env, args = {}) {
+  void args;
+  const boot = await ensurePage(env);
+  if (!boot.ok) {
+    return boot;
+  }
+  const page = env.page;
+  try {
+    const data = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+    return resultOk(data, await contextFromPage(page, {
+      experience: data.experience,
+      selectorProfile: data.selectorProfile
+    }), data.experience === "unknown" ? ["The current ChatGPT surface could not be classified as Chat or Work from scoped composer evidence."] : []);
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+async function openExperience(env, args) {
+  const boot = await ensurePage(env);
+  if (!boot.ok) {
+    return boot;
+  }
+  const page = env.page;
+  try {
+    const before = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+    if (before.experience === args.experience) {
+      return resultOk({
+        experience: args.experience,
+        previousExperience: before.experience,
+        changed: false,
+        selectorProfile: before.selectorProfile
+      }, await contextFromPage(page, {
+        experience: before.experience,
+        selectorProfile: before.selectorProfile
+      }));
+    }
+    const labels = localeLabels.experienceOptions[args.experience];
+    if (!await clickUniqueExperienceControl(page, labels)) {
+      return experienceSelectorDrift(
+        page,
+        `No unique visible ChatGPT ${args.experience === "work" ? "Work" : "Chat"} surface control was found.`,
+        before
+      );
+    }
+    const timeoutMs = args.timeoutMs ?? 3e4;
+    const started = Date.now();
+    let after = before;
+    while (Date.now() - started < timeoutMs) {
+      await page.waitForTimeout?.(250);
+      after = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+      if (after.experience === args.experience) {
+        return resultOk({
+          experience: args.experience,
+          previousExperience: before.experience,
+          changed: true,
+          selectorProfile: after.selectorProfile
+        }, await contextFromPage(page, {
+          experience: after.experience,
+          selectorProfile: after.selectorProfile
+        }));
+      }
+    }
+    return {
+      ok: false,
+      status: "blocked",
+      warnings: [],
+      blocker: {
+        kind: "selector_drift",
+        code: "experience_postcondition_unverified",
+        fieldPath: "experience",
+        message: `The ${args.experience} surface control was clicked, but the composer did not verify that ChatGPT switched to ${args.experience}.`,
+        candidates: labels.map((label) => ({ label })),
+        resumable: true
+      },
+      context: await contextFromPage(page, {
+        experience: after.experience,
+        selectorProfile: after.selectorProfile
+      })
+    };
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+function detectExperienceFromSnapshot(snapshot) {
+  const evidence = [];
+  const composerLabels = snapshot.composerLabels.map(normalizeForLabelMatch);
+  const controls = snapshot.mainControls.map(normalizeForLabelMatch);
+  const mainText = normalizeForLabelMatch(snapshot.mainText);
+  const url = snapshot.url.toLowerCase();
+  const workComposer = matchingLabels(composerLabels, localeLabels.workComposerTextbox);
+  for (const label of workComposer) {
+    evidence.push({ source: "composer", label });
+  }
+  const chatComposer = matchingLabels(composerLabels, localeLabels.composerTextbox);
+  for (const label of chatComposer) {
+    evidence.push({ source: "composer", label });
+  }
+  const workAxisCount = ["model", "effort", "speed"].filter((axis) => hasAnyLabel(controls, localeLabels.configurationAxes[axis])).length;
+  if (workAxisCount >= 2) {
+    evidence.push({ source: "control", label: `Work configuration axes (${workAxisCount}/3)` });
+  }
+  if (/\/work(?:\/|$|\?)/.test(url)) {
+    evidence.push({ source: "url", label: snapshot.url });
+  }
+  if (containsAny(mainText, ["work on something else", "work on anything"])) {
+    evidence.push({ source: "heading", label: "Work composer copy" });
+  }
+  const workScore = workComposer.length * 4 + (workAxisCount >= 2 ? 4 : 0) + (/\/work(?:\/|$|\?)/.test(url) ? 3 : 0) + (containsAny(mainText, ["work on something else", "work on anything"]) ? 2 : 0);
+  const chatScore = chatComposer.length * 4;
+  let experience = "unknown";
+  let confidence = "low";
+  if (workScore > chatScore && workScore >= 4) {
+    experience = "work";
+    confidence = workScore >= 7 ? "high" : "medium";
+  } else if (chatScore > workScore && chatScore >= 4) {
+    experience = "chat";
+    confidence = "high";
+  }
+  const selectorProfile = profileFromSnapshot(snapshot, experience);
+  return { experience, selectorProfile, confidence, evidence };
+}
+async function readSurfaceSnapshot(page) {
+  const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
+  if (typeof page.evaluate !== "function") {
+    return { url, composerLabels: [], mainControls: [], mainText: "" };
+  }
+  const snapshot = await page.evaluate(() => {
+    const visible = (element) => {
+      const html = element;
+      const rect = html.getBoundingClientRect?.();
+      const style = typeof window !== "undefined" ? window.getComputedStyle?.(html) : void 0;
+      return (rect === void 0 || rect.width > 0 && rect.height > 0) && style?.display !== "none" && style?.visibility !== "hidden" && style?.opacity !== "0";
+    };
+    const labelFor = (element) => {
+      const html = element;
+      return element.getAttribute("aria-label") ?? element.getAttribute("placeholder") ?? html.innerText ?? element.textContent ?? "";
+    };
+    const normalize = (value) => value.replace(/\s+/g, " ").trim();
+    const composerRoots = Array.from(document.querySelectorAll(
+      "main form, main [data-testid*='composer' i], main [class*='composer' i]"
+    ));
+    const composerNodes = composerRoots.flatMap((root) => [
+      root,
+      ...Array.from(root.querySelectorAll("textarea, [contenteditable='true'], [role='textbox'], input"))
+    ]);
+    const composerLabels = Array.from(new Set(composerNodes.filter(visible).map(labelFor).map(normalize).filter(Boolean))).slice(0, 16);
+    const main = document.querySelector("main");
+    const overlayRoots = Array.from(document.querySelectorAll(
+      "[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
+    )).filter(visible);
+    const controlRoots = Array.from(/* @__PURE__ */ new Set([...composerRoots, ...overlayRoots]));
+    const effectiveControlRoots = controlRoots.length > 0 ? controlRoots : main === null ? [] : [main];
+    const mainControls = Array.from(new Set(effectiveControlRoots.flatMap((root) => Array.from(root.querySelectorAll(
+      "button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option']"
+    ))).filter(visible).map(labelFor).map(normalize).filter(Boolean))).slice(0, 120);
+    const surfaceTextNodes = main === null ? [] : Array.from(main.querySelectorAll(
+      "h1, h2, h3, form, [data-testid*='composer' i], [class*='composer' i]"
+    )).filter(visible).slice(0, 32);
+    const mainText = normalize(surfaceTextNodes.map(labelFor).join(" ")).slice(0, 2e3);
+    return { composerLabels, mainControls, mainText };
+  }).catch(() => ({ composerLabels: [], mainControls: [], mainText: "" }));
+  return { url, ...snapshot };
+}
+function profileFromSnapshot(snapshot, experience) {
+  const controls = snapshot.mainControls.map(normalizeForLabelMatch);
+  const mainText = normalizeForLabelMatch(snapshot.mainText);
+  if (experience === "work") {
+    return hasAnyLabel(controls, localeLabels.configurationAxes.advanced) || containsAny(mainText, localeLabels.configurationAxes.advanced) ? "work_advanced_v1" : "work_basic_v1";
+  }
+  if (experience !== "chat") {
+    return "unknown";
+  }
+  const simplifiedOptions = [
+    ...localeLabels.configurationOptions.instant,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.extraHigh,
+    ...localeLabels.configurationOptions.pro
+  ];
+  if (hasAnyLabel(controls, simplifiedOptions)) {
+    return "chat_simplified_v1";
+  }
+  const legacyOptions = [
+    ...localeLabels.modeOptions.latest,
+    ...localeLabels.modeOptions.thinking,
+    ...localeLabels.modeOptions.extended
+  ];
+  return hasAnyLabel(controls, legacyOptions) ? "chat_legacy_v1" : "chat_simplified_v1";
+}
+async function clickUniqueExperienceControl(page, labels) {
+  for (const label of labels) {
+    for (const role of ["button", "menuitem", "tab", "link"]) {
+      if (await clickIfUnique2(page.getByRole?.(role, { name: label, exact: true }))) {
+        return true;
+      }
+    }
+  }
+  if (typeof page.evaluate !== "function") {
+    return false;
+  }
+  return page.evaluate((wantedLabels) => {
+    const normalize = (value) => value.replace(/\s+/g, " ").trim().toLocaleLowerCase();
+    const wanted = new Set(wantedLabels.map(normalize));
+    const nodes = Array.from(document.querySelectorAll(
+      "header button, header [role='button'], header [role='tab'], main [role='menuitem'], main [role='option']"
+    ));
+    const matches = nodes.filter((node) => {
+      const html = node;
+      const label = node.getAttribute("aria-label") ?? html.innerText ?? node.textContent ?? "";
+      return wanted.has(normalize(label));
+    });
+    if (matches.length !== 1) return false;
+    matches[0].click();
+    return true;
+  }, labels).catch(() => false);
+}
+async function clickIfUnique2(locator) {
+  if (locator?.count === void 0 || locator.click === void 0) {
+    return false;
+  }
+  if (await locator.count().catch(() => 0) !== 1) {
+    return false;
+  }
+  await locator.click();
+  return true;
+}
+function matchingLabels(normalizedHaystack, candidates) {
+  const normalizedCandidates = candidates.map(normalizeForLabelMatch);
+  return normalizedHaystack.filter((label) => normalizedCandidates.some(
+    (candidate) => label === candidate || visibleLabelMatches(label, candidate)
+  )).slice(0, 4);
+}
+function hasAnyLabel(normalizedHaystack, candidates) {
+  const normalizedCandidates = candidates.map(normalizeForLabelMatch);
+  return normalizedHaystack.some(
+    (label) => normalizedCandidates.some(
+      (candidate) => label === candidate || visibleLabelMatches(label, candidate)
+    )
+  );
+}
+function containsAny(normalizedText, candidates) {
+  return candidates.map(normalizeForLabelMatch).some((candidate) => normalizedText.includes(candidate));
+}
+async function experienceSelectorDrift(page, message, detected) {
+  return {
+    ok: false,
+    status: "unsupported",
+    warnings: [],
+    blocker: {
+      kind: "selector_drift",
+      code: "experience_control_not_found",
+      fieldPath: "experience",
+      message,
+      candidates: detected.evidence.map((item) => ({ label: `${item.source}: ${item.label}` })),
+      resumable: true
+    },
+    context: await contextFromPage(page, {
+      experience: detected.experience,
+      selectorProfile: detected.selectorProfile
+    })
+  };
+}
+
+// src/commands/configuration.ts
+var WORK_AXES = ["model", "effort", "speed"];
+var CONFIGURATION_AXIS_ORDER = [
+  "model",
+  "intelligence",
+  "effort",
+  "speed",
+  "modelVersion"
+];
+async function inspectConfiguration(env, args = {}) {
+  const boot = await ensurePage(env);
+  if (!boot.ok) {
+    return boot;
+  }
+  const page = env.page;
+  try {
+    const detected = await detectExperience(
+      env,
+      args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+    );
+    if (!detected.ok || detected.data === void 0) {
+      return forwardFailure2(detected);
+    }
+    if (args.experience !== void 0 && detected.data.experience !== args.experience) {
+      return {
+        ok: false,
+        status: "unsupported",
+        warnings: [],
+        blocker: {
+          kind: "selector_drift",
+          code: "experience_mismatch",
+          fieldPath: "experience",
+          message: `Configuration inspection expected ${args.experience}, but the visible composer is ${detected.data.experience}. Call experience.open first or omit the expected experience.`,
+          resumable: true
+        },
+        context: await contextFromPage(page, {
+          experience: detected.data.experience,
+          selectorProfile: detected.data.selectorProfile
+        })
+      };
+    }
+    const experience = detected.data.experience;
+    const rootOpened = experience !== "unknown" && await openConfigurationRoot(page, experience);
+    if (rootOpened) {
+      await page.waitForTimeout?.(150);
+    }
+    const panel = await readConfigurationPanel(page);
+    const rootItems = rootOpened ? await enumerateVisibleMenuItems(page) : [];
+    const data = configurationInspectionFromSurface(
+      experience,
+      detected.data.selectorProfile,
+      detected.data.evidence,
+      panel,
+      rootItems
+    );
+    if (args.includeOptions !== false && experience === "work" && panel.axisRows.length > 0) {
+      for (const axis of WORK_AXES) {
+        if (!data.availableAxes.includes(axis)) continue;
+        const options = await inspectWorkAxisOptions(page, axis);
+        if (options.length > 0) {
+          data.options[axis] = options;
+        }
+      }
+      await closeConfigurationMenus(page);
+    }
+    const warnings = [];
+    if (!rootOpened) {
+      warnings.push("No scoped configuration opener was available; inspection is limited to controls already visible in the composer.");
+    }
+    if (!data.verified) {
+      warnings.push("The visible configuration could not be verified from a recognized Chat or Work selector profile.");
+    }
+    return resultOk(data, await contextFromPage(page, {
+      experience: data.experience,
+      selectorProfile: data.selectorProfile
+    }), warnings);
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+async function applyConfiguration(env, args) {
+  const boot = await ensurePage(env);
+  if (!boot.ok) {
+    return boot;
+  }
+  const page = env.page;
+  const strict = args.strict ?? true;
+  try {
+    const desired = normalizeDesiredSelection(args.desired);
+    if (selectionEntries(desired).length === 0) {
+      return {
+        ok: false,
+        status: "unsupported",
+        warnings: [],
+        blocker: {
+          kind: "selector_drift",
+          code: "configuration_empty",
+          fieldPath: "desired",
+          message: "configuration.apply requires at least one desired model, intelligence, effort, speed, or modelVersion value.",
+          resumable: false
+        },
+        context: await contextFromPage(page)
+      };
+    }
+    if (args.experience !== void 0) {
+      const opened = await openExperience(env, {
+        experience: args.experience,
+        ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+      });
+      if (!opened.ok) {
+        return forwardFailure2(opened);
+      }
+    }
+    const beforeResult = await inspectConfiguration(env, {
+      ...args.experience === void 0 ? {} : { experience: args.experience },
+      includeOptions: true,
+      ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+    });
+    if (!beforeResult.ok || beforeResult.data === void 0) {
+      return forwardFailure2(beforeResult);
+    }
+    const before = beforeResult.data;
+    if (before.experience === "unknown") {
+      return configurationFailure(page, before, desired, [], "The visible surface is not recognizable as Chat or Work.", "experience_unknown");
+    }
+    const selected = [];
+    for (const [axis, requested] of selectionEntries(desired)) {
+      const active = activeConfigurationValue(before, axis);
+      if (active !== void 0 && configurationValueMatches(active, requested)) {
+        selected.push({ axis, requested, selected: active });
+        continue;
+      }
+      const selection = before.experience === "work" ? await selectWorkAxis(page, axis, requested) : await selectChatAxis(env, axis, requested, args.timeoutMs);
+      if (selection === void 0) {
+        return configurationFailure(
+          page,
+          before,
+          desired,
+          selected,
+          `Configuration option "${requested}" for ${axis} was not found or was ambiguous on the ${before.experience} surface.`,
+          "configuration_option_not_found",
+          before.options[axis]?.map((option) => option.label)
+        );
+      }
+      selected.push({ axis, requested, selected: selection });
+    }
+    const afterResult = await inspectConfiguration(env, {
+      ...args.experience === void 0 ? {} : { experience: args.experience },
+      includeOptions: false,
+      ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+    });
+    if (!afterResult.ok || afterResult.data === void 0) {
+      return forwardFailure2(afterResult);
+    }
+    const after = afterResult.data;
+    const verified = configurationMatchesSelection(after, desired);
+    const data = { requested: desired, selected, before, after, verified };
+    if (!verified && strict) {
+      return {
+        ok: false,
+        status: "blocked",
+        data,
+        warnings: [],
+        blocker: {
+          kind: "selector_drift",
+          code: "configuration_postcondition_unverified",
+          fieldPath: "desired",
+          message: `ChatGPT accepted configuration clicks, but the visible ${after.experience} controls do not verify every requested value.`,
+          candidates: Object.entries(after.active).map(([axis, label]) => ({ label: `${axis}: ${label}` })),
+          resumable: true
+        },
+        context: await contextFromPage(page, {
+          experience: after.experience,
+          selectorProfile: after.selectorProfile
+        })
+      };
+    }
+    const warnings = verified ? [] : ["Configuration clicks completed, but strict verification was disabled and the visible postcondition remains unverified."];
+    return resultOk(data, await contextFromPage(page, {
+      experience: after.experience,
+      selectorProfile: after.selectorProfile
+    }), warnings);
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+function configurationInspectionFromSurface(experience, detectedProfile, evidence, panel, menuItems) {
+  const active = {};
+  const options = {};
+  const availableAxes = [];
+  let selectorProfile = detectedProfile;
+  if (experience === "work") {
+    for (const row of panel.axisRows) {
+      if (!availableAxes.includes(row.axis)) availableAxes.push(row.axis);
+      if (row.value !== void 0 && row.value.length > 0) active[row.axis] = row.value;
+    }
+    selectorProfile = panel.advancedVisible ? "work_advanced_v1" : "work_basic_v1";
+  } else if (experience === "chat") {
+    const simplified = chatMenuLooksSimplified(menuItems);
+    selectorProfile = simplified ? "chat_simplified_v1" : detectedProfile;
+    const axis = simplified ? "intelligence" : "effort";
+    if (menuItems.length > 0 || panel.openerLabel !== void 0) {
+      availableAxes.push(axis);
+    }
+    if (panel.openerLabel !== void 0) {
+      active[axis] = panel.openerLabel;
+    }
+    const chatOptions = menuItems.filter((item) => !isConfigurationAxisRow(item.label)).map(menuItemToOption);
+    if (chatOptions.length > 0) {
+      options[axis] = chatOptions;
+    }
+    const modelRows = menuItems.filter((item) => /^gpt[\s-]/i.test(item.label) || item.hasPopup === true);
+    if (modelRows.length > 0) {
+      availableAxes.push("modelVersion");
+      options.modelVersion = modelRows.map(menuItemToOption);
+    }
+  }
+  return {
+    experience,
+    selectorProfile,
+    availableAxes,
+    active,
+    options,
+    verified: experience !== "unknown" && (availableAxes.length > 0 || Object.keys(active).length > 0),
+    evidence
+  };
+}
+async function inspectWorkAxisOptions(page, axis) {
+  await ensureWorkConfigurationRoot(page);
+  if (!await clickWorkAxisRow(page, axis)) {
+    return [];
+  }
+  await page.waitForTimeout?.(120);
+  const items = await enumerateVisibleMenuItems(page);
+  const options = items.filter((item) => !isConfigurationAxisRow(item.label)).map(menuItemToOption);
+  await page.keyboard?.press?.("Escape");
+  await page.waitForTimeout?.(80);
+  return dedupeOptions(options);
+}
+async function selectWorkAxis(page, axis, requested) {
+  if (!WORK_AXES.includes(axis)) {
+    return void 0;
+  }
+  await ensureWorkConfigurationRoot(page);
+  if (!await clickWorkAxisRow(page, axis)) {
+    return void 0;
+  }
+  await page.waitForTimeout?.(120);
+  const candidates = await enumerateVisibleMenuItems(page);
+  const match = findConfigurationOption(candidates, requested);
+  if (match === void 0 || !await clickVisibleMenuItem(page, match)) {
+    return void 0;
+  }
+  await page.waitForTimeout?.(150);
+  return match.label;
+}
+async function selectChatAxis(env, axis, requested, timeoutMs) {
+  const legacyArgs = axis === "modelVersion" ? { modelVersion: requested } : axis === "intelligence" ? { intelligence: requested } : axis === "effort" ? { effort: requested } : axis === "model" ? { model: requested } : void 0;
+  if (legacyArgs === void 0) {
+    return void 0;
+  }
+  const result = await setMode(env, {
+    ...legacyArgs,
+    ...timeoutMs === void 0 ? {} : { timeoutMs }
+  });
+  return result.ok ? result.data?.selected.at(-1) : void 0;
+}
+async function openConfigurationRoot(page, experience) {
+  const existing = await readConfigurationPanel(page);
+  if (existing.axisRows.length > 0) {
+    return true;
+  }
+  const existingItems = await enumerateVisibleMenuItems(page).catch(() => []);
+  if (configurationMenuLooksRecognized(existingItems, experience, existing.openerLabel)) {
+    return true;
+  }
+  if (typeof page.evaluate === "function") {
+    const clicked = await page.evaluate((surface) => {
+      const normalize = (value) => value.replace(/\s+/g, " ").trim();
+      const visible = (element) => {
+        const html = element;
+        const rect = html.getBoundingClientRect?.();
+        const style = typeof window !== "undefined" ? window.getComputedStyle?.(html) : void 0;
+        return (rect === void 0 || rect.width > 0 && rect.height > 0) && style?.display !== "none" && style?.visibility !== "hidden" && style?.opacity !== "0";
+      };
+      const forms = Array.from(document.querySelectorAll("main form, main [data-testid*='composer' i]"));
+      const controls = forms.flatMap((form) => Array.from(form.querySelectorAll("button, [role='button']"))).filter(visible);
+      const matches = controls.filter((control) => {
+        const html = control;
+        const label = normalize(control.getAttribute("aria-label") ?? html.innerText ?? control.textContent ?? "");
+        const testId = control.getAttribute("data-testid") ?? "";
+        if (/send|voice|microphone|attach|upload|add files|plus/i.test(`${label} ${testId}`)) return false;
+        if (/model-switcher|model-selector|mode-selector/i.test(testId)) return true;
+        return surface === "work" ? /\b(?:gpt|sol|luna|terra|light|medium|high|max|ultra|standard|fast)\b/i.test(label) : /\b(?:instant|medium|high|extra high|pro|thinking|extended|gpt)\b/i.test(label);
+      });
+      if (matches.length !== 1) return false;
+      matches[0].click();
+      return true;
+    }, experience).catch(() => false);
+    if (clicked) return true;
+  }
+  const labels = experience === "work" ? [
+    ...localeLabels.configurationOptions.light,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.standard
+  ] : [
+    ...localeLabels.configurationOptions.instant,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.extraHigh,
+    ...localeLabels.configurationOptions.pro,
+    ...localeLabels.modeOptions.thinking
+  ];
+  for (const label of labels) {
+    if (await clickIfUnique3(page.getByRole?.("button", { name: label, exact: true }))) {
+      return true;
+    }
+  }
+  return false;
+}
+function configurationMenuLooksRecognized(items, experience, openerLabel) {
+  if (items.some((item) => /(?:model|mode|effort|speed)-(?:switcher|selector)|model-switcher/i.test(item.testId ?? ""))) {
+    return true;
+  }
+  if (openerLabel === void 0 || items.length === 0) {
+    return false;
+  }
+  const semanticLabels = experience === "work" ? [
+    ...localeLabels.configurationOptions.light,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.max,
+    ...localeLabels.configurationOptions.ultra,
+    ...localeLabels.configurationOptions.standard,
+    ...localeLabels.configurationOptions.fast
+  ] : [
+    ...localeLabels.configurationOptions.instant,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.extraHigh,
+    ...localeLabels.configurationOptions.pro,
+    ...localeLabels.modeOptions.thinking,
+    ...localeLabels.modeOptions.extended
+  ];
+  const matched = new Set(
+    items.filter((item) => semanticLabels.some((label) => visibleLabelMatches(item.label, label))).map((item) => normalizeConfigurationId(item.label))
+  );
+  return matched.size >= 2;
+}
+async function ensureWorkConfigurationRoot(page) {
+  const panel = await readConfigurationPanel(page);
+  if (panel.axisRows.length > 0) return true;
+  await page.keyboard?.press?.("Escape");
+  await page.waitForTimeout?.(50);
+  return openConfigurationRoot(page, "work");
+}
+async function readConfigurationPanel(page) {
+  if (typeof page.evaluate !== "function") {
+    return { axisRows: [], advancedVisible: false };
+  }
+  return page.evaluate((axisLabels) => {
+    const normalize = (value) => value.replace(/\s+/g, " ").trim();
+    const normalizedAxes = Object.fromEntries(
+      Object.entries(axisLabels).map(([axis, labels]) => [
+        axis,
+        labels.map((label) => normalize(label).toLocaleLowerCase())
+      ])
+    );
+    const visible = (element) => {
+      const html = element;
+      const rect = html.getBoundingClientRect?.();
+      const style = typeof window !== "undefined" ? window.getComputedStyle?.(html) : void 0;
+      return (rect === void 0 || rect.width > 0 && rect.height > 0) && style?.display !== "none" && style?.visibility !== "hidden" && style?.opacity !== "0";
+    };
+    const overlays = Array.from(document.querySelectorAll(
+      "[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
+    )).filter(visible);
+    const roots = overlays.length > 0 ? overlays : Array.from(document.querySelectorAll("main")).filter(visible);
+    const rows = roots.flatMap((root) => Array.from(root.querySelectorAll(
+      "button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option']"
+    ))).filter(visible);
+    const axisRows = [];
+    let advancedVisible = false;
+    for (const row of rows) {
+      const html = row;
+      const label = normalize(row.getAttribute("aria-label") ?? html.innerText ?? row.textContent ?? "");
+      const normalized = label.toLocaleLowerCase();
+      if (normalizedAxes.advanced?.some((candidate) => normalized === candidate || normalized.startsWith(`${candidate} `))) {
+        advancedVisible = true;
+      }
+      for (const axis of ["model", "intelligence", "effort", "speed"]) {
+        const candidates = normalizedAxes[axis] ?? [];
+        const prefix = candidates.find((candidate) => normalized === candidate || normalized.startsWith(`${candidate} `));
+        if (prefix === void 0) continue;
+        const value = normalize(label.slice(prefix.length));
+        const item = { axis, label };
+        if (value.length > 0) item.value = value;
+        axisRows.push(item);
+        break;
+      }
+    }
+    const forms = Array.from(document.querySelectorAll("main form, main [data-testid*='composer' i]"));
+    const openerCandidates = forms.flatMap((form) => Array.from(form.querySelectorAll("button, [role='button']"))).filter(visible).map((control) => {
+      const html = control;
+      return {
+        label: normalize(control.getAttribute("aria-label") ?? html.innerText ?? control.textContent ?? ""),
+        testId: control.getAttribute("data-testid") ?? ""
+      };
+    }).filter((item) => !/send|voice|microphone|attach|upload|add files|plus/i.test(`${item.label} ${item.testId}`)).filter((item) => /model-switcher|model-selector|mode-selector/i.test(item.testId) || /\b(?:gpt|sol|luna|terra|instant|medium|high|extra high|pro|thinking|extended|light|standard|fast)\b/i.test(item.label));
+    const result = {
+      axisRows,
+      advancedVisible
+    };
+    if (openerCandidates.length === 1 && openerCandidates[0]?.label.length) {
+      result.openerLabel = openerCandidates[0].label;
+    }
+    return result;
+  }, localeLabels.configurationAxes).catch(() => ({ axisRows: [], advancedVisible: false }));
+}
+async function clickWorkAxisRow(page, axis) {
+  const labels = axis === "modelVersion" ? [] : localeLabels.configurationAxes[axis] ?? [];
+  for (const label of labels) {
+    const pattern = new RegExp(`^${escapeRegExp3(label)}(?:\\s|$)`, "i");
+    for (const role of ["button", "menuitem"]) {
+      if (await clickIfUnique3(page.getByRole?.(role, { name: pattern }))) {
+        return true;
+      }
+    }
+  }
+  if (typeof page.evaluate !== "function") return false;
+  return page.evaluate((wantedLabels) => {
+    const normalize = (value) => value.replace(/\s+/g, " ").trim().toLocaleLowerCase();
+    const wanted = wantedLabels.map(normalize);
+    const overlays = Array.from(document.querySelectorAll(
+      "[role='menu'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
+    ));
+    const nodes = overlays.flatMap((root) => Array.from(root.querySelectorAll("button, [role='button'], [role='menuitem']")));
+    const matches = nodes.filter((node) => {
+      const html = node;
+      const label = normalize(node.getAttribute("aria-label") ?? html.innerText ?? node.textContent ?? "");
+      return wanted.some((prefix) => label === prefix || label.startsWith(`${prefix} `));
+    });
+    if (matches.length !== 1) return false;
+    matches[0].click();
+    return true;
+  }, labels).catch(() => false);
+}
+async function clickVisibleMenuItem(page, item) {
+  if (item.testId !== void 0 && await clickIfUnique3(page.locator?.(`[data-testid="${escapeAttributeValue2(item.testId)}"]`))) {
+    return true;
+  }
+  for (const role of ["menuitemradio", "menuitem", "option"]) {
+    if (await clickIfUnique3(page.getByRole?.(role, { name: item.label, exact: true }))) {
+      return true;
+    }
+  }
+  return clickIfUnique3(page.getByText?.(item.label, { exact: true }));
+}
+function findConfigurationOption(items, requested) {
+  const normalizedRequested = normalizeConfigurationId(requested);
+  const exact = items.filter((item) => normalizeConfigurationId(item.label) === normalizedRequested);
+  if (exact.length === 1) return exact[0];
+  const semanticLabels = configurationSemanticLabels(requested);
+  for (const wanted of semanticLabels) {
+    const matches = items.filter(
+      (item) => normalizeForLabelMatch(item.label) === normalizeForLabelMatch(wanted) || visibleLabelMatches(item.label, wanted)
+    );
+    if (matches.length === 1) return matches[0];
+  }
+  return void 0;
+}
+function configurationSemanticLabels(requested) {
+  const normalized = normalizeConfigurationId(requested);
+  for (const labels of Object.values(localeLabels.configurationOptions)) {
+    if (labels.some((label) => normalizeConfigurationId(label) === normalized)) {
+      return labels;
+    }
+  }
+  for (const labels of Object.values(localeLabels.modeOptions)) {
+    if (labels.some((label) => normalizeConfigurationId(label) === normalized)) {
+      return labels;
+    }
+  }
+  return [requested];
+}
+function configurationMatchesSelection(inspection, desired) {
+  return selectionEntries(desired).every(([axis, requested]) => {
+    const active = activeConfigurationValue(inspection, axis);
+    return active !== void 0 && configurationValueMatches(active, requested);
+  });
+}
+function activeConfigurationValue(inspection, axis) {
+  const direct = inspection.active[axis];
+  if (direct !== void 0 || inspection.experience !== "chat") {
+    return direct;
+  }
+  if (axis === "model" || axis === "intelligence") {
+    return inspection.active.intelligence ?? inspection.active.effort;
+  }
+  if (axis === "effort") {
+    return inspection.active.effort ?? inspection.active.intelligence;
+  }
+  return void 0;
+}
+function configurationValueMatches(actual, requested) {
+  const normalizedActual = normalizeConfigurationId(actual);
+  const normalizedRequested = normalizeConfigurationId(requested);
+  if (normalizedActual === normalizedRequested) return true;
+  return configurationSemanticLabels(requested).some((label) => normalizeConfigurationId(label) === normalizedActual);
+}
+function selectionEntries(selection) {
+  const entries = [];
+  for (const axis of CONFIGURATION_AXIS_ORDER) {
+    const value = selection[axis];
+    if (typeof value === "string" && value.trim().length > 0) {
+      entries.push([axis, value.trim()]);
+    }
+  }
+  return entries;
+}
+function normalizeDesiredSelection(selection) {
+  const normalized = {};
+  for (const axis of ["model", "intelligence", "effort", "speed"]) {
+    const value = selection[axis]?.trim();
+    if (value !== void 0 && value.length > 0) normalized[axis] = value;
+  }
+  const modelVersion = (selection.modelVersion ?? selection.version)?.trim();
+  if (modelVersion !== void 0 && modelVersion.length > 0) {
+    normalized.modelVersion = modelVersion;
+  }
+  return normalized;
+}
+function menuItemToOption(item) {
+  const option = {
+    id: normalizeConfigurationId(item.label),
+    label: item.label,
+    selected: item.checked === true
+  };
+  if (item.hasPopup !== void 0) option.hasSubmenu = item.hasPopup;
+  return option;
+}
+function dedupeOptions(options) {
+  const seen = /* @__PURE__ */ new Set();
+  return options.filter((option) => {
+    const key = `${option.id}\0${option.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+function chatMenuLooksSimplified(items) {
+  const normalized = items.map((item) => normalizeConfigurationId(item.label));
+  const simplified = ["instant", "medium", "high", "extra high", "pro"];
+  return simplified.filter((label) => normalized.includes(label)).length >= 3;
+}
+function isConfigurationAxisRow(label) {
+  const normalized = normalizeForLabelMatch(label);
+  return Object.values(localeLabels.configurationAxes).flat().some((axis) => {
+    const prefix = normalizeForLabelMatch(axis);
+    return normalized === prefix || normalized.startsWith(`${prefix} `);
+  });
+}
+function normalizeConfigurationId(value) {
+  return normalizeForLabelMatch(value).replace(/^gpt[\s-]*/i, "gpt ").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+async function closeConfigurationMenus(page) {
+  await page.keyboard?.press?.("Escape");
+  await page.waitForTimeout?.(50);
+  await page.keyboard?.press?.("Escape");
+}
+async function clickIfUnique3(locator) {
+  if (locator?.count === void 0 || locator.click === void 0) return false;
+  if (await locator.count().catch(() => 0) !== 1) return false;
+  await locator.click();
+  return true;
+}
+async function configurationFailure(page, before, desired, selected, message, code, candidates = []) {
+  const data = {
+    requested: desired,
+    selected,
+    before,
+    after: before,
+    verified: false
+  };
+  return {
+    ok: false,
+    status: "unsupported",
+    data,
+    warnings: [],
+    blocker: {
+      kind: "selector_drift",
+      code,
+      fieldPath: "desired",
+      message,
+      candidates: candidates.map((label) => ({ label })),
+      resumable: true
+    },
+    context: await contextFromPage(page, {
+      experience: before.experience,
+      selectorProfile: before.selectorProfile
+    })
+  };
+}
+function escapeRegExp3(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function escapeAttributeValue2(value) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+function forwardFailure2(result) {
+  const forwarded = {
+    ok: false,
+    status: result.status,
+    warnings: result.warnings,
+    context: result.context
+  };
+  if (result.output_text !== void 0) forwarded.output_text = result.output_text;
+  if (result.reportPath !== void 0) forwarded.reportPath = result.reportPath;
+  if (result.error !== void 0) forwarded.error = result.error;
+  if (result.blocker !== void 0) forwarded.blocker = result.blocker;
+  if (result.steps !== void 0) forwarded.steps = result.steps;
+  return forwarded;
 }
 
 // src/commands/reports.ts
@@ -8285,7 +9532,7 @@ function isRecord3(value) {
 
 // src/commands/response-actions.ts
 async function copyResponse(env, args = {}) {
-  const boot = await ensurePage5(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -8423,16 +9670,19 @@ function mergeResponseMetadata(data, latest) {
   if (latest.thoughtDurationText !== void 0) data.thoughtDurationText = latest.thoughtDurationText;
   if (latest.sourcesAvailable !== void 0) data.sourcesAvailable = latest.sourcesAvailable;
 }
-async function ensurePage5(env) {
-  if (env.page !== void 0) {
-    return resultOk({}, await contextFromPage(env.page));
-  }
-  return bootstrap(env, { preferExistingTab: true });
-}
 
 // src/safety/risk.ts
 var commandRisk = {
   "session.bootstrap": "low",
+  "experience.detect": "low",
+  "experience.open": "medium",
+  "configuration.inspect": "low",
+  "configuration.apply": "medium",
+  "work.start": "medium",
+  "work.status": "medium",
+  "work.wait": "low",
+  "work.steer": "medium",
+  "work.readLatest": "medium",
   "threads.search": "medium",
   "threads.open": "medium",
   "threads.new": "low",
@@ -8441,6 +9691,7 @@ var commandRisk = {
   "messages.ask": "medium",
   "messages.wait": "low",
   "messages.readLatest": "medium",
+  "messages.status": "medium",
   "messages.waitAndRead": "medium",
   "artifacts.listLatest": "medium",
   "artifacts.wait": "low",
@@ -8474,8 +9725,9 @@ var descriptors = [
     `await chatgpt.askInThread({ thread: { type: "search", query: "Naming macOS Utility" }, prompt: "Continue." });`,
     `await chatgpt.askInThread({ thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true, prompt: "Continue." });`
   ]),
-  workflow("askWithFiles", "Attach absolute local file paths, optionally set mode, ask, wait, and read.", [
-    `await chatgpt.askWithFiles({ thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true, mode: { model: "Pro" }, files: ["/absolute/host/path/brief.md"], prompt: "Summarize this.", wait: true, read: { format: "markdown" } });`
+  workflow("askWithFiles", "Attach absolute local file paths, optionally open/configure Chat or Work, ask, wait, and read.", [
+    `await chatgpt.askWithFiles({ thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true, experience: "chat", configuration: { intelligence: "Pro" }, files: ["/absolute/host/path/brief.md"], prompt: "Summarize this.", wait: true, read: { format: "markdown" } });`,
+    `await chatgpt.askWithFiles({ mode: { model: "Pro" }, files: ["/absolute/host/path/image.jpg"], prompt: "Describe this image.", wait: true });`
   ]),
   workflow("askAndDownload", "Ask ChatGPT to produce a visible downloadable output and save the latest exposed file.", [
     `await chatgpt.askAndDownload({ prompt: "Create a CSV.", download: { destDir: "/absolute/host/output" }, wait: true });`
@@ -8483,12 +9735,15 @@ var descriptors = [
   workflow("runMessages", "Run sequential prompts where later prompts can use earlier step data.", [
     `await chatgpt.runMessages({ messages: [{ id: "first", prompt: "alpha" }, { id: "second", prompt: "beta" }] });`
   ]),
-  workflow("runner.run", "Agents-style facade: run a visible ChatGPT browser-control agent against input, files, thread, existing-tab, mode, and response options.", [
-    `const agent = chatgpt.agent({ name: "reviewer", instructions: "Review deeply." }); await chatgpt.runner.run(agent, { input: "Review this.", thread: { type: "new" } });`,
+  workflow("runner.run", "Agents-style facade: run a visible ChatGPT agent against input, files, thread, existing-tab, experience, configuration, legacy mode, and response options.", [
+    `const agent = chatgpt.agent({ name: "reviewer", instructions: "Review deeply." }); await chatgpt.runner.run(agent, { input: "Review this.", thread: { type: "new" }, experience: "chat" });`,
     `await chatgpt.runner.run(agent, { input: "Continue.", thread: { type: "url", url: "https://chatgpt.com/c/<conversation-id>" }, existingTab: true });`
   ]),
   workflow("responses.create", "Narrow Responses-shaped adapter over the visible ChatGPT browser-control runner; rejects unsupported API-only fields before prompt submission.", [
     `await chatgpt.responses.create({ input: "Summarize.", thread: { type: "current" }, text: { format: "markdown" }, stream: false });`
+  ]),
+  workflow("work.start", "Open Work, optionally apply model/effort/speed configuration, submit one task, and optionally wait/read without blind resubmission.", [
+    `await chatgpt.work.start({ prompt: "Analyze the attached package.", files: ["/absolute/path/package.tgz"], configuration: { model: "GPT-5.6 Sol", effort: "High", speed: "Fast" }, wait: true, read: { format: "markdown" } });`
   ]),
   workflow("copyLatest", "Copy or DOM-read the latest assistant response with Markdown-first fidelity.", [
     `await chatgpt.copyLatest({ prefer: "clipboard" });`
@@ -8530,6 +9785,14 @@ var descriptors = [
     `await chatgpt.createReport(result, { destDir: "/absolute/host/reports" });`
   ]),
   primitive("session.bootstrap", "Attach to ChatGPT in Chrome and detect login/blocker state.", 3e4),
+  primitive("experience.detect", "Detect whether the scoped visible composer is Chat, Work, or unknown and return its selector profile.", 3e4),
+  primitive("experience.open", "Open Chat or Work and verify the target surface from scoped composer evidence.", 3e4),
+  primitive("configuration.inspect", "Inspect the active Chat or Work selector profile, axes, options, and selected values.", 3e4),
+  primitive("configuration.apply", "Apply model/intelligence/effort/speed configuration one axis at a time and verify the final visible state.", 3e4),
+  primitive("work.status", "Read current Work task progress and optionally enumerate visible artifacts.", 5e3),
+  primitive("work.wait", "Wait for the current Work task response to stabilize.", 12e4),
+  primitive("work.steer", "Submit a visible steering message to the current Work task without opening a new task.", 12e4),
+  primitive("work.readLatest", "Read the latest response from the current Work task.", 3e4),
   primitive("threads.new", "Open a new ChatGPT thread.", 3e4),
   primitive("threads.search", "Search visible ChatGPT history by query.", 3e4),
   primitive("threads.open", "Open a thread by URL, conversation id, title, or search result.", 3e4),
@@ -8538,6 +9801,7 @@ var descriptors = [
   primitive("messages.ask", "Compose, submit, optionally wait, and optionally read.", 12e4),
   primitive("messages.wait", "Wait for the latest assistant response to stabilize.", 12e4),
   primitive("messages.readLatest", "Read the latest message as Markdown, normalized text, blocks, or HTML.", 3e4),
+  primitive("messages.status", "Read a compact latest-assistant progress snapshot without treating partial text as complete.", 5e3),
   primitive("messages.waitAndRead", "Wait for completion and read the latest message.", 12e4),
   primitive("artifacts.listLatest", "Detect the latest visible generated ChatGPT artifact, such as an image-only result.", 3e4),
   primitive("artifacts.wait", "Wait for a visible generated ChatGPT artifact to appear and stabilize.", 12e4),
@@ -8549,8 +9813,8 @@ var descriptors = [
   primitive("projects.sources.planAdd", "Dry-run an append-only Project Sources file add from explicit local files without opening ChatGPT.", 3e4),
   primitive("projects.sources.add", "Append explicit local files to a visible ChatGPT Project Sources list after confirmMutation: true.", 18e4),
   primitive("response.copy", "Click Copy response and return clipboard Markdown, with DOM fallback.", 5e3),
-  primitive("modes.set", "Select a visible model, intelligence, effort, or nested model-version candidate when unambiguous.", 3e4),
-  primitive("modes.get", "Read the mode labels shown on the visible composer controls without changing them.", 3e4),
+  primitive("modes.set", "Legacy compatibility command: select a visible model/intelligence/effort/version candidate with historical warning-oriented verification.", 3e4),
+  primitive("modes.get", "Legacy compatibility command: read mode labels shown on visible composer controls without changing them.", 3e4),
   primitive("tools.select", "Select a visible ChatGPT tool when unambiguous.", 3e4)
 ];
 function commandDescriptors() {
@@ -8649,12 +9913,24 @@ function workflowArgs(name) {
   if (name === "ask-and-download") return { prompt: "message to send", destDir: "download destination directory" };
   if (name === "two-turn") return { first: "first message", second: "second message" };
   if (name === "new-ask-read") return { prompt: "message to send" };
+  if (name === "work.start") {
+    return {
+      prompt: "visible Work task prompt",
+      newTask: "start from a blank Work task; defaults to true",
+      files: "optional absolute local file paths",
+      configuration: "optional Work model, effort, and speed values",
+      wait: "optional wait behavior",
+      read: "optional response capture behavior"
+    };
+  }
   if (name === "askWithFiles") {
     return {
       files: "absolute local file paths to attach before submitting",
       prompt: "message to send after files are attached",
       thread: "optional thread selector",
       existingTab: "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
+      experience: "optional chat or work surface",
+      configuration: 'optional strict visible configuration such as { intelligence: "Pro" } or Work model/effort/speed',
       mode: 'optional visible mode selection, e.g. { model: "Pro" } or { intelligence: "Pro", modelVersion: "5.4" }',
       wait: "true or wait options; defaults to true",
       read: 'true or read options such as { format: "markdown" }; defaults to Markdown',
@@ -8665,6 +9941,9 @@ function workflowArgs(name) {
     prompt: "message to send or workflow-specific input",
     thread: "optional thread selector",
     existingTab: "true or explicit policy to claim a user-open Chrome tab instead of opening a replacement",
+    experience: "optional chat or work surface",
+    configuration: "optional surface-aware visible configuration",
+    mode: "legacy visible mode preference",
     report: "optional redacted report settings"
   };
 }
@@ -8695,6 +9974,15 @@ function primitiveArgs(name) {
     responseContent: "include for current behavior, metadata to omit assistant text and return chars/hash only"
   };
   if (name === "messages.readLatest") return { role: "assistant or user", format: "markdown, normalized_text, visible_text, html, blocks, or all" };
+  if (name === "messages.status") return { maxPreviewChars: "maximum latest-assistant preview characters to return; defaults to 240" };
+  if (name === "experience.detect") return { timeoutMs: "optional timeout for attaching to the ChatGPT page" };
+  if (name === "experience.open") return { experience: "chat or work", timeoutMs: "optional verified-switch timeout" };
+  if (name === "configuration.inspect") return { experience: "optional expected chat or work surface", includeOptions: "open visible axis menus to enumerate options; defaults to true", timeoutMs: "optional inspection timeout" };
+  if (name === "configuration.apply") return { experience: "optional target chat or work surface", desired: "model, intelligence, effort, speed, and/or modelVersion values", strict: "fail when visible postconditions are not verified; defaults to true", timeoutMs: "optional selection timeout" };
+  if (name === "work.status") return { includeArtifacts: "include the latest visible artifact inventory; defaults to false for lightweight polling", maxPreviewChars: "maximum assistant preview characters" };
+  if (name === "work.wait") return { timeoutMs: "optional Work wait timeout", stableMs: "required response stability window", pollMs: "polling interval" };
+  if (name === "work.steer") return { prompt: "visible steering message for the current task", wait: "optional wait behavior", read: "optional response capture behavior" };
+  if (name === "work.readLatest") return { format: "markdown, normalized_text, visible_text, html, blocks, or all", maxChars: "optional capture limit" };
   if (name === "artifacts.listLatest") return { kind: "artifact kind; currently image", max: "maximum artifacts to return" };
   if (name === "artifacts.wait") return { kind: "artifact kind; currently image", afterArtifactCount: "baseline artifact count", requireDownload: "wait until a download affordance is visible" };
   if (name === "artifacts.downloadLatest") return { destDir: "download destination directory", prefer: "download_control or visible_image_source" };
@@ -8747,6 +10035,14 @@ function primitiveExamples(name) {
       `// Verify an expensive Pro consult before submitting: const current = await chatgpt.modes.get();`
     ];
   }
+  if (name === "experience.detect") return [`await chatgpt.experience.detect();`];
+  if (name === "experience.open") return [`await chatgpt.experience.open({ experience: "work" });`];
+  if (name === "configuration.inspect") return [`await chatgpt.configuration.inspect({ experience: "work" });`];
+  if (name === "configuration.apply") return [`await chatgpt.configuration.apply({ experience: "work", desired: { model: "GPT-5.6 Sol", effort: "High", speed: "Fast" }, strict: true });`];
+  if (name === "work.status") return [`await chatgpt.work.status();`];
+  if (name === "work.wait") return [`await chatgpt.work.wait({ timeoutMs: 600000 });`];
+  if (name === "work.steer") return [`await chatgpt.work.steer({ prompt: "Focus the comparison on deployment ergonomics." });`];
+  if (name === "work.readLatest") return [`await chatgpt.work.readLatest({ format: "markdown" });`];
   if (name === "files.preflight") {
     return [
       `await chatgpt.files.preflight({ paths: ["/absolute/host/path.md"] });`,
@@ -8780,7 +10076,7 @@ function primitiveBlockers(name) {
   if (name === "projects.sources.planAdd") return ["not_found", "permission", "upload_failed"];
   if (name.startsWith("projects.sources.")) return ["browser_bridge_unavailable", "login_required", "selector_drift", "confirmation", "permission", "upload_failed"];
   if (name.startsWith("artifacts.")) return ["browser_bridge_unavailable", "login_required", "artifact_unavailable", "artifact_selector_drift", "artifact_download_unavailable"];
-  if (name.startsWith("modes.") || name.startsWith("tools.")) return ["browser_bridge_unavailable", "login_required", "selector_drift"];
+  if (name.startsWith("modes.") || name.startsWith("tools.") || name.startsWith("experience.") || name.startsWith("configuration.") || name.startsWith("work.")) return ["browser_bridge_unavailable", "login_required", "selector_drift"];
   return commonBlockers();
 }
 function commonBlockers() {
@@ -8876,7 +10172,7 @@ function extractThreadSearchResultsFromHtml(html) {
   return dedupeResults(results);
 }
 async function searchThreads(env, args) {
-  const boot = await ensurePage6(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -8898,7 +10194,7 @@ async function searchThreads(env, args) {
   }
 }
 async function newThread(env, args = {}) {
-  const boot = await ensurePage6(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -8917,7 +10213,7 @@ async function newThread(env, args = {}) {
   }
 }
 async function openThread(env, args, previousResults) {
-  const boot = await ensurePage6(env);
+  const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
@@ -8945,12 +10241,6 @@ async function openThread(env, args, previousResults) {
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
-}
-async function ensurePage6(env) {
-  if (env.page !== void 0) {
-    return resultOk({}, await contextFromPage(env.page));
-  }
-  return bootstrap(env, { preferExistingTab: true });
 }
 async function resolveOpenTarget(env, args, previousResults) {
   if (args.url !== void 0) {
@@ -9105,6 +10395,312 @@ function filterResultsByQuery(results, query) {
   });
 }
 
+// src/commands/work.ts
+var NEW_WORK_LABELS = localeLabels.newWork;
+async function startWork(env, args) {
+  const prompt = args.prompt.trim();
+  if (prompt.length === 0) {
+    return {
+      ok: false,
+      status: "unsupported",
+      warnings: [],
+      blocker: {
+        kind: "selector_drift",
+        code: "empty_work_prompt",
+        fieldPath: "prompt",
+        message: "work.start requires a non-empty visible prompt.",
+        resumable: false
+      },
+      context: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    };
+  }
+  const boot = await ensurePage(env);
+  if (!boot.ok) {
+    return boot;
+  }
+  const page = env.page;
+  try {
+    const surface = await openExperience(env, {
+      experience: "work",
+      ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+    });
+    if (!surface.ok) {
+      return forwardCommandFailure(surface);
+    }
+    if (args.newTask !== false) {
+      const fresh = await ensureBlankWorkTask(env, args.timeoutMs);
+      if (!fresh.ok) {
+        return forwardCommandFailure(fresh);
+      }
+    }
+    const baselineTurnCount = await countPageMessages(page).catch(() => void 0);
+    const baselineAssistantTurnCount = await countPageMessages(page, "assistant").catch(() => void 0);
+    let configuration;
+    if (args.configuration !== void 0) {
+      const applied = await applyConfiguration(env, {
+        experience: "work",
+        desired: args.configuration,
+        strict: true,
+        ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+      });
+      if (!applied.ok || applied.data === void 0) {
+        return forwardCommandFailure(applied);
+      }
+      configuration = applied.data;
+    }
+    if ((args.files?.length ?? 0) > 0) {
+      const attach = await attachFiles(env, {
+        paths: args.files ?? [],
+        ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+      });
+      if (!attach.ok) {
+        return forwardCommandFailure(attach);
+      }
+    }
+    const compose = await composeMessage(env, {
+      text: prompt,
+      mode: "replace",
+      ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+    });
+    if (!compose.ok) {
+      return forwardCommandFailure(compose);
+    }
+    const submitArgs = {
+      text: prompt,
+      ...baselineTurnCount === void 0 ? {} : { previousTurnCount: baselineTurnCount },
+      ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+    };
+    const submit = await submitMessage(env, submitArgs);
+    if (!submit.ok || submit.data === void 0) {
+      return forwardCommandFailure(submit);
+    }
+    const task = await workTaskRef(env, baselineTurnCount, baselineAssistantTurnCount);
+    const data = { task, submitted: submit.data };
+    if (configuration !== void 0) data.configuration = configuration;
+    let waitResult;
+    if (args.wait === true || typeof args.wait === "object") {
+      const waitArgs = typeof args.wait === "object" ? { ...args.wait } : {};
+      if (baselineTurnCount !== void 0) waitArgs.afterTurnCount = baselineTurnCount;
+      if (baselineAssistantTurnCount !== void 0) waitArgs.afterAssistantTurnCount = baselineAssistantTurnCount;
+      waitResult = await waitForMessage(env, waitArgs);
+      if (waitResult.data !== void 0) data.wait = waitResult.data;
+      if (!waitResult.ok && waitResult.status !== "partial") {
+        return forwardWorkFailure(waitResult, data);
+      }
+    }
+    if (args.read === true || typeof args.read === "object") {
+      const read = await readLatest(env, typeof args.read === "object" ? args.read : {});
+      if (!read.ok || read.data === void 0) {
+        return forwardWorkFailure(read, data);
+      }
+      data.response = read.data;
+    }
+    if (waitResult !== void 0 && !waitResult.ok) {
+      const partial = {
+        ok: false,
+        status: "partial",
+        data,
+        warnings: [
+          ...waitResult.warnings,
+          "The Work task was submitted exactly once, but completion was not verified."
+        ],
+        context: await workContext(env)
+      };
+      const outputText = data.response?.text ?? waitResult.output_text;
+      if (outputText !== void 0) partial.output_text = outputText;
+      return partial;
+    }
+    return resultOk(
+      data,
+      await workContext(env, surface.data?.selectorProfile),
+      ["Work task submission uses matching-turn recovery and will not blindly resubmit the prompt."]
+    );
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await workContext(env));
+  }
+}
+async function workStatus(env, args = {}) {
+  const ready = await requireWork(env);
+  if (!ready.ok) return forwardCommandFailure(ready);
+  const message = await messageStatus(env, args);
+  if (!message.ok || message.data === void 0) {
+    return forwardCommandFailure(message);
+  }
+  const data = {
+    experience: "work",
+    task: await workTaskRef(env, void 0, void 0),
+    message: message.data
+  };
+  const warnings = [...message.warnings];
+  if (args.includeArtifacts === true) {
+    const artifacts = await listLatestArtifacts(env, {});
+    if (artifacts.ok && artifacts.data !== void 0) {
+      data.artifacts = artifacts.data;
+      warnings.push(...artifacts.warnings);
+    } else {
+      warnings.push(`Work artifact status was unavailable: ${artifacts.blocker?.message ?? artifacts.error?.message ?? artifacts.status}`);
+    }
+  }
+  return resultOk(data, {
+    ...message.context,
+    experience: "work",
+    ...ready.data?.selectorProfile === void 0 ? {} : { selectorProfile: ready.data.selectorProfile }
+  }, warnings);
+}
+async function waitForWork(env, args = {}) {
+  const ready = await requireWork(env);
+  if (!ready.ok) return forwardCommandFailure(ready);
+  return markWorkResult(await waitForMessage(env, args), ready.data?.selectorProfile);
+}
+async function steerWork(env, args) {
+  const ready = await requireWork(env);
+  if (!ready.ok) return forwardCommandFailure(ready);
+  return markWorkResult(await askMessage(env, {
+    text: args.prompt,
+    wait: args.wait ?? false,
+    read: args.read ?? false,
+    ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+  }), ready.data?.selectorProfile);
+}
+async function readLatestWork(env, args = {}) {
+  const ready = await requireWork(env);
+  if (!ready.ok) return forwardCommandFailure(ready);
+  return markWorkResult(await readLatest(env, args), ready.data?.selectorProfile);
+}
+async function ensureBlankWorkTask(env, timeoutMs) {
+  const page = env.page;
+  const currentTurns = await countPageMessages(page).catch(() => 0);
+  if (currentTurns === 0) {
+    return resultOk({ fresh: true }, await workContext(env));
+  }
+  if (await clickNewWorkControl(page)) {
+    const started = Date.now();
+    const timeout = timeoutMs ?? 3e4;
+    while (Date.now() - started < timeout) {
+      await page.waitForTimeout?.(150);
+      if (await countPageMessages(page).catch(() => currentTurns) === 0) {
+        return resultOk({ fresh: true }, await workContext(env));
+      }
+    }
+    return {
+      ok: false,
+      status: "blocked",
+      warnings: [],
+      blocker: {
+        kind: "selector_drift",
+        code: "work_new_task_unverified",
+        message: "The new Work task control was clicked, but the visible conversation did not reset to a blank task.",
+        resumable: true
+      },
+      context: await workContext(env)
+    };
+  }
+  return {
+    ok: false,
+    status: "blocked",
+    warnings: [],
+    blocker: {
+      kind: "selector_drift",
+      code: "work_new_task_control_not_found",
+      message: "A current Work task is loaded and no unique new-task control was found. Pass newTask: false only when intentionally steering the current task.",
+      candidates: NEW_WORK_LABELS.map((label) => ({ label })),
+      resumable: true
+    },
+    context: await workContext(env)
+  };
+}
+async function clickNewWorkControl(page) {
+  for (const label of NEW_WORK_LABELS) {
+    for (const role of ["button", "link"]) {
+      if (await clickIfUnique4(page.getByRole?.(role, { name: label, exact: true }))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+async function requireWork(env) {
+  const detected = await detectExperience(env);
+  if (detected.ok && detected.data?.experience === "work") {
+    return resultOk({
+      experience: "work",
+      selectorProfile: detected.data.selectorProfile
+    }, detected.context);
+  }
+  return {
+    ok: false,
+    status: "unsupported",
+    warnings: detected.warnings,
+    blocker: {
+      kind: "selector_drift",
+      code: "work_surface_required",
+      fieldPath: "experience",
+      message: `This command requires the visible Work surface; detected ${detected.data?.experience ?? "unknown"}.`,
+      resumable: true
+    },
+    context: detected.context
+  };
+}
+async function workTaskRef(env, baselineTurnCount, baselineAssistantTurnCount) {
+  const context = await workContext(env);
+  const task = {};
+  if (context.url !== void 0) task.url = context.url;
+  if (context.conversationId !== void 0) task.conversationId = context.conversationId;
+  if (context.title !== void 0) task.title = context.title;
+  if (baselineTurnCount !== void 0) task.baselineTurnCount = baselineTurnCount;
+  if (baselineAssistantTurnCount !== void 0) task.baselineAssistantTurnCount = baselineAssistantTurnCount;
+  return task;
+}
+async function workContext(env, selectorProfile) {
+  return contextFromPage(env.page, {
+    experience: "work",
+    ...selectorProfile === void 0 ? {} : { selectorProfile }
+  });
+}
+function markWorkResult(result, selectorProfile) {
+  return {
+    ...result,
+    context: {
+      ...result.context,
+      experience: "work",
+      ...selectorProfile === void 0 ? {} : { selectorProfile }
+    }
+  };
+}
+function forwardWorkFailure(result, data) {
+  const forwarded = {
+    ok: false,
+    status: result.status,
+    data,
+    warnings: result.warnings,
+    context: result.context
+  };
+  if (result.output_text !== void 0) forwarded.output_text = result.output_text;
+  if (result.blocker !== void 0) forwarded.blocker = result.blocker;
+  if (result.error !== void 0) forwarded.error = result.error;
+  return forwarded;
+}
+function forwardCommandFailure(result) {
+  const forwarded = {
+    ok: false,
+    status: result.status,
+    warnings: result.warnings,
+    context: result.context
+  };
+  if (result.output_text !== void 0) forwarded.output_text = result.output_text;
+  if (result.reportPath !== void 0) forwarded.reportPath = result.reportPath;
+  if (result.blocker !== void 0) forwarded.blocker = result.blocker;
+  if (result.error !== void 0) forwarded.error = result.error;
+  if (result.steps !== void 0) forwarded.steps = result.steps;
+  return forwarded;
+}
+async function clickIfUnique4(locator) {
+  if (locator?.count === void 0 || locator.click === void 0) return false;
+  if (await locator.count().catch(() => 0) !== 1) return false;
+  await locator.click();
+  return true;
+}
+
 // src/commands/sequence.ts
 var defaultSequencePolicy = {
   stopOnError: true,
@@ -9142,6 +10738,24 @@ async function executeStep(step, env, previousResults) {
   switch (step.command) {
     case "session.bootstrap":
       return bootstrap(env, step.args);
+    case "experience.detect":
+      return detectExperience(env, step.args);
+    case "experience.open":
+      return openExperience(env, step.args);
+    case "configuration.inspect":
+      return inspectConfiguration(env, step.args);
+    case "configuration.apply":
+      return applyConfiguration(env, step.args);
+    case "work.start":
+      return startWork(env, step.args);
+    case "work.status":
+      return workStatus(env, step.args);
+    case "work.wait":
+      return waitForWork(env, step.args);
+    case "work.steer":
+      return steerWork(env, step.args);
+    case "work.readLatest":
+      return readLatestWork(env, step.args);
     case "threads.search":
       return searchThreads(env, step.args);
     case "threads.open":
@@ -9158,6 +10772,8 @@ async function executeStep(step, env, previousResults) {
       return waitForMessage(env, step.args);
     case "messages.readLatest":
       return readLatest(env, step.args);
+    case "messages.status":
+      return messageStatus(env, step.args);
     case "messages.waitAndRead":
       return waitAndRead(env, step.args);
     case "artifacts.listLatest":
@@ -9438,6 +11054,12 @@ function toRunResult(agent, result) {
   const output = runItemsFromResult(result, outputText);
   const state = runStateFromResult(result, interruptions);
   const data = { outputText };
+  const submissionState = readSubmissionState(result.data);
+  const completionState = readCompletionState(result.data);
+  const generationActive = readGenerationActive(result.data);
+  if (submissionState !== void 0) data.submissionState = submissionState;
+  if (completionState !== void 0) data.completionState = completionState;
+  if (generationActive !== void 0) data.generationActive = generationActive;
   if (outputText.length > 0) {
     const envelopeArgs = {
       outputText,
@@ -9491,12 +11113,49 @@ function parseFinalOutput(agent, outputText) {
   return outputText;
 }
 function runItemsFromResult(result, outputText) {
-  const items = messageItemsFromData(result.data);
-  if (!items.some((item) => item.type === "message.completed") && outputText.length > 0) {
-    items.push({ type: "message.completed", role: "assistant", output_text: outputText, format: "markdown" });
+  const items = lifecycleItemsFromSteps(result.steps);
+  items.push(...messageItemsFromData(result.data));
+  if (!items.some((item) => item.type === "message.completed" || item.type === "message.in_progress") && outputText.length > 0) {
+    if (result.status === "partial" && readCompletionState(result.data) !== "complete") {
+      items.push(inProgressItem(outputText, readCompletionState(result.data), readGenerationActive(result.data)));
+    } else {
+      items.push({ type: "message.completed", role: "assistant", output_text: outputText, format: "markdown" });
+    }
   }
   if (result.blocker !== void 0) {
     items.push({ type: "run.blocked", blocker: augmentCommandBlocker(result.blocker) });
+  }
+  return items;
+}
+function lifecycleItemsFromSteps(steps) {
+  if (steps === void 0) return [];
+  const items = [];
+  for (const step of steps) {
+    if (!step.ok || !isRecord4(step.dataPreview)) continue;
+    if (step.command === "experience.open") {
+      const experience = step.dataPreview.experience;
+      if (experience === "chat" || experience === "work") {
+        const item = {
+          type: "experience.opened",
+          experience
+        };
+        if (typeof step.dataPreview.changed === "boolean") item.changed = step.dataPreview.changed;
+        items.push(item);
+      }
+      continue;
+    }
+    if (step.command === "configuration.apply") {
+      const item = {
+        type: "configuration.applied"
+      };
+      if (isRecord4(step.dataPreview.requested)) {
+        item.requested = step.dataPreview.requested;
+      }
+      if (typeof step.dataPreview.verified === "boolean") {
+        item.verified = step.dataPreview.verified;
+      }
+      items.push(item);
+    }
   }
   return items;
 }
@@ -9512,7 +11171,11 @@ function messageItemsFromData(data) {
     });
   }
   if (typeof data.responseText === "string" && data.responseText.length > 0) {
-    items.push({ type: "message.completed", role: "assistant", output_text: data.responseText, format: "markdown" });
+    if (readCompletionState(data) === "complete" || data.complete === true) {
+      items.push({ type: "message.completed", role: "assistant", output_text: data.responseText, format: "markdown" });
+    } else {
+      items.push(inProgressItem(data.responseText, readCompletionState(data), readGenerationActive(data)));
+    }
   }
   if (items.length > 0) return items;
   for (const value of Object.values(data)) {
@@ -9530,7 +11193,66 @@ function runStateFromResult(result, interruptions) {
   };
   const thread = threadRefFromContext(result.context);
   if (thread !== void 0) state.thread = thread;
+  const submissionState = readSubmissionState(result.data);
+  const completionState = readCompletionState(result.data);
+  if (submissionState !== void 0) state.submissionState = submissionState;
+  if (completionState !== void 0) state.completionState = completionState;
   return state;
+}
+function inProgressItem(outputText, completionState, generationActive) {
+  const item = {
+    type: "message.in_progress",
+    role: "assistant",
+    output_text: outputText,
+    preview: outputText.length > 160 ? `${outputText.slice(0, 159)}...` : outputText,
+    format: "markdown",
+    textLength: outputText.length,
+    textHash: hashText(outputText)
+  };
+  if (completionState !== void 0) item.completionState = completionState;
+  if (generationActive !== void 0) item.generationActive = generationActive;
+  return item;
+}
+function readCompletionState(data) {
+  if (!isRecord4(data)) return void 0;
+  const value = data.completionState;
+  if (value === "complete" || value === "generating" || value === "stopped" || value === "partial" || value === "unknown") {
+    return value;
+  }
+  for (const nested of Object.values(data)) {
+    const nestedState = readCompletionState(nested);
+    if (nestedState !== void 0) return nestedState;
+  }
+  return void 0;
+}
+function readSubmissionState(data) {
+  if (!isRecord4(data)) return void 0;
+  const value = data.submissionState;
+  if (value === "not_submitted" || value === "submitted" || value === "submitted_unconfirmed" || value === "submitted_generating") {
+    return value;
+  }
+  for (const nested of Object.values(data)) {
+    const nestedState = readSubmissionState(nested);
+    if (nestedState !== void 0) return nestedState;
+  }
+  return void 0;
+}
+function readGenerationActive(data) {
+  if (!isRecord4(data)) return void 0;
+  if (typeof data.generationActive === "boolean") return data.generationActive;
+  for (const nested of Object.values(data)) {
+    const value = readGenerationActive(nested);
+    if (value !== void 0) return value;
+  }
+  return void 0;
+}
+function hashText(value) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 function threadRefFromContext(context) {
   const thread = {};
@@ -9557,6 +11279,8 @@ var acceptedTopLevelFields = /* @__PURE__ */ new Set([
   "thread",
   "existingTab",
   "preferExistingTab",
+  "experience",
+  "configuration",
   "attachments",
   "mode",
   "tools",
@@ -9567,7 +11291,7 @@ var acceptedTopLevelFields = /* @__PURE__ */ new Set([
   "instructionsMode"
 ]);
 var unsupportedAlternatives = {
-  model: "Use mode for visible ChatGPT UI mode preference. This does not select an API model.",
+  model: "Use experience plus configuration for visible ChatGPT UI preferences. Legacy mode remains supported. These do not select an API model.",
   temperature: "No browser-control equivalent. ChatGPT web does not expose API temperature.",
   top_p: "No browser-control equivalent. ChatGPT web does not expose API nucleus sampling.",
   seed: "No browser-control equivalent. Visible ChatGPT web does not expose deterministic API seeds.",
@@ -9662,6 +11386,8 @@ function responsesCreateArgsToRunInput(args) {
   if (args.thread !== void 0) runInput2.thread = args.thread;
   if (args.existingTab !== void 0) runInput2.existingTab = args.existingTab;
   if (args.preferExistingTab !== void 0) runInput2.preferExistingTab = args.preferExistingTab;
+  if (args.experience !== void 0) runInput2.experience = args.experience;
+  if (args.configuration !== void 0) runInput2.configuration = args.configuration;
   if (args.attachments !== void 0) runInput2.attachments = args.attachments;
   if (args.mode !== void 0) runInput2.mode = args.mode;
   if (args.tools !== void 0) runInput2.tools = args.tools;
@@ -9677,6 +11403,12 @@ function responseFromRunResult(result, now = /* @__PURE__ */ new Date()) {
   if (result.data?.thread !== void 0) browserControl.thread = result.data.thread;
   const reportPath = result.data?.reportPath ?? result.reportPath;
   if (reportPath !== void 0) browserControl.reportPath = reportPath;
+  const submissionState = result.state.submissionState ?? result.data?.submissionState;
+  const completionState = result.state.completionState ?? result.data?.completionState;
+  const generationActive = result.data?.generationActive;
+  if (submissionState !== void 0) browserControl.submissionState = submissionState;
+  if (completionState !== void 0) browserControl.completionState = completionState;
+  if (generationActive !== void 0) browserControl.generationActive = generationActive;
   if (result.output_text.length > 0) {
     const envelopeArgs = {
       outputText: result.output_text,
@@ -9780,6 +11512,10 @@ function runItemEventName(item) {
   switch (item.type) {
     case "thread.opened":
       return "thread_opened";
+    case "experience.opened":
+      return "experience_opened";
+    case "configuration.applied":
+      return "configuration_applied";
     case "mode.selected":
       return "mode_selected";
     case "tool.selected":
@@ -9788,6 +11524,8 @@ function runItemEventName(item) {
       return "file_attached";
     case "message.submitted":
       return "message_submitted";
+    case "message.in_progress":
+      return "message_in_progress";
     case "message.completed":
       return "message_completed";
     case "file.downloaded":
@@ -9842,6 +11580,26 @@ function createChatGPT(options = {}) {
     session: {
       bootstrap: (args) => bootstrap(env, args)
     },
+    experience: {
+      detect: (args) => detectExperience(env, args),
+      open: (args) => openExperience(env, args)
+    },
+    configuration: {
+      inspect: (args) => inspectConfiguration(env, args),
+      apply: (args) => applyConfiguration(env, args)
+    },
+    work: {
+      start: (args) => startWork(env, args),
+      status: (args) => workStatus(env, args),
+      wait: (args) => waitForWork(env, args),
+      steer: (args) => steerWork(env, args),
+      readLatest: (args) => readLatestWork(env, args),
+      artifacts: {
+        listLatest: (args) => listLatestArtifacts(env, args),
+        wait: (args) => waitForArtifact(env, args),
+        downloadLatest: (args) => downloadLatestArtifact(env, args)
+      }
+    },
     threads: {
       new: (args) => newThread(env, args),
       search: (args) => searchThreads(env, args),
@@ -9853,6 +11611,7 @@ function createChatGPT(options = {}) {
       ask: (args) => askMessage(env, args),
       wait: (args) => waitForMessage(env, args),
       readLatest: (args) => readLatest(env, args),
+      status: (args) => messageStatus(env, args),
       waitAndRead: (args) => waitAndRead(env, args)
     },
     files: {
@@ -9942,6 +11701,30 @@ function pathsFromAttachStep(step) {
   const paths = step.args.paths;
   return paths.every((item) => typeof item === "string") ? paths : [];
 }
+function appendSurfaceConfigurationSteps(steps, preferences) {
+  if (preferences.experience !== void 0) {
+    steps.push({
+      id: "experience",
+      command: "experience.open",
+      args: { experience: preferences.experience }
+    });
+  }
+  if (preferences.configuration !== void 0) {
+    steps.push({
+      id: "configuration",
+      command: "configuration.apply",
+      args: {
+        ...preferences.experience === void 0 ? {} : { experience: preferences.experience },
+        desired: preferences.configuration,
+        strict: true
+      }
+    });
+    return;
+  }
+  if (preferences.mode !== void 0) {
+    steps.push({ id: "mode", command: "modes.set", args: preferences.mode });
+  }
+}
 function normalizeLimits(limits) {
   return {
     maxPromptsPerRun: limits?.maxPromptsPerRun ?? 5,
@@ -9954,7 +11737,7 @@ function normalizeLimits(limits) {
 function checkRunBudget(plan, limits) {
   const prompts = plan.steps.filter((step) => step.command === "messages.ask" || step.command === "messages.submit").length;
   const threads = plan.steps.filter((step) => step.command === "threads.new" || step.command === "threads.open").length;
-  const reads = plan.steps.filter((step) => step.command === "messages.readLatest" || step.command === "messages.waitAndRead" || step.command === "response.copy").length + plan.steps.filter((step) => step.command === "messages.ask" && askStepReads(step.args)).length;
+  const reads = plan.steps.filter((step) => step.command === "messages.readLatest" || step.command === "messages.status" || step.command === "messages.waitAndRead" || step.command === "response.copy").length + plan.steps.filter((step) => step.command === "messages.ask" && askStepReads(step.args)).length;
   const violations = [];
   if (prompts > limits.maxPromptsPerRun) violations.push(`prompts ${prompts}/${limits.maxPromptsPerRun}`);
   if (threads > limits.maxThreadsOpenedPerRun) violations.push(`threads ${threads}/${limits.maxThreadsOpenedPerRun}`);
@@ -10041,10 +11824,11 @@ function planAgentWorkflowFromNormalized(agent, input, defaults = {}) {
     ),
     ...threadSteps(thread)
   ];
-  const mode = input.mode ?? agent.defaults.mode ?? defaults.mode;
-  if (mode !== void 0) {
-    steps.push({ id: "mode", command: "modes.set", args: mode });
-  }
+  appendSurfaceConfigurationSteps(steps, {
+    experience: input.experience ?? agent.defaults.experience ?? defaults.experience,
+    configuration: input.configuration ?? agent.defaults.configuration ?? defaults.configuration,
+    mode: input.mode ?? agent.defaults.mode ?? defaults.mode
+  });
   for (const [index, tool] of input.tools.entries()) {
     steps.push({ id: `tool${index + 1}`, command: "tools.select", args: tool });
   }
@@ -10106,6 +11890,8 @@ function normalizeRunnerInput(agent, input) {
   if (args.thread !== void 0) normalized.thread = args.thread;
   if (args.existingTab !== void 0) normalized.existingTab = args.existingTab;
   if (args.preferExistingTab !== void 0) normalized.preferExistingTab = args.preferExistingTab;
+  if (args.experience !== void 0) normalized.experience = args.experience;
+  if (args.configuration !== void 0) normalized.configuration = args.configuration;
   if (mode !== void 0) normalized.mode = mode;
   if (args.response !== void 0) normalized.read = args.response;
   if (args.download !== void 0) normalized.download = args.download;
@@ -10225,10 +12011,11 @@ function planAskWorkflow(args, defaults = {}) {
     ),
     ...threadSteps(thread)
   ];
-  const mode = args.mode ?? defaults.mode;
-  if (mode !== void 0) {
-    steps.push({ id: "mode", command: "modes.set", args: mode });
-  }
+  appendSurfaceConfigurationSteps(steps, {
+    experience: args.experience ?? defaults.experience,
+    configuration: args.configuration ?? defaults.configuration,
+    mode: args.mode ?? defaults.mode
+  });
   for (const [index, tool] of (args.tools ?? []).entries()) {
     steps.push({ id: `tool${index + 1}`, command: "tools.select", args: tool });
   }
@@ -10297,10 +12084,11 @@ function planRunMessages(args, defaults = {}) {
     ),
     ...threadSteps(thread)
   ];
-  const mode = args.mode ?? defaults.mode;
-  if (mode !== void 0) {
-    steps.push({ id: "mode", command: "modes.set", args: mode });
-  }
+  appendSurfaceConfigurationSteps(steps, {
+    experience: args.experience ?? defaults.experience,
+    configuration: args.configuration ?? defaults.configuration,
+    mode: args.mode ?? defaults.mode
+  });
   args.messages.forEach((message, index) => {
     steps.push({
       id: message.id ?? `message${index + 1}`,
@@ -10532,6 +12320,15 @@ var backendCommands = [
   "describe",
   "help",
   "session.bootstrap",
+  "experience.detect",
+  "experience.open",
+  "configuration.inspect",
+  "configuration.apply",
+  "work.start",
+  "work.status",
+  "work.wait",
+  "work.steer",
+  "work.readLatest",
   "threads.new",
   "threads.search",
   "threads.open",
@@ -10540,6 +12337,7 @@ var backendCommands = [
   "messages.ask",
   "messages.wait",
   "messages.readLatest",
+  "messages.status",
   "messages.waitAndRead",
   "artifacts.listLatest",
   "artifacts.wait",
@@ -10770,6 +12568,24 @@ async function dispatchBackendCommand(client, request) {
       );
     case "session.bootstrap":
       return client.session.bootstrap(emptyToUndefined(payload));
+    case "experience.detect":
+      return client.experience.detect(emptyToUndefined(payload));
+    case "experience.open":
+      return client.experience.open(payload);
+    case "configuration.inspect":
+      return client.configuration.inspect(emptyToUndefined(payload));
+    case "configuration.apply":
+      return client.configuration.apply(payload);
+    case "work.start":
+      return client.work.start(payload);
+    case "work.status":
+      return client.work.status(emptyToUndefined(payload));
+    case "work.wait":
+      return client.work.wait(emptyToUndefined(payload));
+    case "work.steer":
+      return client.work.steer(payload);
+    case "work.readLatest":
+      return client.work.readLatest(emptyToUndefined(payload));
     case "threads.new":
       return client.threads.new(emptyToUndefined(payload));
     case "threads.search":
@@ -10786,6 +12602,8 @@ async function dispatchBackendCommand(client, request) {
       return client.messages.wait(emptyToUndefined(payload));
     case "messages.readLatest":
       return client.messages.readLatest(emptyToUndefined(payload));
+    case "messages.status":
+      return client.messages.status(emptyToUndefined(payload));
     case "messages.waitAndRead":
       return client.messages.waitAndRead(payload);
     case "artifacts.listLatest":

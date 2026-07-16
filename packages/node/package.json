@@ -1,7 +1,7 @@
 {
   "name": "codex-chatgpt-control",
-  "version": "0.3.0-alpha.1",
-  "description": "Unofficial SDK for Codex agents controlling visible ChatGPT web sessions.",
+  "version": "0.5.0-alpha.1",
+  "description": "Unofficial SDK for controlling visible ChatGPT Chat and Work sessions.",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -34,6 +34,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "thread": "tsx src/scripts/continue-thread.ts",
+    "capture:surface-profile": "tsx src/scripts/capture-surface-profile.ts",
     "smoke:hi": "tsx src/scripts/smoke-hi.ts",
     "smoke:search": "tsx src/scripts/smoke-search-open-read.ts",
     "smoke:attach": "tsx src/scripts/smoke-attach-file.ts",

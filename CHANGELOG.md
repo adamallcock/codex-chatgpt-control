@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0-alpha.1
+
+- Adds first-class Chat/Work experience detection and verified surface switching.
+- Adds surface-aware `configuration.inspect` and strict `configuration.apply` for Chat intelligence/model controls and Work model/effort/speed axes.
+- Adds submit-once Work lifecycle commands for start, status, wait, steering, response capture, and artifact access.
+- Adds sanitized legacy Chat, simplified Chat, Work basic, Work advanced, and sidebar false-positive profile fixtures to the shared Node/Python conformance suite.
+- Adds sync and async Python parity, recursive snake-case wire conversion, runner/Responses support, and Work artifact aliases.
+- Rebrands the plugin promise to ChatGPT Surface Control and adds `chatgpt-delegate`; package coordinates, legacy mode APIs, and `chatgpt-pro-consult` remain compatible.
+
 ## 0.3.0-alpha.1
 
 - Hardens visible mode selection against thread/sidebar action menus: short mode words such as `Pro` no longer match inside pinned-thread titles, localized thread-action labels and `Pin`/`Unpin` prefixes are rejected, and menu enumeration is scoped to open menu containers.

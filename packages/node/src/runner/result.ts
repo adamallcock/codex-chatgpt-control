@@ -1,4 +1,4 @@
-import type { CommandResult } from "../types.js";
+import type { CommandResult, CompletionState, SubmissionState } from "../types.js";
 import { renderUntrustedOutputReturnEnvelope } from "../safety/untrusted-output.js";
 import { interruptionFromCommandResult } from "./interruptions.js";
 import { augmentCommandBlocker } from "./resume.js";
@@ -15,6 +15,12 @@ export function toRunResult<TOutput>(
   const output = runItemsFromResult(result, outputText);
   const state = runStateFromResult(result, interruptions);
   const data: ChatGPTRunData<TOutput> = { outputText };
+  const submissionState = readSubmissionState(result.data);
+  const completionState = readCompletionState(result.data);
+  const generationActive = readGenerationActive(result.data);
+  if (submissionState !== undefined) data.submissionState = submissionState;
+  if (completionState !== undefined) data.completionState = completionState;
+  if (generationActive !== undefined) data.generationActive = generationActive;
   if (outputText.length > 0) {
     const envelopeArgs: Parameters<typeof renderUntrustedOutputReturnEnvelope>[0] = {
       outputText,
@@ -72,12 +78,50 @@ function parseFinalOutput<TOutput>(agent: ChatGPTAgent<TOutput>, outputText: str
 }
 
 function runItemsFromResult(result: CommandResult<unknown>, outputText: string): ChatGPTRunItem[] {
-  const items = messageItemsFromData(result.data);
-  if (!items.some(item => item.type === "message.completed") && outputText.length > 0) {
-    items.push({ type: "message.completed", role: "assistant", output_text: outputText, format: "markdown" });
+  const items = lifecycleItemsFromSteps(result.steps);
+  items.push(...messageItemsFromData(result.data));
+  if (!items.some(item => item.type === "message.completed" || item.type === "message.in_progress") && outputText.length > 0) {
+    if (result.status === "partial" && readCompletionState(result.data) !== "complete") {
+      items.push(inProgressItem(outputText, readCompletionState(result.data), readGenerationActive(result.data)));
+    } else {
+      items.push({ type: "message.completed", role: "assistant", output_text: outputText, format: "markdown" });
+    }
   }
   if (result.blocker !== undefined) {
     items.push({ type: "run.blocked", blocker: augmentCommandBlocker(result.blocker) });
+  }
+  return items;
+}
+
+function lifecycleItemsFromSteps(steps: CommandResult<unknown>["steps"]): ChatGPTRunItem[] {
+  if (steps === undefined) return [];
+  const items: ChatGPTRunItem[] = [];
+  for (const step of steps) {
+    if (!step.ok || !isRecord(step.dataPreview)) continue;
+    if (step.command === "experience.open") {
+      const experience = step.dataPreview.experience;
+      if (experience === "chat" || experience === "work") {
+        const item: Extract<ChatGPTRunItem, { type: "experience.opened" }> = {
+          type: "experience.opened",
+          experience
+        };
+        if (typeof step.dataPreview.changed === "boolean") item.changed = step.dataPreview.changed;
+        items.push(item);
+      }
+      continue;
+    }
+    if (step.command === "configuration.apply") {
+      const item: Extract<ChatGPTRunItem, { type: "configuration.applied" }> = {
+        type: "configuration.applied"
+      };
+      if (isRecord(step.dataPreview.requested)) {
+        item.requested = step.dataPreview.requested;
+      }
+      if (typeof step.dataPreview.verified === "boolean") {
+        item.verified = step.dataPreview.verified;
+      }
+      items.push(item);
+    }
   }
   return items;
 }
@@ -94,7 +138,11 @@ function messageItemsFromData(data: unknown): ChatGPTRunItem[] {
     });
   }
   if (typeof data.responseText === "string" && data.responseText.length > 0) {
-    items.push({ type: "message.completed", role: "assistant", output_text: data.responseText, format: "markdown" });
+    if (readCompletionState(data) === "complete" || data.complete === true) {
+      items.push({ type: "message.completed", role: "assistant", output_text: data.responseText, format: "markdown" });
+    } else {
+      items.push(inProgressItem(data.responseText, readCompletionState(data), readGenerationActive(data)));
+    }
   }
   if (items.length > 0) return items;
 
@@ -117,7 +165,75 @@ function runStateFromResult(
   };
   const thread = threadRefFromContext(result.context);
   if (thread !== undefined) state.thread = thread;
+  const submissionState = readSubmissionState(result.data);
+  const completionState = readCompletionState(result.data);
+  if (submissionState !== undefined) state.submissionState = submissionState;
+  if (completionState !== undefined) state.completionState = completionState;
   return state;
+}
+
+function inProgressItem(
+  outputText: string,
+  completionState: CompletionState | undefined,
+  generationActive: boolean | undefined
+): ChatGPTRunItem {
+  const item: ChatGPTRunItem = {
+    type: "message.in_progress",
+    role: "assistant",
+    output_text: outputText,
+    preview: outputText.length > 160 ? `${outputText.slice(0, 159)}...` : outputText,
+    format: "markdown",
+    textLength: outputText.length,
+    textHash: hashText(outputText)
+  };
+  if (completionState !== undefined) item.completionState = completionState;
+  if (generationActive !== undefined) item.generationActive = generationActive;
+  return item;
+}
+
+function readCompletionState(data: unknown): CompletionState | undefined {
+  if (!isRecord(data)) return undefined;
+  const value = data.completionState;
+  if (value === "complete" || value === "generating" || value === "stopped" || value === "partial" || value === "unknown") {
+    return value;
+  }
+  for (const nested of Object.values(data)) {
+    const nestedState = readCompletionState(nested);
+    if (nestedState !== undefined) return nestedState;
+  }
+  return undefined;
+}
+
+function readSubmissionState(data: unknown): SubmissionState | undefined {
+  if (!isRecord(data)) return undefined;
+  const value = data.submissionState;
+  if (value === "not_submitted" || value === "submitted" || value === "submitted_unconfirmed" || value === "submitted_generating") {
+    return value;
+  }
+  for (const nested of Object.values(data)) {
+    const nestedState = readSubmissionState(nested);
+    if (nestedState !== undefined) return nestedState;
+  }
+  return undefined;
+}
+
+function readGenerationActive(data: unknown): boolean | undefined {
+  if (!isRecord(data)) return undefined;
+  if (typeof data.generationActive === "boolean") return data.generationActive;
+  for (const nested of Object.values(data)) {
+    const value = readGenerationActive(nested);
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
+function hashText(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 function threadRefFromContext(context: CommandResult["context"]): ChatGPTRunData["thread"] {

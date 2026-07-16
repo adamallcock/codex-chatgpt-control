@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "chatgpt.browser_control.surface_profile.v1",
+  "id": "work-advanced-en",
+  "observedAt": "2026-07-15",
+  "provenance": "Sanitized profile derived from the user-provided expanded Work Advanced selector screenshot.",
+  "locale": "en-US",
+  "region": "not-recorded",
+  "accountScope": "not-recorded",
+  "planScope": "not-recorded",
+  "workspaceScope": "not-recorded",
+  "supportState": "current",
+  "snapshot": {
+    "url": "https://chatgpt.com/",
+    "composerLabels": ["Work on anything"],
+    "mainControls": ["5.6 Sol Light", "Model GPT-5.6 Sol", "Effort Light", "Speed Standard", "Advanced"],
+    "mainText": "Work on something else Advanced"
+  },
+  "panel": {
+    "openerLabel": "5.6 Sol Light",
+    "axisRows": [
+      { "axis": "model", "label": "Model GPT-5.6 Sol", "value": "GPT-5.6 Sol" },
+      { "axis": "effort", "label": "Effort Light", "value": "Light" },
+      { "axis": "speed", "label": "Speed Standard", "value": "Standard" }
+    ],
+    "advancedVisible": true
+  },
+  "menuItems": [
+    { "label": "Light", "normalized": "light", "role": "menuitemradio", "checked": true },
+    { "label": "Medium", "normalized": "medium", "role": "menuitemradio" },
+    { "label": "High", "normalized": "high", "role": "menuitemradio" },
+    { "label": "Extra High", "normalized": "extra high", "role": "menuitemradio" },
+    { "label": "Max", "normalized": "max", "role": "menuitemradio" },
+    { "label": "Ultra", "normalized": "ultra", "role": "menuitemradio" }
+  ],
+  "expected": {
+    "experience": "work",
+    "selectorProfile": "work_advanced_v1",
+    "availableAxes": ["model", "effort", "speed"],
+    "active": {
+      "model": "GPT-5.6 Sol",
+      "effort": "Light",
+      "speed": "Standard"
+    }
+  }
+}

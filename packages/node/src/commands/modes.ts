@@ -6,12 +6,13 @@ import { normalizeLabel, normalizeWhitespace } from "../dom/visible-text.js";
 import type { CommandResult, GetModeArgs, LocatorLike, PageLike, RuntimeEnv, SelectToolArgs, SetModeArgs } from "../types.js";
 import type { ModeOptionId } from "../dom/locale/types.js";
 import { contextFromPage } from "./context.js";
-import { bootstrap } from "./session.js";
+import { ensurePage } from "./session.js";
 
 const DEFAULT_MODE_EFFORT = "Thinking";
 const CURRENT_MODE_LABELS: string[] = dedupeLabels([
   ...localeLabels.modeLabels,
   ...Object.values(localeLabels.modeOptions).flat(),
+  ...Object.values(localeLabels.configurationOptions).flat(),
 ]);
 const MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter(label => label !== "Pro"), ...localeLabels.modeOpenerExtra];
 const MODEL_VERSION_FAMILY_PATTERN = /^gpt[\s-]/i;
@@ -272,13 +273,6 @@ export async function selectTool(
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
-}
-
-async function ensurePage(env: RuntimeEnv): Promise<CommandResult<unknown>> {
-  if (env.page !== undefined) {
-    return resultOk({}, await contextFromPage(env.page));
-  }
-  return bootstrap(env, { preferExistingTab: true });
 }
 
 async function clickFirstUniqueButton(page: PageLike, labels: string[]): Promise<boolean> {
@@ -613,23 +607,42 @@ async function selectModelVersion(
       candidates = await enumerateVisibleMenuItems(page);
     }
   }
-  let exact = findExactMenuItem(candidates, requestedVersion);
+  let exact = findExactSelectableMenuItem(candidates, requestedVersion);
   if (exact !== undefined) {
-    return await clickMenuItem(page, exact.label)
+    return await clickResolvedMenuItem(page, exact)
       ? { selected: exact.label, candidates: candidates.map(candidate => candidate.label) }
       : { candidates: candidates.map(candidate => candidate.label) };
   }
 
   const opened = await openModelVersionSubmenu(page, currentCandidates);
   candidates = await enumerateVisibleMenuItems(page);
-  exact = findExactMenuItem(candidates, requestedVersion);
+  exact = findExactSelectableMenuItem(candidates, requestedVersion);
   if (!opened || exact === undefined) {
     return { candidates: candidates.map(candidate => candidate.label) };
   }
 
-  return await clickMenuItem(page, exact.label)
+  return await clickResolvedMenuItem(page, exact)
     ? { selected: exact.label, candidates: candidates.map(candidate => candidate.label) }
     : { candidates: candidates.map(candidate => candidate.label) };
+}
+
+function isModelVersionSubmenuOpener(item: MenuItem): boolean {
+  return item.hasPopup === true
+    || (item.role !== "menuitemradio" && MODEL_VERSION_FAMILY_PATTERN.test(item.label));
+}
+
+async function clickResolvedMenuItem(page: PageLike, item: MenuItem): Promise<boolean> {
+  if (item.testId !== undefined && await clickIfUnique(
+    page.locator?.(`[data-testid="${escapeAttributeValue(item.testId)}"]`)
+  )) {
+    return true;
+  }
+  if (item.role !== undefined && await clickIfUnique(
+    page.getByRole?.(item.role, { name: item.label, exact: true })
+  )) {
+    return true;
+  }
+  return clickMenuItem(page, item.label);
 }
 
 async function openModelVersionSubmenu(page: PageLike, candidates: MenuItem[]): Promise<boolean> {
@@ -729,9 +742,12 @@ async function modelVersionMenuItemsAreVisible(page: PageLike): Promise<boolean>
     .some(candidate => candidate.role === "menuitemradio" && MODEL_VERSION_LABEL_PATTERN.test(candidate.label));
 }
 
-function findExactMenuItem(items: MenuItem[], wanted: string): MenuItem | undefined {
+function findExactSelectableMenuItem(items: MenuItem[], wanted: string): MenuItem | undefined {
   const normalized = normalizeLabel(wanted);
-  const matches = items.filter(item => item.normalized === normalized);
+  const matches = items.filter(item =>
+    item.normalized === normalized
+    && !isModelVersionSubmenuOpener(item)
+  );
   return matches.length === 1 ? matches[0] : undefined;
 }
 
@@ -807,9 +823,13 @@ async function visibleModeButtonLabelList(page: PageLike): Promise<string[]> {
       }
       return text.includes(token);
     };
+    const scopedRoots = Array.from(document.querySelectorAll(
+      "main form, main [data-testid*='composer' i], main [class*='composer' i]"
+    ));
     return Array.from(document.querySelectorAll("button, [role='button']"))
       .map(node => {
         const element = node as HTMLElement;
+        if (scopedRoots.length > 0 && !scopedRoots.some(root => root.contains(node))) return "";
         const visibleText = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim();
         const ariaLabel = (element.getAttribute("aria-label") ?? "").replace(/\s+/g, " ").trim();
         const label = visibleText.length > 0 ? visibleText : ariaLabel;
@@ -818,7 +838,9 @@ async function visibleModeButtonLabelList(page: PageLike): Promise<string[]> {
         if (/open profile menu/i.test(label)) return "";
         if (visibleText.length === 0 && /feedback|conversation options|dismiss/i.test(ariaLabel)) return "";
         const normalized = label.toLowerCase();
-        if (!normalizedModeLabels.some(modeLabel => tokenMatches(normalized, modeLabel))) return "";
+        const structuralModelControl = /model-switcher|model-selector|mode-selector/i.test(testId)
+          || /\b(?:gpt|sol|luna|terra)\b/i.test(label);
+        if (!structuralModelControl && !normalizedModeLabels.some(modeLabel => tokenMatches(normalized, modeLabel))) return "";
         return label;
       })
       .filter(Boolean)

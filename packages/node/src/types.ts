@@ -8,6 +8,19 @@ export type CommandStatus =
   | "unsupported"
   | "error";
 
+export type SubmissionState =
+  | "not_submitted"
+  | "submitted"
+  | "submitted_unconfirmed"
+  | "submitted_generating";
+
+export type CompletionState =
+  | "complete"
+  | "generating"
+  | "stopped"
+  | "partial"
+  | "unknown";
+
 export type BlockerKind =
   | "browser_bridge_unavailable"
   | "login_required"
@@ -31,6 +44,8 @@ export type CommandContext = {
   title?: string;
   turnCount?: number;
   assistantTurnCount?: number;
+  experience?: ChatGPTExperience;
+  selectorProfile?: SurfaceSelectorProfile;
   browserName?: string;
   tabId?: string;
   timestamp: string;
@@ -212,6 +227,10 @@ export type SubmitData = {
   submitted: boolean;
   userTurnText?: string;
   turnCount?: number;
+  submissionState?: SubmissionState;
+  completionState?: CompletionState;
+  generationActive?: boolean;
+  generationSignals?: string[];
 };
 
 export type WaitArgs = {
@@ -233,6 +252,9 @@ export type WaitData = {
   responseContent?: "include" | "metadata";
   assistantTurnCount: number;
   elapsedMs: number;
+  completionState?: CompletionState;
+  generationActive?: boolean;
+  generationSignals?: string[];
 };
 
 export type ResponseFormat =
@@ -338,12 +360,16 @@ export type ReadLatestData = {
   actions?: ResponseAction[];
   thoughtDurationText?: string;
   sourcesAvailable?: boolean;
+  completionState?: CompletionState;
+  generationActive?: boolean;
+  generationSignals?: string[];
 };
 
 export type WaitAndReadArgs = WaitArgs & ReadLatestArgs;
 
 export type AskArgs = {
-  text: string;
+  text?: string;
+  prompt?: string;
   wait?: boolean | WaitArgs;
   read?: boolean | ReadLatestArgs;
   timeoutMs?: number;
@@ -355,6 +381,26 @@ export type AskReadData = {
   complete?: boolean;
   conversationId?: string;
   title?: string;
+  submissionState?: SubmissionState;
+  completionState?: CompletionState;
+  generationActive?: boolean;
+  generationSignals?: string[];
+};
+
+export type MessageStatusArgs = {
+  maxPreviewChars?: number;
+};
+
+export type MessageStatusData = {
+  turnCount?: number;
+  assistantTurnCount: number;
+  latestAssistantTurnIndex?: number;
+  latestAssistantText?: string;
+  latestAssistantPreview?: string;
+  latestAssistantTextLength?: number;
+  completionState: CompletionState;
+  generationActive: boolean;
+  generationSignals: string[];
 };
 
 export type AttachFilesArgs = {
@@ -597,6 +643,214 @@ export type GetModeData = {
   modes: string[];
 };
 
+export type ChatGPTExperience = "chat" | "work" | "unknown";
+
+export type SurfaceSelectorProfile =
+  | "chat_legacy_v1"
+  | "chat_simplified_v1"
+  | "work_basic_v1"
+  | "work_advanced_v1"
+  | "unknown";
+
+export type SurfaceProfileSupportState =
+  | "current"
+  | "compatibility"
+  | "unverified"
+  | "retired";
+
+export type SurfaceProfileObservation = {
+  observedAt: string;
+  provenance: string;
+  locale: string;
+  region: string;
+  accountScope: string;
+  planScope: string;
+  workspaceScope: string;
+  supportState: SurfaceProfileSupportState;
+};
+
+export type ExperienceConfidence = "high" | "medium" | "low";
+
+export type ExperienceEvidence = {
+  source: "url" | "composer" | "control" | "menu" | "heading";
+  label: string;
+};
+
+export type DetectExperienceArgs = {
+  timeoutMs?: number;
+};
+
+export type DetectExperienceData = {
+  experience: ChatGPTExperience;
+  selectorProfile: SurfaceSelectorProfile;
+  confidence: ExperienceConfidence;
+  evidence: ExperienceEvidence[];
+};
+
+export type OpenExperienceArgs = {
+  experience: Exclude<ChatGPTExperience, "unknown">;
+  timeoutMs?: number;
+};
+
+export type OpenExperienceData = {
+  experience: Exclude<ChatGPTExperience, "unknown">;
+  previousExperience: ChatGPTExperience;
+  changed: boolean;
+  selectorProfile: SurfaceSelectorProfile;
+};
+
+export type ConfigurationAxis =
+  | "model"
+  | "intelligence"
+  | "effort"
+  | "speed"
+  | "modelVersion";
+
+export type SurfaceProfileFixture = SurfaceProfileObservation & {
+  schemaVersion: "chatgpt.browser_control.surface_profile.v1";
+  id: string;
+  snapshot: {
+    url: string;
+    composerLabels: string[];
+    mainControls: string[];
+    mainText: string;
+  };
+  panel: {
+    openerLabel?: string;
+    axisRows: Array<{
+      axis: ConfigurationAxis;
+      label: string;
+      value?: string;
+    }>;
+    advancedVisible: boolean;
+  };
+  menuItems: Array<{
+    label: string;
+    normalized: string;
+    role?: string;
+    checked?: boolean;
+    expanded?: boolean;
+    hasPopup?: boolean;
+    testId?: string;
+    ariaLabel?: string;
+  }>;
+  expected: {
+    experience: ChatGPTExperience;
+    selectorProfile: SurfaceSelectorProfile;
+    availableAxes: ConfigurationAxis[];
+    active: Partial<Record<ConfigurationAxis, string>>;
+  };
+};
+
+export type ConfigurationOption = {
+  id: string;
+  label: string;
+  selected: boolean;
+  disabled?: boolean;
+  description?: string;
+  hasSubmenu?: boolean;
+};
+
+export type ConfigurationSelection = {
+  model?: string;
+  intelligence?: string;
+  effort?: string;
+  speed?: string;
+  modelVersion?: string;
+  /** Backward-compatible alias for modelVersion. */
+  version?: string;
+};
+
+export type InspectConfigurationArgs = {
+  experience?: Exclude<ChatGPTExperience, "unknown">;
+  includeOptions?: boolean;
+  timeoutMs?: number;
+};
+
+export type ConfigurationInspectionData = {
+  experience: ChatGPTExperience;
+  selectorProfile: SurfaceSelectorProfile;
+  availableAxes: ConfigurationAxis[];
+  active: Partial<Record<ConfigurationAxis, string>>;
+  options: Partial<Record<ConfigurationAxis, ConfigurationOption[]>>;
+  verified: boolean;
+  evidence: ExperienceEvidence[];
+};
+
+export type ApplyConfigurationArgs = {
+  experience?: Exclude<ChatGPTExperience, "unknown">;
+  desired: ConfigurationSelection;
+  strict?: boolean;
+  timeoutMs?: number;
+};
+
+export type AppliedConfigurationSelection = {
+  axis: ConfigurationAxis;
+  requested: string;
+  selected: string;
+};
+
+export type ApplyConfigurationData = {
+  requested: ConfigurationSelection;
+  selected: AppliedConfigurationSelection[];
+  before: ConfigurationInspectionData;
+  after: ConfigurationInspectionData;
+  verified: boolean;
+};
+
+export type WorkTaskRef = {
+  url?: string;
+  conversationId?: string;
+  title?: string;
+  baselineTurnCount?: number;
+  baselineAssistantTurnCount?: number;
+};
+
+export type StartWorkArgs = {
+  prompt: string;
+  /** Start from a blank Work task when possible. Defaults to true. */
+  newTask?: boolean;
+  files?: string[];
+  configuration?: ConfigurationSelection;
+  wait?: boolean | WaitArgs;
+  read?: boolean | ReadLatestArgs;
+  timeoutMs?: number;
+};
+
+export type StartWorkData = {
+  task: WorkTaskRef;
+  submitted: SubmitData;
+  configuration?: ApplyConfigurationData;
+  wait?: WaitData;
+  response?: ReadLatestData;
+};
+
+export type WorkStatusArgs = MessageStatusArgs & {
+  includeArtifacts?: boolean;
+};
+
+export type WorkStatusData = {
+  experience: "work";
+  task: WorkTaskRef;
+  message: MessageStatusData;
+  artifacts?: ArtifactListData;
+};
+
+export type WorkWaitArgs = WaitArgs;
+export type WorkWaitData = WaitData;
+
+export type SteerWorkArgs = {
+  prompt: string;
+  wait?: boolean | WaitArgs;
+  read?: boolean | ReadLatestArgs;
+  timeoutMs?: number;
+};
+
+export type SteerWorkData = AskReadData;
+
+export type ReadWorkLatestArgs = ReadLatestArgs;
+export type ReadWorkLatestData = ReadLatestData;
+
 export type SelectToolArgs = {
   tool: "web_search" | "deep_research" | "create_image" | string;
   timeoutMs?: number;
@@ -604,6 +858,15 @@ export type SelectToolArgs = {
 
 export type SequenceStep =
   | { id: string; command: "session.bootstrap"; args?: BootstrapArgs }
+  | { id: string; command: "experience.detect"; args?: DetectExperienceArgs }
+  | { id: string; command: "experience.open"; args: OpenExperienceArgs }
+  | { id: string; command: "configuration.inspect"; args?: InspectConfigurationArgs }
+  | { id: string; command: "configuration.apply"; args: ApplyConfigurationArgs }
+  | { id: string; command: "work.start"; args: StartWorkArgs }
+  | { id: string; command: "work.status"; args?: WorkStatusArgs }
+  | { id: string; command: "work.wait"; args?: WorkWaitArgs }
+  | { id: string; command: "work.steer"; args: SteerWorkArgs }
+  | { id: string; command: "work.readLatest"; args?: ReadWorkLatestArgs }
   | { id: string; command: "threads.search"; args: SearchThreadsArgs }
   | { id: string; command: "threads.open"; args: OpenThreadArgs }
   | { id: string; command: "threads.new"; args?: NewThreadArgs }
@@ -612,6 +875,7 @@ export type SequenceStep =
   | { id: string; command: "messages.ask"; args: AskArgs }
   | { id: string; command: "messages.wait"; args: WaitArgs }
   | { id: string; command: "messages.readLatest"; args?: ReadLatestArgs }
+  | { id: string; command: "messages.status"; args?: MessageStatusArgs }
   | { id: string; command: "messages.waitAndRead"; args: WaitAndReadArgs }
   | { id: string; command: "artifacts.listLatest"; args?: ListArtifactsArgs }
   | { id: string; command: "artifacts.wait"; args?: ArtifactWaitArgs }
@@ -649,6 +913,7 @@ export type RuntimeEnv = {
   page?: PageLike;
   clipboard?: ClipboardLike;
   now?: () => Date;
+  expectedTabId?: string;
 };
 
 export type ClipboardLike = {
@@ -711,6 +976,8 @@ export type WaitForEventOptions = {
 };
 
 export type PageLike = {
+  id?: string;
+  tabId?: string;
   url?: () => string | Promise<string>;
   goto?: (url: string, options?: unknown) => Promise<unknown>;
   title?: () => Promise<string>;
@@ -743,7 +1010,8 @@ export type PageLike = {
   };
 };
 
-export type AskHelperArgs = AskArgs & {
+export type AskHelperArgs = Omit<AskArgs, "text" | "prompt"> & {
+  text: string;
   thread?: ThreadTarget;
 };
 

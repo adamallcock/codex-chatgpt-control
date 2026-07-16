@@ -9,8 +9,12 @@
     },
     "data": {
       "complete": true,
+      "completionState": "complete",
+      "generationActive": false,
+      "generationSignals": [],
       "prompt": "Reply with hi.",
       "responseText": "hi",
+      "submissionState": "submitted",
       "title": "ChatGPT"
     },
     "ok": true,
@@ -49,8 +53,12 @@
         "command": "messages.ask",
         "dataPreview": {
           "complete": true,
+          "completionState": "complete",
+          "generationActive": false,
+          "generationSignals": [],
           "prompt": "Reply with hi.",
           "responseText": "hi",
+          "submissionState": "submitted",
           "title": "ChatGPT"
         },
         "endedAt": "2026-06-06T00:00:00.000Z",

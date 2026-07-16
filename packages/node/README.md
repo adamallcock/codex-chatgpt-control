@@ -1,13 +1,13 @@
 # codex-chatgpt-control
 
-TypeScript runtime for Codex agents controlling visible ChatGPT web sessions through a compatible browser bridge.
+TypeScript runtime for controlling visible ChatGPT Chat and Work through a compatible browser bridge.
 
 Unofficial project: not affiliated with, endorsed by, or sponsored by OpenAI. This is not an OpenAI API wrapper and does not call hidden or private ChatGPT endpoints. Browser-required calls need a visible session and should fail with a clear machine-readable reason when the bridge is unavailable.
 
 ## Install
 
 ```bash
-npm install codex-chatgpt-control
+npm install codex-chatgpt-control@next
 ```
 
 ## Usage
@@ -24,9 +24,49 @@ const reviewer = chatgpt.agent({
 const result = await chatgpt.runner.run(reviewer, {
   input: "Review this design.",
   thread: { type: "new" },
+  experience: "chat",
   response: { format: "markdown" }
 });
 ```
+
+Inspect the visible surface and apply verified configuration:
+
+```ts
+const surface = await chatgpt.experience.detect();
+const capabilities = await chatgpt.configuration.inspect();
+
+await chatgpt.configuration.apply({
+  experience: "work",
+  desired: {
+    model: "GPT-5.6 Sol",
+    effort: "High",
+    speed: "Standard"
+  },
+  strict: true
+});
+```
+
+Start a fresh Work task once, then poll or steer it:
+
+```ts
+await chatgpt.work.start({
+  prompt: "Produce a decision-ready implementation brief.",
+  newTask: true,
+  wait: false,
+  read: false
+});
+
+await chatgpt.work.status({ includeArtifacts: true });
+await chatgpt.work.steer({
+  prompt: "Add a prioritized migration sequence.",
+  wait: false,
+  read: false
+});
+```
+
+Legacy `mode` inputs and `modes.set/get` remain supported. New code should use
+`experience` and strict `configuration` because Chat and Work expose different
+nested axes.
 
 Reuse a user-open ChatGPT thread without replacing the tab:
 

@@ -1,6 +1,6 @@
 # codex-chatgpt-control Python SDK
 
-Python parity client for Codex agents controlling visible ChatGPT web sessions through the shared Node backend protocol.
+Python parity client for controlling visible ChatGPT Chat and Work through the shared Node backend protocol.
 
 Unofficial project: not affiliated with, endorsed by, or sponsored by OpenAI. This is not an OpenAI API wrapper and does not call hidden or private ChatGPT endpoints.
 
@@ -13,13 +13,13 @@ The current browser-control runtime is Node/TypeScript. Python talks to it throu
 ## Install
 
 ```bash
-python -m pip install codex-chatgpt-control
+python -m pip install --pre codex-chatgpt-control
 ```
 
 The Python package needs a Node backend command for browser-control workflows. Install or build the Node package too:
 
 ```bash
-npm install codex-chatgpt-control
+npm install codex-chatgpt-control@next
 ```
 
 ## Development Install
@@ -85,11 +85,39 @@ The `ChatGPT` facade exposes workflows and primitive command groups:
 - `chatgpt.run_plan({"name": "new-ask-read", ...})`
 - `chatgpt.doctor(...)`
 - `chatgpt.reports.create(...)`
-- `chatgpt.session`, `threads`, `messages`, `files`, `projects.sources`, `modes`, `tools`, `response`
+- `chatgpt.session`, `experience`, `configuration`, `work`, `threads`, `messages`, `artifacts`, `files`, `projects.sources`, `modes`, `tools`, `response`
 - `chatgpt.commands()`, `describe(...)`, `help(...)`
 - `chatgpt.explain_blocker(result_or_blocker, ...)` and module-level `explain_blocker(...)`
 
 Unsupported OpenAI API-only Responses fields, such as `model`, `temperature`, and `previous_response_id`, return explicit unsupported responses instead of silently submitting misleading prompts.
+
+Inspect and control Chat or Work with the same sync/async surface:
+
+```python
+surface = chatgpt.experience.detect()
+capabilities = chatgpt.configuration.inspect(experience="work")
+
+applied = chatgpt.configuration.apply(
+    experience="work",
+    desired={
+        "model": "GPT-5.6 Sol",
+        "effort": "High",
+        "speed": "Standard",
+    },
+    strict=True,
+)
+
+started = chatgpt.work.start(
+    prompt="Produce a decision-ready implementation brief.",
+    new_task=True,
+    wait=False,
+    read=False,
+)
+```
+
+Use `work.status`, `work.wait`, `work.steer`, `work.read_latest`, and
+`work.artifacts` after submission. Legacy `modes` APIs remain available for
+existing callers.
 
 ## Blocker Explainability
 

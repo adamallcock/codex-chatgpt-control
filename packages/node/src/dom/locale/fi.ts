@@ -6,7 +6,7 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
+ * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
  */
 export const fi = {
   composerTextbox: ["Keskustele ChatGPT:n kanssa"],
@@ -33,4 +33,5 @@ export const fi = {
   },
   signedInMarkers: ["Uusi keskustelu", "Hae keskusteluista", "Äskettäiset", "Keskusteluhistoria", "Projektit", "Keskustele ChatGPT:n kanssa"],
   responseActions: ["Kopioi vastaus"],
+  stopControl: ["Lopeta vastaaminen"],
 } satisfies LocaleContribution;

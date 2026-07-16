@@ -15,7 +15,7 @@ import type {
 } from "../types.js";
 import { contextFromPage } from "./context.js";
 import { ensureConversationTarget } from "./conversation.js";
-import { bootstrap } from "./session.js";
+import { ensurePage } from "./session.js";
 
 const CHATGPT_HOME = "https://chatgpt.com/";
 
@@ -138,13 +138,6 @@ export async function openThread(
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
-}
-
-async function ensurePage(env: RuntimeEnv): Promise<CommandResult<unknown>> {
-  if (env.page !== undefined) {
-    return resultOk({}, await contextFromPage(env.page));
-  }
-  return bootstrap(env, { preferExistingTab: true });
 }
 
 async function resolveOpenTarget(

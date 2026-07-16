@@ -6,7 +6,7 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
+ * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
  */
 export const am = {
   composerTextbox: ["ከChatGPT ጋር ይወያዩ"],
@@ -33,4 +33,5 @@ export const am = {
   },
   signedInMarkers: ["አዲስ ውይይት", "ውይይቶችን ፈልግ", "የቅርብ ጊዜዎች", "ላይብረሪ", "ፕሮጀክቶች", "ከChatGPT ጋር ይወያዩ"],
   responseActions: ["ምላሹን ይቅዱ"],
+  stopControl: ["መልስ መስጠት አቁም"],
 } satisfies LocaleContribution;

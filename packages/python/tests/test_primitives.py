@@ -1,6 +1,7 @@
 import unittest
 
 from codex_chatgpt_control import ChatGPT, CommandResult
+from codex_chatgpt_control.commands import wire_kwargs
 
 
 class RecordingBackend:
@@ -20,12 +21,70 @@ class RecordingBackend:
 
 
 class PrimitiveFacadeTests(unittest.TestCase):
+    def test_nested_wire_normalization_only_rewrites_known_sdk_fields(self) -> None:
+        self.assertEqual(
+            wire_kwargs(
+                configuration={
+                    "model_version": "5.6",
+                    "provider_specific_key": "preserved",
+                },
+                existing_tab={
+                    "target": {"conversation_id": "abc", "custom_key": "preserved"},
+                    "if_missing": "block",
+                },
+                metadata={"user_owned_key": "preserved"},
+            ),
+            {
+                "configuration": {
+                    "modelVersion": "5.6",
+                    "provider_specific_key": "preserved",
+                },
+                "existingTab": {
+                    "target": {"conversationId": "abc", "custom_key": "preserved"},
+                    "ifMissing": "block",
+                },
+                "metadata": {"user_owned_key": "preserved"},
+            },
+        )
+
     def test_primitive_groups_map_to_backend_commands(self) -> None:
         backend = RecordingBackend()
         chatgpt = ChatGPT(backend=backend)
 
         calls = [
             (lambda: chatgpt.session.bootstrap(prefer_existing_tab=True), "session.bootstrap", {"preferExistingTab": True}),
+            (lambda: chatgpt.experience.detect(timeout_ms=100), "experience.detect", {"timeoutMs": 100}),
+            (lambda: chatgpt.experience.open(experience="work"), "experience.open", {"experience": "work"}),
+            (lambda: chatgpt.configuration.inspect(experience="work", include_options=True), "configuration.inspect", {"experience": "work", "includeOptions": True}),
+            (
+                lambda: chatgpt.configuration.apply(
+                    experience="work",
+                    desired={"model": "GPT-5.6 Sol", "model_version": "5.6", "speed": "Fast"},
+                ),
+                "configuration.apply",
+                {
+                    "experience": "work",
+                    "desired": {"model": "GPT-5.6 Sol", "modelVersion": "5.6", "speed": "Fast"},
+                },
+            ),
+            (
+                lambda: chatgpt.work.start(
+                    prompt="Analyze.",
+                    new_task=True,
+                    configuration={"model": "GPT-5.6 Sol", "effort": "High"},
+                ),
+                "work.start",
+                {
+                    "prompt": "Analyze.",
+                    "newTask": True,
+                    "configuration": {"model": "GPT-5.6 Sol", "effort": "High"},
+                },
+            ),
+            (lambda: chatgpt.work.status(include_artifacts=True), "work.status", {"includeArtifacts": True}),
+            (lambda: chatgpt.work.wait(timeout_ms=100), "work.wait", {"timeoutMs": 100}),
+            (lambda: chatgpt.work.steer(prompt="Focus on deployment."), "work.steer", {"prompt": "Focus on deployment."}),
+            (lambda: chatgpt.work.read_latest(format="markdown"), "work.readLatest", {"format": "markdown"}),
+            (lambda: chatgpt.work.artifacts.list_latest(kind="image"), "artifacts.listLatest", {"kind": "image"}),
             (lambda: chatgpt.threads.new(timeout_ms=100), "threads.new", {"timeoutMs": 100}),
             (lambda: chatgpt.threads.search(query="sdk", limit=5), "threads.search", {"query": "sdk", "limit": 5}),
             (lambda: chatgpt.threads.open(conversation_id="abc"), "threads.open", {"conversationId": "abc"}),
@@ -34,6 +93,7 @@ class PrimitiveFacadeTests(unittest.TestCase):
             (lambda: chatgpt.messages.ask(text="hi"), "messages.ask", {"text": "hi"}),
             (lambda: chatgpt.messages.wait(timeout_ms=100, response_content="metadata"), "messages.wait", {"timeoutMs": 100, "responseContent": "metadata"}),
             (lambda: chatgpt.messages.read_latest(format="markdown"), "messages.readLatest", {"format": "markdown"}),
+            (lambda: chatgpt.messages.status(max_preview_chars=80), "messages.status", {"maxPreviewChars": 80}),
             (lambda: chatgpt.messages.wait_and_read(format="markdown"), "messages.waitAndRead", {"format": "markdown"}),
             (lambda: chatgpt.artifacts.list_latest(kind="image"), "artifacts.listLatest", {"kind": "image"}),
             (lambda: chatgpt.artifacts.wait(kind="image", after_artifact_count=0, require_download=True), "artifacts.wait", {"kind": "image", "afterArtifactCount": 0, "requireDownload": True}),

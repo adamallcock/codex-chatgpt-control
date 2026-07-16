@@ -261,6 +261,49 @@
         "references/python-parity.md",
         "../../README.md"
       ]
+    },
+    {
+      "id": "chat-work-surface-control",
+      "summary": "Chat and Work experience detection, selector profiles, verified configuration, task lifecycle, and compatibility aliases.",
+      "fixtures": [
+        "surface-chat-legacy.json",
+        "surface-chat-simplified.json",
+        "surface-sidebar-false-positive.json",
+        "surface-work-advanced.json",
+        "surface-work-basic.json"
+      ],
+      "sourceFiles": [
+        "src/types.ts",
+        "src/client.ts",
+        "src/commands/experience.ts",
+        "src/commands/configuration.ts",
+        "src/commands/work.ts",
+        "src/commands/modes.ts",
+        "src/scripts/capture-surface-profile.ts",
+        "src/backend/protocol.ts",
+        "src/backend/session.ts"
+      ],
+      "nodeTests": [
+        "tests/unit/capture-surface-profile.test.ts",
+        "tests/unit/surface-profiles.test.ts",
+        "tests/unit/work.test.ts",
+        "tests/unit/modes.test.ts",
+        "tests/unit/client.test.ts",
+        "tests/unit/backend-conformance.test.ts"
+      ],
+      "pythonTests": [
+        "tests/test_primitives.py",
+        "tests/test_async_client.py",
+        "tests/test_surface_models.py",
+        "tests/test_parity_snapshots.py"
+      ],
+      "docs": [
+        "references/backend-protocol.md",
+        "references/python-parity.md",
+        "references/localization.md",
+        "references/2026-07-16-chat-work-surfaces.md",
+        "../../README.md"
+      ]
     }
   ],
   "backendCommands": {
@@ -446,6 +489,69 @@
       "pythonTests": ["tests/test_primitives.py", "tests/test_cross_language_conformance.py", "tests/test_async_client.py"],
       "docs": ["references/troubleshooting.md", "references/backend-protocol.md", "references/python-parity.md"]
     },
+    "experience.detect": {
+      "surface": "chat-work-surface-control",
+      "fixtures": ["surface-chat-simplified.json", "surface-work-basic.json", "surface-sidebar-false-positive.json"],
+      "nodeTests": ["tests/unit/surface-profiles.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py", "tests/test_surface_models.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "experience.open": {
+      "surface": "chat-work-surface-control",
+      "fixtures": ["surface-chat-simplified.json", "surface-work-basic.json", "command-descriptors.json"],
+      "nodeTests": ["tests/unit/surface-profiles.test.ts", "tests/unit/client.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "configuration.inspect": {
+      "surface": "chat-work-surface-control",
+      "fixtures": ["surface-chat-legacy.json", "surface-chat-simplified.json", "surface-work-basic.json", "surface-work-advanced.json"],
+      "nodeTests": ["tests/unit/surface-profiles.test.ts", "tests/unit/client.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py", "tests/test_surface_models.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "configuration.apply": {
+      "surface": "chat-work-surface-control",
+      "fixtures": ["surface-chat-simplified.json", "surface-work-advanced.json", "command-descriptors.json"],
+      "nodeTests": ["tests/unit/surface-profiles.test.ts", "tests/unit/modes.test.ts", "tests/unit/client.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py", "tests/test_surface_models.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "work.start": {
+      "surface": "chat-work-surface-control",
+      "fixtures": ["surface-work-basic.json", "surface-work-advanced.json", "command-descriptors.json"],
+      "nodeTests": ["tests/unit/surface-profiles.test.ts", "tests/unit/client.test.ts", "tests/unit/backend-conformance.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py", "tests/test_surface_models.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "work.status": {
+      "surface": "chat-work-surface-control",
+      "fixtures": ["surface-work-basic.json", "command-descriptors.json"],
+      "nodeTests": ["tests/unit/surface-profiles.test.ts", "tests/unit/messages.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py", "tests/test_surface_models.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "work.wait": {
+      "surface": "chat-work-surface-control",
+      "fixtures": ["surface-work-basic.json", "command-descriptors.json"],
+      "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/surface-profiles.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "work.steer": {
+      "surface": "chat-work-surface-control",
+      "fixtures": ["surface-work-basic.json", "command-descriptors.json"],
+      "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/surface-profiles.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
+    "work.readLatest": {
+      "surface": "chat-work-surface-control",
+      "fixtures": ["surface-work-basic.json", "command-descriptors.json"],
+      "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/surface-profiles.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py"],
+      "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
+    },
     "threads.new": {
       "surface": "workflows-primitives-diagnostics",
       "fixtures": ["command-descriptors.json"],
@@ -500,6 +606,13 @@
       "fixtures": ["command-descriptors.json", "run-basic-success.json", "read-latest-clipped.json"],
       "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/client.test.ts"],
       "pythonTests": ["tests/test_primitives.py", "tests/test_models_complete.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "references/python-parity.md"]
+    },
+    "messages.status": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json", "stream-in-progress.ndjson"],
+      "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/client.test.ts", "tests/unit/stream.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_parity_snapshots.py"],
       "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "references/python-parity.md"]
     },
     "messages.waitAndRead": {

@@ -62,7 +62,9 @@ describe("milestone stream", () => {
       context: { timestamp: "2026-06-05T00:00:00.000Z" },
       data: {
         prompt: "reply with hi",
-        responseText: "hi"
+        responseText: "hi",
+        complete: true,
+        completionState: "complete"
       }
     });
 
@@ -74,6 +76,89 @@ describe("milestone stream", () => {
 
     expect(names).toEqual(["message_submitted", "message_completed"]);
     await expect(stream.completed).resolves.toMatchObject({ output_text: "hi" });
+  });
+
+  it("maps partial runner output to message_in_progress milestones", async () => {
+    const agent = createChatGPTAgent({ name: "stream-agent" });
+    const result = toRunResult(agent, {
+      ok: false,
+      status: "partial",
+      warnings: ["Timed out after receiving partial assistant text."],
+      context: { timestamp: "2026-06-05T00:00:00.000Z" },
+      data: {
+        prompt: "write a long list",
+        responseText: "partial list",
+        complete: false,
+        completionState: "generating",
+        generationActive: true
+      }
+    });
+
+    const stream = streamFromRunResult(async () => result);
+    const names: string[] = [];
+    for await (const event of stream) {
+      names.push(event.name);
+    }
+
+    expect(names).toEqual(["message_submitted", "message_in_progress"]);
+    await expect(stream.completed).resolves.toMatchObject({ output_text: "partial list" });
+  });
+
+  it("emits Chat/Work experience and configuration milestones from verified sequence steps", async () => {
+    const agent = createChatGPTAgent({ name: "stream-agent" });
+    const result = toRunResult(agent, {
+      ok: true,
+      status: "ok",
+      warnings: [],
+      context: { timestamp: "2026-07-16T00:00:00.000Z" },
+      data: {
+        prompt: "continue",
+        responseText: "done",
+        complete: true,
+        completionState: "complete"
+      },
+      steps: [
+        {
+          id: "experience",
+          command: "experience.open",
+          ok: true,
+          status: "ok",
+          startedAt: "2026-07-16T00:00:00.000Z",
+          endedAt: "2026-07-16T00:00:00.001Z",
+          dataPreview: { experience: "work", changed: true },
+          warnings: []
+        },
+        {
+          id: "configuration",
+          command: "configuration.apply",
+          ok: true,
+          status: "ok",
+          startedAt: "2026-07-16T00:00:00.001Z",
+          endedAt: "2026-07-16T00:00:00.002Z",
+          dataPreview: {
+            requested: { model: "GPT-5.6 Sol", effort: "High" },
+            verified: true
+          },
+          warnings: []
+        }
+      ]
+    });
+
+    const stream = streamFromRunResult(async () => result);
+    const names: string[] = [];
+    for await (const event of stream) names.push(event.name);
+
+    expect(names).toEqual([
+      "experience_opened",
+      "configuration_applied",
+      "message_submitted",
+      "message_completed"
+    ]);
+    expect(result.output).toContainEqual({
+      type: "configuration.applied",
+      requested: { model: "GPT-5.6 Sol", effort: "High" },
+      verified: true
+    });
   });
 });
 

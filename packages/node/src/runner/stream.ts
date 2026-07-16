@@ -2,10 +2,13 @@ import type { ChatGPTRunItem, ChatGPTRunResult } from "./types.js";
 
 export type ChatGPTRunStreamEventName =
   | "thread_opened"
+  | "experience_opened"
+  | "configuration_applied"
   | "mode_selected"
   | "tool_selected"
   | "file_attached"
   | "message_submitted"
+  | "message_in_progress"
   | "message_completed"
   | "file_downloaded"
   | "run_blocked";
@@ -79,6 +82,10 @@ function runItemEventName(item: ChatGPTRunItem): ChatGPTRunStreamEventName {
   switch (item.type) {
     case "thread.opened":
       return "thread_opened";
+    case "experience.opened":
+      return "experience_opened";
+    case "configuration.applied":
+      return "configuration_applied";
     case "mode.selected":
       return "mode_selected";
     case "tool.selected":
@@ -87,6 +94,8 @@ function runItemEventName(item: ChatGPTRunItem): ChatGPTRunStreamEventName {
       return "file_attached";
     case "message.submitted":
       return "message_submitted";
+    case "message.in_progress":
+      return "message_in_progress";
     case "message.completed":
       return "message_completed";
     case "file.downloaded":

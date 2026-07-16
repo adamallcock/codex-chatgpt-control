@@ -1,8 +1,8 @@
 {
   "name": "codex-chatgpt-control-repo",
-  "version": "0.3.0-alpha.1",
+  "version": "0.5.0-alpha.1",
   "private": true,
-  "description": "Public source repo for the unofficial codex-chatgpt-control SDK.",
+  "description": "Public source repo for the unofficial visible ChatGPT Chat and Work control SDK.",
   "type": "module",
   "scripts": {
     "node:test": "npm --prefix packages/node test",

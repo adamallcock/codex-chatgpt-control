@@ -6,7 +6,7 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
+ * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
  */
 export const hy = {
   composerTextbox: ["Զրույց ChatGPT-ի հետ"],
@@ -34,4 +34,5 @@ export const hy = {
   },
   signedInMarkers: ["Նոր զրույց", "Որոնել զրույցները", "Թարմ", "Զրույցների պատմություն", "Նախագծեր", "Զրույց ChatGPT-ի հետ"],
   responseActions: ["Պատճենել պատասխանը"],
+  stopControl: ["Դադարեցնել պատասխանելը"],
 } satisfies LocaleContribution;

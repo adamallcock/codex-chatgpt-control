@@ -5,10 +5,9 @@ import type { LocaleContribution } from "./types.js";
  * (html lang=fr-FR, Google Translate confirmed off).
  *
  * Not yet captured — fall back to English + `selector_drift`: `download`, `downloadImage`,
- * `imageContainerHint`, `transientAssistant`, `stopControl`, and the login/captcha/rate-limit
- * blocker copy.
+ * `imageContainerHint`, `transientAssistant`, and the login/captcha/rate-limit blocker copy.
  *
- * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
+ * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
  */
 export const frFR = {
   composerTextbox: ["Discuter avec ChatGPT"],
@@ -34,4 +33,5 @@ export const frFR = {
   },
   signedInMarkers: ["Nouveau chat", "Rechercher dans les chats", "Récents", "Bibliothèque", "Projets", "Discuter avec ChatGPT"],
   responseActions: ["Copier la réponse"],
+  stopControl: ["Interrompre la réponse"],
 } satisfies LocaleContribution;

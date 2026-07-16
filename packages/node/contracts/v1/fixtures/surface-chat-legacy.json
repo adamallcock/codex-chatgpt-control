@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "chatgpt.browser_control.surface_profile.v1",
+  "id": "chat-legacy-en",
+  "observedAt": "2026-06-15",
+  "provenance": "Sanitized regression profile derived from a verified legacy Chat selector capture.",
+  "locale": "en-US",
+  "region": "not-recorded",
+  "accountScope": "not-recorded",
+  "planScope": "not-recorded",
+  "workspaceScope": "not-recorded",
+  "supportState": "compatibility",
+  "snapshot": {
+    "url": "https://chatgpt.com/",
+    "composerLabels": ["Chat with ChatGPT"],
+    "mainControls": ["Thinking", "Send prompt"],
+    "mainText": "Chat with ChatGPT"
+  },
+  "panel": {
+    "openerLabel": "Thinking",
+    "axisRows": [],
+    "advancedVisible": false
+  },
+  "menuItems": [
+    { "label": "Instant", "normalized": "instant", "role": "menuitemradio" },
+    { "label": "Thinking", "normalized": "thinking", "role": "menuitemradio", "checked": true },
+    { "label": "Extended", "normalized": "extended", "role": "menuitemradio" },
+    { "label": "Pro", "normalized": "pro", "role": "menuitemradio" }
+  ],
+  "expected": {
+    "experience": "chat",
+    "selectorProfile": "chat_legacy_v1",
+    "availableAxes": ["effort"],
+    "active": { "effort": "Thinking" }
+  }
+}

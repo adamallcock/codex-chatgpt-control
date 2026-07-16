@@ -10,6 +10,7 @@ import {
   createChatGPT,
   copyResponse,
   downloadLatestAttachment,
+  messageStatus,
   newThread,
   openThread,
   readLatest,
@@ -506,6 +507,36 @@ export const optionalScenarios: LiveSmokeScenario[] = [
     return generation.active && !(waited.ok && waited.data?.complete === true)
       ? pass(meta, waited, details)
       : fail(meta, waited, details);
+  }),
+  scenario("running-status-detection", false, context => contextEnvFlag(context, "CHATGPT_E2E_RUNNING_STATUS"), async (context, meta) => {
+    const env = await bootNewThread(context, meta);
+    if ("status" in env) return env;
+    let status: CommandResult<unknown> | undefined;
+    try {
+      const asked = await askMessage(env, {
+        text: [
+          "Live running-status stress test. Write exactly 500 numbered items.",
+          "Each item should be a complete sentence. Continue until item 500."
+        ].join("\n"),
+        wait: false,
+        read: false
+      });
+      if (!asked.ok) return fail(meta, asked);
+      await waitForGenerationSignal(env, 30000);
+      status = await messageStatus(env, { maxPreviewChars: 400 });
+      const data = status.data as { completionState?: string; generationActive?: boolean; latestAssistantTextLength?: number } | undefined;
+      const details = {
+        completionState: data?.completionState,
+        generationActive: data?.generationActive,
+        latestAssistantTextLength: data?.latestAssistantTextLength,
+        status: status.status
+      };
+      return status.ok && (data?.completionState === "generating" || data?.generationActive === true)
+        ? pass(meta, status, details)
+        : fail(meta, status, details);
+    } finally {
+      await stopGenerationIfVisible(env);
+    }
   }),
   scenario("download-generated-file", false, context => contextEnvFlag(context, "CHATGPT_E2E_DOWNLOAD"), async (context, meta) => {
     const env = await bootNewThread(context, meta);

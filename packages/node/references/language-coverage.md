@@ -5,6 +5,13 @@ The full set of languages ChatGPT exposes in **Settings → General → Language
 localization rollout described in [`localization.md`](./localization.md). Strings are
 stored per-locale under `src/dom/locale/<bcp47>.ts`.
 
+The status table covers the pre-existing Chat/localization registry, not the new
+Chat/Work profile graph introduced in July 2026. Work composer,
+experience-switch, configuration-axis, and configuration-option coverage is
+currently verified only for the sanitized English profiles. Do not interpret a
+green row below as full Work support until that locale has matching profile
+evidence.
+
 - Speaker counts are **crude guesstimates** (native + second-language, rounded), not
   researched figures. They exist only to prioritize the rollout.
 - `bcp47` is the suggested per-locale file name. Regional variants ChatGPT lists separately
@@ -113,12 +120,41 @@ guesstimate; the tail (≈#11–15) is close and easily reordered.
 
 ## Automated capture
 
+For a single current Chat or Work surface, generate a sanitized, unverified
+profile draft from an already-open authorized tab:
+
+```bash
+npm run capture:surface-profile -- --id work-basic-en --locale en-US
+```
+
+This command does not submit a prompt or change configuration. It opens visible
+menus for inspection, normalizes any conversation URL to `/c/sanitized`, and
+writes only bounded composer/configuration structure under
+`outputs/surface-profiles/`.
+
 Use the repository capture script to drive the visible ChatGPT UI through Settings → General
 → Language, then open the composer Intelligence picker and record the localized labels:
 
 ```bash
 npm run capture:intelligence-locales -- --auto-switch --all --if-missing open
 ```
+
+To also capture localized running-generation controls such as `stopControl`, run the same
+sweep with the bounded generation probe enabled:
+
+```bash
+npm run capture:intelligence-locales -- \
+  --auto-switch \
+  --all \
+  --capture-generation-state \
+  --generation-timeout-ms 12000 \
+  --if-missing open
+```
+
+The generation-state probe submits one short real prompt per locale in the visible ChatGPT
+session, waits for the localized stop control, stops generation, and records only compact
+control/status labels. Use it only when operating the user's visible ChatGPT session is
+acceptable.
 
 The script uses the native language names from this tracker, verifies the rendered
 `document.documentElement.lang`, writes JSONL evidence under
@@ -134,9 +170,10 @@ changes the settings or picker DOM, the run should emit a blocker record instead
 3. Open the model switcher and the `+` menu with **real** clicks (Radix menus ignore
    synthetic `.click()`) and read the menu items → mode + tool labels.
 4. Open search → placeholder; observe a conversation → copy-response + response-actions.
-   `stopControl` is only present mid-generation; login/captcha/rate-limit copy needs a
-   logged-out/limited state — these may lag and rely on the English fallback + the
-   `selector_drift` safety net until captured.
+   `stopControl` is present only mid-generation and should be captured with
+   `--capture-generation-state`; login/captcha/rate-limit copy needs a logged-out/limited
+   state — these may lag and rely on the English fallback + the `selector_drift` safety net
+   until captured.
 5. Write the verified strings to `src/dom/locale/<bcp47>.ts` and register it in
    `src/dom/locale/index.ts`. Build + test + bundle + sync.
 6. Restore the account language to English (US) when the run is complete.

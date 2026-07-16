@@ -1,7 +1,7 @@
 [project]
 name = "codex-chatgpt-control"
-version = "0.3.0a1"
-description = "Python SDK for Codex agents controlling visible ChatGPT web sessions through a local backend."
+version = "0.5.0a1"
+description = "Python SDK for controlling visible ChatGPT Chat and Work through a local backend."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

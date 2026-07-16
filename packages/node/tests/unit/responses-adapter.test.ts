@@ -9,6 +9,8 @@ describe("Responses adapter validation", () => {
       input: "hi",
       thread: { type: "new" },
       attachments: [{ path: "/tmp/context.md" }],
+      experience: "work",
+      configuration: { model: "GPT-5.6 Sol", effort: "High" },
       mode: { effort: "Thinking" },
       tools: [{ tool: "web_search" }],
       existingTab: true,
@@ -36,6 +38,28 @@ describe("Responses adapter validation", () => {
       existingTab: true,
       preferExistingTab: true,
       response: { format: "markdown" }
+    });
+  });
+
+  it("maps Chat/Work experience and configuration into runner input", () => {
+    const input = responsesCreateArgsToRunInput({
+      input: "Produce a brief.",
+      experience: "work",
+      configuration: {
+        model: "GPT-5.6 Sol",
+        effort: "High",
+        speed: "Standard"
+      }
+    });
+
+    expect(input).toMatchObject({
+      input: "Produce a brief.",
+      experience: "work",
+      configuration: {
+        model: "GPT-5.6 Sol",
+        effort: "High",
+        speed: "Standard"
+      }
     });
   });
 
@@ -140,7 +164,9 @@ describe("Responses adapter validation", () => {
       data: {
         prompt: "Write 500 numbered items.",
         responseText: "I will now produce the list.",
-        complete: false
+        complete: false,
+        completionState: "generating",
+        generationActive: true
       },
       warnings: ["Timed out after receiving partial assistant text."],
       context: {
@@ -154,6 +180,8 @@ describe("Responses adapter validation", () => {
     expect(response.status).toBe("partial");
     expect(response.output_text).toBe("I will now produce the list.");
     expect(response.browser_control.resultStatus).toBe("partial");
+    expect(response.browser_control.completionState).toBe("generating");
+    expect(response.browser_control.generationActive).toBe(true);
     expect(response.browser_control.thread?.conversationId).toBe("fixture-partial");
   });
 });

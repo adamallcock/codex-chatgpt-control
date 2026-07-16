@@ -7,6 +7,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..", "contracts", "v1");
 const manifest = readJson(join(root, "manifest.json"));
 const manifestSchema = readJson(join(root, "schemas", "manifest.schema.json"));
+const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+const SECRET_PATTERN = /\b(?:bearer\s+[a-z0-9._~+/-]{12,}|sk-[a-z0-9_-]{12,}|(?:session|auth|access)[_-]?token\s*[:=])/i;
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 
@@ -52,6 +54,9 @@ for (const fixture of manifest.fixtures) {
   }
 
   const payload = readJson(path);
+  if (fixture.schema === "surfaceProfile") {
+    validateSurfaceProfileSafety(payload, fixture.file);
+  }
   const value = fixture.schema === "runResult"
     ? payload.result
     : fixture.schema === "response"
@@ -71,4 +76,48 @@ function readJson(path) {
 function validateOrThrow(validate, value, label) {
   if (validate(value)) return;
   throw new Error(`${label} failed schema validation: ${ajv.errorsText(validate.errors, { separator: "\n" })}`);
+}
+
+function validateSurfaceProfileSafety(profile, label) {
+  const normalizedScopePattern = /^[a-z0-9][a-z0-9._-]{0,63}$/;
+  for (const field of ["region", "accountScope", "planScope", "workspaceScope"]) {
+    const value = profile[field];
+    if (typeof value !== "string" || !normalizedScopePattern.test(value)) {
+      throw new Error(`${label} field ${field} must be a normalized non-identifying slug.`);
+    }
+  }
+
+  const url = new URL(profile.snapshot.url);
+  if (
+    url.protocol !== "https:"
+    || !["chatgpt.com", "www.chatgpt.com"].includes(url.hostname)
+    || url.username !== ""
+    || url.password !== ""
+    || url.search !== ""
+    || url.hash !== ""
+  ) {
+    throw new Error(`${label} snapshot.url must be a sanitized query-free chatgpt.com URL.`);
+  }
+  const conversationMatch = url.pathname.match(/^\/c\/([^/]+)/);
+  if (conversationMatch !== null && !["sanitized", "<conversation-id>"].includes(conversationMatch[1])) {
+    throw new Error(`${label} snapshot.url contains a non-sanitized conversation identifier.`);
+  }
+
+  for (const [path, value] of collectStrings(profile)) {
+    if (EMAIL_PATTERN.test(value)) {
+      throw new Error(`${label} contains an email-like value at ${path}.`);
+    }
+    if (SECRET_PATTERN.test(value)) {
+      throw new Error(`${label} contains a credential-like value at ${path}.`);
+    }
+  }
+}
+
+function collectStrings(value, path = "$") {
+  if (typeof value === "string") return [[path, value]];
+  if (Array.isArray(value)) {
+    return value.flatMap((child, index) => collectStrings(child, `${path}[${index}]`));
+  }
+  if (value === null || typeof value !== "object") return [];
+  return Object.entries(value).flatMap(([key, child]) => collectStrings(child, `${path}.${key}`));
 }

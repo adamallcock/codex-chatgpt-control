@@ -6,8 +6,12 @@ Accepted fields:
 
 - `input`
 - `thread`
+- `existingTab`
+- `preferExistingTab`
+- `experience`
+- `configuration`
 - `attachments`
-- `mode`
+- `mode` (legacy compatibility)
 - `tools`
 - `text.format`
 - `stream: false`
@@ -20,9 +24,16 @@ Rejected API-only fields return `status: "unsupported"` before any prompt is sub
 const response = await chatgpt.responses.create({
   input: "Summarize the latest plan.",
   thread: { type: "conversationId", conversationId: "abc-123" },
+  experience: "chat",
+  configuration: { intelligence: "High" },
   text: { format: "markdown" },
   stream: false
 });
 ```
+
+`experience` and `configuration` represent visible product controls, not API
+model selection. Configuration is strict through the runner plan and must
+verify the visible postcondition. Existing callers may continue to pass
+`mode`; new callers should prefer the surface-aware fields.
 
 Use `chatgpt.runner.run()` for lower-level browser-control workflows, multi-step command planning, attachments, downloads, reports, and explicit interruption handling.

@@ -212,9 +212,39 @@
       "schema": "backendEvent"
     },
     {
+      "case": "stream_in_progress",
+      "file": "stream-in-progress.ndjson",
+      "schema": "backendEvent"
+    },
+    {
       "case": "stream_submitted_completed",
       "file": "stream-submitted-completed.ndjson",
       "schema": "backendEvent"
+    },
+    {
+      "case": "surface_chat_legacy",
+      "file": "surface-chat-legacy.json",
+      "schema": "surfaceProfile"
+    },
+    {
+      "case": "surface_chat_simplified",
+      "file": "surface-chat-simplified.json",
+      "schema": "surfaceProfile"
+    },
+    {
+      "case": "surface_sidebar_false_positive",
+      "file": "surface-sidebar-false-positive.json",
+      "schema": "surfaceProfile"
+    },
+    {
+      "case": "surface_work_advanced",
+      "file": "surface-work-advanced.json",
+      "schema": "surfaceProfile"
+    },
+    {
+      "case": "surface_work_basic",
+      "file": "surface-work-basic.json",
+      "schema": "surfaceProfile"
     },
     {
       "case": "workflow_ask_success",
@@ -233,7 +263,8 @@
     "response": "schemas/response.schema.json",
     "runResult": "schemas/run-result.schema.json",
     "sequencePlan": "schemas/sequence-plan.schema.json",
-    "streamEvent": "schemas/stream-event.schema.json"
+    "streamEvent": "schemas/stream-event.schema.json",
+    "surfaceProfile": "schemas/surface-profile.schema.json"
   },
   "schemaVersion": "chatgpt.browser_control.contract_manifest.v1",
   "wireCase": "camelCaseWithDocumentedAliases"

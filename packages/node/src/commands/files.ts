@@ -28,7 +28,7 @@ import type {
   RuntimeEnv
 } from "../types.js";
 import { contextFromPage } from "./context.js";
-import { bootstrap } from "./session.js";
+import { ensurePage } from "./session.js";
 import { localGuardTimeout } from "./timeouts.js";
 
 const CODEX_UPLOAD_PERMISSION_FIX = "Codex Settings > Computer Use > Chrome > Permissions > Uploads: set to Always allow, or add chatgpt.com to the allowed upload domains.";
@@ -732,13 +732,6 @@ async function readBrowserInputDiagnostic(page: PageLike): Promise<BrowserInputD
       })
     };
   });
-}
-
-async function ensurePage(env: RuntimeEnv): Promise<CommandResult<unknown>> {
-  if (env.page !== undefined) {
-    return resultOk({}, await contextFromPage(env.page));
-  }
-  return bootstrap(env, { preferExistingTab: true });
 }
 
 async function setFilesViaDomDataTransfer(page: NonNullable<RuntimeEnv["page"]>, files: AttachedFile[]): Promise<void> {

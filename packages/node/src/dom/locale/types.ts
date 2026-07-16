@@ -21,9 +21,33 @@ export type ModeOptionId =
 export type ModeOptionLabels = Record<ModeOptionId, string | readonly string[]>;
 export type ModeOptionContribution = Partial<ModeOptionLabels>;
 
+export type ExperienceOptionId = "chat" | "work";
+export type ExperienceOptionLabels = Record<ExperienceOptionId, string | readonly string[]>;
+export type ExperienceOptionContribution = Partial<ExperienceOptionLabels>;
+
+export type ConfigurationAxisLabelId = "model" | "intelligence" | "effort" | "speed" | "advanced";
+export type ConfigurationAxisLabels = Record<ConfigurationAxisLabelId, string | readonly string[]>;
+export type ConfigurationAxisContribution = Partial<ConfigurationAxisLabels>;
+
+export type ConfigurationOptionId =
+  | "instant"
+  | "light"
+  | "medium"
+  | "high"
+  | "extraHigh"
+  | "max"
+  | "ultra"
+  | "pro"
+  | "standard"
+  | "fast";
+export type ConfigurationOptionLabels = Record<ConfigurationOptionId, string | readonly string[]>;
+export type ConfigurationOptionContribution = Partial<ConfigurationOptionLabels>;
+
 export type LocaleStrings = {
   // --- Primary interaction path (accessible names) ---
   composerTextbox: string | readonly string[];
+  workComposerTextbox: string | readonly string[];
+  newWork: string | readonly string[];
   sendButton: string | readonly string[];
   searchChatsButton: string | readonly string[];
   searchChatsPlaceholder: string | readonly string[];
@@ -45,6 +69,11 @@ export type LocaleStrings = {
   modeLabels: string | readonly string[];
   modeOptions: ModeOptionLabels;
   modeOpenerExtra: string | readonly string[];
+
+  // --- Chat / Work surfaces and capability-driven configuration ---
+  experienceOptions: ExperienceOptionLabels;
+  configurationAxes: ConfigurationAxisLabels;
+  configurationOptions: ConfigurationOptionLabels;
 
   // --- Thread/action menu rejection (wrong-menu veto for mode selection) ---
   threadActionMenuItems: string | readonly string[];
@@ -70,7 +99,13 @@ export type LocaleStrings = {
  * The type for non-English locale files. Every key is optional so a contributor only
  * needs to supply the strings that differ from English. `tools` is also partial.
  */
-export type LocaleContribution = Partial<Omit<LocaleStrings, "tools" | "modeOptions">> & {
+export type LocaleContribution = Partial<Omit<
+  LocaleStrings,
+  "tools" | "modeOptions" | "experienceOptions" | "configurationAxes" | "configurationOptions"
+>> & {
   modeOptions?: ModeOptionContribution;
+  experienceOptions?: ExperienceOptionContribution;
+  configurationAxes?: ConfigurationAxisContribution;
+  configurationOptions?: ConfigurationOptionContribution;
   tools?: Partial<Record<"web_search" | "deep_research" | "create_image", string | readonly string[]>>;
 };

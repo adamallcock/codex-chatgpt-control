@@ -6,7 +6,7 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
+ * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
  */
 export const ja = {
   composerTextbox: ["ChatGPT とチャットする"],
@@ -32,4 +32,5 @@ export const ja = {
   },
   signedInMarkers: ["新しいチャット", "チャットを検索", "最近のチャット", "ライブラリ", "プロジェクト", "ChatGPT とチャットする"],
   responseActions: ["回答をコピーする"],
+  stopControl: ["回答を停止"],
 } satisfies LocaleContribution;

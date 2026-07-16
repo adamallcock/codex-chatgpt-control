@@ -1,7 +1,10 @@
 import type {
   AttachedFile,
+  ChatGPTExperience,
   CommandResult,
   CommandStatus,
+  CompletionState,
+  ConfigurationSelection,
   CopyResponseArgs,
   DownloadLatestArgs,
   BootstrapArgs,
@@ -12,6 +15,7 @@ import type {
   SequencePlan,
   SelectToolArgs,
   SetModeArgs,
+  SubmissionState,
   ThreadTarget,
   WaitArgs
 } from "../types.js";
@@ -41,6 +45,11 @@ export type ChatGPTVisibleModePreference = SetModeArgs & {
   ifUnavailable?: "continue" | "block" | "skip";
 };
 
+export type ChatGPTVisibleConfigurationPreference = ConfigurationSelection & {
+  required?: boolean;
+  ifUnavailable?: "continue" | "block" | "skip";
+};
+
 export type ChatGPTVisibleToolPreference = SelectToolArgs & {
   required?: boolean;
   ifUnavailable?: "continue" | "block" | "skip";
@@ -50,6 +59,8 @@ export type ChatGPTRunDefaults = {
   thread?: ChatGPTThreadSelector | ThreadTarget;
   existingTab?: BootstrapArgs["existingTab"];
   preferExistingTab?: boolean;
+  experience?: Exclude<ChatGPTExperience, "unknown">;
+  configuration?: ChatGPTVisibleConfigurationPreference;
   mode?: ChatGPTVisibleModePreference;
   wait?: boolean | WaitArgs;
   read?: boolean | ReadLatestArgs;
@@ -108,6 +119,8 @@ export type ChatGPTRunInput =
       thread?: ChatGPTThreadSelector;
       existingTab?: BootstrapArgs["existingTab"];
       preferExistingTab?: boolean;
+      experience?: Exclude<ChatGPTExperience, "unknown">;
+      configuration?: ChatGPTVisibleConfigurationPreference;
       attachments?: ChatGPTAttachmentInput[];
       mode?: ChatGPTVisibleModePreference;
       tools?: ChatGPTVisibleToolPreference[];
@@ -134,10 +147,23 @@ export type DownloadedFileSummary = {
 
 export type ChatGPTRunItem =
   | { type: "thread.opened"; thread: ChatGPTThreadRef }
+  | { type: "experience.opened"; experience: Exclude<ChatGPTExperience, "unknown">; changed?: boolean }
+  | { type: "configuration.applied"; requested?: ConfigurationSelection; verified?: boolean }
   | { type: "mode.selected"; requested?: string; selected?: string; candidates?: string[] }
   | { type: "tool.selected"; requested: string; selected?: string; candidates?: string[] }
   | { type: "file.attached"; file: AttachedFileSummary }
   | { type: "message.submitted"; role: "user"; preview: string; redacted: boolean }
+  | {
+      type: "message.in_progress";
+      role: "assistant";
+      output_text?: string;
+      preview: string;
+      format: ResponseFormat;
+      completionState?: CompletionState;
+      generationActive?: boolean;
+      textLength?: number;
+      textHash?: string;
+    }
   | { type: "message.completed"; role: "assistant"; output_text?: string; format: ResponseFormat; source?: ResponseCaptureSource; fidelity?: ResponseCaptureFidelity }
   | { type: "file.downloaded"; file: DownloadedFileSummary }
   | { type: "approval.required"; interruption: ChatGPTInterruption }
@@ -208,6 +234,8 @@ export type ChatGPTRunState = {
   resumable: boolean;
   thread?: ChatGPTThreadRef;
   nextStepId?: string;
+  submissionState?: SubmissionState;
+  completionState?: CompletionState;
 };
 
 export type ChatGPTRunData<TOutput = string> = {
@@ -217,6 +245,9 @@ export type ChatGPTRunData<TOutput = string> = {
   thread?: ChatGPTThreadRef;
   downloads?: DownloadedFileSummary[];
   reportPath?: string;
+  submissionState?: SubmissionState;
+  completionState?: CompletionState;
+  generationActive?: boolean;
 };
 
 export type ChatGPTRunResult<TOutput = string> = CommandResult<ChatGPTRunData<TOutput>> & {
@@ -256,6 +287,9 @@ export type ChatGPTResponse = {
     resultStatus: CommandStatus;
     thread?: ChatGPTThreadRef;
     reportPath?: string;
+    submissionState?: SubmissionState;
+    completionState?: CompletionState;
+    generationActive?: boolean;
     untrustedOutput?: UntrustedOutputReturnEnvelope;
     unsupported?: UnsupportedField[];
   };

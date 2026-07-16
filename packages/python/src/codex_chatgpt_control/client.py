@@ -8,6 +8,8 @@ from .diagnostics import explain_blocker
 from .models import ChatGPTRunResult, SequencePlan
 from .primitives import (
     ArtifactsClient,
+    ConfigurationClient,
+    ExperienceClient,
     FilesClient,
     MessagesClient,
     ModesClient,
@@ -16,6 +18,7 @@ from .primitives import (
     SessionClient,
     ThreadsClient,
     ToolsClient,
+    WorkClient,
 )
 from .reports import ReportsClient
 from .responses import ResponsesClient
@@ -75,6 +78,9 @@ class ChatGPT:
         self._workflows = WorkflowClient(self._transport)
         self._commands = CommandClient(self._transport)
         self.session = SessionClient(self._transport)
+        self.experience = ExperienceClient(self._transport)
+        self.configuration = ConfigurationClient(self._transport)
+        self.work = WorkClient(self._transport)
         self.threads = ThreadsClient(self._transport)
         self.messages = MessagesClient(self._transport)
         self.files = FilesClient(self._transport)

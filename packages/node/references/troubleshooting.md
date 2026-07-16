@@ -69,6 +69,17 @@ The ChatGPT UI changed or the page loaded an unexpected surface. Return visible 
 
 Runner results surface this as `interruptions[0].type === "selector_drift"` with `blocker.candidates` when visible candidates were available. Do not retry automatically; ask the user or update selectors.
 
+For Chat/Work drift, capture only scoped capability evidence: composer label,
+main controls, configuration rows/options, locale, URL shape, selector profile,
+and observation date. Do not retain sidebar thread titles or conversation
+content. An unknown profile, missing axis, or unverified postcondition is a
+normal blocker during staged account/region/workspace rollouts.
+
+If `work.start` returns `work_new_task_control_not_found`, a task is already
+loaded and the SDK refused to append. Pass `newTask: false` only when the user
+intends to continue that exact task. If a Work submission returns partial or
+timeout, use `work.status`, `work.wait`, or `work.readLatest`; do not resubmit.
+
 ## Existing Tab Not Found Or Ambiguous
 
 When `existingTab` targeting cannot select one already-open tab, inspect `blocker.diagnostics.existingTab` or the rendered blocker explanation. Diagnostics are metadata-only: requested target, whether user-open tabs were available, candidate tab IDs, URLs, titles, conversation IDs, omitted candidate count, and mismatch reason. They must not include page text or chat content.
@@ -115,7 +126,7 @@ Use `readLatest({ format: "markdown" })`, `copyLatest()`, or the default SDK `re
 
 ## Long Responses Return `partial`
 
-Long Pro, Thinking, Deep Research, or file-backed answers can take longer than the default wait window. Treat `status: "partial"` and `data.complete: false` as an incomplete capture even when `output_text` is non-empty. For repeated polling, prefer `messages.wait({ responseContent: "metadata", ... })` so Codex receives compact status metadata instead of the same growing partial answer body. Re-run `messages.wait(...)` on the same thread until completion is confirmed, then call `readLatest(...)` or `copyLatest(...)` once.
+Long Pro, Thinking, Deep Research, or file-backed answers can take longer than the default wait window. Treat `status: "partial"` and `data.complete: false` as an incomplete capture even when `output_text` is non-empty. Check `data.completionState` and `data.generationActive`; `completionState: "generating"` or `generationActive: true` means ChatGPT is still running and the prompt must not be resubmitted. For repeated polling, prefer `messages.status({ maxPreviewChars })` for a cheap snapshot, or `messages.wait({ responseContent: "metadata", ... })` so Codex receives compact status metadata instead of the same growing partial answer body. Re-run `messages.wait(...)` on the same thread (with a larger timeout if needed) until completion is confirmed, then call `readLatest(...)` or `copyLatest(...)` once.
 
 Recommended long-answer wait:
 
@@ -132,6 +143,15 @@ const final = await chatgpt.messages.readLatest({ format: "markdown" });
 ```
 
 Active generation may appear as a visible or accessible-name control such as `Stop answering`, `Stop generating`, or `Stop streaming`. Stopped generation may appear as `Stopped thinking`. Treat all of those as incomplete states.
+
+When the outer host tool-call ceiling is short, poll in bounded chunks instead of issuing a single very long wait:
+
+```ts
+const status = await chatgpt.messages.status({ maxPreviewChars: 400 });
+if (status.data?.completionState === "generating" || status.data?.generationActive) {
+  await chatgpt.messages.wait({ timeoutMs: 30000, stableMs: 8000, pollMs: 1000 });
+}
+```
 
 `maxChars` limits captured text returned by the SDK. It does not control ChatGPT generation. When set and clipping occurs, inspect result warnings and `data.captureLimit`, then rerun without `maxChars` for full capture.
 
@@ -168,5 +188,5 @@ Doctor also supports opt-in scenario checks:
 - `existing_tab`: claims only the requested already-open tab target by default and reports `existing_tab_not_found` / `existing_tab_ambiguous` diagnostics without opening a replacement tab unless `existingTab.ifMissing` explicitly allows that.
 - `artifacts`: verifies current-page artifact selector/download/asset support without requesting generation.
 - `file_preflight`: validates supplied local file paths without opening ChatGPT or attempting upload. It reports path count, total bytes, duplicate warnings, zero-byte blockers, and extension-based MIME/category metadata; fatal local file problems map to the same structured blockers as `files.preflight`.
-- `localization`: checks locale-label registry readiness and English canonical labels without changing the ChatGPT account language; it is not yet proof of full localized selector coverage.
+- `localization`: checks locale-label registry readiness and English canonical labels without changing the ChatGPT account language. It reports running-state label coverage (`stopControl` and `stoppedAssistant`) separately so English-only, partial, and complete live-capture coverage are visible. It is not yet proof of full localized selector coverage.
 - `reports`: checks redacted-report policy and existing destination writability when possible without writing a report.

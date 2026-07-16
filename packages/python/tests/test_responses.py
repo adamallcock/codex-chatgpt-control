@@ -3,8 +3,8 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from codex_chatgpt_control import ChatGPT, ChatGPTResponse
-from codex_chatgpt_control.responses import ResponsesClient, validate_responses_create_args
+from codex_chatgpt_control import ChatGPT, ChatGPTResponse, ChatGPTRunResult
+from codex_chatgpt_control.responses import ResponsesClient, response_from_run_result, validate_responses_create_args
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,6 +34,10 @@ class ResponsesTests(unittest.TestCase):
         validation = validate_responses_create_args({
             "input": "hi",
             "thread": {"type": "new"},
+            "existing_tab": True,
+            "prefer_existing_tab": True,
+            "experience": "work",
+            "configuration": {"model": "GPT-5.6 Sol", "effort": "High"},
             "attachments": [{"path": "/tmp/a.txt"}],
             "mode": {"model": "auto"},
             "tools": [{"tool": "web_search"}],
@@ -108,6 +112,79 @@ class ResponsesTests(unittest.TestCase):
             "text": {"format": "markdown"},
             "stream": False,
         })])
+
+    def test_existing_tab_fields_are_normalized_for_backend(self) -> None:
+        backend = FakeResponsesBackend()
+        client = ResponsesClient(backend=backend, now=lambda: FIXED_NOW)
+
+        response = client.create(input="hi", existing_tab=True, prefer_existing_tab=True)
+
+        self.assertEqual(response.status, "ok")
+        self.assertEqual(backend.requests[0], ("responses.create", {
+            "input": "hi",
+            "existingTab": True,
+            "preferExistingTab": True,
+        }))
+
+    def test_surface_fields_are_normalized_for_backend(self) -> None:
+        backend = FakeResponsesBackend()
+        client = ResponsesClient(backend=backend, now=lambda: FIXED_NOW)
+
+        response = client.create(
+            input="hi",
+            experience="work",
+            configuration={
+                "model": "GPT-5.6 Sol",
+                "model_version": "5.6",
+            },
+        )
+
+        self.assertEqual(response.status, "ok")
+        self.assertEqual(backend.requests[0], ("responses.create", {
+            "input": "hi",
+            "experience": "work",
+            "configuration": {
+                "model": "GPT-5.6 Sol",
+                "modelVersion": "5.6",
+            },
+        }))
+
+    def test_response_from_run_result_preserves_running_status_metadata(self) -> None:
+        result = ChatGPTRunResult.from_wire({
+            "ok": False,
+            "status": "partial",
+            "data": {
+                "outputText": "partial",
+                "completionState": "generating",
+                "generationActive": True,
+            },
+            "output_text": "partial",
+            "output": [{
+                "type": "message.in_progress",
+                "role": "assistant",
+                "preview": "partial",
+                "output_text": "partial",
+                "format": "markdown",
+                "completionState": "generating",
+                "generationActive": True,
+            }],
+            "newItems": [],
+            "interruptions": [],
+            "state": {
+                "id": "state-1",
+                "resumable": True,
+                "completionState": "generating",
+            },
+            "activeAgentName": "agent",
+            "lastAgentName": "agent",
+            "warnings": [],
+            "context": {"timestamp": "2026-06-06T00:00:00.000Z"},
+        })
+
+        response = response_from_run_result(result, FIXED_NOW)
+
+        self.assertEqual(response.browser_control["completionState"], "generating")
+        self.assertEqual(response.browser_control["generationActive"], True)
 
     def test_chatgpt_exposes_responses_client(self) -> None:
         backend = FakeResponsesBackend()

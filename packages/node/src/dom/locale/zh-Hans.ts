@@ -6,7 +6,7 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
+ * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
  */
 export const zhHans = {
   composerTextbox: ["有问题，尽管问"],
@@ -34,4 +34,5 @@ export const zhHans = {
   },
   signedInMarkers: ["新聊天", "搜索聊天", "最近", "历史聊天记录", "项目", "有问题，尽管问"],
   responseActions: ["复制回复"],
+  stopControl: ["停止回答"],
 } satisfies LocaleContribution;

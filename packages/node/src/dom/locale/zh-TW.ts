@@ -7,7 +7,7 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 from a visible ChatGPT Pro session.
+ * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
  */
 export const zhTW = {
   composerTextbox: ["與 ChatGPT 對話"],
@@ -35,4 +35,5 @@ export const zhTW = {
   },
   signedInMarkers: ["新對話", "搜尋對話", "最近的對話", "圖庫", "專案", "與 ChatGPT 對話"],
   responseActions: ["複製回應"],
+  stopControl: ["停止回應"],
 } satisfies LocaleContribution;

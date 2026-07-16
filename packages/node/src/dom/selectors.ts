@@ -51,7 +51,12 @@ export function composerTextbox(page: PageLike): LocatorLike {
   if (typeof page.getByRole !== "function") {
     return requiredLocator(page, "[contenteditable='true'], textarea");
   }
-  return page.getByRole("textbox", { name: anyLabelPattern(localeLabels.composerTextbox) });
+  return page.getByRole("textbox", {
+    name: anyLabelPattern([
+      ...localeLabels.composerTextbox,
+      ...localeLabels.workComposerTextbox
+    ])
+  });
 }
 
 export function sendButton(page: PageLike): LocatorLike {

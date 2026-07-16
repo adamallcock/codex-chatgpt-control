@@ -104,6 +104,7 @@ async function main() {
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control-backend.mjs"),
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control-live-smoke.bundle.mjs"),
     path.join(pluginRoot, "skills/codex-chatgpt-control/SKILL.md"),
+    path.join(pluginRoot, "skills/chatgpt-delegate/SKILL.md"),
     path.join(pluginRoot, "skills/chatgpt-pro-consult/SKILL.md")
   ];
   for (const file of requiredFiles) {
@@ -128,10 +129,13 @@ async function main() {
   await assertReferencedAsset(pluginRoot, manifest.interface?.composerIcon, "Plugin composerIcon", 64);
 
   const broadSkill = await readFile(path.join(pluginRoot, "skills/codex-chatgpt-control/SKILL.md"), "utf8");
+  const delegateSkill = await readFile(path.join(pluginRoot, "skills/chatgpt-delegate/SKILL.md"), "utf8");
   const proSkill = await readFile(path.join(pluginRoot, "skills/chatgpt-pro-consult/SKILL.md"), "utf8");
   assert(broadSkill.includes("name: codex-chatgpt-control"), "Broad skill frontmatter missing name");
+  assert(delegateSkill.includes("name: chatgpt-delegate"), "Delegate skill frontmatter missing name");
   assert(proSkill.includes("name: chatgpt-pro-consult"), "Pro skill frontmatter missing name");
   assert(broadSkill.includes("../../runtime/import-chatgpt-control.mjs"), "Broad skill must use plugin runtime loader");
+  assert(delegateSkill.includes("../../runtime/import-chatgpt-control.mjs"), "Delegate skill must use plugin runtime loader");
   assert(proSkill.includes("../../runtime/import-chatgpt-control.mjs"), "Pro skill must use plugin runtime loader");
   assert(!proSkill.includes("~/.codex/skills/"), "Pro skill must not depend on an installed skill runtime");
 

@@ -9,7 +9,9 @@ import type { LocaleStrings } from "./types.js";
  */
 export const en = {
   // --- Primary interaction path (accessible names) ---
-  composerTextbox: ["Chat with ChatGPT"],
+  composerTextbox: ["Chat with ChatGPT", "Ask ChatGPT"],
+  workComposerTextbox: ["Work on anything", "Work on something"],
+  newWork: ["Work on something else", "New work", "New task"],
   sendButton: ["Send prompt"],
   searchChatsButton: ["Search chats"],
   searchChatsPlaceholder: ["Search chats..."],
@@ -39,10 +41,35 @@ export const en = {
     medium: ["Medium"],
     high: ["High"],
     extraHigh: ["Extra High"],
-    pro: ["Pro", "Pro Extended", "Extended Pro"],
+    pro: ["Pro", "Pro Extended", "Pro • Extended", "Extended Pro"],
   },
   /** Extra openers that surface the mode menu but are not selectable modes themselves. */
   modeOpenerExtra: ["Configure"],
+
+  // --- Chat / Work surfaces and capability-driven configuration ---
+  experienceOptions: {
+    chat: ["Chat", "Quick chat"],
+    work: ["Work"],
+  },
+  configurationAxes: {
+    model: ["Model"],
+    intelligence: ["Intelligence"],
+    effort: ["Effort"],
+    speed: ["Speed"],
+    advanced: ["Advanced"],
+  },
+  configurationOptions: {
+    instant: ["Instant"],
+    light: ["Light"],
+    medium: ["Medium"],
+    high: ["High"],
+    extraHigh: ["Extra High"],
+    max: ["Max"],
+    ultra: ["Ultra"],
+    pro: ["Pro"],
+    standard: ["Standard"],
+    fast: ["Fast"],
+  },
 
   // --- Thread/action menu rejection (wrong-menu veto for mode selection) ---
   /** Exact thread/conversation action menu items; a menu containing these is not the mode menu. */

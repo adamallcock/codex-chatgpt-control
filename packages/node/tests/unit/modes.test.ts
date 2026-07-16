@@ -83,6 +83,22 @@ describe("mode and tool selection blockers", () => {
     });
   });
 
+  it("accepts Pro bullet Extended as a direct model alias", async () => {
+    const page = menuPage(
+      ["Instant", "Thinking • Extended", "Pro • Extended"],
+      ["Pro • Extended"],
+      { "Pro • Extended": "model-switcher-gpt-5-5-pro" }
+    );
+
+    const result = await setMode({ page }, { model: "Pro • Extended" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["Pro • Extended"],
+      candidates: ["Instant", "Thinking • Extended", "Pro • Extended"]
+    });
+  });
+
   it("opens the new intelligence picker from the current High button and selects Pro", async () => {
     const page = intelligencePickerPage({ current: "High" });
 
@@ -352,6 +368,33 @@ describe("mode and tool selection blockers", () => {
         { label: "o3" }
       ]
     });
+  });
+
+  it("does not report a model-family submenu opener as a selected model version", async () => {
+    const page = intelligencePickerPage({
+      current: "Pro",
+      versionFamilyLabel: "GPT-5.6 Sol"
+    });
+
+    const result = await setMode({ page }, { modelVersion: "GPT-5.6 Sol" });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("unsupported");
+    expect(result.blocker?.message).toContain('Model version "GPT-5.6 Sol"');
+    expect(result.blocker?.candidates).toContainEqual({ label: "5.5" });
+  });
+
+  it("selects a same-label model child without counting its parent submenu opener", async () => {
+    const page = intelligencePickerPage({
+      current: "Pro",
+      versionFamilyLabel: "GPT-5.6 Sol",
+      versionLabels: ["GPT-5.6 Sol", "5.5"]
+    });
+
+    const result = await setMode({ page }, { modelVersion: "GPT-5.6 Sol" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.selected).toEqual(["GPT-5.6 Sol"]);
   });
 
   it("waits for the mode opener after a new thread render", async () => {
@@ -707,12 +750,16 @@ function intelligencePickerPage({
   current,
   labels = ["Instant", "Medium", "High", "Extra High", "Pro"],
   closeOnIntelligenceSelection = false,
-  versionSubmenuTrigger = "click"
+  versionSubmenuTrigger = "click",
+  versionFamilyLabel = "GPT-5.5",
+  versionLabels = ["5.5", "5.4", "5.3", "5.2", "4.5", "o3"]
 }: {
   current: string;
   labels?: string[];
   closeOnIntelligenceSelection?: boolean;
   versionSubmenuTrigger?: "click" | "pointer";
+  versionFamilyLabel?: string;
+  versionLabels?: string[];
 }): PageLike {
   let currentLabel = current;
   let mainOpen = false;
@@ -724,16 +771,13 @@ function intelligencePickerPage({
     { label: labels[2] ?? "High", role: "menuitemradio", checked: current === (labels[2] ?? "High") },
     { label: labels[3] ?? "Extra High", role: "menuitemradio", checked: current === (labels[3] ?? "Extra High") },
     { label: labels[4] ?? "Pro", role: "menuitemradio", checked: current === (labels[4] ?? "Pro") },
-    { label: "GPT-5.5", role: "menuitem", hasPopup: true, rect: gptRowRect }
+    { label: versionFamilyLabel, role: "menuitem", hasPopup: true, rect: gptRowRect }
   ];
-  const versionItems: FakeMenuItem[] = [
-    { label: "5.5", role: "menuitemradio", checked: true },
-    { label: "5.4", role: "menuitemradio", checked: false },
-    { label: "5.3", role: "menuitemradio", checked: false },
-    { label: "5.2", role: "menuitemradio", checked: false },
-    { label: "4.5", role: "menuitemradio", checked: false },
-    { label: "o3", role: "menuitemradio", checked: false }
-  ];
+  const versionItems: FakeMenuItem[] = versionLabels.map((label, index) => ({
+    label,
+    role: "menuitemradio",
+    checked: index === 0
+  }));
   const missing: LocatorLike = {
     count: async () => 0,
     click: async () => {},
@@ -746,15 +790,18 @@ function intelligencePickerPage({
     },
     filter: () => opener
   };
-  const locatorForItem = (label: string): LocatorLike => {
-    const item = [...mainItems, ...versionItems].find(candidate => candidate.label === label);
+  const locatorForItem = (label: string, role?: string): LocatorLike => {
+    const item = [...mainItems, ...versionItems].find(candidate =>
+      candidate.label === label
+      && (role === undefined || candidate.role === role)
+    );
     if (item === undefined || (!mainOpen && mainItems.includes(item)) || (!modelSubmenuOpen && versionItems.includes(item))) {
       return missing;
     }
     return {
       count: async () => 1,
       click: async () => {
-        if (item.label === "GPT-5.5" && versionSubmenuTrigger === "click") {
+        if (item.label === versionFamilyLabel && versionSubmenuTrigger === "click") {
           modelSubmenuOpen = true;
         } else if (mainItems.includes(item) && item.role === "menuitemradio") {
           currentLabel = item.label;
@@ -764,14 +811,14 @@ function intelligencePickerPage({
           }
         }
       },
-      filter: () => locatorForItem(label)
+      filter: () => locatorForItem(label, role)
     };
   };
 
   return {
-    getByRole: (_role, options) => {
+    getByRole: (role, options) => {
       const name = String((options as { name?: unknown } | undefined)?.name ?? "");
-      return name === currentLabel ? opener : locatorForItem(name);
+      return role === "button" && name === currentLabel ? opener : locatorForItem(name, role);
     },
     getByText: label => locatorForItem(String(label)),
     locator: selector => ({

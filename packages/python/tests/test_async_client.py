@@ -145,6 +145,16 @@ class AsyncClientTests(unittest.IsolatedAsyncioTestCase):
 
         ask = await chatgpt.ask(prompt="hi")
         bootstrap = await chatgpt.session.bootstrap(prefer_existing_tab=False)
+        experience = await chatgpt.experience.detect()
+        opened = await chatgpt.experience.open(experience="work")
+        configuration = await chatgpt.configuration.apply(
+            experience="work",
+            desired={"model": "GPT-5.6 Sol", "model_version": "5.6"},
+        )
+        work_start = await chatgpt.work.start(prompt="Analyze.", new_task=True)
+        work_status = await chatgpt.work.status(include_artifacts=False)
+        work_artifact = await chatgpt.work.artifacts.list_latest(kind="image")
+        status = await chatgpt.messages.status(max_preview_chars=120)
         artifact = await chatgpt.artifacts.wait(kind="image", require_download=True)
         project_sources = await chatgpt.projects.sources.plan_add(
             project_url="https://chatgpt.com/g/g-p-example/project",
@@ -159,6 +169,13 @@ class AsyncClientTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(ask.data["command"], "ask")
         self.assertEqual(bootstrap.data["command"], "session.bootstrap")
+        self.assertEqual(experience.data["command"], "experience.detect")
+        self.assertEqual(opened.data["command"], "experience.open")
+        self.assertEqual(configuration.data["command"], "configuration.apply")
+        self.assertEqual(work_start.data["command"], "work.start")
+        self.assertEqual(work_status.data["command"], "work.status")
+        self.assertEqual(work_artifact.data["command"], "artifacts.listLatest")
+        self.assertEqual(status.data["command"], "messages.status")
         self.assertEqual(artifact.data["command"], "artifacts.wait")
         self.assertEqual(project_sources.data["command"], "projects.sources.planAdd")
         self.assertEqual(mode_set.data["command"], "modes.set")
@@ -170,6 +187,13 @@ class AsyncClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([request[0] for request in backend.requests], [
             "ask",
             "session.bootstrap",
+            "experience.detect",
+            "experience.open",
+            "configuration.apply",
+            "work.start",
+            "work.status",
+            "artifacts.listLatest",
+            "messages.status",
             "artifacts.wait",
             "projects.sources.planAdd",
             "modes.set",
@@ -179,8 +203,15 @@ class AsyncClientTests(unittest.IsolatedAsyncioTestCase):
             "describe",
             "help",
         ])
-        self.assertEqual(backend.requests[4][1], {"model": "Pro"})
-        self.assertEqual(backend.requests[5][1], {})
+        self.assertEqual(
+            next(payload for command, payload in backend.requests if command == "configuration.apply"),
+            {
+                "experience": "work",
+                "desired": {"model": "GPT-5.6 Sol", "modelVersion": "5.6"},
+            },
+        )
+        self.assertEqual(next(payload for command, payload in backend.requests if command == "modes.set"), {"model": "Pro"})
+        self.assertEqual(next(payload for command, payload in backend.requests if command == "modes.get"), {})
 
     async def test_legacy_async_runner_fallback_still_runs(self) -> None:
         transport = FakeLegacyAsyncTransport()
