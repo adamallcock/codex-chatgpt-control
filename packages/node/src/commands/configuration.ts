@@ -323,9 +323,7 @@ async function inspectWorkAxisOptions(page: PageLike, axis: ConfigurationAxis): 
     return [];
   }
   await page.waitForTimeout?.(120);
-  const items = await enumerateVisibleMenuItems(page);
-  const options = items
-    .filter(item => !isConfigurationAxisRow(item.label))
+  const options = filterWorkAxisOptions(await enumerateVisibleMenuItems(page), axis)
     .map(menuItemToOption);
   await page.keyboard?.press?.("Escape");
   await page.waitForTimeout?.(80);
@@ -345,13 +343,53 @@ async function selectWorkAxis(
     return undefined;
   }
   await page.waitForTimeout?.(120);
-  const candidates = await enumerateVisibleMenuItems(page);
+  const candidates = filterWorkAxisOptions(await enumerateVisibleMenuItems(page), axis);
   const match = findConfigurationOption(candidates, requested);
   if (match === undefined || !await clickVisibleMenuItem(page, match)) {
     return undefined;
   }
   await page.waitForTimeout?.(150);
   return match.label;
+}
+
+function filterWorkAxisOptions(items: MenuItem[], axis: ConfigurationAxis): MenuItem[] {
+  return items.filter(item => {
+    if (isConfigurationAxisRow(item.label)) return false;
+
+    // Current Work submenus are radio-like choices while the still-visible
+    // parent menu can contribute action rows such as "Reset to default".
+    // Prefer that structural distinction so localized action text cannot be
+    // mistaken for a model, effort, or speed value.
+    if (item.checked !== undefined || item.role === "menuitemradio" || item.role === "option") {
+      return true;
+    }
+
+    // Older/text-only menu snapshots do not expose roles or aria-checked.
+    // Retain only labels that are semantically valid for the requested axis.
+    return workAxisOptionLabelMatches(axis, item.label);
+  });
+}
+
+function workAxisOptionLabelMatches(axis: ConfigurationAxis, label: string): boolean {
+  if (axis === "model") {
+    return /\b(?:gpt[\s-]?\d|sol|luna|terra)\b/i.test(label);
+  }
+  const candidates = axis === "effort"
+    ? [
+        ...localeLabels.configurationOptions.light,
+        ...localeLabels.configurationOptions.medium,
+        ...localeLabels.configurationOptions.high,
+        ...localeLabels.configurationOptions.extraHigh,
+        ...localeLabels.configurationOptions.max,
+        ...localeLabels.configurationOptions.ultra,
+      ]
+    : axis === "speed"
+      ? [
+          ...localeLabels.configurationOptions.standard,
+          ...localeLabels.configurationOptions.fast,
+        ]
+      : [];
+  return candidates.some(candidate => visibleLabelMatches(label, candidate));
 }
 
 async function selectChatAxis(

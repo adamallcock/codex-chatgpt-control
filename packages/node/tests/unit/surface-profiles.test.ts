@@ -324,6 +324,49 @@ describe("sanitized Chat and Work surface profiles", () => {
       "speed"
     ]);
   });
+
+  it("excludes parent-menu actions from Work axis options", async () => {
+    const page = configurableWorkPage();
+
+    const result = await inspectConfiguration({ page }, {
+      experience: "work",
+      includeOptions: true,
+      timeoutMs: 100
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.options.model?.map(option => option.label)).toEqual([
+      "GPT-5.6 Sol",
+      "GPT-5.6 Terra",
+      "GPT-5.6 Luna"
+    ]);
+    expect(result.data?.options.effort?.map(option => option.label)).toEqual([
+      "Light",
+      "Medium",
+      "High",
+      "Extra High",
+      "Max",
+      "Ultra"
+    ]);
+    expect(result.data?.options.speed?.map(option => option.label)).toEqual([
+      "Standard",
+      "Fast"
+    ]);
+  });
+
+  it("does not accept a parent-menu reset action as an effort value", async () => {
+    const page = configurableWorkPage();
+
+    const result = await applyConfiguration({ page }, {
+      experience: "work",
+      desired: { effort: "Reset to default" },
+      timeoutMs: 100
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("unsupported");
+    expect(result.blocker?.code).toBe("configuration_option_not_found");
+  });
 });
 
 async function readSurfaceFixture(name: string): Promise<TestSurfaceProfileFixture> {
@@ -630,15 +673,22 @@ function configurableWorkPage(): ConfigurableWorkPage {
       }
       if (source.includes("allRoleNodes") && source.includes("scopedRoleNodes")) {
         const items = openAxis === undefined
-          ? (["model", "effort", "speed"] as const).map(axis => ({
-              label: `${axis[0]!.toUpperCase()}${axis.slice(1)} ${values[axis]}`,
-              role: "menuitem"
-            }))
-          : options[openAxis].map(label => ({
-              label,
-              role: "menuitemradio",
-              checked: values[openAxis!] === label
-            }));
+          ? [
+              { label: "Reset to default", role: "menuitem" },
+              ...(["model", "effort", "speed"] as const).map(axis => ({
+                label: `${axis[0]!.toUpperCase()}${axis.slice(1)} ${values[axis]}`,
+                role: "menuitem",
+                hasPopup: true
+              }))
+            ]
+          : [
+              { label: "Reset to default", role: "menuitem" },
+              ...options[openAxis].map(label => ({
+                label,
+                role: "menuitemradio",
+                checked: values[openAxis!] === label
+              }))
+            ];
         return { items, labels: [], split: false } as T;
       }
       throw new Error(`Unexpected evaluate call: ${source}`);
