@@ -4,11 +4,11 @@
 import { createInterface } from "node:readline";
 
 // src/commands/artifacts.ts
-import { copyFile, mkdir as mkdir2, stat as stat2, writeFile } from "node:fs/promises";
+import { copyFile as copyFile2, mkdir as mkdir2, stat as stat2, writeFile } from "node:fs/promises";
 import { basename as basename2, join as join2, resolve as resolve2 } from "node:path";
 
 // src/browser/downloads.ts
-import { mkdir, stat } from "node:fs/promises";
+import { copyFile, mkdir, stat } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 
 // src/commands/timeouts.ts
@@ -30,7 +30,7 @@ function localGuardTimeout(timeoutMs, capMs) {
 }
 
 // src/browser/downloads.ts
-async function waitForDownloadFromClick(page, click, destDir, timeoutMs) {
+async function waitForDownloadFromClick(page, click, destDir, timeoutMs, filenameHint) {
   const absoluteDest = resolve(destDir);
   await mkdir(absoluteDest, { recursive: true });
   const downloadPromise = page.waitForEvent?.("download", { timeout: timeoutMs, timeoutMs });
@@ -43,12 +43,17 @@ async function waitForDownloadFromClick(page, click, destDir, timeoutMs) {
     "Download control click did not complete before the local guard timeout."
   );
   const download = await downloadPromise;
-  const suggestedFilename = download.suggestedFilename?.() ?? `chatgpt-download-${Date.now()}`;
+  const sourcePath = typeof download.path === "function" ? await download.path() : null;
+  const suggestedFilename = filenameHint ?? download.suggestedFilename?.() ?? (sourcePath === null ? void 0 : basename(sourcePath)) ?? `chatgpt-download-${Date.now()}`;
   const targetPath = join(absoluteDest, basename(suggestedFilename));
   if (typeof download.saveAs === "function") {
     await download.saveAs(targetPath);
+  } else if (sourcePath !== null) {
+    if (resolve(sourcePath) !== resolve(targetPath)) {
+      await copyFile(sourcePath, targetPath);
+    }
   } else {
-    throw new Error("The browser download object does not expose saveAs().");
+    throw new Error("The browser download object exposes neither saveAs() nor a completed local path().");
   }
   const saved = await stat(targetPath);
   if (saved.size <= 0) {
@@ -4236,7 +4241,7 @@ async function saveLatestPageAssetImageFromPage(page, destDir, timeoutMs) {
   await mkdir2(absoluteDest, { recursive: true });
   const suggestedFilename = `generated-image-${Date.now()}.${extensionForMime(asset.contentType ?? "image/png")}`;
   const path3 = join2(absoluteDest, suggestedFilename);
-  await copyFile(asset.path, path3);
+  await copyFile2(asset.path, path3);
   const saved = await stat2(path3);
   if (saved.size <= 0) {
     throw new Error(`Generated image artifact file is empty: ${path3}`);
@@ -4925,6 +4930,24 @@ async function downloadLatestFile(env, args) {
   }
   const page = env.page;
   try {
+    const generatedFileDownload = await tryGeneratedFilePreviewDownload(page, args);
+    if (generatedFileDownload !== void 0) {
+      return generatedFileDownload;
+    }
+    if (args.filenamePattern !== void 0) {
+      return {
+        ok: false,
+        status: "unsupported",
+        warnings: [],
+        blocker: {
+          kind: "download_unavailable",
+          code: "download_filename_not_found",
+          message: `No visible ChatGPT file affordance matched filenamePattern ${JSON.stringify(args.filenamePattern)}.`,
+          resumable: true
+        },
+        context: await contextFromPage(page)
+      };
+    }
     const controls = requiredLocator(page, cssSelectors.downloadControls);
     let count;
     try {
@@ -4972,6 +4995,152 @@ async function downloadLatestFile(env, args) {
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
+}
+async function tryGeneratedFilePreviewDownload(page, args) {
+  const timeoutMs = args.timeoutMs ?? 12e4;
+  const candidates = await inspectGeneratedFileAffordances(page, localGuardTimeout(timeoutMs, 5e3));
+  const selected = selectGeneratedFileAffordance(candidates, args);
+  if (selected === void 0) return void 0;
+  try {
+    const assistantMessages = requiredLocator(page, cssSelectors.assistantMessages);
+    const assistantCount = await locatorCountWithTimeout(
+      assistantMessages,
+      localGuardTimeout(timeoutMs, 5e3),
+      "generated_file_assistant_count_timeout"
+    );
+    if (selected.assistantIndex < 0 || selected.assistantIndex >= assistantCount) {
+      throw new Error("The selected generated-file assistant turn is no longer present.");
+    }
+    const assistant = assistantMessages.nth?.(selected.assistantIndex) ?? assistantMessages;
+    const role = selected.tag === "button" ? "button" : "link";
+    const affordance = assistant.getByRole?.(role, { name: selected.filename, exact: true }) ?? assistant.locator?.(`${selected.tag}[aria-label="${escapeCssAttribute(selected.filename)}"]`);
+    const affordanceCount = await locatorCountWithTimeout(
+      affordance,
+      localGuardTimeout(timeoutMs, 5e3),
+      "generated_file_affordance_count_timeout"
+    );
+    if (affordance === void 0 || affordanceCount !== 1 || typeof affordance.click !== "function") {
+      throw new Error(`Expected one clickable generated-file affordance for ${selected.filename}, found ${affordanceCount}.`);
+    }
+    if (selected.tag === "a") {
+      const downloaded2 = await waitForDownloadFromClick(
+        page,
+        () => affordance.click({ timeoutMs: localGuardTimeout(timeoutMs, 1e4) }),
+        args.destDir,
+        timeoutMs,
+        selected.filename
+      );
+      return resultOk(downloaded2, await contextFromPage(page));
+    }
+    await affordance.click({ timeoutMs: localGuardTimeout(timeoutMs, 1e4) });
+    const preview = requiredLocator(page, `section[aria-label="${escapeCssAttribute(selected.filename)}"]`);
+    const download = await waitForPreviewDownloadControl(page, preview, timeoutMs);
+    if (download === void 0) {
+      throw new Error(`The artifact preview for ${selected.filename} did not expose a visible Download control.`);
+    }
+    const downloaded = await waitForDownloadFromClick(
+      page,
+      async () => download.click?.({ timeoutMs: localGuardTimeout(timeoutMs, 1e4) }),
+      args.destDir,
+      timeoutMs,
+      selected.filename
+    );
+    return resultOk(downloaded, await contextFromPage(page));
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+async function inspectGeneratedFileAffordances(page, timeoutMs) {
+  if (typeof page.evaluate === "function") {
+    const fromDom = await withTimeout(
+      page.evaluate(() => {
+        const visible = (element) => {
+          let current = element;
+          while (current !== null) {
+            const html2 = current;
+            const style = window.getComputedStyle(html2);
+            const rect = html2.getBoundingClientRect();
+            if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity || "1") <= 0) return false;
+            if (current === element && (rect.width <= 0 || rect.height <= 0)) return false;
+            current = current.parentElement;
+          }
+          return true;
+        };
+        const fileLike = (value) => /^[^\\/\r\n]{1,255}\.[a-z0-9][a-z0-9._-]{0,15}$/i.test(value);
+        const assistants = Array.from(document.querySelectorAll("[data-message-author-role='assistant']"));
+        return assistants.flatMap((assistant, assistantIndex) => Array.from(assistant.querySelectorAll("button[aria-label], a[download], a[href*='/backend-api/files/']")).filter(visible).map((element) => ({
+          assistantIndex,
+          filename: (element.getAttribute("aria-label") ?? element.textContent ?? "").trim(),
+          tag: element.tagName.toLocaleLowerCase(),
+          text: (element.textContent ?? "").trim()
+        })).filter((item) => (item.tag === "button" || item.tag === "a") && fileLike(item.filename) && item.filename === item.text).map(({ assistantIndex: assistantIndex2, filename, tag }) => ({ assistantIndex: assistantIndex2, filename, tag })));
+      }),
+      timeoutMs,
+      "Timed out while inspecting generated-file buttons."
+    ).catch(() => void 0);
+    if (Array.isArray(fromDom)) return fromDom;
+  }
+  if (typeof page.content !== "function") return [];
+  const html = await withTimeout(
+    page.content(),
+    timeoutMs,
+    "Timed out while reading generated-file button markup."
+  ).catch(() => "");
+  const candidates = [];
+  const buttonPattern = /<(button|a)\b[^>]*\baria-label=(['"])(.*?)\2[^>]*>([\s\S]*?)<\/\1>/gi;
+  let match;
+  while ((match = buttonPattern.exec(html)) !== null) {
+    const filename = decodeBasicHtml(match[3] ?? "").trim();
+    const text = decodeBasicHtml((match[4] ?? "").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+    if (/^[^\\/\r\n]{1,255}\.[a-z0-9][a-z0-9._-]{0,15}$/i.test(filename) && filename === text) {
+      candidates.push({ assistantIndex: 0, filename, tag: (match[1] ?? "button").toLocaleLowerCase() });
+    }
+  }
+  return candidates;
+}
+function selectGeneratedFileAffordance(candidates, args) {
+  let scoped = candidates;
+  const from = args.from;
+  if (typeof from === "object" && from !== null) {
+    scoped = scoped.filter((candidate) => candidate.assistantIndex === from.assistantIndex);
+  } else if (from !== "visible_conversation") {
+    const latestAssistant = Math.max(-1, ...scoped.map((candidate) => candidate.assistantIndex));
+    scoped = scoped.filter((candidate) => candidate.assistantIndex === latestAssistant);
+  }
+  if (args.filenamePattern !== void 0) {
+    scoped = scoped.filter((candidate) => filenameMatches(candidate.filename, args.filenamePattern));
+  }
+  return scoped.at(-1);
+}
+function filenameMatches(filename, pattern) {
+  try {
+    return new RegExp(pattern, "i").test(filename);
+  } catch {
+    return filename.toLocaleLowerCase().includes(pattern.toLocaleLowerCase());
+  }
+}
+async function waitForPreviewDownloadControl(page, preview, timeoutMs) {
+  const deadline = Date.now() + Math.min(timeoutMs, 15e3);
+  while (Date.now() < deadline) {
+    for (const label of localeLabels.download) {
+      const control = preview.getByRole?.("button", { name: label, exact: true }) ?? preview.locator?.(`button[aria-label="${escapeCssAttribute(label)}"]`);
+      if (await locatorCountWithTimeout(control, localGuardTimeout(timeoutMs, 2e3), "artifact_preview_download_count_timeout") === 1) {
+        return control;
+      }
+    }
+    if (typeof page.waitForTimeout === "function") {
+      await page.waitForTimeout(100);
+    } else {
+      await new Promise((resolve3) => setTimeout(resolve3, 100));
+    }
+  }
+  return void 0;
+}
+function escapeCssAttribute(value) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/[\r\n]/g, " ");
+}
+function decodeBasicHtml(value) {
+  return value.replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/&amp;/gi, "&");
 }
 async function setHiddenFileInput(page, files) {
   if (page === void 0) {
@@ -10310,6 +10479,7 @@ function primitiveArgs(name) {
   if (name === "artifacts.listLatest") return { kind: "artifact kind; currently image", max: "maximum artifacts to return" };
   if (name === "artifacts.wait") return { kind: "artifact kind; currently image", afterArtifactCount: "baseline artifact count", requireDownload: "wait until a download affordance is visible" };
   if (name === "artifacts.downloadLatest") return { destDir: "download destination directory", prefer: "download_control or visible_image_source" };
+  if (name === "files.downloadLatest") return { destDir: "download destination directory", filenamePattern: "optional case-insensitive regular expression for the expected filename", from: "latest_assistant, visible_conversation, or assistantIndex" };
   if (name === "response.copy") return { prefer: "clipboard or dom", format: "markdown, normalized_text, visible_text, html, blocks, or all" };
   if (name.startsWith("threads.search")) return { query: "history search query" };
   if (name === "files.preflight") return {
@@ -10378,6 +10548,9 @@ function primitiveExamples(name) {
       `await chatgpt.files.attach({ paths: ["/absolute/host/path.jpg"] });`,
       String.raw`// On Windows backend hosts, use paths such as C:\Users\you\Pictures\image.jpg.`
     ];
+  }
+  if (name === "files.downloadLatest") {
+    return [`await chatgpt.files.downloadLatest({ destDir: "/absolute/host/output", filenamePattern: "^report\\.csv$" });`];
   }
   if (name === "projects.sources.list") {
     return [`await chatgpt.projects.sources.list({ projectUrl: "https://chatgpt.com/g/g-p-example/project" });`];
