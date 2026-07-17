@@ -8295,6 +8295,7 @@ async function visibleModeButtonLabelList(page) {
 }
 
 // src/commands/experience.ts
+var CHATGPT_HOME2 = "https://chatgpt.com/";
 async function detectExperience(env, args = {}) {
   void args;
   const boot = await ensurePage(env);
@@ -8332,7 +8333,23 @@ async function openExperience(env, args) {
       }));
     }
     const labels = localeLabels.experienceOptions[args.experience];
-    if (!await clickUniqueExperienceControl(page, labels)) {
+    let controlClicked = await clickUniqueExperienceControl(page, labels);
+    if (!controlClicked && await navigateConversationToSurfaceHome(page, args.timeoutMs)) {
+      const atHome = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+      if (atHome.experience === args.experience) {
+        return resultOk({
+          experience: args.experience,
+          previousExperience: before.experience,
+          changed: true,
+          selectorProfile: atHome.selectorProfile
+        }, await contextFromPage(page, {
+          experience: atHome.experience,
+          selectorProfile: atHome.selectorProfile
+        }));
+      }
+      controlClicked = await clickUniqueExperienceControl(page, labels);
+    }
+    if (!controlClicked) {
       return experienceSelectorDrift(
         page,
         `No unique visible ChatGPT ${args.experience === "work" ? "Work" : "Chat"} surface control was found.`,
@@ -8378,12 +8395,33 @@ async function openExperience(env, args) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
 }
+async function navigateConversationToSurfaceHome(page, timeoutMs) {
+  if (page.goto === void 0 || page.url === void 0) return false;
+  const currentUrl = await Promise.resolve(page.url()).catch(() => "");
+  if (!/^https:\/\/chatgpt\.com\/c\//i.test(currentUrl)) return false;
+  await page.goto(CHATGPT_HOME2, {
+    waitUntil: "domcontentloaded",
+    timeout: timeoutMs ?? 3e4
+  });
+  await page.waitForTimeout?.(500);
+  return true;
+}
 function detectExperienceFromSnapshot(snapshot) {
   const evidence = [];
   const composerLabels = snapshot.composerLabels.map(normalizeForLabelMatch);
   const controls = snapshot.mainControls.map(normalizeForLabelMatch);
   const mainText = normalizeForLabelMatch(snapshot.mainText);
+  const selectedSurfaceLabels = (snapshot.selectedSurfaceLabels ?? []).map(normalizeForLabelMatch);
   const url = snapshot.url.toLowerCase();
+  const selectedWork = matchingLabels(selectedSurfaceLabels, localeLabels.experienceOptions.work);
+  const selectedChat = matchingLabels(selectedSurfaceLabels, localeLabels.experienceOptions.chat);
+  const workSurfaceSelected = selectedWork.length > 0 && selectedChat.length === 0;
+  const chatSurfaceSelected = selectedChat.length > 0 && selectedWork.length === 0;
+  if (workSurfaceSelected) {
+    evidence.push({ source: "control", label: "Work surface selected" });
+  } else if (chatSurfaceSelected) {
+    evidence.push({ source: "control", label: "Chat surface selected" });
+  }
   const workComposer = matchingLabels(composerLabels, localeLabels.workComposerTextbox);
   for (const label of workComposer) {
     evidence.push({ source: "composer", label });
@@ -8396,19 +8434,32 @@ function detectExperienceFromSnapshot(snapshot) {
   if (workAxisCount >= 2) {
     evidence.push({ source: "control", label: `Work configuration axes (${workAxisCount}/3)` });
   }
+  const workConfigurationOpener = controls.some(
+    (label) => /\b(?:gpt[\s-]?\d|\d+(?:\.\d+)+|sol|luna|terra)\b/i.test(label) && hasAnyLabel([label], [
+      ...localeLabels.configurationOptions.light,
+      ...localeLabels.configurationOptions.medium,
+      ...localeLabels.configurationOptions.high,
+      ...localeLabels.configurationOptions.extraHigh,
+      ...localeLabels.configurationOptions.max,
+      ...localeLabels.configurationOptions.ultra
+    ])
+  );
+  if (workConfigurationOpener) {
+    evidence.push({ source: "control", label: "Work configuration opener" });
+  }
   if (/\/work(?:\/|$|\?)/.test(url)) {
     evidence.push({ source: "url", label: snapshot.url });
   }
   if (containsAny(mainText, ["work on something else", "work on anything"])) {
     evidence.push({ source: "heading", label: "Work composer copy" });
   }
-  const workScore = workComposer.length * 4 + (workAxisCount >= 2 ? 4 : 0) + (/\/work(?:\/|$|\?)/.test(url) ? 3 : 0) + (containsAny(mainText, ["work on something else", "work on anything"]) ? 2 : 0);
-  const chatScore = chatComposer.length * 4;
+  const workScore = workComposer.length * 4 + (workSurfaceSelected ? 10 : 0) + (workAxisCount >= 2 ? 4 : 0) + (workConfigurationOpener ? 6 : 0) + (/\/work(?:\/|$|\?)/.test(url) ? 3 : 0) + (containsAny(mainText, ["work on something else", "work on anything"]) ? 2 : 0);
+  const chatScore = chatComposer.length * 4 + (chatSurfaceSelected ? 10 : 0);
   let experience = "unknown";
   let confidence = "low";
   if (workScore > chatScore && workScore >= 4) {
     experience = "work";
-    confidence = workScore >= 7 ? "high" : "medium";
+    confidence = workSurfaceSelected || workScore >= 7 ? "high" : "medium";
   } else if (chatScore > workScore && chatScore >= 4) {
     experience = "chat";
     confidence = "high";
@@ -8419,9 +8470,9 @@ function detectExperienceFromSnapshot(snapshot) {
 async function readSurfaceSnapshot(page) {
   const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
   if (typeof page.evaluate !== "function") {
-    return { url, composerLabels: [], mainControls: [], mainText: "" };
+    return { url, composerLabels: [], mainControls: [], mainText: "", selectedSurfaceLabels: [] };
   }
-  const snapshot = await page.evaluate(() => {
+  const snapshot = await page.evaluate((surfaceOptionLabels) => {
     const visible = (element) => {
       const html = element;
       const rect = html.getBoundingClientRect?.();
@@ -8433,6 +8484,8 @@ async function readSurfaceSnapshot(page) {
       return element.getAttribute("aria-label") ?? element.getAttribute("placeholder") ?? html.innerText ?? element.textContent ?? "";
     };
     const normalize = (value) => value.replace(/\s+/g, " ").trim();
+    const normalizeComparable = (value) => normalize(value).toLocaleLowerCase();
+    const wantedSurfaceLabels = new Set(surfaceOptionLabels.map(normalizeComparable));
     const composerRoots = Array.from(document.querySelectorAll(
       "main form, main [data-testid*='composer' i], main [class*='composer' i]"
     ));
@@ -8454,8 +8507,14 @@ async function readSurfaceSnapshot(page) {
       "h1, h2, h3, form, [data-testid*='composer' i], [class*='composer' i]"
     )).filter(visible).slice(0, 32);
     const mainText = normalize(surfaceTextNodes.map(labelFor).join(" ")).slice(0, 2e3);
-    return { composerLabels, mainControls, mainText };
-  }).catch(() => ({ composerLabels: [], mainControls: [], mainText: "" }));
+    const selectedSurfaceLabels = Array.from(new Set(Array.from(document.querySelectorAll(
+      "[role='radio'][aria-checked='true'], [role='radio'][data-state='checked'], input[type='radio']:checked"
+    )).filter(visible).map(labelFor).map(normalize).filter((label) => wantedSurfaceLabels.has(normalizeComparable(label))))).slice(0, 4);
+    return { composerLabels, mainControls, mainText, selectedSurfaceLabels };
+  }, [
+    ...localeLabels.experienceOptions.chat,
+    ...localeLabels.experienceOptions.work
+  ]).catch(() => ({ composerLabels: [], mainControls: [], mainText: "", selectedSurfaceLabels: [] }));
   return { url, ...snapshot };
 }
 function profileFromSnapshot(snapshot, experience) {
@@ -8486,7 +8545,7 @@ function profileFromSnapshot(snapshot, experience) {
 }
 async function clickUniqueExperienceControl(page, labels) {
   for (const label of labels) {
-    for (const role of ["button", "menuitem", "tab", "link"]) {
+    for (const role of ["radio", "button", "menuitem", "tab", "link"]) {
       if (await clickIfUnique2(page.getByRole?.(role, { name: label, exact: true }))) {
         return true;
       }
@@ -8498,14 +8557,21 @@ async function clickUniqueExperienceControl(page, labels) {
   return page.evaluate((wantedLabels) => {
     const normalize = (value) => value.replace(/\s+/g, " ").trim().toLocaleLowerCase();
     const wanted = new Set(wantedLabels.map(normalize));
-    const nodes = Array.from(document.querySelectorAll(
-      "header button, header [role='button'], header [role='tab'], main [role='menuitem'], main [role='option']"
-    ));
-    const matches = nodes.filter((node) => {
+    const visible = (element) => {
+      const html = element;
+      const rect = html.getBoundingClientRect?.();
+      const style = typeof window !== "undefined" ? window.getComputedStyle?.(html) : void 0;
+      return (rect === void 0 || rect.width > 0 && rect.height > 0) && style?.display !== "none" && style?.visibility !== "hidden" && style?.opacity !== "0";
+    };
+    const labelFor = (node) => {
       const html = node;
-      const label = node.getAttribute("aria-label") ?? html.innerText ?? node.textContent ?? "";
-      return wanted.has(normalize(label));
-    });
+      const inputLabels = "labels" in node ? Array.from(node.labels ?? []).map((label) => label.innerText).join(" ") : "";
+      return node.getAttribute("aria-label") || inputLabels || html.innerText || node.textContent || "";
+    };
+    const nodes = Array.from(document.querySelectorAll(
+      "[role='radio'], input[type='radio'], header button, header [role='button'], header [role='tab'], main [role='menuitem'], main [role='option']"
+    ));
+    const matches = nodes.filter((node) => visible(node) && wanted.has(normalize(labelFor(node))));
     if (matches.length !== 1) return false;
     matches[0].click();
     return true;
@@ -8834,6 +8900,9 @@ async function openConfigurationRoot(page, experience) {
   if (configurationMenuLooksRecognized(existingItems, experience, existing.openerLabel)) {
     return true;
   }
+  if (existing.openerLabel !== void 0 && await clickIfUnique3(page.getByRole?.("button", { name: existing.openerLabel, exact: true }))) {
+    return true;
+  }
   if (typeof page.evaluate === "function") {
     const clicked = await page.evaluate((surface) => {
       const normalize = (value) => value.replace(/\s+/g, " ").trim();
@@ -8843,8 +8912,17 @@ async function openConfigurationRoot(page, experience) {
         const style = typeof window !== "undefined" ? window.getComputedStyle?.(html) : void 0;
         return (rect === void 0 || rect.width > 0 && rect.height > 0) && style?.display !== "none" && style?.visibility !== "hidden" && style?.opacity !== "0";
       };
-      const forms = Array.from(document.querySelectorAll("main form, main [data-testid*='composer' i]"));
-      const controls = forms.flatMap((form) => Array.from(form.querySelectorAll("button, [role='button']"))).filter(visible);
+      const composerRoots = Array.from(document.querySelectorAll(
+        "main form, main [data-testid*='composer' i], main [class*='composer' i]"
+      ));
+      const main = document.querySelector("main");
+      const roots = Array.from(/* @__PURE__ */ new Set([
+        ...composerRoots,
+        ...main === null ? [] : [main]
+      ]));
+      const controls = Array.from(new Set(roots.flatMap(
+        (root) => Array.from(root.querySelectorAll("button, [role='button']"))
+      ))).filter(visible);
       const matches = controls.filter((control) => {
         const html = control;
         const label = normalize(control.getAttribute("aria-label") ?? html.innerText ?? control.textContent ?? "");
@@ -8960,8 +9038,17 @@ async function readConfigurationPanel(page) {
         break;
       }
     }
-    const forms = Array.from(document.querySelectorAll("main form, main [data-testid*='composer' i]"));
-    const openerCandidates = forms.flatMap((form) => Array.from(form.querySelectorAll("button, [role='button']"))).filter(visible).map((control) => {
+    const composerRoots = Array.from(document.querySelectorAll(
+      "main form, main [data-testid*='composer' i], main [class*='composer' i]"
+    ));
+    const main = document.querySelector("main");
+    const openerRoots = Array.from(/* @__PURE__ */ new Set([
+      ...composerRoots,
+      ...main === null ? [] : [main]
+    ]));
+    const openerCandidates = Array.from(new Set(openerRoots.flatMap(
+      (root) => Array.from(root.querySelectorAll("button, [role='button']"))
+    ))).filter(visible).map((control) => {
       const html = control;
       return {
         label: normalize(control.getAttribute("aria-label") ?? html.innerText ?? control.textContent ?? ""),
@@ -10099,7 +10186,7 @@ function cloneDescriptor(descriptor) {
 }
 
 // src/commands/conversation.ts
-var CHATGPT_HOME2 = "https://chatgpt.com/";
+var CHATGPT_HOME3 = "https://chatgpt.com/";
 async function ensureConversationTarget(page, target, options) {
   const targetUrl = absoluteConversationUrl(target);
   const expectedConversationId = parseConversationId(targetUrl);
@@ -10129,7 +10216,7 @@ async function waitForConversationHydrated(page, timeoutMs, expectedConversation
 }
 function absoluteConversationUrl(target) {
   if (target.href !== void 0 && target.href.startsWith("/")) {
-    return new URL(target.href, CHATGPT_HOME2).toString();
+    return new URL(target.href, CHATGPT_HOME3).toString();
   }
   return target.href ?? target.url;
 }
@@ -10142,7 +10229,7 @@ function ensureResult(navigated, targetUrl, expectedConversationId) {
 }
 
 // src/commands/threads.ts
-var CHATGPT_HOME3 = "https://chatgpt.com/";
+var CHATGPT_HOME4 = "https://chatgpt.com/";
 function extractThreadSearchResultsFromHtml(html) {
   const anchors = html.matchAll(/<a\b(?<attrs>[^>]*\bhref=["'](?<href>\/c\/[^"']+)["'][^>]*)>(?<body>[\s\S]*?)<\/a>/gi);
   const results = [];
@@ -10203,7 +10290,7 @@ async function newThread(env, args = {}) {
     try {
       await newChatButton(page).click?.();
     } catch {
-      await page.goto?.(CHATGPT_HOME3, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
+      await page.goto?.(CHATGPT_HOME4, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
     }
     await page.waitForTimeout?.(500);
     const state = await readPageState(page);
@@ -10247,21 +10334,21 @@ async function resolveOpenTarget(env, args, previousResults) {
     return { url: args.url };
   }
   if (args.conversationId !== void 0) {
-    return { url: new URL(`/c/${args.conversationId}`, CHATGPT_HOME3).toString() };
+    return { url: new URL(`/c/${args.conversationId}`, CHATGPT_HOME4).toString() };
   }
   if (args.fromStep !== void 0 && previousResults !== void 0) {
     const previous = previousResults.get(args.fromStep);
     const data = previous?.data;
     const selected = selectSearchResult(data?.results ?? [], args.select ?? "first");
     if (selected !== void 0) {
-      return { href: selected.href, url: new URL(selected.href, CHATGPT_HOME3).toString(), title: selected.title };
+      return { href: selected.href, url: new URL(selected.href, CHATGPT_HOME4).toString(), title: selected.title };
     }
   }
   if (args.title !== void 0) {
     const search = await searchThreads(env, { query: args.title, limit: 10 });
     const selected = selectSearchResult(search.data?.results ?? [], { title: args.title }) ?? search.data?.results[0];
     if (selected !== void 0) {
-      return { href: selected.href, url: new URL(selected.href, CHATGPT_HOME3).toString(), title: selected.title };
+      return { href: selected.href, url: new URL(selected.href, CHATGPT_HOME4).toString(), title: selected.title };
     }
   }
   return void 0;
