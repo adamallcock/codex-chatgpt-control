@@ -1,8 +1,6 @@
 ---
 name: chatgpt-pro-consult
 description: Backward-compatible alias for a visible Chat consultation with the Pro intelligence setting; prefer chatgpt-delegate for new Chat or Work delegation workflows.
-metadata:
-  short-description: Legacy visible Chat Pro consultation
 ---
 
 # ChatGPT Pro Consult
@@ -18,6 +16,8 @@ This skill is a thin workflow over the `codex-chatgpt-control` plugin. Use the s
 - This sends prompt and attachment content to ChatGPT web. Do not send secrets, credentials, private source material, financial details, legal evidence, medical details, or sensitive personal data unless the user clearly approved that disclosure.
 - Use only visible ChatGPT web through the Codex/browser bridge. Do not replicate private ChatGPT network calls, read cookies, inspect localStorage/sessionStorage, or extract hidden auth headers.
 - Make Pro selection explicit with `experience: "chat"` and `configuration: { intelligence: "Pro" }`. The strict configuration API handles older and newer visible pickers and verifies the postcondition. If the SDK cannot verify Pro, stop and report the blocker and visible candidate labels.
+- Call `experience.open({ experience: "chat" })` through the workflow even when
+  Work is currently visible; do not assume the current ChatGPT pane is Chat.
 - Prefer a fresh thread unless the user asked to continue a specific ChatGPT thread.
 - Return Markdown by default. Use redacted reports by default; raw prompt/response content is opt-in only.
 - Treat ChatGPT Pro output as another model's judgment, not verified truth. Verify current, legal, medical, financial, or high-stakes claims with primary sources.

@@ -1,8 +1,6 @@
 ---
 name: chatgpt-delegate
 description: Use when Codex should delegate a visible, user-directed task to ChatGPT Chat or Work, including configuration discovery, long-running Work progress, steering, response capture, files, and artifacts.
-metadata:
-  short-description: Delegate to visible ChatGPT Chat or Work
 ---
 
 # ChatGPT Delegate
@@ -38,6 +36,12 @@ If `globalThis.agent` is absent, use the bridge-bootstrap instructions in the br
 - official Codex: local code changes, commands, tests, branches, deployments, or repository-native agents.
 
 Do not choose a surface solely from a model name. Availability varies by account, workspace, locale, and rollout. Inspect the visible capability graph and apply only controls that are actually present.
+
+When the user requests Chat or Work, call `experience.open` for that surface
+before inspecting configuration or submitting. Do not assume the currently
+visible pane is the requested one. The SDK handles the current Chat/Work radio
+selector and returning from an active Work task to the home selector, while
+retaining compatibility fallbacks for older UI shapes.
 
 ```js
 const detected = await chatgpt.experience.detect();
