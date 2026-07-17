@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
@@ -92,6 +93,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const root = detectRoot(args.root);
   const pluginRoot = path.join(root, "plugins/codex-chatgpt-control");
+  const releaseCanary = path.join(pluginRoot, "runtime/node/codex-chatgpt-control-release-canary.bundle.mjs");
   const marketplacePath = path.join(root, ".agents/plugins/marketplace.json");
   const manifestPath = path.join(pluginRoot, ".codex-plugin/plugin.json");
   const releasePackagePath = existsSync(path.join(root, "tools/public-export/root/package.json"))
@@ -106,6 +108,7 @@ async function main() {
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control.bundle.mjs"),
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control-backend.mjs"),
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control-live-smoke.bundle.mjs"),
+    path.join(pluginRoot, "runtime/node/codex-chatgpt-control-release-canary.bundle.mjs"),
     path.join(pluginRoot, "skills/codex-chatgpt-control/SKILL.md"),
     path.join(pluginRoot, "skills/chatgpt-delegate/SKILL.md"),
     path.join(pluginRoot, "skills/chatgpt-pro-consult/SKILL.md")
@@ -113,6 +116,12 @@ async function main() {
   for (const file of requiredFiles) {
     assert(existsSync(file), `Missing required plugin file: ${path.relative(root, file)}`);
   }
+
+  execFileSync(process.execPath, [
+    "--input-type=module",
+    "--eval",
+    `process.argv = undefined; await import(${JSON.stringify(pathToFileURL(releaseCanary).href)});`
+  ], { stdio: "pipe" });
 
   const marketplace = await readJson(marketplacePath);
   assert(marketplace.name === "codex-chatgpt-control", "Marketplace name must be codex-chatgpt-control");

@@ -1,244 +1,10 @@
-// src/scripts/live-smoke/harness.ts
+// src/scripts/release-canary-module.ts
+import { mkdir as mkdir6 } from "node:fs/promises";
+import { join as join6, resolve as resolve4 } from "node:path";
+
+// src/scripts/capture-surface-profile.ts
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-
-// src/safety/redaction.ts
-var EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
-var PHONE_RE = /\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/g;
-var TOKEN_RE = /\b[A-Za-z0-9_-]{32,}\b/g;
-var PATH_RE = /(?:\/Users\/|\/home\/|\/example\/user\/)[^\s"'<>]+/g;
-function redactSensitiveText(text) {
-  return text.replace(EMAIL_RE, "[redacted-email]").replace(PHONE_RE, "[redacted-phone]").replace(PATH_RE, "[redacted-path]").replace(TOKEN_RE, "[redacted-token]");
-}
-function compactVisibleText(text, maxLength = 1e3) {
-  const compacted = redactSensitiveText(text.replace(/\s+/g, " ").trim());
-  if (compacted.length <= maxLength) {
-    return compacted;
-  }
-  return `${compacted.slice(0, maxLength - 1)}...`;
-}
-
-// src/safety/report-redaction.ts
-var DEFAULT_MAX_PREVIEW_CHARS = 240;
-var DEFAULT_MAX_DEPTH = 8;
-var DEFAULT_MAX_ARRAY_ITEMS = 40;
-var DEFAULT_MAX_OBJECT_ENTRIES = 80;
-function redactReportValue(value, options = {}) {
-  return redactValue(value, normalizeOptions(options), 0, /* @__PURE__ */ new WeakSet(), void 0);
-}
-function redactValue(value, options, depth, seen, key) {
-  if (value === void 0 || value === null) return value;
-  if (typeof value === "string") {
-    if (!options.includeContent && key !== void 0 && isSafeControlStringKey(key)) {
-      return value;
-    }
-    if (!options.includeContent) return `[redacted:${value.length} chars]`;
-    return compactVisibleText(redactSensitiveText(value), options.maxPreviewChars);
-  }
-  if (typeof value === "number" || typeof value === "boolean") return value;
-  if (typeof value !== "object") return redactSensitiveText(String(value));
-  if (seen.has(value)) return "[redacted:cycle]";
-  if (depth >= options.maxDepth) return "[redacted:max-depth]";
-  if (!options.includeContent && key !== void 0 && isHeavyContentKey(key)) {
-    return summarizeHeavyValue(value);
-  }
-  seen.add(value);
-  try {
-    if (Array.isArray(value)) {
-      const items = value.slice(0, options.maxArrayItems).map((item) => redactValue(item, options, depth + 1, seen, key));
-      if (value.length > options.maxArrayItems) {
-        items.push(`[redacted:${value.length - options.maxArrayItems} more items]`);
-      }
-      return items;
-    }
-    const entries = Object.entries(value);
-    const kept = entries.slice(0, options.maxObjectEntries).map(([childKey, child]) => [
-      childKey,
-      redactValue(child, options, depth + 1, seen, childKey)
-    ]);
-    if (entries.length > options.maxObjectEntries) {
-      kept.push(["__redactedMoreEntries", entries.length - options.maxObjectEntries]);
-    }
-    return Object.fromEntries(kept);
-  } finally {
-    seen.delete(value);
-  }
-}
-function normalizeOptions(options) {
-  return {
-    includeContent: options.includeContent === true,
-    maxPreviewChars: options.maxPreviewChars ?? DEFAULT_MAX_PREVIEW_CHARS,
-    maxDepth: options.maxDepth ?? DEFAULT_MAX_DEPTH,
-    maxArrayItems: options.maxArrayItems ?? DEFAULT_MAX_ARRAY_ITEMS,
-    maxObjectEntries: options.maxObjectEntries ?? DEFAULT_MAX_OBJECT_ENTRIES
-  };
-}
-function isHeavyContentKey(key) {
-  return /^(text|markdown|html|visibleText|normalizedText|responseText|output_text|outputText|finalOutput|prompt|blocks|tables|codeBlocks|dataPreview)$/i.test(key);
-}
-function summarizeHeavyValue(value) {
-  if (Array.isArray(value)) return `[redacted-array:${value.length} items]`;
-  return "[redacted-object]";
-}
-function isSafeControlStringKey(key) {
-  return /^(schemaVersion|status|startedAt|endedAt|createdAt|timestamp|requiredFailures)$/i.test(key);
-}
-
-// src/scripts/live-smoke/harness.ts
-var CLEANUP_TIMEOUT_MS = 1e4;
-function envFlag(name) {
-  const value = readEnv(name);
-  return value === "1" || value?.toLowerCase() === "true";
-}
-function envText(name) {
-  const value = readEnv(name)?.trim();
-  return value && value.length > 0 ? value : void 0;
-}
-function contextEnvFlag(context, name) {
-  const value = contextEnvText(context, name);
-  return value === "1" || value?.toLowerCase() === "true";
-}
-function contextEnvText(context, name) {
-  const value = context.env?.[name]?.trim() ?? envText(name);
-  return value && value.length > 0 ? value : void 0;
-}
-function readEnv(name) {
-  return typeof process === "undefined" ? void 0 : process.env[name];
-}
-async function runScenario(scenario2, context) {
-  const startedAt = (/* @__PURE__ */ new Date()).toISOString();
-  const startedMs = Date.now();
-  let result;
-  if (!scenario2.enabled(context)) {
-    result = {
-      name: scenario2.name,
-      status: "skip",
-      required: scenario2.required,
-      startedAt,
-      endedAt: (/* @__PURE__ */ new Date()).toISOString(),
-      durationMs: Date.now() - startedMs,
-      details: { reason: "scenario disabled" }
-    };
-  } else {
-    try {
-      result = await scenario2.run(context);
-    } catch (error) {
-      result = {
-        name: scenario2.name,
-        status: "fail",
-        required: scenario2.required,
-        startedAt,
-        endedAt: (/* @__PURE__ */ new Date()).toISOString(),
-        durationMs: Date.now() - startedMs,
-        error: {
-          name: error instanceof Error ? error.name : "Error",
-          message: error instanceof Error ? error.message : String(error)
-        }
-      };
-    }
-  }
-  const cleanup = await finalizeBrowserTabs(context.browser);
-  return { ...result, cleanup };
-}
-async function runLiveSmoke(context, scenarios) {
-  const results = [];
-  for (const scenario2 of scenarios) {
-    const result = await runScenario(scenario2, context);
-    results.push(result);
-    console.log(JSON.stringify(redactLiveSmokeResult(result), null, 2));
-  }
-  const reportPath = await writeReport(context.reportDir, results);
-  const failures = requiredFailures(results);
-  console.log(JSON.stringify({ reportPath, requiredFailures: failures.map((failure) => failure.name) }, null, 2));
-  return { reportPath, results, requiredFailures: failures };
-}
-async function writeReport(reportDir, results) {
-  await mkdir(reportDir, { recursive: true });
-  const stamp = (/* @__PURE__ */ new Date()).toISOString().replaceAll(":", "-").replaceAll(".", "-");
-  const path3 = join(reportDir, `${stamp}-live-smoke.json`);
-  const summary = {
-    total: results.length,
-    passed: results.filter((result) => result.status === "pass").length,
-    failed: results.filter((result) => result.status === "fail").length,
-    skipped: results.filter((result) => result.status === "skip").length,
-    requiredFailures: requiredFailures(results).map((result) => result.name)
-  };
-  await writeFile(path3, `${JSON.stringify({ summary, results: results.map(redactLiveSmokeResult) }, null, 2)}
-`, "utf8");
-  return path3;
-}
-function redactLiveSmokeResult(result) {
-  const redacted = redactReportValue(result, { includeContent: false });
-  return {
-    ...redacted,
-    name: result.name,
-    status: result.status,
-    required: result.required,
-    startedAt: result.startedAt,
-    endedAt: result.endedAt,
-    durationMs: result.durationMs
-  };
-}
-function requiredFailures(results) {
-  return results.filter((result) => result.required && result.status !== "pass");
-}
-function filterScenarios(scenarios, namesCsv) {
-  if (namesCsv === void 0 || namesCsv.trim().length === 0) {
-    return scenarios;
-  }
-  const wanted = new Set(
-    namesCsv.split(",").map((name) => name.trim()).filter(Boolean)
-  );
-  return scenarios.filter((scenario2) => wanted.has(scenario2.name));
-}
-async function finalizeBrowserTabs(browser) {
-  const tabs = browser?.tabs;
-  const finalize = tabs?.finalize;
-  if (typeof finalize !== "function") {
-    return {
-      attempted: false,
-      ok: false,
-      reason: "browser.tabs.finalize unavailable"
-    };
-  }
-  try {
-    await withTimeout(
-      finalize.call(tabs, { keep: [] }),
-      CLEANUP_TIMEOUT_MS,
-      `browser.tabs.finalize timed out after ${CLEANUP_TIMEOUT_MS}ms`
-    );
-    return { attempted: true, ok: true };
-  } catch (error) {
-    return {
-      attempted: true,
-      ok: false,
-      error: {
-        name: error instanceof Error ? error.name : "Error",
-        message: error instanceof Error ? error.message : String(error)
-      }
-    };
-  }
-}
-async function withTimeout(promise, timeoutMs, message) {
-  let timeout;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise((_, reject) => {
-        timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
-      })
-    ]);
-  } finally {
-    if (timeout !== void 0) {
-      clearTimeout(timeout);
-    }
-  }
-}
-
-// src/scripts/live-smoke/scenarios.ts
-import { mkdtemp, readFile as readFile3, stat as stat6, writeFile as writeFile4 } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join as join5 } from "node:path";
+import { dirname, resolve } from "node:path";
 
 // src/errors.ts
 var BROWSER_BRIDGE_UNAVAILABLE_MESSAGE = "Codex cannot access the ChatGPT browser bridge from this backend process. In an ordinary shell this is expected; for a live Codex Chrome run, bootstrap the Chrome plugin runtime with setupBrowserRuntime({ globals: globalThis }) before using globalThis.agent.";
@@ -332,6 +98,28 @@ function resultError(error, context = {}, recoverable = error instanceof ChatGPT
     result.blocker = blocker;
   }
   return result;
+}
+function toCommandResult(error, context = {}) {
+  if (error instanceof Error) {
+    return resultError(error, context);
+  }
+  return resultError(new Error(String(error)), context);
+}
+
+// src/safety/redaction.ts
+var EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+var PHONE_RE = /\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/g;
+var TOKEN_RE = /\b[A-Za-z0-9_-]{32,}\b/g;
+var PATH_RE = /(?:\/Users\/|\/home\/|\/example\/user\/)[^\s"'<>]+/g;
+function redactSensitiveText(text) {
+  return text.replace(EMAIL_RE, "[redacted-email]").replace(PHONE_RE, "[redacted-phone]").replace(PATH_RE, "[redacted-path]").replace(TOKEN_RE, "[redacted-token]");
+}
+function compactVisibleText(text, maxLength = 1e3) {
+  const compacted = redactSensitiveText(text.replace(/\s+/g, " ").trim());
+  if (compacted.length <= maxLength) {
+    return compacted;
+  }
+  return `${compacted.slice(0, maxLength - 1)}...`;
 }
 
 // src/safety/blockers.ts
@@ -3315,7 +3103,7 @@ function anyLabelPattern(candidates) {
 }
 
 // src/commands/timeouts.ts
-async function withTimeout2(promise, timeoutMs, message) {
+async function withTimeout(promise, timeoutMs, message) {
   let timeout;
   try {
     return await Promise.race([
@@ -3375,7 +3163,7 @@ async function readPageState(page) {
 async function readVisibleText(page) {
   if (typeof page.evaluate === "function") {
     try {
-      return await withTimeout2(
+      return await withTimeout(
         page.evaluate(() => document.body?.innerText ?? ""),
         1e3,
         "Timed out while reading visible page text."
@@ -3385,7 +3173,7 @@ async function readVisibleText(page) {
   }
   if (typeof page.content === "function") {
     try {
-      const html = await withTimeout2(
+      const html = await withTimeout(
         page.content(),
         1e3,
         "Timed out while reading page content."
@@ -3926,53 +3714,6 @@ function tabIdFromPage(page) {
   return typeof id2 === "string" ? id2 : void 0;
 }
 
-// src/browser/clipboard.ts
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-var execFileAsync = promisify(execFile);
-function clipboardReadCommandsForPlatform(platform, env = {}) {
-  if (platform === "darwin") {
-    return [{ command: "pbpaste", args: [] }];
-  }
-  if (platform === "win32") {
-    return [{ command: "powershell.exe", args: ["-NoProfile", "-Command", "Get-Clipboard -Raw"] }];
-  }
-  if (platform === "linux") {
-    const waylandCommand = { command: "wl-paste", args: ["--no-newline"] };
-    const x11Commands = [
-      { command: "xclip", args: ["-selection", "clipboard", "-o"] },
-      { command: "xsel", args: ["--clipboard", "--output"] }
-    ];
-    const isWayland = typeof env.WAYLAND_DISPLAY === "string" && env.WAYLAND_DISPLAY.length > 0;
-    return isWayland ? [waylandCommand, ...x11Commands] : [...x11Commands, waylandCommand];
-  }
-  return [];
-}
-async function readSystemClipboard() {
-  if (typeof process === "undefined") {
-    return void 0;
-  }
-  for (const { command, args } of clipboardReadCommandsForPlatform(process.platform, process.env)) {
-    try {
-      const { stdout } = await execFileAsync(command, args, { timeout: 2e3, maxBuffer: 10 * 1024 * 1024 });
-      return stdout;
-    } catch {
-    }
-  }
-  return void 0;
-}
-async function waitForClipboardChange(before, timeoutMs, pollMs = 150) {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    const current = await readSystemClipboard();
-    if (current !== void 0 && current.length > 0 && current !== before) {
-      return current;
-    }
-    await new Promise((resolve3) => setTimeout(resolve3, pollMs));
-  }
-  return void 0;
-}
-
 // src/dom/visible-text.ts
 function normalizeWhitespace(text) {
   return text.replace(/\s+/g, " ").trim();
@@ -3992,6 +3733,98 @@ function stripTags(html) {
 }
 function normalizeLabel(text) {
   return normalizeWhitespace(text).toLowerCase();
+}
+
+// src/dom/label-match.ts
+function normalizeForLabelMatch(text) {
+  return normalizeWhitespace(text.normalize("NFKC")).toLocaleLowerCase();
+}
+function visibleLabelMatches(label, wanted) {
+  const normalizedLabel = normalizeForLabelMatch(label);
+  const normalizedWanted = normalizeForLabelMatch(wanted);
+  if (normalizedWanted.length === 0) {
+    return false;
+  }
+  if (normalizedLabel === normalizedWanted) {
+    return true;
+  }
+  if (isShortLatinToken(normalizedWanted)) {
+    return new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp2(normalizedWanted)}([^\\p{L}\\p{N}]|$)`, "iu").test(normalizedLabel);
+  }
+  return normalizedLabel.includes(normalizedWanted);
+}
+function isShortLatinToken(value) {
+  return value.length <= 3 && /^[a-z0-9]+$/i.test(value);
+}
+function escapeRegExp2(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// src/dom/menus.ts
+function extractMenuItemsFromText(text) {
+  return text.split(/\n| {2,}| • /).map((label) => normalizeWhitespace(label)).filter(Boolean).map((label) => ({ label, normalized: normalizeLabel(label) }));
+}
+async function enumerateVisibleMenuItems(page) {
+  if (typeof page.evaluate === "function") {
+    const labels = await page.evaluate(() => {
+      const visible = (element) => {
+        const html = element;
+        const rect = html.getBoundingClientRect?.();
+        if (rect !== void 0 && (rect.width <= 0 || rect.height <= 0)) return false;
+        let current = element;
+        while (current !== null) {
+          if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
+            return false;
+          }
+          const style = typeof window !== "undefined" ? window.getComputedStyle?.(current) : void 0;
+          if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
+            return false;
+          }
+          current = current.parentElement ?? null;
+        }
+        return true;
+      };
+      const toItem = (node) => {
+        const element = node;
+        const label = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim();
+        const item = { label };
+        const role = element.getAttribute("role");
+        if (role !== null) item.role = role;
+        const checked = element.getAttribute("aria-checked");
+        if (checked === "true") item.checked = true;
+        if (checked === "false") item.checked = false;
+        const expanded = element.getAttribute("aria-expanded");
+        if (expanded === "true") item.expanded = true;
+        if (expanded === "false") item.expanded = false;
+        if (element.getAttribute("aria-haspopup") === "menu") item.hasPopup = true;
+        const testId = element.getAttribute("data-testid");
+        if (testId !== null) item.testId = testId;
+        const ariaLabel = element.getAttribute("aria-label");
+        if (ariaLabel !== null) item.ariaLabel = ariaLabel;
+        return item;
+      };
+      const allRoleNodes = Array.from(document.querySelectorAll("[role='menuitem'], [role='menuitemradio'], [role='option']")).filter(visible);
+      const containers = Array.from(document.querySelectorAll("[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper]")).filter((container) => visible(container) && typeof container.contains === "function");
+      const scopedRoleNodes = containers.length > 0 ? allRoleNodes.filter((node) => containers.some((container) => container.contains(node))) : allRoleNodes;
+      const roleItems = (scopedRoleNodes.length > 0 ? scopedRoleNodes : allRoleNodes).map(toItem).filter((item) => item.label.length > 0);
+      if (roleItems.length > 0) {
+        return { items: roleItems, labels: [], split: false };
+      }
+      const menus = Array.from(document.querySelectorAll("[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper]")).filter(visible).map((node) => node.innerText ?? node.textContent ?? "").filter(Boolean);
+      return { items: [], labels: menus, split: true };
+    });
+    return labels.split ? labels.labels.flatMap((label) => extractMenuItemsFromText(label)) : labels.items.map((item) => ({ ...item, label: normalizeWhitespace(item.label), normalized: normalizeLabel(item.label) })).filter((item) => item.label.length > 0);
+  }
+  return [];
+}
+function findUniqueMenuItem(items, wanted) {
+  const normalized = normalizeLabel(wanted);
+  const exact = items.filter((item) => item.normalized === normalized);
+  if (exact.length === 1) {
+    return exact[0];
+  }
+  const fuzzy = items.filter((item) => visibleLabelMatches(item.label, wanted));
+  return fuzzy.length === 1 ? fuzzy[0] : void 0;
 }
 
 // src/dom/message-format.ts
@@ -4664,13 +4497,2549 @@ function normalizeExtractedMessage(message, args = {}) {
   return { role: message.role, ...content };
 }
 
+// src/commands/context.ts
+async function contextFromPage(page, partial = {}) {
+  if (page === void 0) {
+    return { timestamp: (/* @__PURE__ */ new Date()).toISOString(), ...partial };
+  }
+  const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => partial.url) : partial.url;
+  const title = typeof page.title === "function" ? await withTimeout(page.title(), 1e3, "Timed out while reading page title.").catch(() => partial.title) : partial.title;
+  const [turnCount, assistantTurnCount] = await Promise.all([
+    withTimeout(countPageMessages(page), 1e3, "Timed out while counting page messages.").catch(() => partial.turnCount),
+    withTimeout(countPageMessages(page, "assistant"), 1e3, "Timed out while counting assistant messages.").catch(() => partial.assistantTurnCount)
+  ]);
+  const conversationId = url !== void 0 ? parseConversationId(url) : partial.conversationId;
+  const context = {
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    ...partial
+  };
+  if (url !== void 0) {
+    context.url = url;
+  }
+  if (title !== void 0) {
+    context.title = title;
+  }
+  if (turnCount !== void 0) {
+    context.turnCount = turnCount;
+  }
+  if (assistantTurnCount !== void 0) {
+    context.assistantTurnCount = assistantTurnCount;
+  }
+  if (conversationId !== void 0) {
+    context.conversationId = conversationId;
+  }
+  return context;
+}
+
+// src/commands/session.ts
+async function bootstrap(env, args = {}) {
+  try {
+    const attached = await attachChatGPTBrowser(env, args);
+    env.browser = attached.browser;
+    env.page = attached.page;
+    if (attached.tabId !== void 0) {
+      env.expectedTabId = attached.tabId;
+    }
+    const state = await readPageState(attached.page);
+    const data = {
+      browserName: attached.browserName,
+      tabId: attached.tabId ?? "unknown",
+      url: state.url,
+      loggedIn: state.signedIn
+    };
+    const context = attached.tabId === void 0 ? { browserName: attached.browserName } : { browserName: attached.browserName, tabId: attached.tabId };
+    return resultOk(data, await contextFromPage(attached.page, context));
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+async function ensurePage(env) {
+  if (env.page === void 0) {
+    return bootstrap(env, { preferExistingTab: true });
+  }
+  const affinity = await verifyTabAffinity(env);
+  if (affinity !== void 0) {
+    return affinity;
+  }
+  return resultOk({}, await contextFromPage(env.page, tabContext(env)));
+}
+async function verifyTabAffinity(env) {
+  if (env.expectedTabId === void 0 || env.page === void 0) {
+    return void 0;
+  }
+  const actualTabId = tabIdFromPage(env.page);
+  if (actualTabId === env.expectedTabId) {
+    return void 0;
+  }
+  const code = actualTabId === void 0 ? "tab_affinity_unverifiable" : "tab_affinity_lost";
+  const message = actualTabId === void 0 ? `ChatGPT command cannot verify it is still attached to expected tab ${env.expectedTabId}.` : `ChatGPT command would run on tab ${actualTabId}, but the workflow expected tab ${env.expectedTabId}.`;
+  return {
+    ok: false,
+    status: "blocked",
+    warnings: [],
+    blocker: {
+      kind: "selector_drift",
+      code,
+      message,
+      remediation: [
+        {
+          label: "Reclaim the intended tab",
+          instruction: "Run session.bootstrap again with an exact existingTab target, or pass the correct page/tab to createChatGPT before retrying.",
+          userActionRequired: false
+        }
+      ],
+      resumable: false
+    },
+    context: await contextFromPage(env.page, tabContext(env, actualTabId))
+  };
+}
+function tabContext(env, actualTabId = tabIdFromPage(env.page)) {
+  const tabId = actualTabId ?? env.expectedTabId;
+  return tabId === void 0 ? {} : { tabId };
+}
+
+// src/commands/experience.ts
+var CHATGPT_HOME2 = "https://chatgpt.com/";
+var EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS = 15e3;
+var EXPERIENCE_POLL_MS = 250;
+async function detectExperience(env, args = {}) {
+  void args;
+  const boot2 = await ensurePage(env);
+  if (!boot2.ok) {
+    return boot2;
+  }
+  const page = env.page;
+  try {
+    const data = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+    return resultOk(data, await contextFromPage(page, {
+      experience: data.experience,
+      selectorProfile: data.selectorProfile
+    }), data.experience === "unknown" ? ["The current ChatGPT surface could not be classified as Chat or Work from scoped composer evidence."] : []);
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+async function openExperience(env, args) {
+  const boot2 = await ensurePage(env);
+  if (!boot2.ok) {
+    return boot2;
+  }
+  const page = env.page;
+  try {
+    const before = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+    if (before.experience === args.experience) {
+      return resultOk({
+        experience: args.experience,
+        previousExperience: before.experience,
+        changed: false,
+        selectorProfile: before.selectorProfile
+      }, await contextFromPage(page, {
+        experience: before.experience,
+        selectorProfile: before.selectorProfile
+      }));
+    }
+    const labels = localeLabels.experienceOptions[args.experience];
+    const timeoutMs = args.timeoutMs ?? 3e4;
+    const discoveryAttempts = pollAttempts(
+      Math.min(timeoutMs, EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS),
+      EXPERIENCE_POLL_MS
+    );
+    let observed = before;
+    let controlClicked = await clickUniqueExperienceControl(page, labels);
+    if (!controlClicked && await navigateConversationToSurfaceHome(page, args.timeoutMs)) {
+      observed = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+      if (observed.experience === args.experience) {
+        return resultOk({
+          experience: args.experience,
+          previousExperience: before.experience,
+          changed: true,
+          selectorProfile: observed.selectorProfile
+        }, await contextFromPage(page, {
+          experience: observed.experience,
+          selectorProfile: observed.selectorProfile
+        }));
+      }
+      controlClicked = await clickUniqueExperienceControl(page, labels);
+    }
+    for (let attempt = 1; !controlClicked && attempt < discoveryAttempts; attempt += 1) {
+      await page.waitForTimeout?.(EXPERIENCE_POLL_MS);
+      observed = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+      if (observed.experience === args.experience) {
+        return resultOk({
+          experience: args.experience,
+          previousExperience: before.experience,
+          changed: true,
+          selectorProfile: observed.selectorProfile
+        }, await contextFromPage(page, {
+          experience: observed.experience,
+          selectorProfile: observed.selectorProfile
+        }));
+      }
+      controlClicked = await clickUniqueExperienceControl(page, labels);
+    }
+    if (!controlClicked) {
+      return experienceSelectorDrift(
+        page,
+        `No unique visible ChatGPT ${args.experience === "work" ? "Work" : "Chat"} surface control was found.`,
+        observed
+      );
+    }
+    let after = before;
+    for (let attempt = 0; attempt < pollAttempts(timeoutMs, EXPERIENCE_POLL_MS); attempt += 1) {
+      await page.waitForTimeout?.(EXPERIENCE_POLL_MS);
+      after = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+      if (after.experience === args.experience) {
+        return resultOk({
+          experience: args.experience,
+          previousExperience: before.experience,
+          changed: true,
+          selectorProfile: after.selectorProfile
+        }, await contextFromPage(page, {
+          experience: after.experience,
+          selectorProfile: after.selectorProfile
+        }));
+      }
+    }
+    return {
+      ok: false,
+      status: "blocked",
+      warnings: [],
+      blocker: {
+        kind: "selector_drift",
+        code: "experience_postcondition_unverified",
+        fieldPath: "experience",
+        message: `The ${args.experience} surface control was clicked, but the composer did not verify that ChatGPT switched to ${args.experience}.`,
+        candidates: labels.map((label) => ({ label })),
+        resumable: true
+      },
+      context: await contextFromPage(page, {
+        experience: after.experience,
+        selectorProfile: after.selectorProfile
+      })
+    };
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+function pollAttempts(timeoutMs, pollMs) {
+  return Math.max(1, Math.ceil(Math.max(0, timeoutMs) / pollMs));
+}
+async function navigateConversationToSurfaceHome(page, timeoutMs) {
+  if (page.goto === void 0 || page.url === void 0) return false;
+  const currentUrl = await Promise.resolve(page.url()).catch(() => "");
+  if (!/^https:\/\/chatgpt\.com\/c\//i.test(currentUrl)) return false;
+  await page.goto(CHATGPT_HOME2, {
+    waitUntil: "domcontentloaded",
+    timeout: timeoutMs ?? 3e4
+  });
+  await page.waitForTimeout?.(500);
+  return true;
+}
+function detectExperienceFromSnapshot(snapshot) {
+  const evidence = [];
+  const composerLabels = snapshot.composerLabels.map(normalizeForLabelMatch);
+  const controls = snapshot.mainControls.map(normalizeForLabelMatch);
+  const mainText = normalizeForLabelMatch(snapshot.mainText);
+  const selectedSurfaceLabels = (snapshot.selectedSurfaceLabels ?? []).map(normalizeForLabelMatch);
+  const url = snapshot.url.toLowerCase();
+  const selectedWork = matchingLabels(selectedSurfaceLabels, localeLabels.experienceOptions.work);
+  const selectedChat = matchingLabels(selectedSurfaceLabels, localeLabels.experienceOptions.chat);
+  const workSurfaceSelected = selectedWork.length > 0 && selectedChat.length === 0;
+  const chatSurfaceSelected = selectedChat.length > 0 && selectedWork.length === 0;
+  if (workSurfaceSelected) {
+    evidence.push({ source: "control", label: "Work surface selected" });
+  } else if (chatSurfaceSelected) {
+    evidence.push({ source: "control", label: "Chat surface selected" });
+  }
+  const workComposer = matchingLabels(composerLabels, localeLabels.workComposerTextbox);
+  for (const label of workComposer) {
+    evidence.push({ source: "composer", label });
+  }
+  const chatComposer = matchingLabels(composerLabels, localeLabels.composerTextbox);
+  for (const label of chatComposer) {
+    evidence.push({ source: "composer", label });
+  }
+  const workAxisCount = ["model", "effort", "speed"].filter((axis) => hasAnyLabel(controls, localeLabels.configurationAxes[axis])).length;
+  if (workAxisCount >= 2) {
+    evidence.push({ source: "control", label: `Work configuration axes (${workAxisCount}/3)` });
+  }
+  const workConfigurationOpener = controls.some(
+    (label) => /\b(?:gpt[\s-]?\d|\d+(?:\.\d+)+|sol|luna|terra)\b/i.test(label) && hasAnyLabel([label], [
+      ...localeLabels.configurationOptions.light,
+      ...localeLabels.configurationOptions.medium,
+      ...localeLabels.configurationOptions.high,
+      ...localeLabels.configurationOptions.extraHigh,
+      ...localeLabels.configurationOptions.max,
+      ...localeLabels.configurationOptions.ultra
+    ])
+  );
+  if (workConfigurationOpener) {
+    evidence.push({ source: "control", label: "Work configuration opener" });
+  }
+  if (/\/work(?:\/|$|\?)/.test(url)) {
+    evidence.push({ source: "url", label: snapshot.url });
+  }
+  if (containsAny(mainText, ["work on something else", "work on anything"])) {
+    evidence.push({ source: "heading", label: "Work composer copy" });
+  }
+  const workScore = workComposer.length * 4 + (workSurfaceSelected ? 10 : 0) + (workAxisCount >= 2 ? 4 : 0) + (workConfigurationOpener ? 6 : 0) + (/\/work(?:\/|$|\?)/.test(url) ? 3 : 0) + (containsAny(mainText, ["work on something else", "work on anything"]) ? 2 : 0);
+  const chatScore = chatComposer.length * 4 + (chatSurfaceSelected ? 10 : 0);
+  let experience = "unknown";
+  let confidence = "low";
+  if (workScore > chatScore && workScore >= 4) {
+    experience = "work";
+    confidence = workSurfaceSelected || workScore >= 7 ? "high" : "medium";
+  } else if (chatScore > workScore && chatScore >= 4) {
+    experience = "chat";
+    confidence = "high";
+  }
+  const selectorProfile = profileFromSnapshot(snapshot, experience);
+  return { experience, selectorProfile, confidence, evidence };
+}
+async function readSurfaceSnapshot(page) {
+  const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
+  if (typeof page.evaluate !== "function") {
+    return { url, composerLabels: [], mainControls: [], mainText: "", selectedSurfaceLabels: [] };
+  }
+  const snapshot = await page.evaluate((surfaceOptionLabels) => {
+    const visible = (element) => {
+      const html = element;
+      const rect = html.getBoundingClientRect?.();
+      if (rect !== void 0 && (rect.width <= 0 || rect.height <= 0)) return false;
+      let current = element;
+      while (current !== null) {
+        if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
+          return false;
+        }
+        const style = typeof window !== "undefined" ? window.getComputedStyle?.(current) : void 0;
+        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
+          return false;
+        }
+        current = current.parentElement ?? null;
+      }
+      return true;
+    };
+    const labelFor = (element) => {
+      const html = element;
+      return element.getAttribute("aria-label") ?? element.getAttribute("placeholder") ?? html.innerText ?? element.textContent ?? "";
+    };
+    const normalize2 = (value) => value.replace(/\s+/g, " ").trim();
+    const normalizeComparable = (value) => normalize2(value).toLocaleLowerCase();
+    const wantedSurfaceLabels = new Set(surfaceOptionLabels.map(normalizeComparable));
+    const composerRoots = Array.from(document.querySelectorAll(
+      "main form, main [data-testid*='composer' i], main [class*='composer' i]"
+    ));
+    const composerNodes = composerRoots.flatMap((root) => [
+      root,
+      ...Array.from(root.querySelectorAll("textarea, [contenteditable='true'], [role='textbox'], input"))
+    ]);
+    const composerLabels = Array.from(new Set(composerNodes.filter(visible).map(labelFor).map(normalize2).filter(Boolean))).slice(0, 16);
+    const main2 = document.querySelector("main");
+    const overlayRoots = Array.from(document.querySelectorAll(
+      "[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
+    )).filter(visible);
+    const controlRoots = Array.from(/* @__PURE__ */ new Set([...composerRoots, ...overlayRoots]));
+    const effectiveControlRoots = controlRoots.length > 0 ? controlRoots : main2 === null ? [] : [main2];
+    const mainControls = Array.from(new Set(effectiveControlRoots.flatMap((root) => Array.from(root.querySelectorAll(
+      "button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option']"
+    ))).filter(visible).map(labelFor).map(normalize2).filter(Boolean))).slice(0, 120);
+    const surfaceTextNodes = main2 === null ? [] : Array.from(main2.querySelectorAll(
+      "h1, h2, h3, form, [data-testid*='composer' i], [class*='composer' i]"
+    )).filter(visible).slice(0, 32);
+    const mainText = normalize2(surfaceTextNodes.map(labelFor).join(" ")).slice(0, 2e3);
+    const selectedSurfaceLabels = Array.from(new Set(Array.from(document.querySelectorAll(
+      "[role='radio'][aria-checked='true'], [role='radio'][data-state='checked'], input[type='radio']:checked"
+    )).filter(visible).map(labelFor).map(normalize2).filter((label) => wantedSurfaceLabels.has(normalizeComparable(label))))).slice(0, 4);
+    return { composerLabels, mainControls, mainText, selectedSurfaceLabels };
+  }, [
+    ...localeLabels.experienceOptions.chat,
+    ...localeLabels.experienceOptions.work
+  ]).catch(() => ({ composerLabels: [], mainControls: [], mainText: "", selectedSurfaceLabels: [] }));
+  return { url, ...snapshot };
+}
+function profileFromSnapshot(snapshot, experience) {
+  const controls = snapshot.mainControls.map(normalizeForLabelMatch);
+  const mainText = normalizeForLabelMatch(snapshot.mainText);
+  if (experience === "work") {
+    return hasAnyLabel(controls, localeLabels.configurationAxes.advanced) || containsAny(mainText, localeLabels.configurationAxes.advanced) ? "work_advanced_v1" : "work_basic_v1";
+  }
+  if (experience !== "chat") {
+    return "unknown";
+  }
+  const simplifiedOptions = [
+    ...localeLabels.configurationOptions.instant,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.extraHigh,
+    ...localeLabels.configurationOptions.pro
+  ];
+  if (hasAnyLabel(controls, simplifiedOptions)) {
+    return "chat_simplified_v1";
+  }
+  const legacyOptions = [
+    ...localeLabels.modeOptions.latest,
+    ...localeLabels.modeOptions.thinking,
+    ...localeLabels.modeOptions.extended
+  ];
+  return hasAnyLabel(controls, legacyOptions) ? "chat_legacy_v1" : "chat_simplified_v1";
+}
+async function clickUniqueExperienceControl(page, labels) {
+  for (const label of labels) {
+    for (const role of ["radio", "button", "menuitem", "tab", "link"]) {
+      if (await clickIfUnique(page.getByRole?.(role, { name: label, exact: true }))) {
+        return true;
+      }
+    }
+  }
+  if (typeof page.evaluate !== "function") {
+    return false;
+  }
+  return page.evaluate((wantedLabels) => {
+    const normalize2 = (value) => value.replace(/\s+/g, " ").trim().toLocaleLowerCase();
+    const wanted = new Set(wantedLabels.map(normalize2));
+    const visible = (element) => {
+      const html = element;
+      const rect = html.getBoundingClientRect?.();
+      if (rect !== void 0 && (rect.width <= 0 || rect.height <= 0)) return false;
+      let current = element;
+      while (current !== null) {
+        if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
+          return false;
+        }
+        const style = typeof window !== "undefined" ? window.getComputedStyle?.(current) : void 0;
+        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
+          return false;
+        }
+        current = current.parentElement ?? null;
+      }
+      return true;
+    };
+    const labelFor = (node) => {
+      const html = node;
+      const inputLabels = "labels" in node ? Array.from(node.labels ?? []).map((label) => label.innerText).join(" ") : "";
+      return node.getAttribute("aria-label") || inputLabels || html.innerText || node.textContent || "";
+    };
+    const nodes = Array.from(document.querySelectorAll(
+      "[role='radio'], input[type='radio'], header button, header [role='button'], header [role='tab'], main [role='menuitem'], main [role='option']"
+    ));
+    const matches = nodes.filter((node) => visible(node) && wanted.has(normalize2(labelFor(node))));
+    if (matches.length !== 1) return false;
+    matches[0].click();
+    return true;
+  }, labels).catch(() => false);
+}
+async function clickIfUnique(locator) {
+  if (locator?.count === void 0 || locator.click === void 0) {
+    return false;
+  }
+  if (await locator.count().catch(() => 0) !== 1) {
+    return false;
+  }
+  await locator.click();
+  return true;
+}
+function matchingLabels(normalizedHaystack, candidates) {
+  const normalizedCandidates = candidates.map(normalizeForLabelMatch);
+  return normalizedHaystack.filter((label) => normalizedCandidates.some(
+    (candidate) => label === candidate || visibleLabelMatches(label, candidate)
+  )).slice(0, 4);
+}
+function hasAnyLabel(normalizedHaystack, candidates) {
+  const normalizedCandidates = candidates.map(normalizeForLabelMatch);
+  return normalizedHaystack.some(
+    (label) => normalizedCandidates.some(
+      (candidate) => label === candidate || visibleLabelMatches(label, candidate)
+    )
+  );
+}
+function containsAny(normalizedText, candidates) {
+  return candidates.map(normalizeForLabelMatch).some((candidate) => normalizedText.includes(candidate));
+}
+async function experienceSelectorDrift(page, message, detected) {
+  return {
+    ok: false,
+    status: "unsupported",
+    warnings: [],
+    blocker: {
+      kind: "selector_drift",
+      code: "experience_control_not_found",
+      fieldPath: "experience",
+      message,
+      candidates: detected.evidence.map((item) => ({ label: `${item.source}: ${item.label}` })),
+      resumable: true
+    },
+    context: await contextFromPage(page, {
+      experience: detected.experience,
+      selectorProfile: detected.selectorProfile
+    })
+  };
+}
+
+// src/commands/modes.ts
+var DEFAULT_MODE_EFFORT = "Thinking";
+var CURRENT_MODE_LABELS = dedupeLabels([
+  ...localeLabels.modeLabels,
+  ...Object.values(localeLabels.modeOptions).flat(),
+  ...Object.values(localeLabels.configurationOptions).flat()
+]);
+var MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter((label) => label !== "Pro"), ...localeLabels.modeOpenerExtra];
+var MODEL_VERSION_FAMILY_PATTERN = /^gpt[\s-]/i;
+var MODEL_VERSION_LABEL_PATTERN = /^(?:o\d+|\d+(?:\.\d+)?)$/i;
+var CANONICAL_INTELLIGENCE_ORDER = /* @__PURE__ */ new Map([
+  ["instant", 0],
+  ["medium", 1],
+  ["high", 2],
+  ["extraHigh", 3],
+  ["pro", 4]
+]);
+var MODE_OPTION_IDS2 = [
+  "latest",
+  "instant",
+  "thinking",
+  "extended",
+  "medium",
+  "high",
+  "extraHigh",
+  "pro"
+];
+var MODE_ID_ALIASES = {
+  latest: ["latest"],
+  instant: ["instant"],
+  thinking: ["thinking"],
+  extended: ["extended"],
+  medium: ["medium"],
+  high: ["high"],
+  extraHigh: ["extra high", "extra-high", "extra_high", "extrahigh"],
+  pro: ["pro"]
+};
+var THREAD_ACTION_MENU_LABELS = new Set(localeLabels.threadActionMenuItems.map(normalizeForLabelMatch));
+var THREAD_ACTION_PREFIXES = localeLabels.threadActionPrefixes.map(normalizeForLabelMatch).filter((prefix) => prefix.length > 0);
+async function setMode(env, args) {
+  const boot2 = await ensurePage(env);
+  if (!boot2.ok) {
+    return boot2;
+  }
+  const page = env.page;
+  try {
+    const requested = requestedModeSelections(args);
+    const requestedVersion = requestedModelVersion(args);
+    const requestedForOpening = requestedVersion === void 0 ? requested : [...requested, requestedModeSelection(requestedVersion)];
+    const opened = await waitForModeMenu(page, requestedForOpening, args.timeoutMs ?? 3e4);
+    if (requestedVersion === void 0 && opened.alreadySelected.length === requested.length) {
+      return resultOk({ selected: opened.alreadySelected, candidates: opened.modeButtons }, await contextFromPage(page));
+    }
+    if (!opened.opened) {
+      return selectorDrift(page, "No unique ChatGPT mode menu opener was found.");
+    }
+    await page.waitForTimeout?.(250);
+    const candidates = await enumerateVisibleMenuItems(page);
+    const selected = [];
+    if (requested.length > 0 && shouldRejectAsWrongModeMenu(candidates)) {
+      const candidateLabels2 = candidates.map((candidate) => candidate.label);
+      return {
+        ok: false,
+        status: "unsupported",
+        warnings: [],
+        blocker: selectorDriftBlocker("Visible menu appears to be a thread/action menu, not the ChatGPT mode menu.", candidateLabels2),
+        context: await contextFromPage(page)
+      };
+    }
+    for (const request of requested) {
+      const match = findModeMenuItem(candidates, request);
+      if (match === void 0) {
+        const candidateLabels2 = candidates.map((candidate) => candidate.label);
+        return {
+          ok: false,
+          status: "unsupported",
+          warnings: [],
+          blocker: selectorDriftBlocker(`Mode option "${request.requested}" was not found or was ambiguous.`, candidateLabels2),
+          context: await contextFromPage(page)
+        };
+      }
+      if (!await clickMenuItem(page, match.label)) {
+        return selectorDrift(page, `Mode option "${match.label}" was visible but could not be clicked.`, candidates.map((candidate) => candidate.label));
+      }
+      selected.push(match.label);
+    }
+    let candidateLabels = candidates.map((candidate) => candidate.label);
+    if (requestedVersion !== void 0) {
+      const versionResult = await selectModelVersion(page, requestedVersion, candidates, args.timeoutMs ?? 3e4);
+      candidateLabels = dedupeLabels([...candidateLabels, ...versionResult.candidates]);
+      if (!versionResult.selected) {
+        return {
+          ok: false,
+          status: "unsupported",
+          warnings: [],
+          blocker: selectorDriftBlocker(`Model version "${requestedVersion}" was not found or was ambiguous.`, candidateLabels),
+          context: await contextFromPage(page)
+        };
+      }
+      selected.push(versionResult.selected);
+    }
+    const verificationWarnings = await modeVerificationWarnings(page, requested, selected);
+    return resultOk({ selected, candidates: candidateLabels }, await contextFromPage(page), verificationWarnings);
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+async function modeVerificationWarnings(page, requested, selected) {
+  if (requested.length === 0) {
+    return [];
+  }
+  await page.waitForTimeout?.(250);
+  const visibleButtons = await visibleModeButtonLabelList(page);
+  if (visibleButtons.length === 0) {
+    return [
+      `Mode selection is unverified: no mode-labelled composer control was visible after selecting ${selected.map((label) => JSON.stringify(label)).join(", ")}. Use modes.get or inspect modeStep before treating this as a verified mode.`
+    ];
+  }
+  const unverified = requested.filter((request) => findUniqueVisibleLabelForRequest(visibleButtons, request) === void 0);
+  if (unverified.length === 0) {
+    return [];
+  }
+  return [
+    `Mode selection is unverified: requested ${unverified.map((request) => JSON.stringify(request.requested)).join(", ")} is not reflected by the visible mode controls (${visibleButtons.join(", ")}). Use modes.get or inspect modeStep before treating this as a verified mode.`
+  ];
+}
+async function getMode(env, args = {}) {
+  void args;
+  const boot2 = await ensurePage(env);
+  if (!boot2.ok) {
+    return boot2;
+  }
+  const page = env.page;
+  try {
+    const modes = await visibleModeButtonLabelList(page);
+    const warnings = modes.length === 0 ? ["No mode-labelled composer control is currently visible, so the active ChatGPT mode could not be read."] : [];
+    return resultOk({ modes }, await contextFromPage(page), warnings);
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+async function waitForModeMenu(page, requested, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let modeButtons = [];
+  do {
+    modeButtons = await visibleModeButtonLabelList(page);
+    const alreadySelected = findAlreadySelectedModes(modeButtons, requested);
+    if (alreadySelected.length === requested.length) {
+      return { opened: false, alreadySelected, modeButtons };
+    }
+    const openMenuItems = await enumerateVisibleMenuItems(page);
+    if (looksLikeModeMenu(openMenuItems)) {
+      return { opened: true, alreadySelected: [], modeButtons };
+    }
+    if (await clickModeOpener(page, modeButtons)) {
+      return { opened: true, alreadySelected: [], modeButtons };
+    }
+    if (Date.now() >= deadline) {
+      break;
+    }
+    await page.waitForTimeout?.(250);
+  } while (true);
+  return { opened: false, alreadySelected: [], modeButtons };
+}
+async function selectTool(env, args) {
+  const boot2 = await ensurePage(env);
+  if (!boot2.ok) {
+    return boot2;
+  }
+  const page = env.page;
+  try {
+    const opened = await clickFirstUniqueButton(page, [...localeLabels.addFilesOpenerCandidates]);
+    if (!opened) {
+      return selectorDrift(page, "No unique ChatGPT tool menu opener was found.");
+    }
+    await page.waitForTimeout?.(250);
+    const candidates = await enumerateVisibleMenuItems(page);
+    const wantedCandidates = toolLabels(args.tool);
+    let match;
+    let wanted = wantedCandidates[0] ?? args.tool;
+    for (const candidate of wantedCandidates) {
+      const found = findUniqueMenuItem(candidates, candidate);
+      if (found !== void 0) {
+        match = found;
+        wanted = candidate;
+        break;
+      }
+    }
+    if (match === void 0) {
+      const candidateLabels = candidates.map((candidate) => candidate.label);
+      return {
+        ok: false,
+        status: "unsupported",
+        warnings: [],
+        blocker: selectorDriftBlocker(`Tool "${wanted}" was not found or was ambiguous.`, candidateLabels),
+        context: await contextFromPage(page)
+      };
+    }
+    if (!await clickMenuItem(page, match.label)) {
+      return selectorDrift(page, `Tool "${match.label}" was visible but could not be clicked.`, candidates.map((candidate) => candidate.label));
+    }
+    return resultOk({ selected: match.label, candidates: candidates.map((candidate) => candidate.label) }, await contextFromPage(page));
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+async function clickFirstUniqueButton(page, labels) {
+  for (const label of labels) {
+    const roleLocator = page.getByRole?.("button", { name: label, exact: true });
+    if (await clickIfUnique2(roleLocator)) {
+      return true;
+    }
+    const textLocator = page.locator?.("button, [role='button']")?.filter?.({ hasText: label });
+    if (await clickIfUnique2(textLocator)) {
+      return true;
+    }
+  }
+  return false;
+}
+async function clickModeOpener(page, modeButtons) {
+  if (await clickFirstUniqueButton(page, modeButtons)) {
+    return true;
+  }
+  return clickFirstUniqueButton(page, MODE_OPENER_LABELS);
+}
+function isThreadActionLabel(label) {
+  const normalized = normalizeForLabelMatch(label);
+  if (THREAD_ACTION_MENU_LABELS.has(normalized)) {
+    return true;
+  }
+  return THREAD_ACTION_PREFIXES.some((prefix) => normalized.startsWith(`${prefix} `));
+}
+function hasStructuralModeEvidence(item) {
+  if (item.testId?.startsWith("model-switcher-") === true) {
+    return true;
+  }
+  return MODEL_VERSION_FAMILY_PATTERN.test(item.label) || MODEL_VERSION_LABEL_PATTERN.test(item.label);
+}
+function isModeMenuEvidence(item) {
+  if (hasStructuralModeEvidence(item)) {
+    return true;
+  }
+  if (isThreadActionLabel(item.label)) {
+    return false;
+  }
+  const normalized = normalizeForLabelMatch(item.label);
+  return CURRENT_MODE_LABELS.some((modeLabel) => {
+    const normalizedMode = normalizeForLabelMatch(modeLabel);
+    if (normalized === normalizedMode) {
+      return true;
+    }
+    return !isShortLatinToken(normalizedMode) && visibleLabelMatches(normalized, normalizedMode);
+  });
+}
+function looksLikeModeMenu(items) {
+  return items.some((item) => isModeMenuEvidence(item));
+}
+function shouldRejectAsWrongModeMenu(items) {
+  if (items.length === 0) {
+    return false;
+  }
+  if (items.some((item) => isModeMenuEvidence(item))) {
+    return false;
+  }
+  return items.some((item) => isThreadActionLabel(item.label));
+}
+async function clickMenuItem(page, label) {
+  if (await clickModelSwitcherMenuItem(page, label)) {
+    return true;
+  }
+  if (await clickMenuItemByPointer(page, label)) {
+    return true;
+  }
+  if (await clickMenuItemByDom(page, label)) {
+    return true;
+  }
+  const roleLocator = page.locator?.("[role='menuitem'], [role='menuitemradio'], [role='option']")?.filter?.({ hasText: label });
+  if (await clickIfUnique2(roleLocator)) {
+    return true;
+  }
+  const textLocator = page.getByText?.(label, { exact: true });
+  return clickIfUnique2(textLocator);
+}
+async function clickMenuItemByPointer(page, label) {
+  const point = await menuItemCenter(page, { label });
+  if (point === void 0) {
+    return false;
+  }
+  const pageWithPointer = page;
+  if (pageWithPointer.mouse?.click !== void 0) {
+    await pageWithPointer.mouse.click(point.x, point.y);
+    return true;
+  }
+  if (pageWithPointer.cua?.click !== void 0) {
+    await pageWithPointer.cua.click({ x: point.x, y: point.y });
+    return true;
+  }
+  return false;
+}
+async function clickModelSwitcherMenuItem(page, label) {
+  if (typeof page.evaluate !== "function" || typeof page.locator !== "function") {
+    return false;
+  }
+  const testId = await page.evaluate((wanted) => {
+    const normalizedWanted = wanted.replace(/\s+/g, " ").trim().toLowerCase();
+    const candidates = Array.from(document.querySelectorAll("[data-testid^='model-switcher-']"));
+    const matches = candidates.filter((node) => {
+      const element = node;
+      const candidateTestId = element.getAttribute("data-testid") ?? "";
+      if (candidateTestId.endsWith("-effort")) return false;
+      const text = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+      return text === normalizedWanted;
+    }).map((node) => node.getAttribute("data-testid")).filter((value) => value !== null);
+    return matches.length === 1 ? matches[0] : void 0;
+  }, label).catch(() => void 0);
+  if (testId === void 0) {
+    return false;
+  }
+  return clickIfUnique2(page.locator(`[data-testid="${escapeAttributeValue(testId)}"]`));
+}
+async function clickMenuItemByDom(page, label) {
+  if (typeof page.evaluate !== "function") {
+    return false;
+  }
+  return page.evaluate((wanted) => {
+    const normalizedWanted = wanted.replace(/\s+/g, " ").trim().toLowerCase();
+    const candidates = Array.from(document.querySelectorAll("[role='menuitem'], [role='menuitemradio'], [role='option']"));
+    const matches = candidates.filter((node) => {
+      const element = node;
+      const text = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+      return text === normalizedWanted;
+    });
+    if (matches.length !== 1) return false;
+    matches[0].click();
+    return true;
+  }, label).catch(() => false);
+}
+async function clickIfUnique2(locator) {
+  if (locator === void 0 || typeof locator.count !== "function" || typeof locator.click !== "function") {
+    return false;
+  }
+  const count = await locator.count().catch(() => 0);
+  if (count !== 1) {
+    return false;
+  }
+  await locator.click();
+  return true;
+}
+function toolLabels(tool) {
+  const known = localeLabels.tools[tool];
+  return known !== void 0 ? [...known] : [tool];
+}
+function findModeMenuItem(candidates, request) {
+  const selectable = candidates.filter((candidate) => !isThreadActionLabel(candidate.label));
+  for (const wanted of request.labels) {
+    const match = findUniqueModeMenuItem(selectable, wanted);
+    if (match !== void 0) {
+      return match;
+    }
+  }
+  const wantedIndex = request.modeId === void 0 ? void 0 : CANONICAL_INTELLIGENCE_ORDER.get(request.modeId);
+  if (wantedIndex === void 0) {
+    return void 0;
+  }
+  const intelligenceItems = selectable.filter(
+    (candidate) => candidate.role === "menuitemradio" && !MODEL_VERSION_LABEL_PATTERN.test(candidate.label) && !MODEL_VERSION_FAMILY_PATTERN.test(candidate.label)
+  );
+  return intelligenceItems.length >= CANONICAL_INTELLIGENCE_ORDER.size ? intelligenceItems[wantedIndex] : void 0;
+}
+function findUniqueModeMenuItem(items, wanted) {
+  const normalizedWanted = normalizeForLabelMatch(wanted);
+  const exact = items.filter((item) => normalizeForLabelMatch(item.label) === normalizedWanted);
+  if (exact.length === 1) {
+    return exact[0];
+  }
+  const fuzzy = items.filter((item) => visibleLabelMatches(item.label, wanted));
+  if (fuzzy.length !== 1) {
+    return void 0;
+  }
+  const match = fuzzy[0];
+  if (!isShortLatinToken(normalizedWanted)) {
+    return match;
+  }
+  return hasStructuralModeEvidence(match) || match.role === "menuitemradio" ? match : void 0;
+}
+function requestedModeSelections(args) {
+  const requested = [args.model, args.intelligence, args.effort].filter((value) => value !== void 0);
+  if (requestedModelVersion(args) !== void 0 && requested.length === 0) {
+    return [];
+  }
+  return (requested.length > 0 ? requested : [DEFAULT_MODE_EFFORT]).map(requestedModeSelection);
+}
+function requestedModeSelection(requested) {
+  const modeId = modeOptionIdFor(requested);
+  const labels = modeId === void 0 ? [requested] : localeLabels.modeOptions[modeId];
+  const request = {
+    requested,
+    labels: labels.length > 0 ? [...labels] : [requested]
+  };
+  if (modeId !== void 0) {
+    request.modeId = modeId;
+  }
+  return request;
+}
+function modeOptionIdFor(value) {
+  const normalized = normalizeModeLookupKey(value);
+  for (const id2 of MODE_OPTION_IDS2) {
+    if (MODE_ID_ALIASES[id2].some((alias) => normalizeModeLookupKey(alias) === normalized)) {
+      return id2;
+    }
+    if (localeLabels.modeOptions[id2].some((label) => normalizeModeLookupKey(label) === normalized)) {
+      return id2;
+    }
+  }
+  return void 0;
+}
+function normalizeModeLookupKey(value) {
+  return normalizeForLabelMatch(value).replace(/[_-]+/g, " ");
+}
+function requestedModelVersion(args) {
+  return args.modelVersion ?? args.version;
+}
+function findUniqueVisibleLabel(labels, wanted) {
+  const normalized = normalizeLabel(wanted);
+  const exact = labels.filter((label) => normalizeLabel(label) === normalized);
+  if (exact.length === 1) {
+    return exact[0];
+  }
+  const fuzzy = labels.filter((label) => visibleLabelMatches(normalizeLabel(label), normalized));
+  return fuzzy.length === 1 ? fuzzy[0] : void 0;
+}
+function escapeAttributeValue(value) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+function findAlreadySelectedModes(visibleButtons, requested) {
+  return requested.map((request) => findUniqueVisibleLabelForRequest(visibleButtons, request)).filter((label) => label !== void 0);
+}
+function findUniqueVisibleLabelForRequest(labels, request) {
+  for (const label of request.labels) {
+    const found = findUniqueVisibleLabel(labels, label);
+    if (found !== void 0) {
+      return found;
+    }
+  }
+  return void 0;
+}
+async function selectModelVersion(page, requestedVersion, currentCandidates, timeoutMs) {
+  let candidates = await enumerateVisibleMenuItems(page);
+  if (!looksLikeModeMenu(candidates)) {
+    const opened2 = await waitForModeMenu(page, [{ requested: requestedVersion, labels: [requestedVersion] }], timeoutMs);
+    if (opened2.opened) {
+      await page.waitForTimeout?.(250);
+      candidates = await enumerateVisibleMenuItems(page);
+    }
+  }
+  let exact = findExactSelectableMenuItem(candidates, requestedVersion);
+  if (exact !== void 0) {
+    return await clickResolvedMenuItem(page, exact) ? { selected: exact.label, candidates: candidates.map((candidate) => candidate.label) } : { candidates: candidates.map((candidate) => candidate.label) };
+  }
+  const opened = await openModelVersionSubmenu(page, currentCandidates);
+  candidates = await enumerateVisibleMenuItems(page);
+  exact = findExactSelectableMenuItem(candidates, requestedVersion);
+  if (!opened || exact === void 0) {
+    return { candidates: candidates.map((candidate) => candidate.label) };
+  }
+  return await clickResolvedMenuItem(page, exact) ? { selected: exact.label, candidates: candidates.map((candidate) => candidate.label) } : { candidates: candidates.map((candidate) => candidate.label) };
+}
+function isModelVersionSubmenuOpener(item) {
+  return item.hasPopup === true || item.role !== "menuitemradio" && MODEL_VERSION_FAMILY_PATTERN.test(item.label);
+}
+async function clickResolvedMenuItem(page, item) {
+  if (item.testId !== void 0 && await clickIfUnique2(
+    page.locator?.(`[data-testid="${escapeAttributeValue(item.testId)}"]`)
+  )) {
+    return true;
+  }
+  if (item.role !== void 0 && await clickIfUnique2(
+    page.getByRole?.(item.role, { name: item.label, exact: true })
+  )) {
+    return true;
+  }
+  return clickMenuItem(page, item.label);
+}
+async function openModelVersionSubmenu(page, candidates) {
+  const submenuOpeners = candidates.filter((item) => item.hasPopup === true || MODEL_VERSION_FAMILY_PATTERN.test(item.label));
+  if (submenuOpeners.length === 0) {
+    return false;
+  }
+  for (const candidate of submenuOpeners) {
+    if (await openSubmenuByPointer(page, candidate)) {
+      await page.waitForTimeout?.(250);
+      if (await modelVersionMenuItemsAreVisible(page)) {
+        return true;
+      }
+    }
+    if (await clickMenuItem(page, candidate.label)) {
+      await page.waitForTimeout?.(250);
+      if (await modelVersionMenuItemsAreVisible(page)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+async function openSubmenuByPointer(page, item) {
+  const point = await menuItemCenter(page, item);
+  if (point === void 0) {
+    return false;
+  }
+  const pageWithMouse = page;
+  if (pageWithMouse.mouse?.move !== void 0) {
+    await pageWithMouse.mouse.move(point.x, point.y);
+    return true;
+  }
+  if (pageWithMouse.cua?.move !== void 0) {
+    await pageWithMouse.cua.move({ x: point.x, y: point.y });
+    return true;
+  }
+  return false;
+}
+async function menuItemCenter(page, item, roles = ["menuitem", "menuitemradio", "option"]) {
+  if (typeof page.evaluate !== "function") {
+    return void 0;
+  }
+  const target = { label: item.label, roles };
+  if (item.testId !== void 0) {
+    target.testId = item.testId;
+  }
+  return page.evaluate((target2) => {
+    const normalize2 = (value) => value.replace(/\s+/g, " ").trim().toLowerCase();
+    const normalizedLabel = normalize2(target2.label);
+    const roleSelector = target2.roles.map((role) => `[role='${role}']`).join(",");
+    const matches = Array.from(document.querySelectorAll(roleSelector)).filter((node) => {
+      const element = node;
+      if (target2.testId !== void 0 && element.getAttribute("data-testid") !== target2.testId) {
+        return false;
+      }
+      const label = normalize2(element.innerText ?? element.textContent ?? "");
+      if (label !== normalizedLabel) {
+        return false;
+      }
+      const rect2 = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      return rect2.width > 0 && rect2.height > 0 && style.visibility !== "hidden" && style.display !== "none" && style.opacity !== "0";
+    });
+    if (matches.length !== 1) return void 0;
+    const rect = matches[0].getBoundingClientRect();
+    return {
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2)
+    };
+  }, target).catch(() => void 0);
+}
+async function modelVersionMenuItemsAreVisible(page) {
+  return (await enumerateVisibleMenuItems(page)).some((candidate) => candidate.role === "menuitemradio" && MODEL_VERSION_LABEL_PATTERN.test(candidate.label));
+}
+function findExactSelectableMenuItem(items, wanted) {
+  const normalized = normalizeLabel(wanted);
+  const matches = items.filter(
+    (item) => item.normalized === normalized && !isModelVersionSubmenuOpener(item)
+  );
+  return matches.length === 1 ? matches[0] : void 0;
+}
+function dedupeLabels(labels) {
+  return Array.from(new Set(labels));
+}
+async function selectorDrift(page, message, candidates) {
+  const visibleText = candidates?.join("\n") ?? await visibleButtonLabels(page);
+  return {
+    ok: false,
+    status: "unsupported",
+    warnings: [],
+    blocker: selectorDriftBlocker(message, candidates, visibleText),
+    context: await contextFromPage(page)
+  };
+}
+function selectorDriftBlocker(message, candidates, visibleText = candidates?.join("\n") ?? "") {
+  const candidateLabels = candidates ?? visibleText.split("\n").map((label) => label.trim()).filter(Boolean).slice(0, 30);
+  const blocker = {
+    kind: "selector_drift",
+    code: "visible_candidate_not_found",
+    message,
+    visibleText,
+    resumable: false
+  };
+  if (candidateLabels.length > 0) {
+    blocker.candidates = candidateLabels.map((label) => ({ label }));
+  }
+  return blocker;
+}
+async function visibleButtonLabels(page) {
+  return (await visibleButtonLabelList(page)).join("\n");
+}
+async function visibleButtonLabelList(page) {
+  if (typeof page.evaluate !== "function") {
+    return [];
+  }
+  return page.evaluate(() => {
+    return Array.from(document.querySelectorAll("button, [role='button']")).map((node) => {
+      const element = node;
+      return element.getAttribute("aria-label") ?? element.innerText ?? element.textContent ?? "";
+    }).map((text) => text.trim()).filter(Boolean).slice(0, 30);
+  }).then((labels) => labels.map(normalizeWhitespace)).catch(() => []);
+}
+async function visibleModeButtonLabelList(page) {
+  if (typeof page.evaluate !== "function") {
+    return [];
+  }
+  return page.evaluate((modeLabels) => {
+    const normalizedModeLabels = modeLabels.map((label) => label.toLowerCase());
+    const tokenMatches = (text, token) => {
+      if (token.length <= 3) {
+        return new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`, "i").test(text);
+      }
+      return text.includes(token);
+    };
+    const scopedRoots = Array.from(document.querySelectorAll(
+      "main form, main [data-testid*='composer' i], main [class*='composer' i]"
+    ));
+    return Array.from(document.querySelectorAll("button, [role='button']")).map((node) => {
+      const element = node;
+      if (scopedRoots.length > 0 && !scopedRoots.some((root) => root.contains(node))) return "";
+      const visibleText = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim();
+      const ariaLabel = (element.getAttribute("aria-label") ?? "").replace(/\s+/g, " ").trim();
+      const label = visibleText.length > 0 ? visibleText : ariaLabel;
+      const testId = element.getAttribute("data-testid") ?? "";
+      if (testId === "accounts-profile-button") return "";
+      if (/open profile menu/i.test(label)) return "";
+      if (visibleText.length === 0 && /feedback|conversation options|dismiss/i.test(ariaLabel)) return "";
+      const normalized = label.toLowerCase();
+      const structuralModelControl = /model-switcher|model-selector|mode-selector/i.test(testId) || /\b(?:gpt|sol|luna|terra)\b/i.test(label);
+      if (!structuralModelControl && !normalizedModeLabels.some((modeLabel) => tokenMatches(normalized, modeLabel))) return "";
+      return label;
+    }).filter(Boolean).slice(0, 30);
+  }, CURRENT_MODE_LABELS).then((labels) => labels.map(normalizeWhitespace)).catch(() => []);
+}
+
+// src/commands/configuration.ts
+var WORK_AXES = ["model", "effort", "speed"];
+var CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS = 5e3;
+var CONFIGURATION_CONTROL_POLL_MS = 250;
+var CONFIGURATION_AXIS_ORDER = [
+  "model",
+  "intelligence",
+  "effort",
+  "speed",
+  "modelVersion"
+];
+async function inspectConfiguration(env, args = {}) {
+  const boot2 = await ensurePage(env);
+  if (!boot2.ok) {
+    return boot2;
+  }
+  const page = env.page;
+  try {
+    const detected = await detectExperience(
+      env,
+      args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+    );
+    if (!detected.ok || detected.data === void 0) {
+      return forwardFailure(detected);
+    }
+    if (args.experience !== void 0 && detected.data.experience !== args.experience) {
+      return {
+        ok: false,
+        status: "unsupported",
+        warnings: [],
+        blocker: {
+          kind: "selector_drift",
+          code: "experience_mismatch",
+          fieldPath: "experience",
+          message: `Configuration inspection expected ${args.experience}, but the visible composer is ${detected.data.experience}. Call experience.open first or omit the expected experience.`,
+          resumable: true
+        },
+        context: await contextFromPage(page, {
+          experience: detected.data.experience,
+          selectorProfile: detected.data.selectorProfile
+        })
+      };
+    }
+    const experience = detected.data.experience;
+    const rootOpened = experience !== "unknown" && await waitForConfigurationRoot(
+      page,
+      experience,
+      args.timeoutMs
+    );
+    if (rootOpened) {
+      await page.waitForTimeout?.(150);
+    }
+    const workAdvancedOpened = experience !== "work" || rootOpened && await ensureWorkAdvancedPanel(page);
+    if (experience === "work" && workAdvancedOpened) {
+      await page.waitForTimeout?.(150);
+    }
+    const panel = await readConfigurationPanel(page);
+    const rootItems = rootOpened ? await enumerateVisibleMenuItems(page) : [];
+    const data = configurationInspectionFromSurface(
+      experience,
+      detected.data.selectorProfile,
+      detected.data.evidence,
+      panel,
+      rootItems
+    );
+    if (args.includeOptions !== false && experience === "work" && panel.axisRows.length > 0) {
+      for (const axis of WORK_AXES) {
+        if (!data.availableAxes.includes(axis)) continue;
+        const options = await inspectWorkAxisOptions(env, axis);
+        if (options.length > 0) {
+          data.options[axis] = options;
+        }
+      }
+      await closeConfigurationMenus(page);
+    }
+    const warnings = [];
+    if (!rootOpened) {
+      warnings.push("No scoped configuration opener was available; inspection is limited to controls already visible in the composer.");
+    }
+    if (experience === "work" && rootOpened && !workAdvancedOpened) {
+      warnings.push("The Work configuration menu opened, but its Advanced model, effort, and speed controls could not be made visible.");
+    }
+    if (!data.verified) {
+      warnings.push("The visible configuration could not be verified from a recognized Chat or Work selector profile.");
+    }
+    return resultOk(data, await contextFromPage(page, {
+      experience: data.experience,
+      selectorProfile: data.selectorProfile
+    }), warnings);
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+async function waitForConfigurationRoot(page, experience, timeoutMs) {
+  const discoveryMs = Math.min(
+    timeoutMs ?? CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS,
+    CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS
+  );
+  const attempts = Math.max(1, Math.ceil(Math.max(0, discoveryMs) / CONFIGURATION_CONTROL_POLL_MS));
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (await openConfigurationRoot(page, experience)) return true;
+    if (attempt + 1 < attempts) {
+      await page.waitForTimeout?.(CONFIGURATION_CONTROL_POLL_MS);
+    }
+  }
+  return false;
+}
+async function applyConfiguration(env, args) {
+  const boot2 = await ensurePage(env);
+  if (!boot2.ok) {
+    return boot2;
+  }
+  const page = env.page;
+  const strict = args.strict ?? true;
+  try {
+    const desired = normalizeDesiredSelection(args.desired);
+    if (selectionEntries(desired).length === 0) {
+      return {
+        ok: false,
+        status: "unsupported",
+        warnings: [],
+        blocker: {
+          kind: "selector_drift",
+          code: "configuration_empty",
+          fieldPath: "desired",
+          message: "configuration.apply requires at least one desired model, intelligence, effort, speed, or modelVersion value.",
+          resumable: false
+        },
+        context: await contextFromPage(page)
+      };
+    }
+    if (args.experience !== void 0) {
+      const opened = await openExperience(env, {
+        experience: args.experience,
+        ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+      });
+      if (!opened.ok) {
+        return forwardFailure(opened);
+      }
+    }
+    const beforeResult = await inspectConfiguration(env, {
+      ...args.experience === void 0 ? {} : { experience: args.experience },
+      includeOptions: true,
+      ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+    });
+    if (!beforeResult.ok || beforeResult.data === void 0) {
+      return forwardFailure(beforeResult);
+    }
+    const before = beforeResult.data;
+    if (before.experience === "unknown") {
+      return configurationFailure(page, before, desired, [], "The visible surface is not recognizable as Chat or Work.", "experience_unknown");
+    }
+    const selected = [];
+    for (const [axis, requested] of selectionEntries(desired)) {
+      const active = activeConfigurationValue(before, axis);
+      if (active !== void 0 && configurationValueMatches(active, requested)) {
+        selected.push({ axis, requested, selected: active });
+        continue;
+      }
+      const selection = before.experience === "work" ? await selectWorkAxis(env, axis, requested) : await selectChatAxis(env, axis, requested, args.timeoutMs);
+      if (selection === void 0) {
+        return configurationFailure(
+          page,
+          before,
+          desired,
+          selected,
+          `Configuration option "${requested}" for ${axis} was not found or was ambiguous on the ${before.experience} surface.`,
+          "configuration_option_not_found",
+          before.options[axis]?.map((option) => option.label)
+        );
+      }
+      selected.push({ axis, requested, selected: selection });
+    }
+    const afterResult = await inspectConfiguration(env, {
+      ...args.experience === void 0 ? {} : { experience: args.experience },
+      includeOptions: false,
+      ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+    });
+    if (!afterResult.ok || afterResult.data === void 0) {
+      return forwardFailure(afterResult);
+    }
+    const after = afterResult.data;
+    const verified = configurationMatchesSelection(after, desired);
+    const data = { requested: desired, selected, before, after, verified };
+    if (!verified && strict) {
+      return {
+        ok: false,
+        status: "blocked",
+        data,
+        warnings: [],
+        blocker: {
+          kind: "selector_drift",
+          code: "configuration_postcondition_unverified",
+          fieldPath: "desired",
+          message: `ChatGPT accepted configuration clicks, but the visible ${after.experience} controls do not verify every requested value.`,
+          candidates: Object.entries(after.active).map(([axis, label]) => ({ label: `${axis}: ${label}` })),
+          resumable: true
+        },
+        context: await contextFromPage(page, {
+          experience: after.experience,
+          selectorProfile: after.selectorProfile
+        })
+      };
+    }
+    const warnings = verified ? [] : ["Configuration clicks completed, but strict verification was disabled and the visible postcondition remains unverified."];
+    return resultOk(data, await contextFromPage(page, {
+      experience: after.experience,
+      selectorProfile: after.selectorProfile
+    }), warnings);
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+function configurationInspectionFromSurface(experience, detectedProfile, evidence, panel, menuItems) {
+  const active = {};
+  const options = {};
+  const availableAxes = [];
+  let selectorProfile = detectedProfile;
+  if (experience === "work") {
+    for (const row of panel.axisRows) {
+      if (!availableAxes.includes(row.axis)) availableAxes.push(row.axis);
+      if (row.value !== void 0 && row.value.length > 0) active[row.axis] = row.value;
+    }
+    selectorProfile = panel.advancedVisible ? "work_advanced_v1" : "work_basic_v1";
+  } else if (experience === "chat") {
+    const simplified = chatMenuLooksSimplified(menuItems);
+    selectorProfile = simplified ? "chat_simplified_v1" : detectedProfile;
+    const axis = simplified ? "intelligence" : "effort";
+    if (menuItems.length > 0 || panel.openerLabel !== void 0) {
+      availableAxes.push(axis);
+    }
+    if (panel.openerLabel !== void 0) {
+      active[axis] = panel.openerLabel;
+    }
+    const chatOptions = menuItems.filter((item) => !isConfigurationAxisRow(item.label)).map(menuItemToOption);
+    if (chatOptions.length > 0) {
+      options[axis] = chatOptions;
+    }
+    const modelRows = menuItems.filter((item) => /^gpt[\s-]/i.test(item.label) || item.hasPopup === true);
+    if (modelRows.length > 0) {
+      availableAxes.push("modelVersion");
+      options.modelVersion = modelRows.map(menuItemToOption);
+    }
+  }
+  return {
+    experience,
+    selectorProfile,
+    availableAxes,
+    active,
+    options,
+    verified: experience !== "unknown" && (availableAxes.length > 0 || Object.keys(active).length > 0),
+    evidence
+  };
+}
+async function inspectWorkAxisOptions(env, axis) {
+  const page = env.page;
+  const options = (await openWorkAxisOptions(env, axis)).map(menuItemToOption);
+  await closeConfigurationSubmenu(page);
+  return dedupeOptions(options);
+}
+async function selectWorkAxis(env, axis, requested) {
+  const page = env.page;
+  if (!WORK_AXES.includes(axis)) {
+    return void 0;
+  }
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const candidates = await openWorkAxisOptions(env, axis);
+    const match = findConfigurationOption(candidates, requested);
+    if (match !== void 0 && await clickVisibleMenuItem(page, match)) {
+      await page.waitForTimeout?.(150);
+      return match.label;
+    }
+    if (attempt === 0) {
+      await closeConfigurationMenus(page);
+      await page.waitForTimeout?.(200);
+    }
+  }
+  return void 0;
+}
+async function openWorkAxisOptions(env, axis, allowRootRetry = true) {
+  const page = env.page;
+  if (!await ensureWorkAdvancedPanel(page)) return [];
+  const row = await findWorkAxisRow(page, axis);
+  if (row === void 0) return [];
+  const visibleOptions = async () => filterWorkAxisOptions(await enumerateVisibleMenuItems(page), axis);
+  const alreadyOpen = await visibleOptions();
+  if (alreadyOpen.length > 0) return alreadyOpen;
+  const point = await locatorCenter(row);
+  if (point !== void 0 && await movePointerWithCdp(env, point)) {
+    await page.waitForTimeout?.(180);
+    const hoveredOptions = await visibleOptions();
+    if (hoveredOptions.length > 0) return hoveredOptions;
+    await movePointerWithCdp(env, { x: point.x - 2, y: point.y });
+    await movePointerWithCdp(env, point);
+    await page.waitForTimeout?.(180);
+    const retriedOptions = await visibleOptions();
+    if (retriedOptions.length > 0) return retriedOptions;
+  }
+  if (point !== void 0 && page.mouse?.move !== void 0) {
+    try {
+      await page.mouse.move(point.x, point.y);
+    } catch {
+    }
+    await page.waitForTimeout?.(180);
+    const mouseOptions = await visibleOptions();
+    if (mouseOptions.length > 0) return mouseOptions;
+  }
+  if (point !== void 0 && typeof page.cua?.move === "function") {
+    try {
+      await page.cua.move(point);
+    } catch {
+    }
+    await page.waitForTimeout?.(180);
+    const movedOptions = await visibleOptions();
+    if (movedOptions.length > 0) return movedOptions;
+  }
+  if (row.click !== void 0) {
+    await row.click().catch(() => void 0);
+    await page.waitForTimeout?.(180);
+  }
+  const clickedOptions = await visibleOptions();
+  if (clickedOptions.length > 0 || !allowRootRetry) return clickedOptions;
+  await closeConfigurationMenus(page);
+  await page.waitForTimeout?.(200);
+  return openWorkAxisOptions(env, axis, false);
+}
+async function locatorCenter(locator) {
+  if (locator.evaluate === void 0) return void 0;
+  return locator.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2)
+    };
+  }).catch(() => void 0);
+}
+async function movePointerWithCdp(env, point) {
+  const page = env.page;
+  const tabId = page === void 0 ? void 0 : tabIdFromPage(page);
+  if (tabId === void 0 || env.browser?.tabs?.get === void 0) return false;
+  try {
+    const tab = await env.browser.tabs.get(tabId);
+    const capability2 = await tab.capabilities?.get?.("cdp");
+    if (capability2?.send === void 0) return false;
+    await capability2.send("Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      x: Math.round(point.x),
+      y: Math.round(point.y),
+      button: "none",
+      buttons: 0,
+      pointerType: "mouse"
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+function filterWorkAxisOptions(items, axis) {
+  return items.filter((item) => {
+    if (isConfigurationAxisRow(item.label)) return false;
+    return workAxisOptionLabelMatches(axis, item.label);
+  });
+}
+function workAxisOptionLabelMatches(axis, label) {
+  if (axis === "model") {
+    return /\b(?:gpt[\s-]?\d|sol|luna|terra)\b/i.test(label);
+  }
+  const candidates = axis === "effort" ? [
+    ...localeLabels.configurationOptions.light,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.extraHigh,
+    ...localeLabels.configurationOptions.max,
+    ...localeLabels.configurationOptions.ultra
+  ] : axis === "speed" ? [
+    ...localeLabels.configurationOptions.standard,
+    ...localeLabels.configurationOptions.fast
+  ] : [];
+  return candidates.some((candidate) => visibleLabelMatches(label, candidate));
+}
+async function selectChatAxis(env, axis, requested, timeoutMs) {
+  const legacyArgs = axis === "modelVersion" ? { modelVersion: requested } : axis === "intelligence" ? { intelligence: requested } : axis === "effort" ? { effort: requested } : axis === "model" ? { model: requested } : void 0;
+  if (legacyArgs === void 0) {
+    return void 0;
+  }
+  const result = await setMode(env, {
+    ...legacyArgs,
+    ...timeoutMs === void 0 ? {} : { timeoutMs }
+  });
+  return result.ok ? result.data?.selected.at(-1) : void 0;
+}
+async function openConfigurationRoot(page, experience) {
+  const existing = await readConfigurationPanel(page);
+  if (existing.axisRows.length > 0) {
+    return true;
+  }
+  const existingItems = await enumerateVisibleMenuItems(page).catch(() => []);
+  if (configurationMenuLooksRecognized(existingItems, experience, existing.openerLabel)) {
+    return true;
+  }
+  if (existing.openerLabel !== void 0 && await clickIfUnique3(page.getByRole?.("button", { name: existing.openerLabel, exact: true }))) {
+    return true;
+  }
+  if (typeof page.evaluate === "function") {
+    const clicked = await page.evaluate((surface) => {
+      const normalize2 = (value) => value.replace(/\s+/g, " ").trim();
+      const visible = (element) => {
+        const html = element;
+        const rect = html.getBoundingClientRect?.();
+        if (rect !== void 0 && (rect.width <= 0 || rect.height <= 0)) return false;
+        let current = element;
+        while (current !== null) {
+          if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
+            return false;
+          }
+          const style = typeof window !== "undefined" ? window.getComputedStyle?.(current) : void 0;
+          if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
+            return false;
+          }
+          current = current.parentElement ?? null;
+        }
+        return true;
+      };
+      const composerRoots = Array.from(document.querySelectorAll(
+        "main form, main [data-testid*='composer' i], main [class*='composer' i]"
+      ));
+      const main2 = document.querySelector("main");
+      const roots = Array.from(/* @__PURE__ */ new Set([
+        ...composerRoots,
+        ...main2 === null ? [] : [main2]
+      ]));
+      const controls = Array.from(new Set(roots.flatMap(
+        (root) => Array.from(root.querySelectorAll("button, [role='button']"))
+      ))).filter(visible);
+      const matches = controls.filter((control) => {
+        const html = control;
+        const label = normalize2(control.getAttribute("aria-label") ?? html.innerText ?? control.textContent ?? "");
+        const testId = control.getAttribute("data-testid") ?? "";
+        if (/send|voice|microphone|attach|upload|add files|plus/i.test(`${label} ${testId}`)) return false;
+        if (/model-switcher|model-selector|mode-selector/i.test(testId)) return true;
+        return surface === "work" ? /\b(?:gpt|sol|luna|terra|light|medium|high|max|ultra|standard|fast)\b/i.test(label) : /\b(?:instant|medium|high|extra high|pro|thinking|extended|gpt)\b/i.test(label);
+      });
+      if (matches.length !== 1) return false;
+      matches[0].click();
+      return true;
+    }, experience).catch(() => false);
+    if (clicked) return true;
+  }
+  const labels = experience === "work" ? [
+    ...localeLabels.configurationOptions.light,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.standard
+  ] : [
+    ...localeLabels.configurationOptions.instant,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.extraHigh,
+    ...localeLabels.configurationOptions.pro,
+    ...localeLabels.modeOptions.thinking
+  ];
+  for (const label of labels) {
+    if (await clickIfUnique3(page.getByRole?.("button", { name: label, exact: true }))) {
+      return true;
+    }
+  }
+  return false;
+}
+function configurationMenuLooksRecognized(items, experience, openerLabel) {
+  if (items.some((item) => /(?:model|mode|effort|speed)-(?:switcher|selector)|model-switcher/i.test(item.testId ?? ""))) {
+    return true;
+  }
+  if (experience === "work" && items.some((item) => localeLabels.configurationAxes.advanced.some((label) => visibleLabelMatches(item.label, label)))) {
+    return true;
+  }
+  if (openerLabel === void 0 || items.length === 0) {
+    return false;
+  }
+  const semanticLabels = experience === "work" ? [
+    ...localeLabels.configurationOptions.light,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.max,
+    ...localeLabels.configurationOptions.ultra,
+    ...localeLabels.configurationOptions.standard,
+    ...localeLabels.configurationOptions.fast
+  ] : [
+    ...localeLabels.configurationOptions.instant,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.extraHigh,
+    ...localeLabels.configurationOptions.pro,
+    ...localeLabels.modeOptions.thinking,
+    ...localeLabels.modeOptions.extended
+  ];
+  const matched = new Set(
+    items.filter((item) => semanticLabels.some((label) => visibleLabelMatches(item.label, label))).map((item) => normalizeConfigurationId(item.label))
+  );
+  return matched.size >= 2;
+}
+async function ensureWorkAdvancedPanel(page) {
+  const panel = await readConfigurationPanel(page);
+  if (panel.axisRows.length > 0) return true;
+  if (!await openConfigurationRoot(page, "work")) return false;
+  const reopenedPanel = await readConfigurationPanel(page);
+  if (reopenedPanel.axisRows.length > 0) return true;
+  const items = await enumerateVisibleMenuItems(page);
+  const advanced = items.filter((item) => localeLabels.configurationAxes.advanced.some((label) => visibleLabelMatches(item.label, label)));
+  if (advanced.length !== 1 || !await clickVisibleMenuItem(page, advanced[0])) {
+    return false;
+  }
+  await page.waitForTimeout?.(200);
+  return (await readConfigurationPanel(page)).axisRows.length > 0;
+}
+async function readConfigurationPanel(page) {
+  if (typeof page.evaluate !== "function") {
+    return { axisRows: [], advancedVisible: false };
+  }
+  return page.evaluate((axisLabels) => {
+    const normalize2 = (value) => value.replace(/\s+/g, " ").trim();
+    const normalizedAxes = Object.fromEntries(
+      Object.entries(axisLabels).map(([axis, labels]) => [
+        axis,
+        labels.map((label) => normalize2(label).toLocaleLowerCase())
+      ])
+    );
+    const visible = (element) => {
+      const html = element;
+      const rect = html.getBoundingClientRect?.();
+      if (rect !== void 0 && (rect.width <= 0 || rect.height <= 0)) return false;
+      let current = element;
+      while (current !== null) {
+        if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
+          return false;
+        }
+        const style = typeof window !== "undefined" ? window.getComputedStyle?.(current) : void 0;
+        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
+          return false;
+        }
+        current = current.parentElement ?? null;
+      }
+      return true;
+    };
+    const overlays = Array.from(document.querySelectorAll(
+      "[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
+    )).filter(visible);
+    const roots = overlays.length > 0 ? overlays : Array.from(document.querySelectorAll("main")).filter(visible);
+    const rows = roots.flatMap((root) => Array.from(root.querySelectorAll(
+      "button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option']"
+    ))).filter(visible);
+    const axisRows = [];
+    for (const row of rows) {
+      const html = row;
+      const label = normalize2(row.getAttribute("aria-label") ?? html.innerText ?? row.textContent ?? "");
+      const normalized = label.toLocaleLowerCase();
+      for (const axis of ["model", "intelligence", "effort", "speed"]) {
+        const candidates = normalizedAxes[axis] ?? [];
+        const prefix = candidates.find((candidate) => normalized === candidate || normalized.startsWith(`${candidate} `));
+        if (prefix === void 0) continue;
+        const value = normalize2(label.slice(prefix.length));
+        const item = { axis, label };
+        if (value.length > 0) item.value = value;
+        axisRows.push(item);
+        break;
+      }
+    }
+    const composerRoots = Array.from(document.querySelectorAll(
+      "main form, main [data-testid*='composer' i], main [class*='composer' i]"
+    ));
+    const main2 = document.querySelector("main");
+    const openerRoots = Array.from(/* @__PURE__ */ new Set([
+      ...composerRoots,
+      ...main2 === null ? [] : [main2]
+    ]));
+    const openerCandidates = Array.from(new Set(openerRoots.flatMap(
+      (root) => Array.from(root.querySelectorAll("button, [role='button']"))
+    ))).filter(visible).map((control) => {
+      const html = control;
+      return {
+        label: normalize2(control.getAttribute("aria-label") ?? html.innerText ?? control.textContent ?? ""),
+        testId: control.getAttribute("data-testid") ?? ""
+      };
+    }).filter((item) => !/send|voice|microphone|attach|upload|add files|plus/i.test(`${item.label} ${item.testId}`)).filter((item) => /model-switcher|model-selector|mode-selector/i.test(item.testId) || /\b(?:gpt|sol|luna|terra|instant|medium|high|extra high|pro|thinking|extended|light|standard|fast)\b/i.test(item.label));
+    const result = {
+      axisRows,
+      advancedVisible: axisRows.length > 0
+    };
+    if (openerCandidates.length === 1 && openerCandidates[0]?.label.length) {
+      result.openerLabel = openerCandidates[0].label;
+    }
+    return result;
+  }, localeLabels.configurationAxes).catch(() => ({ axisRows: [], advancedVisible: false }));
+}
+async function findWorkAxisRow(page, axis) {
+  const labels = axis === "modelVersion" ? [] : localeLabels.configurationAxes[axis] ?? [];
+  for (const label of labels) {
+    const pattern = new RegExp(`^${escapeRegExp3(label)}(?:\\s|$)`, "i");
+    for (const role of ["button", "menuitem"]) {
+      const locator = page.getByRole?.(role, { name: pattern });
+      if (locator?.count !== void 0 && await locator.count().catch(() => 0) === 1) {
+        return locator;
+      }
+    }
+  }
+  return void 0;
+}
+async function clickVisibleMenuItem(page, item) {
+  if (item.testId !== void 0 && await clickIfUnique3(page.locator?.(`[data-testid="${escapeAttributeValue2(item.testId)}"]`))) {
+    return true;
+  }
+  for (const role of ["menuitemradio", "menuitem", "option"]) {
+    if (await clickIfUnique3(page.getByRole?.(role, { name: item.label, exact: true }))) {
+      return true;
+    }
+  }
+  return clickIfUnique3(page.getByText?.(item.label, { exact: true }));
+}
+function findConfigurationOption(items, requested) {
+  const normalizedRequested = normalizeConfigurationId(requested);
+  const exact = items.filter((item) => normalizeConfigurationId(item.label) === normalizedRequested);
+  if (exact.length === 1) return exact[0];
+  const semanticLabels = configurationSemanticLabels(requested);
+  for (const wanted of semanticLabels) {
+    const matches = items.filter(
+      (item) => normalizeForLabelMatch(item.label) === normalizeForLabelMatch(wanted) || visibleLabelMatches(item.label, wanted)
+    );
+    if (matches.length === 1) return matches[0];
+  }
+  return void 0;
+}
+function configurationSemanticLabels(requested) {
+  const normalized = normalizeConfigurationId(requested);
+  for (const labels of Object.values(localeLabels.configurationOptions)) {
+    if (labels.some((label) => normalizeConfigurationId(label) === normalized)) {
+      return labels;
+    }
+  }
+  for (const labels of Object.values(localeLabels.modeOptions)) {
+    if (labels.some((label) => normalizeConfigurationId(label) === normalized)) {
+      return labels;
+    }
+  }
+  return [requested];
+}
+function configurationMatchesSelection(inspection, desired) {
+  return selectionEntries(desired).every(([axis, requested]) => {
+    const active = activeConfigurationValue(inspection, axis);
+    return active !== void 0 && configurationValueMatches(active, requested);
+  });
+}
+function activeConfigurationValue(inspection, axis) {
+  const direct = inspection.active[axis];
+  if (direct !== void 0 || inspection.experience !== "chat") {
+    return direct;
+  }
+  if (axis === "model" || axis === "intelligence") {
+    return inspection.active.intelligence ?? inspection.active.effort;
+  }
+  if (axis === "effort") {
+    return inspection.active.effort ?? inspection.active.intelligence;
+  }
+  return void 0;
+}
+function configurationValueMatches(actual, requested) {
+  const normalizedActual = normalizeConfigurationId(actual);
+  const normalizedRequested = normalizeConfigurationId(requested);
+  if (normalizedActual === normalizedRequested) return true;
+  return configurationSemanticLabels(requested).some((label) => normalizeConfigurationId(label) === normalizedActual);
+}
+function selectionEntries(selection) {
+  const entries = [];
+  for (const axis of CONFIGURATION_AXIS_ORDER) {
+    const value = selection[axis];
+    if (typeof value === "string" && value.trim().length > 0) {
+      entries.push([axis, value.trim()]);
+    }
+  }
+  return entries;
+}
+function normalizeDesiredSelection(selection) {
+  const normalized = {};
+  for (const axis of ["model", "intelligence", "effort", "speed"]) {
+    const value = selection[axis]?.trim();
+    if (value !== void 0 && value.length > 0) normalized[axis] = value;
+  }
+  const modelVersion = (selection.modelVersion ?? selection.version)?.trim();
+  if (modelVersion !== void 0 && modelVersion.length > 0) {
+    normalized.modelVersion = modelVersion;
+  }
+  return normalized;
+}
+function menuItemToOption(item) {
+  const option = {
+    id: normalizeConfigurationId(item.label),
+    label: item.label,
+    selected: item.checked === true
+  };
+  if (item.hasPopup !== void 0) option.hasSubmenu = item.hasPopup;
+  return option;
+}
+function dedupeOptions(options) {
+  const seen = /* @__PURE__ */ new Set();
+  return options.filter((option) => {
+    const key = `${option.id}\0${option.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+function chatMenuLooksSimplified(items) {
+  const normalized = items.map((item) => normalizeConfigurationId(item.label));
+  const simplified = ["instant", "medium", "high", "extra high", "pro"];
+  return simplified.filter((label) => normalized.includes(label)).length >= 3;
+}
+function isConfigurationAxisRow(label) {
+  const normalized = normalizeForLabelMatch(label);
+  return Object.values(localeLabels.configurationAxes).flat().some((axis) => {
+    const prefix = normalizeForLabelMatch(axis);
+    return normalized === prefix || normalized.startsWith(`${prefix} `);
+  });
+}
+function normalizeConfigurationId(value) {
+  return normalizeForLabelMatch(value).replace(/^gpt[\s-]*/i, "gpt ").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+async function closeConfigurationMenus(page) {
+  if (!await pressConfigurationEscape(page)) return;
+  await page.waitForTimeout?.(50);
+  await pressConfigurationEscape(page);
+}
+async function closeConfigurationSubmenu(page) {
+  if (!await pressConfigurationEscape(page)) return;
+  await page.waitForTimeout?.(200);
+}
+async function pressConfigurationEscape(page) {
+  if (page.keyboard?.press !== void 0) {
+    await page.keyboard.press("Escape");
+    return true;
+  }
+  if (page.cua?.keypress !== void 0) {
+    try {
+      await page.cua.keypress({ keys: ["ESC"] });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+async function clickIfUnique3(locator) {
+  if (locator?.count === void 0 || locator.click === void 0) return false;
+  const count = await locator.count().catch(() => 0);
+  if (count === 1) {
+    await locator.click();
+    return true;
+  }
+  if (count <= 1 || locator.nth === void 0) return false;
+  const visible = [];
+  for (let index = 0; index < count; index += 1) {
+    const candidate = locator.nth(index);
+    if (candidate.isVisible !== void 0 && await candidate.isVisible().catch(() => false)) {
+      visible.push(candidate);
+    }
+  }
+  if (visible.length !== 1 || visible[0]?.click === void 0) return false;
+  await visible[0].click();
+  return true;
+}
+async function configurationFailure(page, before, desired, selected, message, code, candidates = []) {
+  const data = {
+    requested: desired,
+    selected,
+    before,
+    after: before,
+    verified: false
+  };
+  return {
+    ok: false,
+    status: "unsupported",
+    data,
+    warnings: [],
+    blocker: {
+      kind: "selector_drift",
+      code,
+      fieldPath: "desired",
+      message,
+      candidates: candidates.map((label) => ({ label })),
+      resumable: true
+    },
+    context: await contextFromPage(page, {
+      experience: before.experience,
+      selectorProfile: before.selectorProfile
+    })
+  };
+}
+function escapeRegExp3(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function escapeAttributeValue2(value) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+function forwardFailure(result) {
+  const forwarded = {
+    ok: false,
+    status: result.status,
+    warnings: result.warnings,
+    context: result.context
+  };
+  if (result.output_text !== void 0) forwarded.output_text = result.output_text;
+  if (result.reportPath !== void 0) forwarded.reportPath = result.reportPath;
+  if (result.error !== void 0) forwarded.error = result.error;
+  if (result.blocker !== void 0) forwarded.blocker = result.blocker;
+  if (result.steps !== void 0) forwarded.steps = result.steps;
+  return forwarded;
+}
+
+// src/scripts/capture-surface-profile.ts
+var CHATGPT_HOME3 = "https://chatgpt.com/";
+var DEFAULT_PROVENANCE = "Read-only sanitized capture from visible ChatGPT controls; review before committing.";
+var UsageError = class extends Error {
+  constructor(message, exitCode = 2) {
+    super(message);
+    this.exitCode = exitCode;
+    this.name = "UsageError";
+  }
+  exitCode;
+};
+var USAGE = [
+  "Usage:",
+  "  npm run capture:surface-profile -- --id work-basic-en",
+  "  npm run capture:surface-profile -- --id chat-simplified-de --locale de-DE --out ../../outputs/surface-profiles/chat-simplified-de.json",
+  "",
+  "Options:",
+  "  --id               Required normalized profile id.",
+  "  --out              Draft JSON path. Defaults under ../../outputs/surface-profiles/.",
+  "  --locale           Known BCP47 locale; otherwise reads documentElement.lang.",
+  "  --region           Normalized supplied region group. Default: not-recorded.",
+  "  --account-scope    Normalized supplied account group. Default: not-recorded.",
+  "  --plan-scope       Normalized supplied plan group. Default: not-recorded.",
+  "  --workspace-scope  Normalized supplied workspace group. Default: not-recorded.",
+  "  --support-state    current|compatibility|unverified|retired. Default: unverified.",
+  "  --provenance       Non-private provenance note.",
+  "  --tab-id           Claim an exact already-open ChatGPT tab.",
+  "  --if-missing       block|open|create. Default: block.",
+  "  --experience       Capture chat|work, switching visibly when needed.",
+  "  --no-restore-experience  Leave the requested surface selected. Default: restore.",
+  "",
+  "The capture does not mutate model configuration. With --experience it visibly",
+  "switches panes and restores the prior pane by default. It writes a sanitized draft",
+  "locally and never records",
+  "prompts, responses, sidebar titles, account names, cookies, or network data."
+].join("\n");
+async function main(argv = process.argv.slice(2), runtime = globalThis) {
+  let options;
+  try {
+    options = parseArgs(argv);
+  } catch (error) {
+    if (error instanceof UsageError) {
+      console.log(error.message);
+      return error.exitCode;
+    }
+    throw error;
+  }
+  if ((runtime.agent === void 0 || runtime.agent === null) && runtime.browser === void 0) {
+    console.log(JSON.stringify({
+      ok: false,
+      status: "blocked",
+      blocker: {
+        kind: "browser_bridge_unavailable",
+        code: "codex_chrome_bridge_unavailable",
+        message: BROWSER_BRIDGE_UNAVAILABLE_MESSAGE,
+        remediation: BROWSER_BRIDGE_REMEDIATION
+      }
+    }, null, 2));
+    return 2;
+  }
+  try {
+    const env = {};
+    if (runtime.agent !== void 0 && runtime.agent !== null) env.agent = runtime.agent;
+    if (runtime.browser !== void 0) env.browser = runtime.browser;
+    const attached = await attachChatGPTBrowser(env, {
+      existingTab: {
+        target: options.tabId === void 0 ? { type: "selected", host: "chatgpt" } : { type: "tabId", tabId: options.tabId },
+        ifMissing: options.ifMissing,
+        ifMultiple: "first",
+        requireChatGPT: true
+      },
+      url: CHATGPT_HOME3
+    });
+    env.page = attached.page;
+    const initial = detectExperienceFromSnapshot(await readSurfaceSnapshot(attached.page));
+    const previousExperience = initial.experience === "unknown" ? void 0 : initial.experience;
+    if (options.experience !== void 0 && previousExperience === void 0) {
+      throw new Error("Cannot safely switch surfaces because the initial Chat/Work pane could not be identified.");
+    }
+    try {
+      if (options.experience !== void 0) {
+        const opened = await openExperience(env, { experience: options.experience, timeoutMs: 6e4 });
+        if (!opened.ok || opened.data?.experience !== options.experience) {
+          console.log(JSON.stringify(opened, null, 2));
+          return 1;
+        }
+      }
+      const snapshot = await readSurfaceSnapshot(attached.page);
+      const detected = detectExperienceFromSnapshot(snapshot);
+      const inspectionResult = await inspectConfiguration(env, { includeOptions: true });
+      if (!inspectionResult.ok || inspectionResult.data === void 0) {
+        console.log(JSON.stringify(inspectionResult, null, 2));
+        return 1;
+      }
+      const locale = options.locale ?? await readDocumentLocale(attached.page) ?? "und";
+      const profile = buildSurfaceProfileDraft(options, locale, snapshot, detected, inspectionResult.data);
+      await mkdir(dirname(options.out), { recursive: true });
+      await writeFile(options.out, `${JSON.stringify(profile, null, 2)}
+`, { encoding: "utf8", flag: "wx" });
+      console.log(JSON.stringify({
+        ok: true,
+        status: "ok",
+        path: options.out,
+        id: profile.id,
+        experience: profile.expected.experience,
+        selectorProfile: profile.expected.selectorProfile,
+        supportState: profile.supportState,
+        restoreExperience: options.restoreExperience
+      }, null, 2));
+      return 0;
+    } finally {
+      if (options.experience !== void 0 && options.restoreExperience && previousExperience !== void 0 && previousExperience !== options.experience) {
+        const restored = await openExperience(env, { experience: previousExperience, timeoutMs: 6e4 });
+        if (!restored.ok || restored.data?.experience !== previousExperience) {
+          throw new Error(`Captured ${options.experience}, but failed to restore ${previousExperience}.`);
+        }
+      }
+    }
+  } catch (error) {
+    console.log(JSON.stringify(toCommandResult(error), null, 2));
+    return 1;
+  }
+}
+function buildSurfaceProfileDraft(options, locale, snapshot, detected, inspection, observedAt = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
+  const activeEntries = Object.entries(inspection.active).filter(
+    (entry) => typeof entry[1] === "string"
+  );
+  const axisRows = inspection.experience === "work" ? activeEntries.map(([axis, value]) => ({
+    axis,
+    label: `${titleCase(axis)} ${value}`,
+    value
+  })) : [];
+  const openerLabel = inspection.experience === "chat" ? inspection.active.intelligence ?? inspection.active.effort : void 0;
+  const menuItems = Object.values(inspection.options).flatMap((optionsForAxis) => optionsForAxis ?? []).map((option) => ({
+    label: option.label,
+    normalized: option.id,
+    role: option.hasSubmenu === true ? "menuitem" : "menuitemradio",
+    checked: option.selected,
+    ...option.hasSubmenu === void 0 ? {} : { hasPopup: option.hasSubmenu }
+  }));
+  const safeComposerLabels = dedupeBounded(
+    detected.evidence.filter((item) => item.source === "composer").map((item) => item.label),
+    16
+  );
+  const safeMainControls = dedupeBounded([
+    ...axisRows.map((row) => row.label),
+    ...openerLabel === void 0 ? [] : [openerLabel],
+    ...menuItems.map((item) => item.label),
+    ...inspection.selectorProfile === "work_advanced_v1" ? ["Advanced"] : []
+  ], 80);
+  return {
+    schemaVersion: "chatgpt.browser_control.surface_profile.v1",
+    id: options.id,
+    observedAt,
+    provenance: options.provenance,
+    locale,
+    region: options.region,
+    accountScope: options.accountScope,
+    planScope: options.planScope,
+    workspaceScope: options.workspaceScope,
+    supportState: options.supportState,
+    snapshot: {
+      url: sanitizeChatGPTUrl(snapshot.url),
+      composerLabels: safeComposerLabels,
+      mainControls: safeMainControls,
+      mainText: detected.evidence.filter((item) => item.source === "heading").map((item) => item.label).join(" ").slice(0, 2e3)
+    },
+    panel: {
+      ...openerLabel === void 0 ? {} : { openerLabel },
+      axisRows,
+      advancedVisible: inspection.selectorProfile === "work_advanced_v1"
+    },
+    menuItems,
+    expected: {
+      experience: detected.experience,
+      selectorProfile: inspection.selectorProfile,
+      availableAxes: inspection.availableAxes,
+      active: inspection.active
+    }
+  };
+}
+function parseArgs(argv) {
+  let id2;
+  let out;
+  let locale;
+  let region = "not-recorded";
+  let accountScope = "not-recorded";
+  let planScope = "not-recorded";
+  let workspaceScope = "not-recorded";
+  let supportState = "unverified";
+  let provenance = DEFAULT_PROVENANCE;
+  let tabId;
+  let ifMissing = "block";
+  let experience;
+  let restoreExperience = true;
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === void 0) continue;
+    switch (arg) {
+      case "--help":
+      case "-h":
+        throw new UsageError(USAGE, 0);
+      case "--id":
+        id2 = requiredValue(argv, ++index, arg);
+        break;
+      case "--out":
+        out = requiredValue(argv, ++index, arg);
+        break;
+      case "--locale":
+        locale = requiredValue(argv, ++index, arg);
+        break;
+      case "--region":
+        region = requiredValue(argv, ++index, arg);
+        break;
+      case "--account-scope":
+        accountScope = requiredValue(argv, ++index, arg);
+        break;
+      case "--plan-scope":
+        planScope = requiredValue(argv, ++index, arg);
+        break;
+      case "--workspace-scope":
+        workspaceScope = requiredValue(argv, ++index, arg);
+        break;
+      case "--support-state":
+        supportState = parseSupportState(requiredValue(argv, ++index, arg));
+        break;
+      case "--provenance":
+        provenance = requiredValue(argv, ++index, arg);
+        break;
+      case "--tab-id":
+        tabId = requiredValue(argv, ++index, arg);
+        break;
+      case "--if-missing":
+        ifMissing = parseIfMissing(requiredValue(argv, ++index, arg));
+        break;
+      case "--experience":
+        experience = parseExperience(requiredValue(argv, ++index, arg));
+        break;
+      case "--restore-experience":
+        restoreExperience = true;
+        break;
+      case "--no-restore-experience":
+        restoreExperience = false;
+        break;
+      default:
+        throw new UsageError(`Unknown argument: ${arg}
+
+${USAGE}`);
+    }
+  }
+  if (id2 === void 0) {
+    throw new UsageError(`--id is required.
+
+${USAGE}`);
+  }
+  for (const [field, value] of Object.entries({
+    id: id2,
+    region,
+    accountScope,
+    planScope,
+    workspaceScope
+  })) {
+    assertNormalizedSlug(value, `--${field.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`);
+  }
+  const defaultOut = resolve(
+    process.cwd(),
+    "..",
+    "..",
+    "outputs",
+    "surface-profiles",
+    `${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}-${id2}.json`
+  );
+  return {
+    id: id2,
+    out: resolve(out ?? defaultOut),
+    ...locale === void 0 ? {} : { locale },
+    region,
+    accountScope,
+    planScope,
+    workspaceScope,
+    supportState,
+    provenance,
+    ...tabId === void 0 ? {} : { tabId },
+    ifMissing,
+    ...experience === void 0 ? {} : { experience },
+    restoreExperience
+  };
+}
+async function readDocumentLocale(page) {
+  if (page.evaluate === void 0) return void 0;
+  return page.evaluate(() => document.documentElement.lang || void 0).catch(() => void 0);
+}
+function sanitizeChatGPTUrl(value) {
+  const url = new URL(value || CHATGPT_HOME3, CHATGPT_HOME3);
+  url.search = "";
+  url.hash = "";
+  if (/^\/c\/[^/]+/.test(url.pathname)) {
+    url.pathname = url.pathname.replace(/^\/c\/[^/]+/, "/c/sanitized");
+  }
+  return `${url.origin}${url.pathname}`;
+}
+function titleCase(value) {
+  return value.length === 0 ? value : `${value[0].toUpperCase()}${value.slice(1)}`;
+}
+function dedupeBounded(values, limit) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).slice(0, limit);
+}
+function requiredValue(argv, index, flag) {
+  const value = argv[index];
+  if (value === void 0 || value.startsWith("--")) {
+    throw new UsageError(`${flag} requires a value.`);
+  }
+  return value;
+}
+function parseSupportState(value) {
+  if (["current", "compatibility", "unverified", "retired"].includes(value)) {
+    return value;
+  }
+  throw new UsageError(`Invalid --support-state: ${value}`);
+}
+function parseExperience(value) {
+  if (value === "chat" || value === "work") return value;
+  throw new UsageError("--experience must be chat or work.");
+}
+function parseIfMissing(value) {
+  if (value === "block" || value === "open" || value === "create") return value;
+  throw new UsageError(`Invalid --if-missing: ${value}`);
+}
+function assertNormalizedSlug(value, flag) {
+  if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(value)) {
+    throw new UsageError(`${flag} must be a normalized lowercase slug without private names.`);
+  }
+}
+if (typeof process !== "undefined" && Array.isArray(process.argv) && typeof process.argv[1] === "string" && import.meta.url === `file://${process.argv[1]}`) {
+  process.exitCode = await main();
+}
+
+// src/scripts/live-smoke/harness.ts
+import { mkdir as mkdir2, writeFile as writeFile2 } from "node:fs/promises";
+import { join } from "node:path";
+
+// src/safety/report-redaction.ts
+var DEFAULT_MAX_PREVIEW_CHARS = 240;
+var DEFAULT_MAX_DEPTH = 8;
+var DEFAULT_MAX_ARRAY_ITEMS = 40;
+var DEFAULT_MAX_OBJECT_ENTRIES = 80;
+function redactReportValue(value, options = {}) {
+  return redactValue(value, normalizeOptions(options), 0, /* @__PURE__ */ new WeakSet(), void 0);
+}
+function redactValue(value, options, depth, seen, key) {
+  if (value === void 0 || value === null) return value;
+  if (typeof value === "string") {
+    if (!options.includeContent && key !== void 0 && isSafeControlStringKey(key)) {
+      return value;
+    }
+    if (!options.includeContent) return `[redacted:${value.length} chars]`;
+    return compactVisibleText(redactSensitiveText(value), options.maxPreviewChars);
+  }
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (typeof value !== "object") return redactSensitiveText(String(value));
+  if (seen.has(value)) return "[redacted:cycle]";
+  if (depth >= options.maxDepth) return "[redacted:max-depth]";
+  if (!options.includeContent && key !== void 0 && isHeavyContentKey(key)) {
+    return summarizeHeavyValue(value);
+  }
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) {
+      const items = value.slice(0, options.maxArrayItems).map((item) => redactValue(item, options, depth + 1, seen, key));
+      if (value.length > options.maxArrayItems) {
+        items.push(`[redacted:${value.length - options.maxArrayItems} more items]`);
+      }
+      return items;
+    }
+    const entries = Object.entries(value);
+    const kept = entries.slice(0, options.maxObjectEntries).map(([childKey, child]) => [
+      childKey,
+      redactValue(child, options, depth + 1, seen, childKey)
+    ]);
+    if (entries.length > options.maxObjectEntries) {
+      kept.push(["__redactedMoreEntries", entries.length - options.maxObjectEntries]);
+    }
+    return Object.fromEntries(kept);
+  } finally {
+    seen.delete(value);
+  }
+}
+function normalizeOptions(options) {
+  return {
+    includeContent: options.includeContent === true,
+    maxPreviewChars: options.maxPreviewChars ?? DEFAULT_MAX_PREVIEW_CHARS,
+    maxDepth: options.maxDepth ?? DEFAULT_MAX_DEPTH,
+    maxArrayItems: options.maxArrayItems ?? DEFAULT_MAX_ARRAY_ITEMS,
+    maxObjectEntries: options.maxObjectEntries ?? DEFAULT_MAX_OBJECT_ENTRIES
+  };
+}
+function isHeavyContentKey(key) {
+  return /^(text|markdown|html|visibleText|normalizedText|responseText|output_text|outputText|finalOutput|prompt|blocks|tables|codeBlocks|dataPreview)$/i.test(key);
+}
+function summarizeHeavyValue(value) {
+  if (Array.isArray(value)) return `[redacted-array:${value.length} items]`;
+  return "[redacted-object]";
+}
+function isSafeControlStringKey(key) {
+  return /^(schemaVersion|status|startedAt|endedAt|createdAt|timestamp|requiredFailures)$/i.test(key);
+}
+
+// src/scripts/live-smoke/harness.ts
+var CLEANUP_TIMEOUT_MS = 1e4;
+function envText(name) {
+  const value = readEnv(name)?.trim();
+  return value && value.length > 0 ? value : void 0;
+}
+function contextEnvFlag(context, name) {
+  const value = contextEnvText(context, name);
+  return value === "1" || value?.toLowerCase() === "true";
+}
+function contextEnvText(context, name) {
+  const value = context.env?.[name]?.trim() ?? envText(name);
+  return value && value.length > 0 ? value : void 0;
+}
+function readEnv(name) {
+  return typeof process === "undefined" ? void 0 : process.env[name];
+}
+async function runScenario(scenario2, context) {
+  const startedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const startedMs = Date.now();
+  let result;
+  if (!scenario2.enabled(context)) {
+    result = {
+      name: scenario2.name,
+      status: "skip",
+      required: scenario2.required,
+      startedAt,
+      endedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      durationMs: Date.now() - startedMs,
+      details: { reason: "scenario disabled" }
+    };
+  } else {
+    try {
+      result = await scenario2.run(context);
+    } catch (error) {
+      result = {
+        name: scenario2.name,
+        status: "fail",
+        required: scenario2.required,
+        startedAt,
+        endedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        durationMs: Date.now() - startedMs,
+        error: {
+          name: error instanceof Error ? error.name : "Error",
+          message: error instanceof Error ? error.message : String(error)
+        }
+      };
+    }
+  }
+  const cleanup = await finalizeBrowserTabs(context.browser);
+  return { ...result, cleanup };
+}
+async function runLiveSmoke(context, scenarios) {
+  const results = [];
+  for (const scenario2 of scenarios) {
+    const result = await runScenario(scenario2, context);
+    results.push(result);
+    console.log(JSON.stringify(redactLiveSmokeResult(result), null, 2));
+  }
+  const reportPath = await writeReport(context.reportDir, results);
+  const failures = requiredFailures(results);
+  console.log(JSON.stringify({ reportPath, requiredFailures: failures.map((failure) => failure.name) }, null, 2));
+  return { reportPath, results, requiredFailures: failures };
+}
+async function writeReport(reportDir, results) {
+  await mkdir2(reportDir, { recursive: true });
+  const stamp = (/* @__PURE__ */ new Date()).toISOString().replaceAll(":", "-").replaceAll(".", "-");
+  const path3 = join(reportDir, `${stamp}-live-smoke.json`);
+  const summary = {
+    total: results.length,
+    passed: results.filter((result) => result.status === "pass").length,
+    failed: results.filter((result) => result.status === "fail").length,
+    skipped: results.filter((result) => result.status === "skip").length,
+    requiredFailures: requiredFailures(results).map((result) => result.name)
+  };
+  await writeFile2(path3, `${JSON.stringify({ summary, results: results.map(redactLiveSmokeResult) }, null, 2)}
+`, "utf8");
+  return path3;
+}
+function redactLiveSmokeResult(result) {
+  const redacted = redactReportValue(result, { includeContent: false });
+  return {
+    ...redacted,
+    name: result.name,
+    status: result.status,
+    required: result.required,
+    startedAt: result.startedAt,
+    endedAt: result.endedAt,
+    durationMs: result.durationMs
+  };
+}
+function requiredFailures(results) {
+  return results.filter((result) => result.required && result.status !== "pass");
+}
+function filterScenarios(scenarios, namesCsv) {
+  if (namesCsv === void 0 || namesCsv.trim().length === 0) {
+    return scenarios;
+  }
+  const wanted = new Set(
+    namesCsv.split(",").map((name) => name.trim()).filter(Boolean)
+  );
+  return scenarios.filter((scenario2) => wanted.has(scenario2.name));
+}
+async function finalizeBrowserTabs(browser) {
+  const tabs = browser?.tabs;
+  const finalize = tabs?.finalize;
+  if (typeof finalize !== "function") {
+    return {
+      attempted: false,
+      ok: false,
+      reason: "browser.tabs.finalize unavailable"
+    };
+  }
+  try {
+    await withTimeout2(
+      finalize.call(tabs, { keep: [] }),
+      CLEANUP_TIMEOUT_MS,
+      `browser.tabs.finalize timed out after ${CLEANUP_TIMEOUT_MS}ms`
+    );
+    return { attempted: true, ok: true };
+  } catch (error) {
+    return {
+      attempted: true,
+      ok: false,
+      error: {
+        name: error instanceof Error ? error.name : "Error",
+        message: error instanceof Error ? error.message : String(error)
+      }
+    };
+  }
+}
+async function withTimeout2(promise, timeoutMs, message) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timeout !== void 0) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+// src/scripts/live-smoke/scenarios.ts
+import { mkdtemp, readFile as readFile3, stat as stat6, writeFile as writeFile5 } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join as join5 } from "node:path";
+
+// src/browser/clipboard.ts
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+var execFileAsync = promisify(execFile);
+function clipboardReadCommandsForPlatform(platform, env = {}) {
+  if (platform === "darwin") {
+    return [{ command: "pbpaste", args: [] }];
+  }
+  if (platform === "win32") {
+    return [{ command: "powershell.exe", args: ["-NoProfile", "-Command", "Get-Clipboard -Raw"] }];
+  }
+  if (platform === "linux") {
+    const waylandCommand = { command: "wl-paste", args: ["--no-newline"] };
+    const x11Commands = [
+      { command: "xclip", args: ["-selection", "clipboard", "-o"] },
+      { command: "xsel", args: ["--clipboard", "--output"] }
+    ];
+    const isWayland = typeof env.WAYLAND_DISPLAY === "string" && env.WAYLAND_DISPLAY.length > 0;
+    return isWayland ? [waylandCommand, ...x11Commands] : [...x11Commands, waylandCommand];
+  }
+  return [];
+}
+async function readSystemClipboard() {
+  if (typeof process === "undefined") {
+    return void 0;
+  }
+  for (const { command, args } of clipboardReadCommandsForPlatform(process.platform, process.env)) {
+    try {
+      const { stdout } = await execFileAsync(command, args, { timeout: 2e3, maxBuffer: 10 * 1024 * 1024 });
+      return stdout;
+    } catch {
+    }
+  }
+  return void 0;
+}
+async function waitForClipboardChange(before, timeoutMs, pollMs = 150) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const current = await readSystemClipboard();
+    if (current !== void 0 && current.length > 0 && current !== before) {
+      return current;
+    }
+    await new Promise((resolve5) => setTimeout(resolve5, pollMs));
+  }
+  return void 0;
+}
+
 // src/dom/artifacts.ts
 async function listPageArtifacts(page, args = {}) {
   const timeoutMs = localGuardTimeout(args.timeoutMs, 5e3);
   let artifacts;
   let evaluateError;
   if (typeof page.evaluate === "function") {
-    artifacts = await withTimeout2(
+    artifacts = await withTimeout(
       page.evaluate(() => {
         const images = Array.from(document.querySelectorAll("main img"));
         return images.map((image, index) => {
@@ -4722,7 +7091,7 @@ async function listPageArtifacts(page, args = {}) {
 async function readLatestImageDataUrl(page, timeoutMs) {
   const guardMs = localGuardTimeout(timeoutMs, 5e3);
   if (typeof page.evaluate === "function") {
-    const fromDom = await withTimeout2(
+    const fromDom = await withTimeout(
       page.evaluate(async () => {
         const images = Array.from(document.querySelectorAll("main img"));
         const candidates = images.filter((image2) => {
@@ -4743,9 +7112,9 @@ async function readLatestImageDataUrl(page, timeoutMs) {
         if (/^(blob:|https?:)/i.test(src)) {
           const response = await fetch(src);
           const blob = await response.blob();
-          const dataUrl = await new Promise((resolve3, reject) => {
+          const dataUrl = await new Promise((resolve5, reject) => {
             const reader = new FileReader();
-            reader.onload = () => resolve3(String(reader.result));
+            reader.onload = () => resolve5(String(reader.result));
             reader.onerror = () => reject(reader.error ?? new Error("FileReader failed."));
             reader.readAsDataURL(blob);
           });
@@ -4808,7 +7177,7 @@ function filterArtifacts(artifacts, args) {
 }
 async function readContentWithTimeout(page, timeoutMs) {
   if (typeof page.content !== "function") return "";
-  return withTimeout2(page.content(), timeoutMs, "Timed out while reading ChatGPT page content.");
+  return withTimeout(page.content(), timeoutMs, "Timed out while reading ChatGPT page content.");
 }
 function attr(tag, name) {
   const match = new RegExp(`\\b${name}=(["'])(.*?)\\1`, "i").exec(tag);
@@ -5226,8 +7595,8 @@ function renderMarkdown(explanation) {
 // src/safety/untrusted-output.ts
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { link, mkdir as mkdir2, readFile, stat, unlink, writeFile as writeFile2 } from "node:fs/promises";
-import { dirname } from "node:path";
+import { link, mkdir as mkdir3, readFile, stat, unlink, writeFile as writeFile3 } from "node:fs/promises";
+import { dirname as dirname2 } from "node:path";
 var UNTRUSTED_OUTPUT_INLINE_LIMIT_BYTES = 12e3;
 var UNTRUSTED_OUTPUT_SCHEMA_VERSION = "chatgpt.browser_control.untrusted_output_return.v1";
 var INTEGRITY_SCHEMA_VERSION = "chatgpt.browser_control.integrity.v1";
@@ -5302,14 +7671,14 @@ function sha256Text(text) {
 async function sha256File(path3) {
   const hash = createHash("sha256");
   let bytes = 0;
-  await new Promise((resolve3, reject) => {
+  await new Promise((resolve5, reject) => {
     const stream = createReadStream(path3);
     stream.on("data", (chunk) => {
       bytes += typeof chunk === "string" ? Buffer.byteLength(chunk) : chunk.byteLength;
       hash.update(chunk);
     });
     stream.on("error", reject);
-    stream.on("end", resolve3);
+    stream.on("end", resolve5);
   });
   return {
     path: path3,
@@ -5334,10 +7703,10 @@ async function writeJsonArtifactWithIntegrity(path3, value, options) {
   }
 }
 async function writeFileAtomicNoOverwrite(path3, payload) {
-  await mkdir2(dirname(path3), { recursive: true });
+  await mkdir3(dirname2(path3), { recursive: true });
   const tempPath = `${path3}.tmp-${Date.now()}-${randomUUID()}`;
   try {
-    await writeFile2(tempPath, payload, { encoding: "utf8", flag: "wx" });
+    await writeFile3(tempPath, payload, { encoding: "utf8", flag: "wx" });
     await link(tempPath, path3);
   } catch (error) {
     if (isFileExistsError(error)) {
@@ -5396,109 +7765,8 @@ function isNodeError(error) {
   return error instanceof Error && "code" in error;
 }
 
-// src/commands/context.ts
-async function contextFromPage(page, partial = {}) {
-  if (page === void 0) {
-    return { timestamp: (/* @__PURE__ */ new Date()).toISOString(), ...partial };
-  }
-  const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => partial.url) : partial.url;
-  const title = typeof page.title === "function" ? await withTimeout2(page.title(), 1e3, "Timed out while reading page title.").catch(() => partial.title) : partial.title;
-  const [turnCount, assistantTurnCount] = await Promise.all([
-    withTimeout2(countPageMessages(page), 1e3, "Timed out while counting page messages.").catch(() => partial.turnCount),
-    withTimeout2(countPageMessages(page, "assistant"), 1e3, "Timed out while counting assistant messages.").catch(() => partial.assistantTurnCount)
-  ]);
-  const conversationId = url !== void 0 ? parseConversationId(url) : partial.conversationId;
-  const context = {
-    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    ...partial
-  };
-  if (url !== void 0) {
-    context.url = url;
-  }
-  if (title !== void 0) {
-    context.title = title;
-  }
-  if (turnCount !== void 0) {
-    context.turnCount = turnCount;
-  }
-  if (assistantTurnCount !== void 0) {
-    context.assistantTurnCount = assistantTurnCount;
-  }
-  if (conversationId !== void 0) {
-    context.conversationId = conversationId;
-  }
-  return context;
-}
-
-// src/commands/session.ts
-async function bootstrap(env, args = {}) {
-  try {
-    const attached = await attachChatGPTBrowser(env, args);
-    env.browser = attached.browser;
-    env.page = attached.page;
-    if (attached.tabId !== void 0) {
-      env.expectedTabId = attached.tabId;
-    }
-    const state = await readPageState(attached.page);
-    const data = {
-      browserName: attached.browserName,
-      tabId: attached.tabId ?? "unknown",
-      url: state.url,
-      loggedIn: state.signedIn
-    };
-    const context = attached.tabId === void 0 ? { browserName: attached.browserName } : { browserName: attached.browserName, tabId: attached.tabId };
-    return resultOk(data, await contextFromPage(attached.page, context));
-  } catch (error) {
-    return resultError(error instanceof Error ? error : new Error(String(error)));
-  }
-}
-async function ensurePage(env) {
-  if (env.page === void 0) {
-    return bootstrap(env, { preferExistingTab: true });
-  }
-  const affinity = await verifyTabAffinity(env);
-  if (affinity !== void 0) {
-    return affinity;
-  }
-  return resultOk({}, await contextFromPage(env.page, tabContext(env)));
-}
-async function verifyTabAffinity(env) {
-  if (env.expectedTabId === void 0 || env.page === void 0) {
-    return void 0;
-  }
-  const actualTabId = tabIdFromPage(env.page);
-  if (actualTabId === env.expectedTabId) {
-    return void 0;
-  }
-  const code = actualTabId === void 0 ? "tab_affinity_unverifiable" : "tab_affinity_lost";
-  const message = actualTabId === void 0 ? `ChatGPT command cannot verify it is still attached to expected tab ${env.expectedTabId}.` : `ChatGPT command would run on tab ${actualTabId}, but the workflow expected tab ${env.expectedTabId}.`;
-  return {
-    ok: false,
-    status: "blocked",
-    warnings: [],
-    blocker: {
-      kind: "selector_drift",
-      code,
-      message,
-      remediation: [
-        {
-          label: "Reclaim the intended tab",
-          instruction: "Run session.bootstrap again with an exact existingTab target, or pass the correct page/tab to createChatGPT before retrying.",
-          userActionRequired: false
-        }
-      ],
-      resumable: false
-    },
-    context: await contextFromPage(env.page, tabContext(env, actualTabId))
-  };
-}
-function tabContext(env, actualTabId = tabIdFromPage(env.page)) {
-  const tabId = actualTabId ?? env.expectedTabId;
-  return tabId === void 0 ? {} : { tabId };
-}
-
 // src/commands/conversation.ts
-var CHATGPT_HOME2 = "https://chatgpt.com/";
+var CHATGPT_HOME4 = "https://chatgpt.com/";
 async function ensureConversationTarget(page, target, options) {
   const targetUrl = absoluteConversationUrl(target);
   const expectedConversationId = parseConversationId(targetUrl);
@@ -5528,7 +7796,7 @@ async function waitForConversationHydrated(page, timeoutMs, expectedConversation
 }
 function absoluteConversationUrl(target) {
   if (target.href !== void 0 && target.href.startsWith("/")) {
-    return new URL(target.href, CHATGPT_HOME2).toString();
+    return new URL(target.href, CHATGPT_HOME4).toString();
   }
   return target.href ?? target.url;
 }
@@ -5541,7 +7809,7 @@ function ensureResult(navigated, targetUrl, expectedConversationId) {
 }
 
 // src/commands/threads.ts
-var CHATGPT_HOME3 = "https://chatgpt.com/";
+var CHATGPT_HOME5 = "https://chatgpt.com/";
 function extractThreadSearchResultsFromHtml(html) {
   const anchors = html.matchAll(/<a\b(?<attrs>[^>]*\bhref=["'](?<href>\/c\/[^"']+)["'][^>]*)>(?<body>[\s\S]*?)<\/a>/gi);
   const results = [];
@@ -5602,7 +7870,7 @@ async function newThread(env, args = {}) {
     try {
       await newChatButton(page).click?.();
     } catch {
-      await page.goto?.(CHATGPT_HOME3, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
+      await page.goto?.(CHATGPT_HOME5, { waitUntil: "domcontentloaded", timeout: args.timeoutMs ?? 3e4 });
     }
     await page.waitForTimeout?.(500);
     const state = await readPageState(page);
@@ -5646,21 +7914,21 @@ async function resolveOpenTarget(env, args, previousResults) {
     return { url: args.url };
   }
   if (args.conversationId !== void 0) {
-    return { url: new URL(`/c/${args.conversationId}`, CHATGPT_HOME3).toString() };
+    return { url: new URL(`/c/${args.conversationId}`, CHATGPT_HOME5).toString() };
   }
   if (args.fromStep !== void 0 && previousResults !== void 0) {
     const previous = previousResults.get(args.fromStep);
     const data = previous?.data;
     const selected = selectSearchResult(data?.results ?? [], args.select ?? "first");
     if (selected !== void 0) {
-      return { href: selected.href, url: new URL(selected.href, CHATGPT_HOME3).toString(), title: selected.title };
+      return { href: selected.href, url: new URL(selected.href, CHATGPT_HOME5).toString(), title: selected.title };
     }
   }
   if (args.title !== void 0) {
     const search = await searchThreads(env, { query: args.title, limit: 10 });
     const selected = selectSearchResult(search.data?.results ?? [], { title: args.title }) ?? search.data?.results[0];
     if (selected !== void 0) {
-      return { href: selected.href, url: new URL(selected.href, CHATGPT_HOME3).toString(), title: selected.title };
+      return { href: selected.href, url: new URL(selected.href, CHATGPT_HOME5).toString(), title: selected.title };
     }
   }
   return void 0;
@@ -6650,7 +8918,7 @@ async function askMessage(env, args) {
   }
   const compose = await composeMessage(env, composeArgs);
   if (!compose.ok) {
-    return forwardFailure(compose);
+    return forwardFailure2(compose);
   }
   const submitArgs = { text: prompt };
   if (beforeTurnCount !== void 0) {
@@ -6661,7 +8929,7 @@ async function askMessage(env, args) {
   }
   const submit = await submitMessage(env, submitArgs);
   if (!submit.ok) {
-    return forwardFailure(submit);
+    return forwardFailure2(submit);
   }
   const readRequested = args.read === true || typeof args.read === "object";
   let waitResult;
@@ -6680,7 +8948,7 @@ async function askMessage(env, args) {
         waitFailure = waitResult;
       } else {
         if (!readRequested || readRole(args.read) === "user") {
-          return forwardFailure(waitResult);
+          return forwardFailure2(waitResult);
         }
         waitFailure = waitResult;
       }
@@ -6692,7 +8960,7 @@ async function askMessage(env, args) {
     const read = await readLatest(env, typeof args.read === "object" ? args.read : {});
     if (read.ok) {
       if (waitFailure !== void 0 && !readCapturedNewAssistantTurn(read, beforeTurnCount, beforeAssistantTurnCount)) {
-        return forwardFailure(waitFailure);
+        return forwardFailure2(waitFailure);
       }
       responseText = read.data?.text;
       warnings.push(...read.warnings);
@@ -6703,11 +8971,11 @@ async function askMessage(env, args) {
         );
       }
     } else if (responseText === void 0) {
-      return forwardFailure(waitFailure ?? read);
+      return forwardFailure2(waitFailure ?? read);
     }
   }
   if (waitFailure !== void 0 && responseText === void 0) {
-    return forwardFailure(waitFailure);
+    return forwardFailure2(waitFailure);
   }
   const state = await readPageState(page).catch(() => void 0);
   const data = { prompt };
@@ -6743,7 +9011,7 @@ async function askMessage(env, args) {
 async function waitAndRead(env, args = {}) {
   const wait = await waitForMessage(env, args);
   if (!wait.ok && wait.status !== "partial") {
-    return forwardFailure(wait);
+    return forwardFailure2(wait);
   }
   const read = await readLatest(env, args);
   if (!read.ok) {
@@ -6760,7 +9028,7 @@ async function waitAndRead(env, args = {}) {
         context: wait.context
       });
     }
-    return forwardFailure(read);
+    return forwardFailure2(read);
   }
   const data = askReadData("", read.data?.text, wait.data?.complete, wait.data, read.data);
   const warnings = [...read.warnings, ...wait.warnings];
@@ -6881,7 +9149,7 @@ async function sleep(page, ms2) {
     await page.waitForTimeout(ms2);
     return;
   }
-  await new Promise((resolve3) => setTimeout(resolve3, ms2));
+  await new Promise((resolve5) => setTimeout(resolve5, ms2));
 }
 function submitData(userTurnText, turnCount, submissionState, generation) {
   const data = { submitted: true };
@@ -6970,7 +9238,7 @@ function readCapturedNewAssistantTurn(read, beforeTurnCount, beforeAssistantTurn
   const turnAdvanced = beforeTurnCount === void 0 || read.context.turnCount !== void 0 && read.context.turnCount > beforeTurnCount;
   return assistantAdvanced && turnAdvanced;
 }
-function forwardFailure(result) {
+function forwardFailure2(result) {
   const forwarded = {
     ok: false,
     status: result.status,
@@ -6990,20 +9258,20 @@ function forwardFailure(result) {
 }
 
 // src/commands/artifacts.ts
-import { copyFile as copyFile2, mkdir as mkdir4, stat as stat3, writeFile as writeFile3 } from "node:fs/promises";
-import { basename as basename2, join as join3, resolve as resolve2 } from "node:path";
+import { copyFile as copyFile2, mkdir as mkdir5, stat as stat3, writeFile as writeFile4 } from "node:fs/promises";
+import { basename as basename2, join as join3, resolve as resolve3 } from "node:path";
 
 // src/browser/downloads.ts
-import { copyFile, mkdir as mkdir3, stat as stat2 } from "node:fs/promises";
-import { basename, join as join2, resolve } from "node:path";
+import { copyFile, mkdir as mkdir4, stat as stat2 } from "node:fs/promises";
+import { basename, join as join2, resolve as resolve2 } from "node:path";
 async function waitForDownloadFromClick(page, click, destDir, timeoutMs, filenameHint) {
-  const absoluteDest = resolve(destDir);
-  await mkdir3(absoluteDest, { recursive: true });
+  const absoluteDest = resolve2(destDir);
+  await mkdir4(absoluteDest, { recursive: true });
   const downloadPromise = page.waitForEvent?.("download", { timeout: timeoutMs, timeoutMs });
   if (downloadPromise === void 0) {
     throw new Error("The active browser page does not expose download events.");
   }
-  await withTimeout2(
+  await withTimeout(
     click(),
     localGuardTimeout(timeoutMs, 1e4),
     "Download control click did not complete before the local guard timeout."
@@ -7015,7 +9283,7 @@ async function waitForDownloadFromClick(page, click, destDir, timeoutMs, filenam
   if (typeof download.saveAs === "function") {
     await download.saveAs(targetPath);
   } else if (sourcePath !== null) {
-    if (resolve(sourcePath) !== resolve(targetPath)) {
+    if (resolve2(sourcePath) !== resolve2(targetPath)) {
       await copyFile(sourcePath, targetPath);
     }
   } else {
@@ -7061,7 +9329,7 @@ async function waitForArtifact(env, args = {}) {
   let lastChangedAt = Date.now();
   let latestArtifacts = [];
   while (Date.now() - started < timeoutMs) {
-    const state = await withTimeout2(readPageState(page), localGuardTimeout(timeoutMs, 5e3), "Timed out while reading ChatGPT page state.").catch(() => void 0);
+    const state = await withTimeout(readPageState(page), localGuardTimeout(timeoutMs, 5e3), "Timed out while reading ChatGPT page state.").catch(() => void 0);
     if (state?.blocker !== void 0 && state.blocker.kind !== "modal") {
       return {
         ok: false,
@@ -7161,7 +9429,7 @@ async function locatorCountWithTimeout(locator, timeoutMs, code) {
   if (locator === void 0 || typeof locator.count !== "function") {
     return 0;
   }
-  return withTimeout2(
+  return withTimeout(
     locator.count(),
     timeoutMs,
     `${code}: locator count did not complete before the local guard timeout.`
@@ -7193,11 +9461,11 @@ async function saveLatestVisibleImageSource(page, destDir, timeoutMs) {
   if (source === void 0) return void 0;
   const parsed = parseDataUrl(source.dataUrl);
   if (parsed === void 0) return void 0;
-  const absoluteDest = resolve2(destDir);
-  await mkdir4(absoluteDest, { recursive: true });
+  const absoluteDest = resolve3(destDir);
+  await mkdir5(absoluteDest, { recursive: true });
   const suggestedFilename = `generated-image-${Date.now()}.${extensionForMime(parsed.mimeType)}`;
   const path3 = join3(absoluteDest, suggestedFilename);
-  await writeFile3(path3, parsed.bytes);
+  await writeFile4(path3, parsed.bytes);
   const saved = await stat3(path3);
   if (saved.size <= 0) {
     throw new Error(`Generated image artifact file is empty: ${path3}`);
@@ -7248,22 +9516,22 @@ async function saveLatestPageAssetImage(env, page, destDir, timeoutMs) {
 async function saveLatestPageAssetImageFromPage(page, destDir, timeoutMs) {
   const capability2 = await getPageAssetsCapability(page);
   if (capability2 === void 0) return void 0;
-  const inventory = await withTimeout2(
+  const inventory = await withTimeout(
     capability2.list(),
     localGuardTimeout(timeoutMs, 15e3),
     "Timed out while listing page assets for generated image download."
   );
   const candidateIds = inventory.assets.filter((asset2) => asset2.kind === "image").filter((asset2) => !isInlineSvgAsset(asset2) && isLikelyRasterImageAsset(asset2)).map((asset2) => asset2.id);
   if (candidateIds.length === 0) return void 0;
-  const bundled = await withTimeout2(
+  const bundled = await withTimeout(
     capability2.bundle({ assetIds: candidateIds, inventoryId: inventory.id, kinds: ["image"] }),
     localGuardTimeout(timeoutMs, 3e4),
     "Timed out while bundling generated image page asset."
   );
   const asset = bundled.assets.filter((item) => !isInlineSvgAsset(item) && isLikelyRasterImageAsset(item)).at(-1);
   if (asset === void 0) return void 0;
-  const absoluteDest = resolve2(destDir);
-  await mkdir4(absoluteDest, { recursive: true });
+  const absoluteDest = resolve3(destDir);
+  await mkdir5(absoluteDest, { recursive: true });
   const suggestedFilename = `generated-image-${Date.now()}.${extensionForMime(asset.contentType ?? "image/png")}`;
   const path3 = join3(absoluteDest, suggestedFilename);
   await copyFile2(asset.path, path3);
@@ -7276,7 +9544,7 @@ async function saveLatestPageAssetImageFromPage(page, destDir, timeoutMs) {
 async function readPageAssetsInventory(page, timeoutMs) {
   const capability2 = await getPageAssetsCapability(page);
   if (capability2 === void 0) return void 0;
-  return await withTimeout2(
+  return await withTimeout(
     capability2.list(),
     localGuardTimeout(timeoutMs, 15e3),
     "Timed out while listing page assets for generated artifacts."
@@ -7311,7 +9579,7 @@ async function openTemporaryPage(env, url, timeoutMs) {
   } else if (typeof browser.tabs?.new === "function") {
     page = await Promise.resolve(browser.tabs.new.call(browser.tabs));
     if (typeof page?.goto === "function") {
-      await withTimeout2(
+      await withTimeout(
         page.goto(url),
         localGuardTimeout(timeoutMs, 2e4),
         "Timed out while opening generated image conversation in a temporary bridge tab."
@@ -7320,7 +9588,7 @@ async function openTemporaryPage(env, url, timeoutMs) {
   } else if (typeof browser.newPage === "function") {
     page = await Promise.resolve(browser.newPage.call(browser));
     if (typeof page?.goto === "function") {
-      await withTimeout2(
+      await withTimeout(
         page.goto(url),
         localGuardTimeout(timeoutMs, 2e4),
         "Timed out while opening generated image conversation in a temporary bridge page."
@@ -7332,7 +9600,7 @@ async function openTemporaryPage(env, url, timeoutMs) {
 async function settlePage(page, timeoutMs) {
   const waitForTimeout = page.waitForTimeout ?? page.playwright?.waitForTimeout;
   if (typeof waitForTimeout !== "function") return;
-  await withTimeout2(
+  await withTimeout(
     waitForTimeout.call(page.waitForTimeout === waitForTimeout ? page : page.playwright, Math.min(timeoutMs, 5e3)),
     timeoutMs,
     "Timed out while waiting for temporary bridge tab to settle."
@@ -7417,7 +9685,7 @@ function artifactDownloadBlocker(error, context) {
 }
 async function hasStopControl(page, timeoutMs) {
   if (typeof page.evaluate !== "function") return false;
-  return withTimeout2(
+  return withTimeout(
     page.evaluate((phrases) => {
       const text = document.body?.innerText ?? "";
       const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -7432,1928 +9700,7 @@ async function sleep2(page, ms2) {
     await page.waitForTimeout(ms2);
     return;
   }
-  await new Promise((resolve3) => setTimeout(resolve3, ms2));
-}
-
-// src/dom/label-match.ts
-function normalizeForLabelMatch(text) {
-  return normalizeWhitespace(text.normalize("NFKC")).toLocaleLowerCase();
-}
-function visibleLabelMatches(label, wanted) {
-  const normalizedLabel = normalizeForLabelMatch(label);
-  const normalizedWanted = normalizeForLabelMatch(wanted);
-  if (normalizedWanted.length === 0) {
-    return false;
-  }
-  if (normalizedLabel === normalizedWanted) {
-    return true;
-  }
-  if (isShortLatinToken(normalizedWanted)) {
-    return new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp2(normalizedWanted)}([^\\p{L}\\p{N}]|$)`, "iu").test(normalizedLabel);
-  }
-  return normalizedLabel.includes(normalizedWanted);
-}
-function isShortLatinToken(value) {
-  return value.length <= 3 && /^[a-z0-9]+$/i.test(value);
-}
-function escapeRegExp2(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-// src/dom/menus.ts
-function extractMenuItemsFromText(text) {
-  return text.split(/\n| {2,}| • /).map((label) => normalizeWhitespace(label)).filter(Boolean).map((label) => ({ label, normalized: normalizeLabel(label) }));
-}
-async function enumerateVisibleMenuItems(page) {
-  if (typeof page.evaluate === "function") {
-    const labels = await page.evaluate(() => {
-      const visible = (element) => {
-        const html = element;
-        const rect = html.getBoundingClientRect?.();
-        if (rect !== void 0 && (rect.width <= 0 || rect.height <= 0)) return false;
-        let current = element;
-        while (current !== null) {
-          if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
-            return false;
-          }
-          const style = typeof window !== "undefined" ? window.getComputedStyle?.(current) : void 0;
-          if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
-            return false;
-          }
-          current = current.parentElement ?? null;
-        }
-        return true;
-      };
-      const toItem = (node) => {
-        const element = node;
-        const label = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim();
-        const item = { label };
-        const role = element.getAttribute("role");
-        if (role !== null) item.role = role;
-        const checked = element.getAttribute("aria-checked");
-        if (checked === "true") item.checked = true;
-        if (checked === "false") item.checked = false;
-        const expanded = element.getAttribute("aria-expanded");
-        if (expanded === "true") item.expanded = true;
-        if (expanded === "false") item.expanded = false;
-        if (element.getAttribute("aria-haspopup") === "menu") item.hasPopup = true;
-        const testId = element.getAttribute("data-testid");
-        if (testId !== null) item.testId = testId;
-        const ariaLabel = element.getAttribute("aria-label");
-        if (ariaLabel !== null) item.ariaLabel = ariaLabel;
-        return item;
-      };
-      const allRoleNodes = Array.from(document.querySelectorAll("[role='menuitem'], [role='menuitemradio'], [role='option']")).filter(visible);
-      const containers = Array.from(document.querySelectorAll("[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper]")).filter((container) => visible(container) && typeof container.contains === "function");
-      const scopedRoleNodes = containers.length > 0 ? allRoleNodes.filter((node) => containers.some((container) => container.contains(node))) : allRoleNodes;
-      const roleItems = (scopedRoleNodes.length > 0 ? scopedRoleNodes : allRoleNodes).map(toItem).filter((item) => item.label.length > 0);
-      if (roleItems.length > 0) {
-        return { items: roleItems, labels: [], split: false };
-      }
-      const menus = Array.from(document.querySelectorAll("[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper]")).filter(visible).map((node) => node.innerText ?? node.textContent ?? "").filter(Boolean);
-      return { items: [], labels: menus, split: true };
-    });
-    return labels.split ? labels.labels.flatMap((label) => extractMenuItemsFromText(label)) : labels.items.map((item) => ({ ...item, label: normalizeWhitespace(item.label), normalized: normalizeLabel(item.label) })).filter((item) => item.label.length > 0);
-  }
-  return [];
-}
-function findUniqueMenuItem(items, wanted) {
-  const normalized = normalizeLabel(wanted);
-  const exact = items.filter((item) => item.normalized === normalized);
-  if (exact.length === 1) {
-    return exact[0];
-  }
-  const fuzzy = items.filter((item) => visibleLabelMatches(item.label, wanted));
-  return fuzzy.length === 1 ? fuzzy[0] : void 0;
-}
-
-// src/commands/experience.ts
-var CHATGPT_HOME4 = "https://chatgpt.com/";
-var EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS = 15e3;
-var EXPERIENCE_POLL_MS = 250;
-async function detectExperience(env, args = {}) {
-  void args;
-  const boot2 = await ensurePage(env);
-  if (!boot2.ok) {
-    return boot2;
-  }
-  const page = env.page;
-  try {
-    const data = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
-    return resultOk(data, await contextFromPage(page, {
-      experience: data.experience,
-      selectorProfile: data.selectorProfile
-    }), data.experience === "unknown" ? ["The current ChatGPT surface could not be classified as Chat or Work from scoped composer evidence."] : []);
-  } catch (error) {
-    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
-  }
-}
-async function openExperience(env, args) {
-  const boot2 = await ensurePage(env);
-  if (!boot2.ok) {
-    return boot2;
-  }
-  const page = env.page;
-  try {
-    const before = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
-    if (before.experience === args.experience) {
-      return resultOk({
-        experience: args.experience,
-        previousExperience: before.experience,
-        changed: false,
-        selectorProfile: before.selectorProfile
-      }, await contextFromPage(page, {
-        experience: before.experience,
-        selectorProfile: before.selectorProfile
-      }));
-    }
-    const labels = localeLabels.experienceOptions[args.experience];
-    const timeoutMs = args.timeoutMs ?? 3e4;
-    const discoveryAttempts = pollAttempts(
-      Math.min(timeoutMs, EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS),
-      EXPERIENCE_POLL_MS
-    );
-    let observed = before;
-    let controlClicked = await clickUniqueExperienceControl(page, labels);
-    if (!controlClicked && await navigateConversationToSurfaceHome(page, args.timeoutMs)) {
-      observed = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
-      if (observed.experience === args.experience) {
-        return resultOk({
-          experience: args.experience,
-          previousExperience: before.experience,
-          changed: true,
-          selectorProfile: observed.selectorProfile
-        }, await contextFromPage(page, {
-          experience: observed.experience,
-          selectorProfile: observed.selectorProfile
-        }));
-      }
-      controlClicked = await clickUniqueExperienceControl(page, labels);
-    }
-    for (let attempt = 1; !controlClicked && attempt < discoveryAttempts; attempt += 1) {
-      await page.waitForTimeout?.(EXPERIENCE_POLL_MS);
-      observed = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
-      if (observed.experience === args.experience) {
-        return resultOk({
-          experience: args.experience,
-          previousExperience: before.experience,
-          changed: true,
-          selectorProfile: observed.selectorProfile
-        }, await contextFromPage(page, {
-          experience: observed.experience,
-          selectorProfile: observed.selectorProfile
-        }));
-      }
-      controlClicked = await clickUniqueExperienceControl(page, labels);
-    }
-    if (!controlClicked) {
-      return experienceSelectorDrift(
-        page,
-        `No unique visible ChatGPT ${args.experience === "work" ? "Work" : "Chat"} surface control was found.`,
-        observed
-      );
-    }
-    let after = before;
-    for (let attempt = 0; attempt < pollAttempts(timeoutMs, EXPERIENCE_POLL_MS); attempt += 1) {
-      await page.waitForTimeout?.(EXPERIENCE_POLL_MS);
-      after = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
-      if (after.experience === args.experience) {
-        return resultOk({
-          experience: args.experience,
-          previousExperience: before.experience,
-          changed: true,
-          selectorProfile: after.selectorProfile
-        }, await contextFromPage(page, {
-          experience: after.experience,
-          selectorProfile: after.selectorProfile
-        }));
-      }
-    }
-    return {
-      ok: false,
-      status: "blocked",
-      warnings: [],
-      blocker: {
-        kind: "selector_drift",
-        code: "experience_postcondition_unverified",
-        fieldPath: "experience",
-        message: `The ${args.experience} surface control was clicked, but the composer did not verify that ChatGPT switched to ${args.experience}.`,
-        candidates: labels.map((label) => ({ label })),
-        resumable: true
-      },
-      context: await contextFromPage(page, {
-        experience: after.experience,
-        selectorProfile: after.selectorProfile
-      })
-    };
-  } catch (error) {
-    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
-  }
-}
-function pollAttempts(timeoutMs, pollMs) {
-  return Math.max(1, Math.ceil(Math.max(0, timeoutMs) / pollMs));
-}
-async function navigateConversationToSurfaceHome(page, timeoutMs) {
-  if (page.goto === void 0 || page.url === void 0) return false;
-  const currentUrl = await Promise.resolve(page.url()).catch(() => "");
-  if (!/^https:\/\/chatgpt\.com\/c\//i.test(currentUrl)) return false;
-  await page.goto(CHATGPT_HOME4, {
-    waitUntil: "domcontentloaded",
-    timeout: timeoutMs ?? 3e4
-  });
-  await page.waitForTimeout?.(500);
-  return true;
-}
-function detectExperienceFromSnapshot(snapshot) {
-  const evidence = [];
-  const composerLabels = snapshot.composerLabels.map(normalizeForLabelMatch);
-  const controls = snapshot.mainControls.map(normalizeForLabelMatch);
-  const mainText = normalizeForLabelMatch(snapshot.mainText);
-  const selectedSurfaceLabels = (snapshot.selectedSurfaceLabels ?? []).map(normalizeForLabelMatch);
-  const url = snapshot.url.toLowerCase();
-  const selectedWork = matchingLabels(selectedSurfaceLabels, localeLabels.experienceOptions.work);
-  const selectedChat = matchingLabels(selectedSurfaceLabels, localeLabels.experienceOptions.chat);
-  const workSurfaceSelected = selectedWork.length > 0 && selectedChat.length === 0;
-  const chatSurfaceSelected = selectedChat.length > 0 && selectedWork.length === 0;
-  if (workSurfaceSelected) {
-    evidence.push({ source: "control", label: "Work surface selected" });
-  } else if (chatSurfaceSelected) {
-    evidence.push({ source: "control", label: "Chat surface selected" });
-  }
-  const workComposer = matchingLabels(composerLabels, localeLabels.workComposerTextbox);
-  for (const label of workComposer) {
-    evidence.push({ source: "composer", label });
-  }
-  const chatComposer = matchingLabels(composerLabels, localeLabels.composerTextbox);
-  for (const label of chatComposer) {
-    evidence.push({ source: "composer", label });
-  }
-  const workAxisCount = ["model", "effort", "speed"].filter((axis) => hasAnyLabel(controls, localeLabels.configurationAxes[axis])).length;
-  if (workAxisCount >= 2) {
-    evidence.push({ source: "control", label: `Work configuration axes (${workAxisCount}/3)` });
-  }
-  const workConfigurationOpener = controls.some(
-    (label) => /\b(?:gpt[\s-]?\d|\d+(?:\.\d+)+|sol|luna|terra)\b/i.test(label) && hasAnyLabel([label], [
-      ...localeLabels.configurationOptions.light,
-      ...localeLabels.configurationOptions.medium,
-      ...localeLabels.configurationOptions.high,
-      ...localeLabels.configurationOptions.extraHigh,
-      ...localeLabels.configurationOptions.max,
-      ...localeLabels.configurationOptions.ultra
-    ])
-  );
-  if (workConfigurationOpener) {
-    evidence.push({ source: "control", label: "Work configuration opener" });
-  }
-  if (/\/work(?:\/|$|\?)/.test(url)) {
-    evidence.push({ source: "url", label: snapshot.url });
-  }
-  if (containsAny(mainText, ["work on something else", "work on anything"])) {
-    evidence.push({ source: "heading", label: "Work composer copy" });
-  }
-  const workScore = workComposer.length * 4 + (workSurfaceSelected ? 10 : 0) + (workAxisCount >= 2 ? 4 : 0) + (workConfigurationOpener ? 6 : 0) + (/\/work(?:\/|$|\?)/.test(url) ? 3 : 0) + (containsAny(mainText, ["work on something else", "work on anything"]) ? 2 : 0);
-  const chatScore = chatComposer.length * 4 + (chatSurfaceSelected ? 10 : 0);
-  let experience = "unknown";
-  let confidence = "low";
-  if (workScore > chatScore && workScore >= 4) {
-    experience = "work";
-    confidence = workSurfaceSelected || workScore >= 7 ? "high" : "medium";
-  } else if (chatScore > workScore && chatScore >= 4) {
-    experience = "chat";
-    confidence = "high";
-  }
-  const selectorProfile = profileFromSnapshot(snapshot, experience);
-  return { experience, selectorProfile, confidence, evidence };
-}
-async function readSurfaceSnapshot(page) {
-  const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
-  if (typeof page.evaluate !== "function") {
-    return { url, composerLabels: [], mainControls: [], mainText: "", selectedSurfaceLabels: [] };
-  }
-  const snapshot = await page.evaluate((surfaceOptionLabels) => {
-    const visible = (element) => {
-      const html = element;
-      const rect = html.getBoundingClientRect?.();
-      if (rect !== void 0 && (rect.width <= 0 || rect.height <= 0)) return false;
-      let current = element;
-      while (current !== null) {
-        if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
-          return false;
-        }
-        const style = typeof window !== "undefined" ? window.getComputedStyle?.(current) : void 0;
-        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
-          return false;
-        }
-        current = current.parentElement ?? null;
-      }
-      return true;
-    };
-    const labelFor = (element) => {
-      const html = element;
-      return element.getAttribute("aria-label") ?? element.getAttribute("placeholder") ?? html.innerText ?? element.textContent ?? "";
-    };
-    const normalize2 = (value) => value.replace(/\s+/g, " ").trim();
-    const normalizeComparable = (value) => normalize2(value).toLocaleLowerCase();
-    const wantedSurfaceLabels = new Set(surfaceOptionLabels.map(normalizeComparable));
-    const composerRoots = Array.from(document.querySelectorAll(
-      "main form, main [data-testid*='composer' i], main [class*='composer' i]"
-    ));
-    const composerNodes = composerRoots.flatMap((root) => [
-      root,
-      ...Array.from(root.querySelectorAll("textarea, [contenteditable='true'], [role='textbox'], input"))
-    ]);
-    const composerLabels = Array.from(new Set(composerNodes.filter(visible).map(labelFor).map(normalize2).filter(Boolean))).slice(0, 16);
-    const main = document.querySelector("main");
-    const overlayRoots = Array.from(document.querySelectorAll(
-      "[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
-    )).filter(visible);
-    const controlRoots = Array.from(/* @__PURE__ */ new Set([...composerRoots, ...overlayRoots]));
-    const effectiveControlRoots = controlRoots.length > 0 ? controlRoots : main === null ? [] : [main];
-    const mainControls = Array.from(new Set(effectiveControlRoots.flatMap((root) => Array.from(root.querySelectorAll(
-      "button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option']"
-    ))).filter(visible).map(labelFor).map(normalize2).filter(Boolean))).slice(0, 120);
-    const surfaceTextNodes = main === null ? [] : Array.from(main.querySelectorAll(
-      "h1, h2, h3, form, [data-testid*='composer' i], [class*='composer' i]"
-    )).filter(visible).slice(0, 32);
-    const mainText = normalize2(surfaceTextNodes.map(labelFor).join(" ")).slice(0, 2e3);
-    const selectedSurfaceLabels = Array.from(new Set(Array.from(document.querySelectorAll(
-      "[role='radio'][aria-checked='true'], [role='radio'][data-state='checked'], input[type='radio']:checked"
-    )).filter(visible).map(labelFor).map(normalize2).filter((label) => wantedSurfaceLabels.has(normalizeComparable(label))))).slice(0, 4);
-    return { composerLabels, mainControls, mainText, selectedSurfaceLabels };
-  }, [
-    ...localeLabels.experienceOptions.chat,
-    ...localeLabels.experienceOptions.work
-  ]).catch(() => ({ composerLabels: [], mainControls: [], mainText: "", selectedSurfaceLabels: [] }));
-  return { url, ...snapshot };
-}
-function profileFromSnapshot(snapshot, experience) {
-  const controls = snapshot.mainControls.map(normalizeForLabelMatch);
-  const mainText = normalizeForLabelMatch(snapshot.mainText);
-  if (experience === "work") {
-    return hasAnyLabel(controls, localeLabels.configurationAxes.advanced) || containsAny(mainText, localeLabels.configurationAxes.advanced) ? "work_advanced_v1" : "work_basic_v1";
-  }
-  if (experience !== "chat") {
-    return "unknown";
-  }
-  const simplifiedOptions = [
-    ...localeLabels.configurationOptions.instant,
-    ...localeLabels.configurationOptions.medium,
-    ...localeLabels.configurationOptions.high,
-    ...localeLabels.configurationOptions.extraHigh,
-    ...localeLabels.configurationOptions.pro
-  ];
-  if (hasAnyLabel(controls, simplifiedOptions)) {
-    return "chat_simplified_v1";
-  }
-  const legacyOptions = [
-    ...localeLabels.modeOptions.latest,
-    ...localeLabels.modeOptions.thinking,
-    ...localeLabels.modeOptions.extended
-  ];
-  return hasAnyLabel(controls, legacyOptions) ? "chat_legacy_v1" : "chat_simplified_v1";
-}
-async function clickUniqueExperienceControl(page, labels) {
-  for (const label of labels) {
-    for (const role of ["radio", "button", "menuitem", "tab", "link"]) {
-      if (await clickIfUnique(page.getByRole?.(role, { name: label, exact: true }))) {
-        return true;
-      }
-    }
-  }
-  if (typeof page.evaluate !== "function") {
-    return false;
-  }
-  return page.evaluate((wantedLabels) => {
-    const normalize2 = (value) => value.replace(/\s+/g, " ").trim().toLocaleLowerCase();
-    const wanted = new Set(wantedLabels.map(normalize2));
-    const visible = (element) => {
-      const html = element;
-      const rect = html.getBoundingClientRect?.();
-      if (rect !== void 0 && (rect.width <= 0 || rect.height <= 0)) return false;
-      let current = element;
-      while (current !== null) {
-        if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
-          return false;
-        }
-        const style = typeof window !== "undefined" ? window.getComputedStyle?.(current) : void 0;
-        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
-          return false;
-        }
-        current = current.parentElement ?? null;
-      }
-      return true;
-    };
-    const labelFor = (node) => {
-      const html = node;
-      const inputLabels = "labels" in node ? Array.from(node.labels ?? []).map((label) => label.innerText).join(" ") : "";
-      return node.getAttribute("aria-label") || inputLabels || html.innerText || node.textContent || "";
-    };
-    const nodes = Array.from(document.querySelectorAll(
-      "[role='radio'], input[type='radio'], header button, header [role='button'], header [role='tab'], main [role='menuitem'], main [role='option']"
-    ));
-    const matches = nodes.filter((node) => visible(node) && wanted.has(normalize2(labelFor(node))));
-    if (matches.length !== 1) return false;
-    matches[0].click();
-    return true;
-  }, labels).catch(() => false);
-}
-async function clickIfUnique(locator) {
-  if (locator?.count === void 0 || locator.click === void 0) {
-    return false;
-  }
-  if (await locator.count().catch(() => 0) !== 1) {
-    return false;
-  }
-  await locator.click();
-  return true;
-}
-function matchingLabels(normalizedHaystack, candidates) {
-  const normalizedCandidates = candidates.map(normalizeForLabelMatch);
-  return normalizedHaystack.filter((label) => normalizedCandidates.some(
-    (candidate) => label === candidate || visibleLabelMatches(label, candidate)
-  )).slice(0, 4);
-}
-function hasAnyLabel(normalizedHaystack, candidates) {
-  const normalizedCandidates = candidates.map(normalizeForLabelMatch);
-  return normalizedHaystack.some(
-    (label) => normalizedCandidates.some(
-      (candidate) => label === candidate || visibleLabelMatches(label, candidate)
-    )
-  );
-}
-function containsAny(normalizedText, candidates) {
-  return candidates.map(normalizeForLabelMatch).some((candidate) => normalizedText.includes(candidate));
-}
-async function experienceSelectorDrift(page, message, detected) {
-  return {
-    ok: false,
-    status: "unsupported",
-    warnings: [],
-    blocker: {
-      kind: "selector_drift",
-      code: "experience_control_not_found",
-      fieldPath: "experience",
-      message,
-      candidates: detected.evidence.map((item) => ({ label: `${item.source}: ${item.label}` })),
-      resumable: true
-    },
-    context: await contextFromPage(page, {
-      experience: detected.experience,
-      selectorProfile: detected.selectorProfile
-    })
-  };
-}
-
-// src/commands/modes.ts
-var DEFAULT_MODE_EFFORT = "Thinking";
-var CURRENT_MODE_LABELS = dedupeLabels([
-  ...localeLabels.modeLabels,
-  ...Object.values(localeLabels.modeOptions).flat(),
-  ...Object.values(localeLabels.configurationOptions).flat()
-]);
-var MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter((label) => label !== "Pro"), ...localeLabels.modeOpenerExtra];
-var MODEL_VERSION_FAMILY_PATTERN = /^gpt[\s-]/i;
-var MODEL_VERSION_LABEL_PATTERN = /^(?:o\d+|\d+(?:\.\d+)?)$/i;
-var CANONICAL_INTELLIGENCE_ORDER = /* @__PURE__ */ new Map([
-  ["instant", 0],
-  ["medium", 1],
-  ["high", 2],
-  ["extraHigh", 3],
-  ["pro", 4]
-]);
-var MODE_OPTION_IDS2 = [
-  "latest",
-  "instant",
-  "thinking",
-  "extended",
-  "medium",
-  "high",
-  "extraHigh",
-  "pro"
-];
-var MODE_ID_ALIASES = {
-  latest: ["latest"],
-  instant: ["instant"],
-  thinking: ["thinking"],
-  extended: ["extended"],
-  medium: ["medium"],
-  high: ["high"],
-  extraHigh: ["extra high", "extra-high", "extra_high", "extrahigh"],
-  pro: ["pro"]
-};
-var THREAD_ACTION_MENU_LABELS = new Set(localeLabels.threadActionMenuItems.map(normalizeForLabelMatch));
-var THREAD_ACTION_PREFIXES = localeLabels.threadActionPrefixes.map(normalizeForLabelMatch).filter((prefix) => prefix.length > 0);
-async function setMode(env, args) {
-  const boot2 = await ensurePage(env);
-  if (!boot2.ok) {
-    return boot2;
-  }
-  const page = env.page;
-  try {
-    const requested = requestedModeSelections(args);
-    const requestedVersion = requestedModelVersion(args);
-    const requestedForOpening = requestedVersion === void 0 ? requested : [...requested, requestedModeSelection(requestedVersion)];
-    const opened = await waitForModeMenu(page, requestedForOpening, args.timeoutMs ?? 3e4);
-    if (requestedVersion === void 0 && opened.alreadySelected.length === requested.length) {
-      return resultOk({ selected: opened.alreadySelected, candidates: opened.modeButtons }, await contextFromPage(page));
-    }
-    if (!opened.opened) {
-      return selectorDrift(page, "No unique ChatGPT mode menu opener was found.");
-    }
-    await page.waitForTimeout?.(250);
-    const candidates = await enumerateVisibleMenuItems(page);
-    const selected = [];
-    if (requested.length > 0 && shouldRejectAsWrongModeMenu(candidates)) {
-      const candidateLabels2 = candidates.map((candidate) => candidate.label);
-      return {
-        ok: false,
-        status: "unsupported",
-        warnings: [],
-        blocker: selectorDriftBlocker("Visible menu appears to be a thread/action menu, not the ChatGPT mode menu.", candidateLabels2),
-        context: await contextFromPage(page)
-      };
-    }
-    for (const request of requested) {
-      const match = findModeMenuItem(candidates, request);
-      if (match === void 0) {
-        const candidateLabels2 = candidates.map((candidate) => candidate.label);
-        return {
-          ok: false,
-          status: "unsupported",
-          warnings: [],
-          blocker: selectorDriftBlocker(`Mode option "${request.requested}" was not found or was ambiguous.`, candidateLabels2),
-          context: await contextFromPage(page)
-        };
-      }
-      if (!await clickMenuItem(page, match.label)) {
-        return selectorDrift(page, `Mode option "${match.label}" was visible but could not be clicked.`, candidates.map((candidate) => candidate.label));
-      }
-      selected.push(match.label);
-    }
-    let candidateLabels = candidates.map((candidate) => candidate.label);
-    if (requestedVersion !== void 0) {
-      const versionResult = await selectModelVersion(page, requestedVersion, candidates, args.timeoutMs ?? 3e4);
-      candidateLabels = dedupeLabels([...candidateLabels, ...versionResult.candidates]);
-      if (!versionResult.selected) {
-        return {
-          ok: false,
-          status: "unsupported",
-          warnings: [],
-          blocker: selectorDriftBlocker(`Model version "${requestedVersion}" was not found or was ambiguous.`, candidateLabels),
-          context: await contextFromPage(page)
-        };
-      }
-      selected.push(versionResult.selected);
-    }
-    const verificationWarnings = await modeVerificationWarnings(page, requested, selected);
-    return resultOk({ selected, candidates: candidateLabels }, await contextFromPage(page), verificationWarnings);
-  } catch (error) {
-    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
-  }
-}
-async function modeVerificationWarnings(page, requested, selected) {
-  if (requested.length === 0) {
-    return [];
-  }
-  await page.waitForTimeout?.(250);
-  const visibleButtons = await visibleModeButtonLabelList(page);
-  if (visibleButtons.length === 0) {
-    return [
-      `Mode selection is unverified: no mode-labelled composer control was visible after selecting ${selected.map((label) => JSON.stringify(label)).join(", ")}. Use modes.get or inspect modeStep before treating this as a verified mode.`
-    ];
-  }
-  const unverified = requested.filter((request) => findUniqueVisibleLabelForRequest(visibleButtons, request) === void 0);
-  if (unverified.length === 0) {
-    return [];
-  }
-  return [
-    `Mode selection is unverified: requested ${unverified.map((request) => JSON.stringify(request.requested)).join(", ")} is not reflected by the visible mode controls (${visibleButtons.join(", ")}). Use modes.get or inspect modeStep before treating this as a verified mode.`
-  ];
-}
-async function getMode(env, args = {}) {
-  void args;
-  const boot2 = await ensurePage(env);
-  if (!boot2.ok) {
-    return boot2;
-  }
-  const page = env.page;
-  try {
-    const modes = await visibleModeButtonLabelList(page);
-    const warnings = modes.length === 0 ? ["No mode-labelled composer control is currently visible, so the active ChatGPT mode could not be read."] : [];
-    return resultOk({ modes }, await contextFromPage(page), warnings);
-  } catch (error) {
-    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
-  }
-}
-async function waitForModeMenu(page, requested, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  let modeButtons = [];
-  do {
-    modeButtons = await visibleModeButtonLabelList(page);
-    const alreadySelected = findAlreadySelectedModes(modeButtons, requested);
-    if (alreadySelected.length === requested.length) {
-      return { opened: false, alreadySelected, modeButtons };
-    }
-    const openMenuItems = await enumerateVisibleMenuItems(page);
-    if (looksLikeModeMenu(openMenuItems)) {
-      return { opened: true, alreadySelected: [], modeButtons };
-    }
-    if (await clickModeOpener(page, modeButtons)) {
-      return { opened: true, alreadySelected: [], modeButtons };
-    }
-    if (Date.now() >= deadline) {
-      break;
-    }
-    await page.waitForTimeout?.(250);
-  } while (true);
-  return { opened: false, alreadySelected: [], modeButtons };
-}
-async function selectTool(env, args) {
-  const boot2 = await ensurePage(env);
-  if (!boot2.ok) {
-    return boot2;
-  }
-  const page = env.page;
-  try {
-    const opened = await clickFirstUniqueButton(page, [...localeLabels.addFilesOpenerCandidates]);
-    if (!opened) {
-      return selectorDrift(page, "No unique ChatGPT tool menu opener was found.");
-    }
-    await page.waitForTimeout?.(250);
-    const candidates = await enumerateVisibleMenuItems(page);
-    const wantedCandidates = toolLabels(args.tool);
-    let match;
-    let wanted = wantedCandidates[0] ?? args.tool;
-    for (const candidate of wantedCandidates) {
-      const found = findUniqueMenuItem(candidates, candidate);
-      if (found !== void 0) {
-        match = found;
-        wanted = candidate;
-        break;
-      }
-    }
-    if (match === void 0) {
-      const candidateLabels = candidates.map((candidate) => candidate.label);
-      return {
-        ok: false,
-        status: "unsupported",
-        warnings: [],
-        blocker: selectorDriftBlocker(`Tool "${wanted}" was not found or was ambiguous.`, candidateLabels),
-        context: await contextFromPage(page)
-      };
-    }
-    if (!await clickMenuItem(page, match.label)) {
-      return selectorDrift(page, `Tool "${match.label}" was visible but could not be clicked.`, candidates.map((candidate) => candidate.label));
-    }
-    return resultOk({ selected: match.label, candidates: candidates.map((candidate) => candidate.label) }, await contextFromPage(page));
-  } catch (error) {
-    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
-  }
-}
-async function clickFirstUniqueButton(page, labels) {
-  for (const label of labels) {
-    const roleLocator = page.getByRole?.("button", { name: label, exact: true });
-    if (await clickIfUnique2(roleLocator)) {
-      return true;
-    }
-    const textLocator = page.locator?.("button, [role='button']")?.filter?.({ hasText: label });
-    if (await clickIfUnique2(textLocator)) {
-      return true;
-    }
-  }
-  return false;
-}
-async function clickModeOpener(page, modeButtons) {
-  if (await clickFirstUniqueButton(page, modeButtons)) {
-    return true;
-  }
-  return clickFirstUniqueButton(page, MODE_OPENER_LABELS);
-}
-function isThreadActionLabel(label) {
-  const normalized = normalizeForLabelMatch(label);
-  if (THREAD_ACTION_MENU_LABELS.has(normalized)) {
-    return true;
-  }
-  return THREAD_ACTION_PREFIXES.some((prefix) => normalized.startsWith(`${prefix} `));
-}
-function hasStructuralModeEvidence(item) {
-  if (item.testId?.startsWith("model-switcher-") === true) {
-    return true;
-  }
-  return MODEL_VERSION_FAMILY_PATTERN.test(item.label) || MODEL_VERSION_LABEL_PATTERN.test(item.label);
-}
-function isModeMenuEvidence(item) {
-  if (hasStructuralModeEvidence(item)) {
-    return true;
-  }
-  if (isThreadActionLabel(item.label)) {
-    return false;
-  }
-  const normalized = normalizeForLabelMatch(item.label);
-  return CURRENT_MODE_LABELS.some((modeLabel) => {
-    const normalizedMode = normalizeForLabelMatch(modeLabel);
-    if (normalized === normalizedMode) {
-      return true;
-    }
-    return !isShortLatinToken(normalizedMode) && visibleLabelMatches(normalized, normalizedMode);
-  });
-}
-function looksLikeModeMenu(items) {
-  return items.some((item) => isModeMenuEvidence(item));
-}
-function shouldRejectAsWrongModeMenu(items) {
-  if (items.length === 0) {
-    return false;
-  }
-  if (items.some((item) => isModeMenuEvidence(item))) {
-    return false;
-  }
-  return items.some((item) => isThreadActionLabel(item.label));
-}
-async function clickMenuItem(page, label) {
-  if (await clickModelSwitcherMenuItem(page, label)) {
-    return true;
-  }
-  if (await clickMenuItemByPointer(page, label)) {
-    return true;
-  }
-  if (await clickMenuItemByDom(page, label)) {
-    return true;
-  }
-  const roleLocator = page.locator?.("[role='menuitem'], [role='menuitemradio'], [role='option']")?.filter?.({ hasText: label });
-  if (await clickIfUnique2(roleLocator)) {
-    return true;
-  }
-  const textLocator = page.getByText?.(label, { exact: true });
-  return clickIfUnique2(textLocator);
-}
-async function clickMenuItemByPointer(page, label) {
-  const point = await menuItemCenter(page, { label });
-  if (point === void 0) {
-    return false;
-  }
-  const pageWithPointer = page;
-  if (pageWithPointer.mouse?.click !== void 0) {
-    await pageWithPointer.mouse.click(point.x, point.y);
-    return true;
-  }
-  if (pageWithPointer.cua?.click !== void 0) {
-    await pageWithPointer.cua.click({ x: point.x, y: point.y });
-    return true;
-  }
-  return false;
-}
-async function clickModelSwitcherMenuItem(page, label) {
-  if (typeof page.evaluate !== "function" || typeof page.locator !== "function") {
-    return false;
-  }
-  const testId = await page.evaluate((wanted) => {
-    const normalizedWanted = wanted.replace(/\s+/g, " ").trim().toLowerCase();
-    const candidates = Array.from(document.querySelectorAll("[data-testid^='model-switcher-']"));
-    const matches = candidates.filter((node) => {
-      const element = node;
-      const candidateTestId = element.getAttribute("data-testid") ?? "";
-      if (candidateTestId.endsWith("-effort")) return false;
-      const text = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim().toLowerCase();
-      return text === normalizedWanted;
-    }).map((node) => node.getAttribute("data-testid")).filter((value) => value !== null);
-    return matches.length === 1 ? matches[0] : void 0;
-  }, label).catch(() => void 0);
-  if (testId === void 0) {
-    return false;
-  }
-  return clickIfUnique2(page.locator(`[data-testid="${escapeAttributeValue(testId)}"]`));
-}
-async function clickMenuItemByDom(page, label) {
-  if (typeof page.evaluate !== "function") {
-    return false;
-  }
-  return page.evaluate((wanted) => {
-    const normalizedWanted = wanted.replace(/\s+/g, " ").trim().toLowerCase();
-    const candidates = Array.from(document.querySelectorAll("[role='menuitem'], [role='menuitemradio'], [role='option']"));
-    const matches = candidates.filter((node) => {
-      const element = node;
-      const text = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim().toLowerCase();
-      return text === normalizedWanted;
-    });
-    if (matches.length !== 1) return false;
-    matches[0].click();
-    return true;
-  }, label).catch(() => false);
-}
-async function clickIfUnique2(locator) {
-  if (locator === void 0 || typeof locator.count !== "function" || typeof locator.click !== "function") {
-    return false;
-  }
-  const count = await locator.count().catch(() => 0);
-  if (count !== 1) {
-    return false;
-  }
-  await locator.click();
-  return true;
-}
-function toolLabels(tool) {
-  const known = localeLabels.tools[tool];
-  return known !== void 0 ? [...known] : [tool];
-}
-function findModeMenuItem(candidates, request) {
-  const selectable = candidates.filter((candidate) => !isThreadActionLabel(candidate.label));
-  for (const wanted of request.labels) {
-    const match = findUniqueModeMenuItem(selectable, wanted);
-    if (match !== void 0) {
-      return match;
-    }
-  }
-  const wantedIndex = request.modeId === void 0 ? void 0 : CANONICAL_INTELLIGENCE_ORDER.get(request.modeId);
-  if (wantedIndex === void 0) {
-    return void 0;
-  }
-  const intelligenceItems = selectable.filter(
-    (candidate) => candidate.role === "menuitemradio" && !MODEL_VERSION_LABEL_PATTERN.test(candidate.label) && !MODEL_VERSION_FAMILY_PATTERN.test(candidate.label)
-  );
-  return intelligenceItems.length >= CANONICAL_INTELLIGENCE_ORDER.size ? intelligenceItems[wantedIndex] : void 0;
-}
-function findUniqueModeMenuItem(items, wanted) {
-  const normalizedWanted = normalizeForLabelMatch(wanted);
-  const exact = items.filter((item) => normalizeForLabelMatch(item.label) === normalizedWanted);
-  if (exact.length === 1) {
-    return exact[0];
-  }
-  const fuzzy = items.filter((item) => visibleLabelMatches(item.label, wanted));
-  if (fuzzy.length !== 1) {
-    return void 0;
-  }
-  const match = fuzzy[0];
-  if (!isShortLatinToken(normalizedWanted)) {
-    return match;
-  }
-  return hasStructuralModeEvidence(match) || match.role === "menuitemradio" ? match : void 0;
-}
-function requestedModeSelections(args) {
-  const requested = [args.model, args.intelligence, args.effort].filter((value) => value !== void 0);
-  if (requestedModelVersion(args) !== void 0 && requested.length === 0) {
-    return [];
-  }
-  return (requested.length > 0 ? requested : [DEFAULT_MODE_EFFORT]).map(requestedModeSelection);
-}
-function requestedModeSelection(requested) {
-  const modeId = modeOptionIdFor(requested);
-  const labels = modeId === void 0 ? [requested] : localeLabels.modeOptions[modeId];
-  const request = {
-    requested,
-    labels: labels.length > 0 ? [...labels] : [requested]
-  };
-  if (modeId !== void 0) {
-    request.modeId = modeId;
-  }
-  return request;
-}
-function modeOptionIdFor(value) {
-  const normalized = normalizeModeLookupKey(value);
-  for (const id2 of MODE_OPTION_IDS2) {
-    if (MODE_ID_ALIASES[id2].some((alias) => normalizeModeLookupKey(alias) === normalized)) {
-      return id2;
-    }
-    if (localeLabels.modeOptions[id2].some((label) => normalizeModeLookupKey(label) === normalized)) {
-      return id2;
-    }
-  }
-  return void 0;
-}
-function normalizeModeLookupKey(value) {
-  return normalizeForLabelMatch(value).replace(/[_-]+/g, " ");
-}
-function requestedModelVersion(args) {
-  return args.modelVersion ?? args.version;
-}
-function findUniqueVisibleLabel(labels, wanted) {
-  const normalized = normalizeLabel(wanted);
-  const exact = labels.filter((label) => normalizeLabel(label) === normalized);
-  if (exact.length === 1) {
-    return exact[0];
-  }
-  const fuzzy = labels.filter((label) => visibleLabelMatches(normalizeLabel(label), normalized));
-  return fuzzy.length === 1 ? fuzzy[0] : void 0;
-}
-function escapeAttributeValue(value) {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
-function findAlreadySelectedModes(visibleButtons, requested) {
-  return requested.map((request) => findUniqueVisibleLabelForRequest(visibleButtons, request)).filter((label) => label !== void 0);
-}
-function findUniqueVisibleLabelForRequest(labels, request) {
-  for (const label of request.labels) {
-    const found = findUniqueVisibleLabel(labels, label);
-    if (found !== void 0) {
-      return found;
-    }
-  }
-  return void 0;
-}
-async function selectModelVersion(page, requestedVersion, currentCandidates, timeoutMs) {
-  let candidates = await enumerateVisibleMenuItems(page);
-  if (!looksLikeModeMenu(candidates)) {
-    const opened2 = await waitForModeMenu(page, [{ requested: requestedVersion, labels: [requestedVersion] }], timeoutMs);
-    if (opened2.opened) {
-      await page.waitForTimeout?.(250);
-      candidates = await enumerateVisibleMenuItems(page);
-    }
-  }
-  let exact = findExactSelectableMenuItem(candidates, requestedVersion);
-  if (exact !== void 0) {
-    return await clickResolvedMenuItem(page, exact) ? { selected: exact.label, candidates: candidates.map((candidate) => candidate.label) } : { candidates: candidates.map((candidate) => candidate.label) };
-  }
-  const opened = await openModelVersionSubmenu(page, currentCandidates);
-  candidates = await enumerateVisibleMenuItems(page);
-  exact = findExactSelectableMenuItem(candidates, requestedVersion);
-  if (!opened || exact === void 0) {
-    return { candidates: candidates.map((candidate) => candidate.label) };
-  }
-  return await clickResolvedMenuItem(page, exact) ? { selected: exact.label, candidates: candidates.map((candidate) => candidate.label) } : { candidates: candidates.map((candidate) => candidate.label) };
-}
-function isModelVersionSubmenuOpener(item) {
-  return item.hasPopup === true || item.role !== "menuitemradio" && MODEL_VERSION_FAMILY_PATTERN.test(item.label);
-}
-async function clickResolvedMenuItem(page, item) {
-  if (item.testId !== void 0 && await clickIfUnique2(
-    page.locator?.(`[data-testid="${escapeAttributeValue(item.testId)}"]`)
-  )) {
-    return true;
-  }
-  if (item.role !== void 0 && await clickIfUnique2(
-    page.getByRole?.(item.role, { name: item.label, exact: true })
-  )) {
-    return true;
-  }
-  return clickMenuItem(page, item.label);
-}
-async function openModelVersionSubmenu(page, candidates) {
-  const submenuOpeners = candidates.filter((item) => item.hasPopup === true || MODEL_VERSION_FAMILY_PATTERN.test(item.label));
-  if (submenuOpeners.length === 0) {
-    return false;
-  }
-  for (const candidate of submenuOpeners) {
-    if (await openSubmenuByPointer(page, candidate)) {
-      await page.waitForTimeout?.(250);
-      if (await modelVersionMenuItemsAreVisible(page)) {
-        return true;
-      }
-    }
-    if (await clickMenuItem(page, candidate.label)) {
-      await page.waitForTimeout?.(250);
-      if (await modelVersionMenuItemsAreVisible(page)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-async function openSubmenuByPointer(page, item) {
-  const point = await menuItemCenter(page, item);
-  if (point === void 0) {
-    return false;
-  }
-  const pageWithMouse = page;
-  if (pageWithMouse.mouse?.move !== void 0) {
-    await pageWithMouse.mouse.move(point.x, point.y);
-    return true;
-  }
-  if (pageWithMouse.cua?.move !== void 0) {
-    await pageWithMouse.cua.move({ x: point.x, y: point.y });
-    return true;
-  }
-  return false;
-}
-async function menuItemCenter(page, item, roles = ["menuitem", "menuitemradio", "option"]) {
-  if (typeof page.evaluate !== "function") {
-    return void 0;
-  }
-  const target = { label: item.label, roles };
-  if (item.testId !== void 0) {
-    target.testId = item.testId;
-  }
-  return page.evaluate((target2) => {
-    const normalize2 = (value) => value.replace(/\s+/g, " ").trim().toLowerCase();
-    const normalizedLabel = normalize2(target2.label);
-    const roleSelector = target2.roles.map((role) => `[role='${role}']`).join(",");
-    const matches = Array.from(document.querySelectorAll(roleSelector)).filter((node) => {
-      const element = node;
-      if (target2.testId !== void 0 && element.getAttribute("data-testid") !== target2.testId) {
-        return false;
-      }
-      const label = normalize2(element.innerText ?? element.textContent ?? "");
-      if (label !== normalizedLabel) {
-        return false;
-      }
-      const rect2 = element.getBoundingClientRect();
-      const style = window.getComputedStyle(element);
-      return rect2.width > 0 && rect2.height > 0 && style.visibility !== "hidden" && style.display !== "none" && style.opacity !== "0";
-    });
-    if (matches.length !== 1) return void 0;
-    const rect = matches[0].getBoundingClientRect();
-    return {
-      x: Math.round(rect.left + rect.width / 2),
-      y: Math.round(rect.top + rect.height / 2)
-    };
-  }, target).catch(() => void 0);
-}
-async function modelVersionMenuItemsAreVisible(page) {
-  return (await enumerateVisibleMenuItems(page)).some((candidate) => candidate.role === "menuitemradio" && MODEL_VERSION_LABEL_PATTERN.test(candidate.label));
-}
-function findExactSelectableMenuItem(items, wanted) {
-  const normalized = normalizeLabel(wanted);
-  const matches = items.filter(
-    (item) => item.normalized === normalized && !isModelVersionSubmenuOpener(item)
-  );
-  return matches.length === 1 ? matches[0] : void 0;
-}
-function dedupeLabels(labels) {
-  return Array.from(new Set(labels));
-}
-async function selectorDrift(page, message, candidates) {
-  const visibleText = candidates?.join("\n") ?? await visibleButtonLabels(page);
-  return {
-    ok: false,
-    status: "unsupported",
-    warnings: [],
-    blocker: selectorDriftBlocker(message, candidates, visibleText),
-    context: await contextFromPage(page)
-  };
-}
-function selectorDriftBlocker(message, candidates, visibleText = candidates?.join("\n") ?? "") {
-  const candidateLabels = candidates ?? visibleText.split("\n").map((label) => label.trim()).filter(Boolean).slice(0, 30);
-  const blocker = {
-    kind: "selector_drift",
-    code: "visible_candidate_not_found",
-    message,
-    visibleText,
-    resumable: false
-  };
-  if (candidateLabels.length > 0) {
-    blocker.candidates = candidateLabels.map((label) => ({ label }));
-  }
-  return blocker;
-}
-async function visibleButtonLabels(page) {
-  return (await visibleButtonLabelList(page)).join("\n");
-}
-async function visibleButtonLabelList(page) {
-  if (typeof page.evaluate !== "function") {
-    return [];
-  }
-  return page.evaluate(() => {
-    return Array.from(document.querySelectorAll("button, [role='button']")).map((node) => {
-      const element = node;
-      return element.getAttribute("aria-label") ?? element.innerText ?? element.textContent ?? "";
-    }).map((text) => text.trim()).filter(Boolean).slice(0, 30);
-  }).then((labels) => labels.map(normalizeWhitespace)).catch(() => []);
-}
-async function visibleModeButtonLabelList(page) {
-  if (typeof page.evaluate !== "function") {
-    return [];
-  }
-  return page.evaluate((modeLabels) => {
-    const normalizedModeLabels = modeLabels.map((label) => label.toLowerCase());
-    const tokenMatches = (text, token) => {
-      if (token.length <= 3) {
-        return new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`, "i").test(text);
-      }
-      return text.includes(token);
-    };
-    const scopedRoots = Array.from(document.querySelectorAll(
-      "main form, main [data-testid*='composer' i], main [class*='composer' i]"
-    ));
-    return Array.from(document.querySelectorAll("button, [role='button']")).map((node) => {
-      const element = node;
-      if (scopedRoots.length > 0 && !scopedRoots.some((root) => root.contains(node))) return "";
-      const visibleText = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim();
-      const ariaLabel = (element.getAttribute("aria-label") ?? "").replace(/\s+/g, " ").trim();
-      const label = visibleText.length > 0 ? visibleText : ariaLabel;
-      const testId = element.getAttribute("data-testid") ?? "";
-      if (testId === "accounts-profile-button") return "";
-      if (/open profile menu/i.test(label)) return "";
-      if (visibleText.length === 0 && /feedback|conversation options|dismiss/i.test(ariaLabel)) return "";
-      const normalized = label.toLowerCase();
-      const structuralModelControl = /model-switcher|model-selector|mode-selector/i.test(testId) || /\b(?:gpt|sol|luna|terra)\b/i.test(label);
-      if (!structuralModelControl && !normalizedModeLabels.some((modeLabel) => tokenMatches(normalized, modeLabel))) return "";
-      return label;
-    }).filter(Boolean).slice(0, 30);
-  }, CURRENT_MODE_LABELS).then((labels) => labels.map(normalizeWhitespace)).catch(() => []);
-}
-
-// src/commands/configuration.ts
-var WORK_AXES = ["model", "effort", "speed"];
-var CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS = 5e3;
-var CONFIGURATION_CONTROL_POLL_MS = 250;
-var CONFIGURATION_AXIS_ORDER = [
-  "model",
-  "intelligence",
-  "effort",
-  "speed",
-  "modelVersion"
-];
-async function inspectConfiguration(env, args = {}) {
-  const boot2 = await ensurePage(env);
-  if (!boot2.ok) {
-    return boot2;
-  }
-  const page = env.page;
-  try {
-    const detected = await detectExperience(
-      env,
-      args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
-    );
-    if (!detected.ok || detected.data === void 0) {
-      return forwardFailure2(detected);
-    }
-    if (args.experience !== void 0 && detected.data.experience !== args.experience) {
-      return {
-        ok: false,
-        status: "unsupported",
-        warnings: [],
-        blocker: {
-          kind: "selector_drift",
-          code: "experience_mismatch",
-          fieldPath: "experience",
-          message: `Configuration inspection expected ${args.experience}, but the visible composer is ${detected.data.experience}. Call experience.open first or omit the expected experience.`,
-          resumable: true
-        },
-        context: await contextFromPage(page, {
-          experience: detected.data.experience,
-          selectorProfile: detected.data.selectorProfile
-        })
-      };
-    }
-    const experience = detected.data.experience;
-    const rootOpened = experience !== "unknown" && await waitForConfigurationRoot(
-      page,
-      experience,
-      args.timeoutMs
-    );
-    if (rootOpened) {
-      await page.waitForTimeout?.(150);
-    }
-    const workAdvancedOpened = experience !== "work" || rootOpened && await ensureWorkAdvancedPanel(page);
-    if (experience === "work" && workAdvancedOpened) {
-      await page.waitForTimeout?.(150);
-    }
-    const panel = await readConfigurationPanel(page);
-    const rootItems = rootOpened ? await enumerateVisibleMenuItems(page) : [];
-    const data = configurationInspectionFromSurface(
-      experience,
-      detected.data.selectorProfile,
-      detected.data.evidence,
-      panel,
-      rootItems
-    );
-    if (args.includeOptions !== false && experience === "work" && panel.axisRows.length > 0) {
-      for (const axis of WORK_AXES) {
-        if (!data.availableAxes.includes(axis)) continue;
-        const options = await inspectWorkAxisOptions(env, axis);
-        if (options.length > 0) {
-          data.options[axis] = options;
-        }
-      }
-      await closeConfigurationMenus(page);
-    }
-    const warnings = [];
-    if (!rootOpened) {
-      warnings.push("No scoped configuration opener was available; inspection is limited to controls already visible in the composer.");
-    }
-    if (experience === "work" && rootOpened && !workAdvancedOpened) {
-      warnings.push("The Work configuration menu opened, but its Advanced model, effort, and speed controls could not be made visible.");
-    }
-    if (!data.verified) {
-      warnings.push("The visible configuration could not be verified from a recognized Chat or Work selector profile.");
-    }
-    return resultOk(data, await contextFromPage(page, {
-      experience: data.experience,
-      selectorProfile: data.selectorProfile
-    }), warnings);
-  } catch (error) {
-    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
-  }
-}
-async function waitForConfigurationRoot(page, experience, timeoutMs) {
-  const discoveryMs = Math.min(
-    timeoutMs ?? CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS,
-    CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS
-  );
-  const attempts = Math.max(1, Math.ceil(Math.max(0, discoveryMs) / CONFIGURATION_CONTROL_POLL_MS));
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    if (await openConfigurationRoot(page, experience)) return true;
-    if (attempt + 1 < attempts) {
-      await page.waitForTimeout?.(CONFIGURATION_CONTROL_POLL_MS);
-    }
-  }
-  return false;
-}
-async function applyConfiguration(env, args) {
-  const boot2 = await ensurePage(env);
-  if (!boot2.ok) {
-    return boot2;
-  }
-  const page = env.page;
-  const strict = args.strict ?? true;
-  try {
-    const desired = normalizeDesiredSelection(args.desired);
-    if (selectionEntries(desired).length === 0) {
-      return {
-        ok: false,
-        status: "unsupported",
-        warnings: [],
-        blocker: {
-          kind: "selector_drift",
-          code: "configuration_empty",
-          fieldPath: "desired",
-          message: "configuration.apply requires at least one desired model, intelligence, effort, speed, or modelVersion value.",
-          resumable: false
-        },
-        context: await contextFromPage(page)
-      };
-    }
-    if (args.experience !== void 0) {
-      const opened = await openExperience(env, {
-        experience: args.experience,
-        ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
-      });
-      if (!opened.ok) {
-        return forwardFailure2(opened);
-      }
-    }
-    const beforeResult = await inspectConfiguration(env, {
-      ...args.experience === void 0 ? {} : { experience: args.experience },
-      includeOptions: true,
-      ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
-    });
-    if (!beforeResult.ok || beforeResult.data === void 0) {
-      return forwardFailure2(beforeResult);
-    }
-    const before = beforeResult.data;
-    if (before.experience === "unknown") {
-      return configurationFailure(page, before, desired, [], "The visible surface is not recognizable as Chat or Work.", "experience_unknown");
-    }
-    const selected = [];
-    for (const [axis, requested] of selectionEntries(desired)) {
-      const active = activeConfigurationValue(before, axis);
-      if (active !== void 0 && configurationValueMatches(active, requested)) {
-        selected.push({ axis, requested, selected: active });
-        continue;
-      }
-      const selection = before.experience === "work" ? await selectWorkAxis(env, axis, requested) : await selectChatAxis(env, axis, requested, args.timeoutMs);
-      if (selection === void 0) {
-        return configurationFailure(
-          page,
-          before,
-          desired,
-          selected,
-          `Configuration option "${requested}" for ${axis} was not found or was ambiguous on the ${before.experience} surface.`,
-          "configuration_option_not_found",
-          before.options[axis]?.map((option) => option.label)
-        );
-      }
-      selected.push({ axis, requested, selected: selection });
-    }
-    const afterResult = await inspectConfiguration(env, {
-      ...args.experience === void 0 ? {} : { experience: args.experience },
-      includeOptions: false,
-      ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
-    });
-    if (!afterResult.ok || afterResult.data === void 0) {
-      return forwardFailure2(afterResult);
-    }
-    const after = afterResult.data;
-    const verified = configurationMatchesSelection(after, desired);
-    const data = { requested: desired, selected, before, after, verified };
-    if (!verified && strict) {
-      return {
-        ok: false,
-        status: "blocked",
-        data,
-        warnings: [],
-        blocker: {
-          kind: "selector_drift",
-          code: "configuration_postcondition_unverified",
-          fieldPath: "desired",
-          message: `ChatGPT accepted configuration clicks, but the visible ${after.experience} controls do not verify every requested value.`,
-          candidates: Object.entries(after.active).map(([axis, label]) => ({ label: `${axis}: ${label}` })),
-          resumable: true
-        },
-        context: await contextFromPage(page, {
-          experience: after.experience,
-          selectorProfile: after.selectorProfile
-        })
-      };
-    }
-    const warnings = verified ? [] : ["Configuration clicks completed, but strict verification was disabled and the visible postcondition remains unverified."];
-    return resultOk(data, await contextFromPage(page, {
-      experience: after.experience,
-      selectorProfile: after.selectorProfile
-    }), warnings);
-  } catch (error) {
-    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
-  }
-}
-function configurationInspectionFromSurface(experience, detectedProfile, evidence, panel, menuItems) {
-  const active = {};
-  const options = {};
-  const availableAxes = [];
-  let selectorProfile = detectedProfile;
-  if (experience === "work") {
-    for (const row of panel.axisRows) {
-      if (!availableAxes.includes(row.axis)) availableAxes.push(row.axis);
-      if (row.value !== void 0 && row.value.length > 0) active[row.axis] = row.value;
-    }
-    selectorProfile = panel.advancedVisible ? "work_advanced_v1" : "work_basic_v1";
-  } else if (experience === "chat") {
-    const simplified = chatMenuLooksSimplified(menuItems);
-    selectorProfile = simplified ? "chat_simplified_v1" : detectedProfile;
-    const axis = simplified ? "intelligence" : "effort";
-    if (menuItems.length > 0 || panel.openerLabel !== void 0) {
-      availableAxes.push(axis);
-    }
-    if (panel.openerLabel !== void 0) {
-      active[axis] = panel.openerLabel;
-    }
-    const chatOptions = menuItems.filter((item) => !isConfigurationAxisRow(item.label)).map(menuItemToOption);
-    if (chatOptions.length > 0) {
-      options[axis] = chatOptions;
-    }
-    const modelRows = menuItems.filter((item) => /^gpt[\s-]/i.test(item.label) || item.hasPopup === true);
-    if (modelRows.length > 0) {
-      availableAxes.push("modelVersion");
-      options.modelVersion = modelRows.map(menuItemToOption);
-    }
-  }
-  return {
-    experience,
-    selectorProfile,
-    availableAxes,
-    active,
-    options,
-    verified: experience !== "unknown" && (availableAxes.length > 0 || Object.keys(active).length > 0),
-    evidence
-  };
-}
-async function inspectWorkAxisOptions(env, axis) {
-  const page = env.page;
-  const options = (await openWorkAxisOptions(env, axis)).map(menuItemToOption);
-  await closeConfigurationSubmenu(page);
-  return dedupeOptions(options);
-}
-async function selectWorkAxis(env, axis, requested) {
-  const page = env.page;
-  if (!WORK_AXES.includes(axis)) {
-    return void 0;
-  }
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const candidates = await openWorkAxisOptions(env, axis);
-    const match = findConfigurationOption(candidates, requested);
-    if (match !== void 0 && await clickVisibleMenuItem(page, match)) {
-      await page.waitForTimeout?.(150);
-      return match.label;
-    }
-    if (attempt === 0) {
-      await closeConfigurationMenus(page);
-      await page.waitForTimeout?.(200);
-    }
-  }
-  return void 0;
-}
-async function openWorkAxisOptions(env, axis, allowRootRetry = true) {
-  const page = env.page;
-  if (!await ensureWorkAdvancedPanel(page)) return [];
-  const row = await findWorkAxisRow(page, axis);
-  if (row === void 0) return [];
-  const visibleOptions = async () => filterWorkAxisOptions(await enumerateVisibleMenuItems(page), axis);
-  const alreadyOpen = await visibleOptions();
-  if (alreadyOpen.length > 0) return alreadyOpen;
-  const point = await locatorCenter(row);
-  if (point !== void 0 && await movePointerWithCdp(env, point)) {
-    await page.waitForTimeout?.(180);
-    const hoveredOptions = await visibleOptions();
-    if (hoveredOptions.length > 0) return hoveredOptions;
-    await movePointerWithCdp(env, { x: point.x - 2, y: point.y });
-    await movePointerWithCdp(env, point);
-    await page.waitForTimeout?.(180);
-    const retriedOptions = await visibleOptions();
-    if (retriedOptions.length > 0) return retriedOptions;
-  }
-  if (point !== void 0 && page.mouse?.move !== void 0) {
-    try {
-      await page.mouse.move(point.x, point.y);
-    } catch {
-    }
-    await page.waitForTimeout?.(180);
-    const mouseOptions = await visibleOptions();
-    if (mouseOptions.length > 0) return mouseOptions;
-  }
-  if (point !== void 0 && typeof page.cua?.move === "function") {
-    try {
-      await page.cua.move(point);
-    } catch {
-    }
-    await page.waitForTimeout?.(180);
-    const movedOptions = await visibleOptions();
-    if (movedOptions.length > 0) return movedOptions;
-  }
-  if (row.click !== void 0) {
-    await row.click().catch(() => void 0);
-    await page.waitForTimeout?.(180);
-  }
-  const clickedOptions = await visibleOptions();
-  if (clickedOptions.length > 0 || !allowRootRetry) return clickedOptions;
-  await closeConfigurationMenus(page);
-  await page.waitForTimeout?.(200);
-  return openWorkAxisOptions(env, axis, false);
-}
-async function locatorCenter(locator) {
-  if (locator.evaluate === void 0) return void 0;
-  return locator.evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    return {
-      x: Math.round(rect.left + rect.width / 2),
-      y: Math.round(rect.top + rect.height / 2)
-    };
-  }).catch(() => void 0);
-}
-async function movePointerWithCdp(env, point) {
-  const page = env.page;
-  const tabId = page === void 0 ? void 0 : tabIdFromPage(page);
-  if (tabId === void 0 || env.browser?.tabs?.get === void 0) return false;
-  try {
-    const tab = await env.browser.tabs.get(tabId);
-    const capability2 = await tab.capabilities?.get?.("cdp");
-    if (capability2?.send === void 0) return false;
-    await capability2.send("Input.dispatchMouseEvent", {
-      type: "mouseMoved",
-      x: Math.round(point.x),
-      y: Math.round(point.y),
-      button: "none",
-      buttons: 0,
-      pointerType: "mouse"
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-function filterWorkAxisOptions(items, axis) {
-  return items.filter((item) => {
-    if (isConfigurationAxisRow(item.label)) return false;
-    return workAxisOptionLabelMatches(axis, item.label);
-  });
-}
-function workAxisOptionLabelMatches(axis, label) {
-  if (axis === "model") {
-    return /\b(?:gpt[\s-]?\d|sol|luna|terra)\b/i.test(label);
-  }
-  const candidates = axis === "effort" ? [
-    ...localeLabels.configurationOptions.light,
-    ...localeLabels.configurationOptions.medium,
-    ...localeLabels.configurationOptions.high,
-    ...localeLabels.configurationOptions.extraHigh,
-    ...localeLabels.configurationOptions.max,
-    ...localeLabels.configurationOptions.ultra
-  ] : axis === "speed" ? [
-    ...localeLabels.configurationOptions.standard,
-    ...localeLabels.configurationOptions.fast
-  ] : [];
-  return candidates.some((candidate) => visibleLabelMatches(label, candidate));
-}
-async function selectChatAxis(env, axis, requested, timeoutMs) {
-  const legacyArgs = axis === "modelVersion" ? { modelVersion: requested } : axis === "intelligence" ? { intelligence: requested } : axis === "effort" ? { effort: requested } : axis === "model" ? { model: requested } : void 0;
-  if (legacyArgs === void 0) {
-    return void 0;
-  }
-  const result = await setMode(env, {
-    ...legacyArgs,
-    ...timeoutMs === void 0 ? {} : { timeoutMs }
-  });
-  return result.ok ? result.data?.selected.at(-1) : void 0;
-}
-async function openConfigurationRoot(page, experience) {
-  const existing = await readConfigurationPanel(page);
-  if (existing.axisRows.length > 0) {
-    return true;
-  }
-  const existingItems = await enumerateVisibleMenuItems(page).catch(() => []);
-  if (configurationMenuLooksRecognized(existingItems, experience, existing.openerLabel)) {
-    return true;
-  }
-  if (existing.openerLabel !== void 0 && await clickIfUnique3(page.getByRole?.("button", { name: existing.openerLabel, exact: true }))) {
-    return true;
-  }
-  if (typeof page.evaluate === "function") {
-    const clicked = await page.evaluate((surface) => {
-      const normalize2 = (value) => value.replace(/\s+/g, " ").trim();
-      const visible = (element) => {
-        const html = element;
-        const rect = html.getBoundingClientRect?.();
-        if (rect !== void 0 && (rect.width <= 0 || rect.height <= 0)) return false;
-        let current = element;
-        while (current !== null) {
-          if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
-            return false;
-          }
-          const style = typeof window !== "undefined" ? window.getComputedStyle?.(current) : void 0;
-          if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
-            return false;
-          }
-          current = current.parentElement ?? null;
-        }
-        return true;
-      };
-      const composerRoots = Array.from(document.querySelectorAll(
-        "main form, main [data-testid*='composer' i], main [class*='composer' i]"
-      ));
-      const main = document.querySelector("main");
-      const roots = Array.from(/* @__PURE__ */ new Set([
-        ...composerRoots,
-        ...main === null ? [] : [main]
-      ]));
-      const controls = Array.from(new Set(roots.flatMap(
-        (root) => Array.from(root.querySelectorAll("button, [role='button']"))
-      ))).filter(visible);
-      const matches = controls.filter((control) => {
-        const html = control;
-        const label = normalize2(control.getAttribute("aria-label") ?? html.innerText ?? control.textContent ?? "");
-        const testId = control.getAttribute("data-testid") ?? "";
-        if (/send|voice|microphone|attach|upload|add files|plus/i.test(`${label} ${testId}`)) return false;
-        if (/model-switcher|model-selector|mode-selector/i.test(testId)) return true;
-        return surface === "work" ? /\b(?:gpt|sol|luna|terra|light|medium|high|max|ultra|standard|fast)\b/i.test(label) : /\b(?:instant|medium|high|extra high|pro|thinking|extended|gpt)\b/i.test(label);
-      });
-      if (matches.length !== 1) return false;
-      matches[0].click();
-      return true;
-    }, experience).catch(() => false);
-    if (clicked) return true;
-  }
-  const labels = experience === "work" ? [
-    ...localeLabels.configurationOptions.light,
-    ...localeLabels.configurationOptions.medium,
-    ...localeLabels.configurationOptions.high,
-    ...localeLabels.configurationOptions.standard
-  ] : [
-    ...localeLabels.configurationOptions.instant,
-    ...localeLabels.configurationOptions.medium,
-    ...localeLabels.configurationOptions.high,
-    ...localeLabels.configurationOptions.extraHigh,
-    ...localeLabels.configurationOptions.pro,
-    ...localeLabels.modeOptions.thinking
-  ];
-  for (const label of labels) {
-    if (await clickIfUnique3(page.getByRole?.("button", { name: label, exact: true }))) {
-      return true;
-    }
-  }
-  return false;
-}
-function configurationMenuLooksRecognized(items, experience, openerLabel) {
-  if (items.some((item) => /(?:model|mode|effort|speed)-(?:switcher|selector)|model-switcher/i.test(item.testId ?? ""))) {
-    return true;
-  }
-  if (experience === "work" && items.some((item) => localeLabels.configurationAxes.advanced.some((label) => visibleLabelMatches(item.label, label)))) {
-    return true;
-  }
-  if (openerLabel === void 0 || items.length === 0) {
-    return false;
-  }
-  const semanticLabels = experience === "work" ? [
-    ...localeLabels.configurationOptions.light,
-    ...localeLabels.configurationOptions.medium,
-    ...localeLabels.configurationOptions.high,
-    ...localeLabels.configurationOptions.max,
-    ...localeLabels.configurationOptions.ultra,
-    ...localeLabels.configurationOptions.standard,
-    ...localeLabels.configurationOptions.fast
-  ] : [
-    ...localeLabels.configurationOptions.instant,
-    ...localeLabels.configurationOptions.medium,
-    ...localeLabels.configurationOptions.high,
-    ...localeLabels.configurationOptions.extraHigh,
-    ...localeLabels.configurationOptions.pro,
-    ...localeLabels.modeOptions.thinking,
-    ...localeLabels.modeOptions.extended
-  ];
-  const matched = new Set(
-    items.filter((item) => semanticLabels.some((label) => visibleLabelMatches(item.label, label))).map((item) => normalizeConfigurationId(item.label))
-  );
-  return matched.size >= 2;
-}
-async function ensureWorkAdvancedPanel(page) {
-  const panel = await readConfigurationPanel(page);
-  if (panel.axisRows.length > 0) return true;
-  if (!await openConfigurationRoot(page, "work")) return false;
-  const reopenedPanel = await readConfigurationPanel(page);
-  if (reopenedPanel.axisRows.length > 0) return true;
-  const items = await enumerateVisibleMenuItems(page);
-  const advanced = items.filter((item) => localeLabels.configurationAxes.advanced.some((label) => visibleLabelMatches(item.label, label)));
-  if (advanced.length !== 1 || !await clickVisibleMenuItem(page, advanced[0])) {
-    return false;
-  }
-  await page.waitForTimeout?.(200);
-  return (await readConfigurationPanel(page)).axisRows.length > 0;
-}
-async function readConfigurationPanel(page) {
-  if (typeof page.evaluate !== "function") {
-    return { axisRows: [], advancedVisible: false };
-  }
-  return page.evaluate((axisLabels) => {
-    const normalize2 = (value) => value.replace(/\s+/g, " ").trim();
-    const normalizedAxes = Object.fromEntries(
-      Object.entries(axisLabels).map(([axis, labels]) => [
-        axis,
-        labels.map((label) => normalize2(label).toLocaleLowerCase())
-      ])
-    );
-    const visible = (element) => {
-      const html = element;
-      const rect = html.getBoundingClientRect?.();
-      if (rect !== void 0 && (rect.width <= 0 || rect.height <= 0)) return false;
-      let current = element;
-      while (current !== null) {
-        if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
-          return false;
-        }
-        const style = typeof window !== "undefined" ? window.getComputedStyle?.(current) : void 0;
-        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
-          return false;
-        }
-        current = current.parentElement ?? null;
-      }
-      return true;
-    };
-    const overlays = Array.from(document.querySelectorAll(
-      "[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
-    )).filter(visible);
-    const roots = overlays.length > 0 ? overlays : Array.from(document.querySelectorAll("main")).filter(visible);
-    const rows = roots.flatMap((root) => Array.from(root.querySelectorAll(
-      "button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option']"
-    ))).filter(visible);
-    const axisRows = [];
-    for (const row of rows) {
-      const html = row;
-      const label = normalize2(row.getAttribute("aria-label") ?? html.innerText ?? row.textContent ?? "");
-      const normalized = label.toLocaleLowerCase();
-      for (const axis of ["model", "intelligence", "effort", "speed"]) {
-        const candidates = normalizedAxes[axis] ?? [];
-        const prefix = candidates.find((candidate) => normalized === candidate || normalized.startsWith(`${candidate} `));
-        if (prefix === void 0) continue;
-        const value = normalize2(label.slice(prefix.length));
-        const item = { axis, label };
-        if (value.length > 0) item.value = value;
-        axisRows.push(item);
-        break;
-      }
-    }
-    const composerRoots = Array.from(document.querySelectorAll(
-      "main form, main [data-testid*='composer' i], main [class*='composer' i]"
-    ));
-    const main = document.querySelector("main");
-    const openerRoots = Array.from(/* @__PURE__ */ new Set([
-      ...composerRoots,
-      ...main === null ? [] : [main]
-    ]));
-    const openerCandidates = Array.from(new Set(openerRoots.flatMap(
-      (root) => Array.from(root.querySelectorAll("button, [role='button']"))
-    ))).filter(visible).map((control) => {
-      const html = control;
-      return {
-        label: normalize2(control.getAttribute("aria-label") ?? html.innerText ?? control.textContent ?? ""),
-        testId: control.getAttribute("data-testid") ?? ""
-      };
-    }).filter((item) => !/send|voice|microphone|attach|upload|add files|plus/i.test(`${item.label} ${item.testId}`)).filter((item) => /model-switcher|model-selector|mode-selector/i.test(item.testId) || /\b(?:gpt|sol|luna|terra|instant|medium|high|extra high|pro|thinking|extended|light|standard|fast)\b/i.test(item.label));
-    const result = {
-      axisRows,
-      advancedVisible: axisRows.length > 0
-    };
-    if (openerCandidates.length === 1 && openerCandidates[0]?.label.length) {
-      result.openerLabel = openerCandidates[0].label;
-    }
-    return result;
-  }, localeLabels.configurationAxes).catch(() => ({ axisRows: [], advancedVisible: false }));
-}
-async function findWorkAxisRow(page, axis) {
-  const labels = axis === "modelVersion" ? [] : localeLabels.configurationAxes[axis] ?? [];
-  for (const label of labels) {
-    const pattern = new RegExp(`^${escapeRegExp3(label)}(?:\\s|$)`, "i");
-    for (const role of ["button", "menuitem"]) {
-      const locator = page.getByRole?.(role, { name: pattern });
-      if (locator?.count !== void 0 && await locator.count().catch(() => 0) === 1) {
-        return locator;
-      }
-    }
-  }
-  return void 0;
-}
-async function clickVisibleMenuItem(page, item) {
-  if (item.testId !== void 0 && await clickIfUnique3(page.locator?.(`[data-testid="${escapeAttributeValue2(item.testId)}"]`))) {
-    return true;
-  }
-  for (const role of ["menuitemradio", "menuitem", "option"]) {
-    if (await clickIfUnique3(page.getByRole?.(role, { name: item.label, exact: true }))) {
-      return true;
-    }
-  }
-  return clickIfUnique3(page.getByText?.(item.label, { exact: true }));
-}
-function findConfigurationOption(items, requested) {
-  const normalizedRequested = normalizeConfigurationId(requested);
-  const exact = items.filter((item) => normalizeConfigurationId(item.label) === normalizedRequested);
-  if (exact.length === 1) return exact[0];
-  const semanticLabels = configurationSemanticLabels(requested);
-  for (const wanted of semanticLabels) {
-    const matches = items.filter(
-      (item) => normalizeForLabelMatch(item.label) === normalizeForLabelMatch(wanted) || visibleLabelMatches(item.label, wanted)
-    );
-    if (matches.length === 1) return matches[0];
-  }
-  return void 0;
-}
-function configurationSemanticLabels(requested) {
-  const normalized = normalizeConfigurationId(requested);
-  for (const labels of Object.values(localeLabels.configurationOptions)) {
-    if (labels.some((label) => normalizeConfigurationId(label) === normalized)) {
-      return labels;
-    }
-  }
-  for (const labels of Object.values(localeLabels.modeOptions)) {
-    if (labels.some((label) => normalizeConfigurationId(label) === normalized)) {
-      return labels;
-    }
-  }
-  return [requested];
-}
-function configurationMatchesSelection(inspection, desired) {
-  return selectionEntries(desired).every(([axis, requested]) => {
-    const active = activeConfigurationValue(inspection, axis);
-    return active !== void 0 && configurationValueMatches(active, requested);
-  });
-}
-function activeConfigurationValue(inspection, axis) {
-  const direct = inspection.active[axis];
-  if (direct !== void 0 || inspection.experience !== "chat") {
-    return direct;
-  }
-  if (axis === "model" || axis === "intelligence") {
-    return inspection.active.intelligence ?? inspection.active.effort;
-  }
-  if (axis === "effort") {
-    return inspection.active.effort ?? inspection.active.intelligence;
-  }
-  return void 0;
-}
-function configurationValueMatches(actual, requested) {
-  const normalizedActual = normalizeConfigurationId(actual);
-  const normalizedRequested = normalizeConfigurationId(requested);
-  if (normalizedActual === normalizedRequested) return true;
-  return configurationSemanticLabels(requested).some((label) => normalizeConfigurationId(label) === normalizedActual);
-}
-function selectionEntries(selection) {
-  const entries = [];
-  for (const axis of CONFIGURATION_AXIS_ORDER) {
-    const value = selection[axis];
-    if (typeof value === "string" && value.trim().length > 0) {
-      entries.push([axis, value.trim()]);
-    }
-  }
-  return entries;
-}
-function normalizeDesiredSelection(selection) {
-  const normalized = {};
-  for (const axis of ["model", "intelligence", "effort", "speed"]) {
-    const value = selection[axis]?.trim();
-    if (value !== void 0 && value.length > 0) normalized[axis] = value;
-  }
-  const modelVersion = (selection.modelVersion ?? selection.version)?.trim();
-  if (modelVersion !== void 0 && modelVersion.length > 0) {
-    normalized.modelVersion = modelVersion;
-  }
-  return normalized;
-}
-function menuItemToOption(item) {
-  const option = {
-    id: normalizeConfigurationId(item.label),
-    label: item.label,
-    selected: item.checked === true
-  };
-  if (item.hasPopup !== void 0) option.hasSubmenu = item.hasPopup;
-  return option;
-}
-function dedupeOptions(options) {
-  const seen = /* @__PURE__ */ new Set();
-  return options.filter((option) => {
-    const key = `${option.id}\0${option.label}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-function chatMenuLooksSimplified(items) {
-  const normalized = items.map((item) => normalizeConfigurationId(item.label));
-  const simplified = ["instant", "medium", "high", "extra high", "pro"];
-  return simplified.filter((label) => normalized.includes(label)).length >= 3;
-}
-function isConfigurationAxisRow(label) {
-  const normalized = normalizeForLabelMatch(label);
-  return Object.values(localeLabels.configurationAxes).flat().some((axis) => {
-    const prefix = normalizeForLabelMatch(axis);
-    return normalized === prefix || normalized.startsWith(`${prefix} `);
-  });
-}
-function normalizeConfigurationId(value) {
-  return normalizeForLabelMatch(value).replace(/^gpt[\s-]*/i, "gpt ").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-}
-async function closeConfigurationMenus(page) {
-  if (!await pressConfigurationEscape(page)) return;
-  await page.waitForTimeout?.(50);
-  await pressConfigurationEscape(page);
-}
-async function closeConfigurationSubmenu(page) {
-  if (!await pressConfigurationEscape(page)) return;
-  await page.waitForTimeout?.(200);
-}
-async function pressConfigurationEscape(page) {
-  if (page.keyboard?.press !== void 0) {
-    await page.keyboard.press("Escape");
-    return true;
-  }
-  if (page.cua?.keypress !== void 0) {
-    try {
-      await page.cua.keypress({ keys: ["ESC"] });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  return false;
-}
-async function clickIfUnique3(locator) {
-  if (locator?.count === void 0 || locator.click === void 0) return false;
-  const count = await locator.count().catch(() => 0);
-  if (count === 1) {
-    await locator.click();
-    return true;
-  }
-  if (count <= 1 || locator.nth === void 0) return false;
-  const visible = [];
-  for (let index = 0; index < count; index += 1) {
-    const candidate = locator.nth(index);
-    if (candidate.isVisible !== void 0 && await candidate.isVisible().catch(() => false)) {
-      visible.push(candidate);
-    }
-  }
-  if (visible.length !== 1 || visible[0]?.click === void 0) return false;
-  await visible[0].click();
-  return true;
-}
-async function configurationFailure(page, before, desired, selected, message, code, candidates = []) {
-  const data = {
-    requested: desired,
-    selected,
-    before,
-    after: before,
-    verified: false
-  };
-  return {
-    ok: false,
-    status: "unsupported",
-    data,
-    warnings: [],
-    blocker: {
-      kind: "selector_drift",
-      code,
-      fieldPath: "desired",
-      message,
-      candidates: candidates.map((label) => ({ label })),
-      resumable: true
-    },
-    context: await contextFromPage(page, {
-      experience: before.experience,
-      selectorProfile: before.selectorProfile
-    })
-  };
-}
-function escapeRegExp3(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-function escapeAttributeValue2(value) {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
-function forwardFailure2(result) {
-  const forwarded = {
-    ok: false,
-    status: result.status,
-    warnings: result.warnings,
-    context: result.context
-  };
-  if (result.output_text !== void 0) forwarded.output_text = result.output_text;
-  if (result.reportPath !== void 0) forwarded.reportPath = result.reportPath;
-  if (result.error !== void 0) forwarded.error = result.error;
-  if (result.blocker !== void 0) forwarded.blocker = result.blocker;
-  if (result.steps !== void 0) forwarded.steps = result.steps;
-  return forwarded;
+  await new Promise((resolve5) => setTimeout(resolve5, ms2));
 }
 
 // src/commands/files.ts
@@ -9998,7 +10345,7 @@ async function tryGeneratedFilePreviewDownload(page, args) {
 }
 async function inspectGeneratedFileAffordances(page, timeoutMs) {
   if (typeof page.evaluate === "function") {
-    const fromDom = await withTimeout2(
+    const fromDom = await withTimeout(
       page.evaluate(() => {
         const visible = (element) => {
           let current = element;
@@ -10027,7 +10374,7 @@ async function inspectGeneratedFileAffordances(page, timeoutMs) {
     if (Array.isArray(fromDom)) return fromDom;
   }
   if (typeof page.content !== "function") return [];
-  const html = await withTimeout2(
+  const html = await withTimeout(
     page.content(),
     timeoutMs,
     "Timed out while reading generated-file button markup."
@@ -10077,7 +10424,7 @@ async function waitForPreviewDownloadControl(page, preview, timeoutMs) {
     if (typeof page.waitForTimeout === "function") {
       await page.waitForTimeout(100);
     } else {
-      await new Promise((resolve3) => setTimeout(resolve3, 100));
+      await new Promise((resolve5) => setTimeout(resolve5, 100));
     }
   }
   return void 0;
@@ -10649,7 +10996,7 @@ async function waitForFileChooser2(page, timeoutMs) {
 async function raceFileChooserOpen(chooserPromise, page, waitMs) {
   return Promise.race([
     chooserPromise.then(() => true, () => false),
-    (page.waitForTimeout?.(waitMs) ?? new Promise((resolve3) => setTimeout(resolve3, waitMs))).then(() => false)
+    (page.waitForTimeout?.(waitMs) ?? new Promise((resolve5) => setTimeout(resolve5, waitMs))).then(() => false)
   ]);
 }
 async function locatorCount2(locator) {
@@ -12984,8 +13331,8 @@ function createMilestoneStream(run) {
           yield next;
           continue;
         }
-        await new Promise((resolve3) => {
-          resolveNext = resolve3;
+        await new Promise((resolve5) => {
+          resolveNext = resolve5;
         });
       }
     }
@@ -14784,19 +15131,95 @@ function hashPreview(text) {
 async function tempFile(name, body) {
   const dir = await mkdtemp(join5(tmpdir(), "chatgpt-live-smoke-"));
   const file = join5(dir, name);
-  await writeFile4(file, body, "utf8");
+  await writeFile5(file, body, "utf8");
   return file;
 }
+
+// src/scripts/release-canary-module.ts
+var CORE_SCENARIOS = [
+  "chat-work-expansion",
+  "configuration-mutate-restore",
+  "download-generated-file"
+];
+async function runReleaseCanary(runtime, options) {
+  if (runtime.agent === void 0 || runtime.agent === null) {
+    throw new Error("runReleaseCanary must run in a Codex bridge-hosted JavaScript context.");
+  }
+  if (options.tabId.trim().length === 0) {
+    throw new Error("runReleaseCanary requires an exact dedicated ChatGPT tab id.");
+  }
+  const reportDir = resolve4(options.reportDir ?? join6(process.cwd(), "reports", "release-canary"));
+  const profileDir = join6(reportDir, "surface-profiles");
+  await mkdir6(profileDir, { recursive: true });
+  const stamp = (/* @__PURE__ */ new Date()).toISOString().replaceAll(":", "-").replaceAll(".", "-");
+  const profilePaths = [
+    join6(profileDir, `${stamp}-chat.json`),
+    join6(profileDir, `${stamp}-work.json`)
+  ];
+  try {
+    for (const [index, experience] of ["chat", "work"].entries()) {
+      const exitCode = await main([
+        "--id",
+        `release-canary-${experience}`,
+        "--experience",
+        experience,
+        "--tab-id",
+        options.tabId,
+        "--if-missing",
+        "block",
+        "--out",
+        profilePaths[index],
+        "--provenance",
+        "Sanitized release canary capture from a dedicated visible ChatGPT tab."
+      ], runtime);
+      if (exitCode !== 0) {
+        return {
+          ok: false,
+          profilePaths: profilePaths.slice(0, index),
+          results: [],
+          failures: [`surface-profile-${experience}`]
+        };
+      }
+    }
+  } finally {
+    await closeDedicatedProfileTab(runtime.browser, options.tabId);
+  }
+  const names = options.includeUpload === true ? [...CORE_SCENARIOS, "attach-one-file"] : CORE_SCENARIOS;
+  const context = {
+    agent: runtime.agent,
+    ...runtime.browser === void 0 ? {} : { browser: runtime.browser },
+    reportDir: join6(reportDir, "live-smoke"),
+    env: {
+      CHATGPT_E2E_CONFIGURATION_MUTATION: "1",
+      CHATGPT_E2E_DOWNLOAD: "1"
+    }
+  };
+  const scenarios = filterScenarios([...requiredScenarios, ...optionalScenarios], names.join(","));
+  if (scenarios.length !== names.length) {
+    throw new Error(`Release canary scenario registration drift: expected ${names.length}, found ${scenarios.length}.`);
+  }
+  const smoke = await runLiveSmoke(context, scenarios);
+  const failures = smoke.results.filter((result) => result.status !== "pass").map((result) => result.name);
+  return {
+    ok: failures.length === 0,
+    profilePaths,
+    reportPath: smoke.reportPath,
+    results: smoke.results,
+    failures
+  };
+}
+async function closeDedicatedProfileTab(browser, tabId) {
+  const tabs = browser?.tabs;
+  const get = tabs?.get;
+  if (tabs === void 0 || typeof get !== "function") {
+    throw new Error("Release canary requires browser.tabs.get so its dedicated profile tab can be closed before behavior tests.");
+  }
+  const tab = await get.call(tabs, tabId);
+  if (typeof tab.close !== "function") {
+    throw new Error("Release canary dedicated profile tab does not expose close().");
+  }
+  await tab.close();
+}
 export {
-  contextEnvFlag,
-  contextEnvText,
-  envFlag,
-  envText,
-  filterScenarios,
-  optionalScenarios,
-  requiredFailures,
-  requiredScenarios,
-  runLiveSmoke,
-  runScenario,
-  writeReport
+  runReleaseCanary
 };

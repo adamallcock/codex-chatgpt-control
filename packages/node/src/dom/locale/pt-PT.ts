@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const ptPT = {
+  configurationAxes: {
+    model: ["Modelo"],
+    effort: ["Esforço"],
+    speed: ["Velocidade"],
+  },
+  configurationOptions: {
+    light: ["Leve"],
+    medium: ["Médio"],
+    high: ["Elevado"],
+    extraHigh: ["Muito elevado"],
+    standard: ["Padrão"],
+    fast: ["Rápido"],
+  },
   composerTextbox: ["Pergunte qualquer coisa"],
   sendButton: ["Enviar prompt"],
   searchChatsButton: ["Pesquisar chats"],
@@ -18,12 +31,12 @@ export const ptPT = {
   addFilesOpenerCandidates: ["Adicionar ficheiros e mais"],
   addPhotosFilesMenuItem: ["Carregar fotos e ficheiros"],
   copyResponse: ["Copiar resposta"],
-  modeLabels: ["Instantâneo", "Média", "Alta", "Máximo"],
+  modeLabels: ["Instantâneo", "Média", "Alta", "Máximo", "Médio", "Elevado", "Muito elevado"],
   modeOptions: {
     instant: ["Instantâneo"],
-    medium: ["Média"],
-    high: ["Alta"],
-    extraHigh: ["Máximo"],
+    medium: ["Média", "Médio"],
+    high: ["Alta", "Elevado"],
+    extraHigh: ["Máximo", "Muito elevado"],
   },
   modeOpenerExtra: ["Configurar..."],
   tools: {

@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const kk = {
+  configurationAxes: {
+    model: ["Модель"],
+    effort: ["Күш-жігер"],
+    speed: ["Жылдамдық"],
+  },
+  configurationOptions: {
+    light: ["Жеңіл"],
+    medium: ["Орташа"],
+    high: ["Жоғары"],
+    extraHigh: ["Өте жоғары"],
+    standard: ["Стандартты"],
+    fast: ["Жылдам"],
+  },
   composerTextbox: ["ChatGPT-мен чат"],
   sendButton: ["Көмексөз жіберу"],
   searchChatsButton: ["Чаттарды іздеу"],
@@ -18,12 +31,12 @@ export const kk = {
   addFilesOpenerCandidates: ["Файлдарды және басқа деректерді қосу"],
   addPhotosFilesMenuItem: ["Фотосуреттер мен файлдар қосу"],
   copyResponse: ["Жауапты көшіру"],
-  modeLabels: ["Жедел", "Орташа", "Жоғары", "Аса жоғары"],
+  modeLabels: ["Жедел", "Орташа", "Жоғары", "Аса жоғары", "Өте жоғары"],
   modeOptions: {
     instant: ["Жедел"],
     medium: ["Орташа"],
     high: ["Жоғары"],
-    extraHigh: ["Аса жоғары"],
+    extraHigh: ["Аса жоғары", "Өте жоғары"],
   },
   modeOpenerExtra: ["Кофигурациялау..."],
   tools: {

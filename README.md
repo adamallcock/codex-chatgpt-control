@@ -396,11 +396,19 @@ authorized ChatGPT tab:
 
 ```bash
 cd packages/node
-npm run capture:surface-profile -- --id work-basic-en --locale en-US
+npm run capture:surface-profile -- --id work-basic-en --locale en-US --experience work
 ```
 
 The draft defaults to `unverified`, strips conversation identity/content, and
 must pass contract validation and human review before being committed.
+
+Use `--experience chat` or `--experience work` to select and safely restore a
+specific pane. For all supported languages, the existing loop can also capture
+the localized Chat/Work radios and Work configuration graph:
+
+```bash
+npm run capture:intelligence-locales -- --auto-switch --all --capture-surfaces
+```
 
 ## Package Coordinates
 

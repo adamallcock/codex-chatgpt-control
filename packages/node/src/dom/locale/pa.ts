@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const pa = {
+  configurationAxes: {
+    model: ["ਮਾਡਲ"],
+    effort: ["ਕੋਸ਼ਿਸ਼"],
+    speed: ["ਗਤੀ"],
+  },
+  configurationOptions: {
+    light: ["ਹਲਕਾ"],
+    medium: ["ਮੀਡੀਅਮ"],
+    high: ["ਹਾਈ"],
+    extraHigh: ["ਐਕਸਟ੍ਰਾ ਹਾਈ"],
+    standard: ["ਮਿਆਰੀ"],
+    fast: ["ਤੇਜ਼"],
+  },
   composerTextbox: ["ਕੁਝ ਵੀ ਪੁੱਛੋ"],
   sendButton: ["ਪ੍ਰੋਂਪਟ ਭੇਜੋ"],
   searchChatsButton: ["ਚੈਟਾਂ ਖੋਜੋ"],
@@ -18,12 +31,12 @@ export const pa = {
   addFilesOpenerCandidates: ["ਫਾਈਲਾਂ ਅਤੇ ਹੋਰ ਬਹੁਤ ਕੁਝ ਸ਼ਾਮਲ ਕਰੋ"],
   addPhotosFilesMenuItem: ["ਫ਼ੋਟੋਆਂ ਅਤੇ ਫ਼ਾਈਲਾਂ ਅੱਪਲੋਡ ਕਰੋ"],
   copyResponse: ["ਜਵਾਬ ਕਾਪੀ ਕਰੋ"],
-  modeLabels: ["ਤੁਰੰਤ", "ਮੱਧਮ", "ਉੱਚ", "ਅਤਿ ਉੱਚ", "ਪ੍ਰੋ"],
+  modeLabels: ["ਤੁਰੰਤ", "ਮੱਧਮ", "ਉੱਚ", "ਅਤਿ ਉੱਚ", "ਪ੍ਰੋ", "ਮੀਡੀਅਮ", "ਹਾਈ", "ਐਕਸਟ੍ਰਾ ਹਾਈ"],
   modeOptions: {
     instant: ["ਤੁਰੰਤ"],
-    medium: ["ਮੱਧਮ"],
-    high: ["ਉੱਚ"],
-    extraHigh: ["ਅਤਿ ਉੱਚ"],
+    medium: ["ਮੱਧਮ", "ਮੀਡੀਅਮ"],
+    high: ["ਉੱਚ", "ਹਾਈ"],
+    extraHigh: ["ਅਤਿ ਉੱਚ", "ਐਕਸਟ੍ਰਾ ਹਾਈ"],
     pro: ["ਪ੍ਰੋ"],
   },
   modeOpenerExtra: ["ਕੌਨਫਿਗਰ..."],

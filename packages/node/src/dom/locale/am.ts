@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const am = {
+  configurationAxes: {
+    model: ["ሞዴል"],
+    effort: ["ጥረት"],
+    speed: ["ፍጥነት"],
+  },
+  configurationOptions: {
+    light: ["ቀላል"],
+    medium: ["መካከለኛ"],
+    high: ["ከፍተኛ"],
+    extraHigh: ["እጅግ ከፍተኛ"],
+    standard: ["መደበኛ"],
+    fast: ["ፈጣን"],
+  },
   composerTextbox: ["ከChatGPT ጋር ይወያዩ"],
   sendButton: ["ጥያቄ ላክ"],
   searchChatsButton: ["ውይይቶችን ፈልግ"],

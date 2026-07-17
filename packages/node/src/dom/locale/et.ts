@@ -6,9 +6,21 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const et = {
+  configurationAxes: {
+    model: ["Mudel"],
+    effort: ["Pingutus"],
+    speed: ["Kiirus"],
+  },
+  configurationOptions: {
+    light: ["Kerge"],
+    medium: ["Keskmine"],
+    high: ["Kõrge"],
+    extraHigh: ["Väga kõrge"],
+    fast: ["Kiire"],
+  },
   composerTextbox: ["Vestle ChatGPT-ga"],
   sendButton: ["Saada viip"],
   searchChatsButton: ["Otsi vestlusi"],

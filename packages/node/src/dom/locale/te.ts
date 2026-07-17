@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const te = {
+  configurationAxes: {
+    model: ["మోడల్"],
+    effort: ["ప్రయత్నం"],
+    speed: ["వేగం"],
+  },
+  configurationOptions: {
+    light: ["లైట్"],
+    medium: ["మీడియం"],
+    high: ["హై"],
+    extraHigh: ["ఎక్స్‌ట్రా హై"],
+    standard: ["స్టాండర్డ్"],
+    fast: ["వేగవంతం"],
+  },
   composerTextbox: ["ఏదైనా అడగండి"],
   sendButton: ["ప్రాంప్ట్‌ను పంపించండి"],
   searchChatsButton: ["చాట్‌లను శోధించండి"],
@@ -18,12 +31,12 @@ export const te = {
   addFilesOpenerCandidates: ["ఫైల్‌లను మరియు మరిన్ని జోడించండి"],
   addPhotosFilesMenuItem: ["ఫోటోలు & ఫైల్‌లను అప్‌లోడ్ చేయండి"],
   copyResponse: ["ప్రతిస్పందనను కాపీ చేయండి"],
-  modeLabels: ["తక్షణం", "మధ్యస్థ", "అధిక", "అత్యధిక", "ప్రో"],
+  modeLabels: ["తక్షణం", "మధ్యస్థ", "అధిక", "అత్యధిక", "ప్రో", "మీడియం", "హై", "ఎక్స్‌ట్రా హై"],
   modeOptions: {
     instant: ["తక్షణం"],
-    medium: ["మధ్యస్థ"],
-    high: ["అధిక"],
-    extraHigh: ["అత్యధిక"],
+    medium: ["మధ్యస్థ", "మీడియం"],
+    high: ["అధిక", "హై"],
+    extraHigh: ["అత్యధిక", "ఎక్స్‌ట్రా హై"],
     pro: ["ప్రో"],
   },
   modeOpenerExtra: ["కాన్ఫిగర్ చేయండి"],

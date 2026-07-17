@@ -12,6 +12,7 @@ import {
   downloadLatestAttachment,
   messageStatus,
   newThread,
+  openExperience,
   openThread,
   readLatest,
   runSequence,
@@ -810,12 +811,16 @@ export const optionalScenarios: LiveSmokeScenario[] = [
   scenario("download-generated-file", false, context => contextEnvFlag(context, "CHATGPT_E2E_DOWNLOAD"), async (context, meta) => {
     const env = await bootNewThread(context, meta);
     if ("status" in env) return env;
+    const chat = await openExperience(env, { experience: "chat", timeoutMs: 60000 });
+    if (!chat.ok || chat.data?.experience !== "chat") {
+      return fail(meta, chat, { failedStage: "experience.open.chat" });
+    }
     const asked = await askMessage(env, {
       text: "Create a tiny CSV file named chatgpt-live-smoke.csv containing one row with columns name,value and values smoke,1. Provide it as a downloadable file.",
       wait: { timeoutMs: 180000, stableMs: 3000 },
       read: true
     });
-    if (!asked.ok) return fail(meta, asked);
+    if (!generatedFileAskCanProceed(asked)) return fail(meta, asked);
     const result = await downloadLatestAttachment({
       destDir: context.reportDir,
       filenamePattern: "^chatgpt-live-smoke\\.csv$",
@@ -830,7 +835,7 @@ export const optionalScenarios: LiveSmokeScenario[] = [
     const rows = content.replace(/^\uFEFF/, "").trim().split(/\r?\n/).map(row => row.trim());
     const exactFile = download?.suggestedFilename === "chatgpt-live-smoke.csv";
     const exactContent = rows[0] === "name,value" && rows[1] === "smoke,1" && rows.length === 2;
-    const details = { path, bytes, suggestedFilename: download?.suggestedFilename, exactFile, exactContent };
+    const details = { path, bytes, suggestedFilename: download?.suggestedFilename, exactFile, exactContent, askStatus: asked.status };
     return result.ok && bytes > 0 && exactFile && exactContent
       ? pass(meta, result, details)
       : fail(meta, result, details);
@@ -892,6 +897,11 @@ export const optionalScenarios: LiveSmokeScenario[] = [
       : fail(meta, result, { events });
   })
 ];
+
+export function generatedFileAskCanProceed(result: CommandResult<AskReadData>): boolean {
+  return result.ok
+    || (result.status === "partial" && result.data?.generationActive !== true);
+}
 
 function scenario(
   name: string,

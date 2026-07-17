@@ -17,9 +17,21 @@ describe("surface profile capture drafts", () => {
       planScope: "not-recorded",
       workspaceScope: "not-recorded",
       supportState: "unverified",
-      ifMissing: "block"
+      ifMissing: "block",
+      restoreExperience: true
     });
     expect(options.out.replaceAll("\\", "/")).toContain("outputs/surface-profiles/");
+  });
+
+  it("targets Chat or Work and restores the previous pane by default", () => {
+    expect(parseArgs(["--id", "work-basic-en", "--experience", "work"])).toMatchObject({
+      experience: "work",
+      restoreExperience: true
+    });
+    expect(parseArgs([
+      "--id", "chat-basic-en", "--experience", "chat", "--no-restore-experience"
+    ])).toMatchObject({ experience: "chat", restoreExperience: false });
+    expect(() => parseArgs(["--id", "bad", "--experience", "unknown"])).toThrow("chat or work");
   });
 
   it("rejects account and rollout metadata that is not a normalized slug", () => {

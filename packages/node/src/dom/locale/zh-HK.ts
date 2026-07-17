@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const zhHK = {
+  configurationAxes: {
+    model: ["模型"],
+    effort: ["推理強度"],
+    speed: ["回應速度"],
+  },
+  configurationOptions: {
+    light: ["快思"],
+    medium: ["中"],
+    high: ["高"],
+    extraHigh: ["極高"],
+    standard: ["標準"],
+    fast: ["快速"],
+  },
   composerTextbox: ["與 ChatGPT 對話"],
   sendButton: ["傳送提示"],
   searchChatsButton: ["搜尋對話"],
@@ -18,10 +31,10 @@ export const zhHK = {
   addFilesOpenerCandidates: ["上載檔案和其他内容"],
   addPhotosFilesMenuItem: ["加入相片和檔案"],
   copyResponse: ["複製回覆"],
-  modeLabels: ["即時", "均衡", "高", "極高", "專業", "中等"],
+  modeLabels: ["即時", "均衡", "高", "極高", "專業", "中等", "中"],
   modeOptions: {
     instant: ["即時"],
-    medium: ["均衡", "中等"],
+    medium: ["均衡", "中等", "中"],
     high: ["高"],
     extraHigh: ["極高"],
     pro: ["專業"],

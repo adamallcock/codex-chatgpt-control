@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { filterScenarios, requiredFailures, writeReport } from "../../src/scripts/live-smoke/harness.js";
-import { optionalScenarios, requiredScenarios } from "../../src/scripts/live-smoke/scenarios.js";
+import { generatedFileAskCanProceed, optionalScenarios, requiredScenarios } from "../../src/scripts/live-smoke/scenarios.js";
 import type { LiveSmokeScenario } from "../../src/scripts/live-smoke/types.js";
 import type { LiveSmokeScenarioResult } from "../../src/scripts/live-smoke/types.js";
 
@@ -70,6 +70,23 @@ describe("live smoke harness", () => {
       reportDir: "/tmp/reports",
       env: { CHATGPT_E2E_CONFIGURATION_MUTATION: "1" }
     })).toBe(true);
+  });
+
+  it("lets artifact verification decide a settled partial generated-file response", () => {
+    expect(generatedFileAskCanProceed({
+      ok: false,
+      status: "partial",
+      data: { prompt: "generated file probe", complete: false, generationActive: false },
+      warnings: [],
+      context: { timestamp: "2026-07-17T00:00:00.000Z" }
+    })).toBe(true);
+    expect(generatedFileAskCanProceed({
+      ok: false,
+      status: "partial",
+      data: { prompt: "generated file probe", complete: false, generationActive: true },
+      warnings: [],
+      context: { timestamp: "2026-07-17T00:00:00.000Z" }
+    })).toBe(false);
   });
 
   it("redacts command content in persisted live-smoke reports", async () => {

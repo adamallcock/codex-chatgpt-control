@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const vi = {
+  configurationAxes: {
+    model: ["Mô hình"],
+    effort: ["Mức độ"],
+    speed: ["Tốc độ"],
+  },
+  configurationOptions: {
+    light: ["Nhẹ"],
+    medium: ["Vừa"],
+    high: ["Cao"],
+    extraHigh: ["Chuyên sâu"],
+    standard: ["Tiêu chuẩn"],
+    fast: ["Nhanh"],
+  },
   composerTextbox: ["Trò chuyện với ChatGPT"],
   sendButton: ["Gửi lời nhắc"],
   searchChatsButton: ["Tìm kiếm đoạn chat"],
@@ -18,12 +31,12 @@ export const vi = {
   addFilesOpenerCandidates: ["Thêm tệp và nhiều tính năng khác"],
   addPhotosFilesMenuItem: ["Thêm ảnh và tệp"],
   copyResponse: ["Sao chép phản hồi"],
-  modeLabels: ["Tức thì", "Trung bình", "Cao", "Rất cao"],
+  modeLabels: ["Tức thì", "Trung bình", "Cao", "Rất cao", "Vừa", "Chuyên sâu"],
   modeOptions: {
     instant: ["Tức thì"],
-    medium: ["Trung bình"],
+    medium: ["Trung bình", "Vừa"],
     high: ["Cao"],
-    extraHigh: ["Rất cao"],
+    extraHigh: ["Rất cao", "Chuyên sâu"],
   },
   modeOpenerExtra: ["Định cấu hình"],
   tools: {

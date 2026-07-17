@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const gu = {
+  configurationAxes: {
+    model: ["મોડેલ"],
+    effort: ["પ્રયાસ"],
+    speed: ["ઝડપ"],
+  },
+  configurationOptions: {
+    light: ["લાઇટ"],
+    medium: ["મીડિયમ"],
+    high: ["હાઇ"],
+    extraHigh: ["એક્સ્ટ્રા હાઇ"],
+    standard: ["સ્ટાન્ડર્ડ"],
+    fast: ["ઝડપી"],
+  },
   composerTextbox: ["ChatGPT સાથે ચૅટ"],
   sendButton: ["પ્રોમ્પ્ટ મોકલો"],
   searchChatsButton: ["ચેટ શોધો"],
@@ -18,12 +31,12 @@ export const gu = {
   addFilesOpenerCandidates: ["ફાઇલો અને વધુ ઉમેરો"],
   addPhotosFilesMenuItem: ["ફોટા અને ફાઇલો ઉમેરો"],
   copyResponse: ["પ્રતિભાવ કૉપિ કરો"],
-  modeLabels: ["તરત", "મધ્યમ", "ઉચ્ચ", "અતિ ઉચ્ચ"],
+  modeLabels: ["તરત", "મધ્યમ", "ઉચ્ચ", "અતિ ઉચ્ચ", "મીડિયમ", "હાઇ", "એક્સ્ટ્રા હાઇ"],
   modeOptions: {
     instant: ["તરત"],
-    medium: ["મધ્યમ"],
-    high: ["ઉચ્ચ"],
-    extraHigh: ["અતિ ઉચ્ચ"],
+    medium: ["મધ્યમ", "મીડિયમ"],
+    high: ["ઉચ્ચ", "હાઇ"],
+    extraHigh: ["અતિ ઉચ્ચ", "એક્સ્ટ્રા હાઇ"],
   },
   modeOpenerExtra: ["કન્ફિગર કરો..."],
   tools: {

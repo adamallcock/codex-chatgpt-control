@@ -27,7 +27,7 @@ type SurfaceSnapshot = {
 };
 
 const CHATGPT_HOME = "https://chatgpt.com/";
-const EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS = 5_000;
+const EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS = 15_000;
 const EXPERIENCE_POLL_MS = 250;
 
 export async function detectExperience(

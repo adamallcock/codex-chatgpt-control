@@ -261,6 +261,7 @@ npm run build
 npm run bundle
 npm run bundle:backend
 npm run bundle:live-smoke
+npm run bundle:release-canary
 npm run contract:validate
 npm run parity:fixtures
 npm run test:backend-conformance
@@ -296,3 +297,15 @@ CHATGPT_E2E_CONFIGURATION_MUTATION=1 \
 CHATGPT_E2E_SCENARIOS="configuration-mutate-restore" \
 npm run smoke:live
 ```
+
+The packaged runtime also includes
+`runtime/node/codex-chatgpt-control-release-canary.bundle.mjs`. Import it from a
+bridge-hosted JavaScript call and run `runReleaseCanary(globalThis, { tabId })`
+against an exact dedicated ChatGPT tab before publishing. It creates sanitized
+Chat/Work profiles, exercises the expansion, mutates/restores Work effort,
+verifies a generated CSV download, and restores Chat. Upload remains explicit
+via `includeUpload: true`.
+
+For locale drift, use the Node package's existing language loop with
+`--auto-switch --all --capture-surfaces`; review the JSONL before using the
+`--reviewed` apply gate.

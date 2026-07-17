@@ -6,9 +6,20 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const it = {
+  configurationAxes: {
+    model: ["Modello"],
+    effort: ["Sforzo"],
+    speed: ["Velocità"],
+  },
+  configurationOptions: {
+    medium: ["Medio"],
+    high: ["Alto"],
+    extraHigh: ["Molto alto"],
+    fast: ["Veloce"],
+  },
   composerTextbox: ["Chatta con ChatGPT"],
   sendButton: ["Invia prompt"],
   searchChatsButton: ["Cerca chat"],
@@ -18,12 +29,12 @@ export const it = {
   addFilesOpenerCandidates: ["Aggiungi file e altro"],
   addPhotosFilesMenuItem: ["Aggiungi foto e file"],
   copyResponse: ["Copia risposta"],
-  modeLabels: ["Istantanea", "Media", "Alta", "Extra elevata"],
+  modeLabels: ["Istantanea", "Media", "Alta", "Extra elevata", "Medio", "Alto", "Molto alto"],
   modeOptions: {
     instant: ["Istantanea"],
-    medium: ["Media"],
-    high: ["Alta"],
-    extraHigh: ["Extra elevata"],
+    medium: ["Media", "Medio"],
+    high: ["Alta", "Alto"],
+    extraHigh: ["Extra elevata", "Molto alto"],
   },
   modeOpenerExtra: ["Configura"],
   tools: {

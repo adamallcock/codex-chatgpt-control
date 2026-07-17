@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const ta = {
+  configurationAxes: {
+    model: ["மாதிரி"],
+    effort: ["முயற்சி"],
+    speed: ["வேகம்"],
+  },
+  configurationOptions: {
+    light: ["குறைவு"],
+    medium: ["மிதமான"],
+    high: ["அதிகமான"],
+    extraHigh: ["மிக அதிகமான"],
+    standard: ["வழக்கமான"],
+    fast: ["விரைவு"],
+  },
   composerTextbox: ["எதையும் கேளுங்கள்"],
   sendButton: ["தூண்டியை அனுப்பு"],
   searchChatsButton: ["அரட்டைகளைத் தேடு"],
@@ -18,12 +31,12 @@ export const ta = {
   addFilesOpenerCandidates: ["கோப்புகளையும் மேலும் பலவற்றையும் சேர்"],
   addPhotosFilesMenuItem: ["படங்கள் மற்றும் ஃபைல்களைப் பதிவேற்று"],
   copyResponse: ["பதிலை நகலெடுக்கலாம்"],
-  modeLabels: ["உடனடி", "நடுத்தர", "உயர்", "மிக உயர்வு", "ப்ரோ"],
+  modeLabels: ["உடனடி", "நடுத்தர", "உயர்", "மிக உயர்வு", "ப்ரோ", "மிதமான", "அதிகமான", "மிக அதிகமான"],
   modeOptions: {
     instant: ["உடனடி"],
-    medium: ["நடுத்தர"],
-    high: ["உயர்"],
-    extraHigh: ["மிக உயர்வு"],
+    medium: ["நடுத்தர", "மிதமான"],
+    high: ["உயர்", "அதிகமான"],
+    extraHigh: ["மிக உயர்வு", "மிக அதிகமான"],
     pro: ["ப்ரோ"],
   },
   modeOpenerExtra: ["கட்டமைக்கவும்..."],

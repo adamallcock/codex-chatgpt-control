@@ -237,6 +237,18 @@ var en = {
 
 // src/dom/locale/de.ts
 var de = {
+  configurationAxes: {
+    model: ["Modell"],
+    effort: ["Aufwand"],
+    speed: ["Tempo"]
+  },
+  configurationOptions: {
+    light: ["Leicht"],
+    medium: ["Mittel"],
+    high: ["Hoch"],
+    extraHigh: ["Sehr hoch"],
+    fast: ["Schnell"]
+  },
   composerTextbox: ["Mit ChatGPT chatten"],
   sendButton: ["Aufforderung senden"],
   searchChatsButton: ["Chats durchsuchen"],
@@ -246,12 +258,12 @@ var de = {
   addFilesOpenerCandidates: ["Dateien und mehr hinzuf\xFCgen"],
   addPhotosFilesMenuItem: ["Fotos und Dateien hinzuf\xFCgen"],
   copyResponse: ["Antwort kopieren"],
-  modeLabels: ["Sofort", "Mittel", "Hoch", "Extra hoch"],
+  modeLabels: ["Sofort", "Mittel", "Hoch", "Extra hoch", "Sehr hoch"],
   modeOptions: {
     instant: ["Sofort"],
     medium: ["Mittel"],
     high: ["Hoch"],
-    extraHigh: ["Extra hoch"]
+    extraHigh: ["Extra hoch", "Sehr hoch"]
   },
   modeOpenerExtra: ["Konfigurieren"],
   tools: {
@@ -265,6 +277,19 @@ var de = {
 
 // src/dom/locale/es-ES.ts
 var esES = {
+  configurationAxes: {
+    model: ["Modelo"],
+    effort: ["Esfuerzo"],
+    speed: ["Velocidad"]
+  },
+  configurationOptions: {
+    light: ["Ligero"],
+    medium: ["Media"],
+    high: ["Alta"],
+    extraHigh: ["Muy alta"],
+    standard: ["Est\xE1ndar"],
+    fast: ["R\xE1pido"]
+  },
   composerTextbox: ["Chatear con ChatGPT"],
   sendButton: ["Enviar indicaci\xF3n"],
   searchChatsButton: ["Buscar chats"],
@@ -294,6 +319,18 @@ var esES = {
 
 // src/dom/locale/fr-FR.ts
 var frFR = {
+  configurationAxes: {
+    model: ["Mod\xE8le"],
+    effort: ["Niveau"],
+    speed: ["Vitesse"]
+  },
+  configurationOptions: {
+    light: ["Minimal"],
+    medium: ["Moyenne"],
+    high: ["\xC9lev\xE9e"],
+    extraHigh: ["Tr\xE8s \xE9lev\xE9e"],
+    fast: ["Rapide"]
+  },
   composerTextbox: ["Discuter avec ChatGPT"],
   sendButton: ["Envoyer le prompt"],
   searchChatsButton: ["Rechercher dans les chats"],
@@ -303,11 +340,12 @@ var frFR = {
   addFilesOpenerCandidates: ["Ajouter des fichiers et plus encore"],
   addPhotosFilesMenuItem: ["Ajouter des photos et fichiers"],
   copyResponse: ["Copier la r\xE9ponse"],
-  modeLabels: ["Moyen", "Avanc\xE9", "Tr\xE8s \xE9lev\xE9"],
+  modeLabels: ["Moyen", "Avanc\xE9", "Tr\xE8s \xE9lev\xE9", "Instantan\xE9e", "Moyenne", "\xC9lev\xE9e", "Tr\xE8s \xE9lev\xE9e"],
   modeOptions: {
-    medium: ["Moyen"],
-    high: ["Avanc\xE9"],
-    extraHigh: ["Tr\xE8s \xE9lev\xE9"]
+    instant: ["Instantan\xE9e"],
+    medium: ["Moyen", "Moyenne"],
+    high: ["Avanc\xE9", "\xC9lev\xE9e"],
+    extraHigh: ["Tr\xE8s \xE9lev\xE9", "Tr\xE8s \xE9lev\xE9e"]
   },
   modeOpenerExtra: ["Configurer"],
   tools: {
@@ -322,6 +360,19 @@ var frFR = {
 
 // src/dom/locale/zh-HK.ts
 var zhHK = {
+  configurationAxes: {
+    model: ["\u6A21\u578B"],
+    effort: ["\u63A8\u7406\u5F37\u5EA6"],
+    speed: ["\u56DE\u61C9\u901F\u5EA6"]
+  },
+  configurationOptions: {
+    light: ["\u5FEB\u601D"],
+    medium: ["\u4E2D"],
+    high: ["\u9AD8"],
+    extraHigh: ["\u6975\u9AD8"],
+    standard: ["\u6A19\u6E96"],
+    fast: ["\u5FEB\u901F"]
+  },
   composerTextbox: ["\u8207 ChatGPT \u5C0D\u8A71"],
   sendButton: ["\u50B3\u9001\u63D0\u793A"],
   searchChatsButton: ["\u641C\u5C0B\u5C0D\u8A71"],
@@ -331,10 +382,10 @@ var zhHK = {
   addFilesOpenerCandidates: ["\u4E0A\u8F09\u6A94\u6848\u548C\u5176\u4ED6\u5185\u5BB9"],
   addPhotosFilesMenuItem: ["\u52A0\u5165\u76F8\u7247\u548C\u6A94\u6848"],
   copyResponse: ["\u8907\u88FD\u56DE\u8986"],
-  modeLabels: ["\u5373\u6642", "\u5747\u8861", "\u9AD8", "\u6975\u9AD8", "\u5C08\u696D", "\u4E2D\u7B49"],
+  modeLabels: ["\u5373\u6642", "\u5747\u8861", "\u9AD8", "\u6975\u9AD8", "\u5C08\u696D", "\u4E2D\u7B49", "\u4E2D"],
   modeOptions: {
     instant: ["\u5373\u6642"],
-    medium: ["\u5747\u8861", "\u4E2D\u7B49"],
+    medium: ["\u5747\u8861", "\u4E2D\u7B49", "\u4E2D"],
     high: ["\u9AD8"],
     extraHigh: ["\u6975\u9AD8"],
     pro: ["\u5C08\u696D"]
@@ -352,6 +403,19 @@ var zhHK = {
 
 // src/dom/locale/zh-TW.ts
 var zhTW = {
+  configurationAxes: {
+    model: ["\u6A21\u578B"],
+    effort: ["\u63A8\u7406\u5F37\u5EA6"],
+    speed: ["\u901F\u5EA6"]
+  },
+  configurationOptions: {
+    light: ["\u5FEB\u601D"],
+    medium: ["\u4E2D"],
+    high: ["\u9AD8"],
+    extraHigh: ["\u6975\u9AD8"],
+    standard: ["\u6A19\u6E96"],
+    fast: ["\u5FEB\u901F"]
+  },
   composerTextbox: ["\u8207 ChatGPT \u5C0D\u8A71"],
   sendButton: ["\u50B3\u9001\u63D0\u793A\u8A5E"],
   searchChatsButton: ["\u641C\u5C0B\u5C0D\u8A71"],
@@ -361,10 +425,10 @@ var zhTW = {
   addFilesOpenerCandidates: ["\u65B0\u589E\u6A94\u6848\u7B49\u66F4\u591A\u529F\u80FD"],
   addPhotosFilesMenuItem: ["\u65B0\u589E\u7167\u7247\u548C\u6A94\u6848"],
   copyResponse: ["\u8907\u88FD\u56DE\u61C9"],
-  modeLabels: ["\u5373\u6642", "\u4E2D\u7B49", "\u9AD8", "\u8D85\u9AD8", "\u5C08\u696D"],
+  modeLabels: ["\u5373\u6642", "\u4E2D\u7B49", "\u9AD8", "\u8D85\u9AD8", "\u5C08\u696D", "\u4E2D"],
   modeOptions: {
     instant: ["\u5373\u6642"],
-    medium: ["\u4E2D\u7B49"],
+    medium: ["\u4E2D\u7B49", "\u4E2D"],
     high: ["\u9AD8"],
     extraHigh: ["\u8D85\u9AD8"],
     pro: ["\u5C08\u696D"]
@@ -382,6 +446,19 @@ var zhTW = {
 
 // src/dom/locale/ja.ts
 var ja = {
+  configurationAxes: {
+    model: ["\u30E2\u30C7\u30EB"],
+    effort: ["\u601D\u8003\u30EC\u30D9\u30EB"],
+    speed: ["\u901F\u5EA6"]
+  },
+  configurationOptions: {
+    light: ["\u8EFD"],
+    medium: ["\u4E2D\u7A0B\u5EA6"],
+    high: ["\u9AD8\u3044"],
+    extraHigh: ["\u975E\u5E38\u306B\u9AD8\u3044"],
+    standard: ["\u6A19\u6E96"],
+    fast: ["\u9AD8\u901F"]
+  },
   composerTextbox: ["ChatGPT \u3068\u30C1\u30E3\u30C3\u30C8\u3059\u308B"],
   sendButton: ["\u30D7\u30ED\u30F3\u30D7\u30C8\u3092\u9001\u4FE1\u3059\u308B"],
   searchChatsButton: ["\u30C1\u30E3\u30C3\u30C8\u3092\u691C\u7D22"],
@@ -391,12 +468,12 @@ var ja = {
   addFilesOpenerCandidates: ["\u30D5\u30A1\u30A4\u30EB\u306E\u8FFD\u52A0\u306A\u3069"],
   addPhotosFilesMenuItem: ["\u5199\u771F\u3068\u30D5\u30A1\u30A4\u30EB\u3092\u8FFD\u52A0"],
   copyResponse: ["\u56DE\u7B54\u3092\u30B3\u30D4\u30FC\u3059\u308B"],
-  modeLabels: ["\u6700\u901F", "\u6A19\u6E96", "\u9AD8", "\u6700\u9AD8"],
+  modeLabels: ["\u6700\u901F", "\u6A19\u6E96", "\u9AD8", "\u6700\u9AD8", "\u4E2D\u7A0B\u5EA6", "\u9AD8\u3044", "\u975E\u5E38\u306B\u9AD8\u3044"],
   modeOptions: {
     instant: ["\u6700\u901F"],
-    medium: ["\u6A19\u6E96"],
-    high: ["\u9AD8"],
-    extraHigh: ["\u6700\u9AD8"]
+    medium: ["\u6A19\u6E96", "\u4E2D\u7A0B\u5EA6"],
+    high: ["\u9AD8", "\u9AD8\u3044"],
+    extraHigh: ["\u6700\u9AD8", "\u975E\u5E38\u306B\u9AD8\u3044"]
   },
   modeOpenerExtra: ["\u8A2D\u5B9A\u3059\u308B"],
   tools: {
@@ -410,6 +487,17 @@ var ja = {
 
 // src/dom/locale/it.ts
 var it = {
+  configurationAxes: {
+    model: ["Modello"],
+    effort: ["Sforzo"],
+    speed: ["Velocit\xE0"]
+  },
+  configurationOptions: {
+    medium: ["Medio"],
+    high: ["Alto"],
+    extraHigh: ["Molto alto"],
+    fast: ["Veloce"]
+  },
   composerTextbox: ["Chatta con ChatGPT"],
   sendButton: ["Invia prompt"],
   searchChatsButton: ["Cerca chat"],
@@ -419,12 +507,12 @@ var it = {
   addFilesOpenerCandidates: ["Aggiungi file e altro"],
   addPhotosFilesMenuItem: ["Aggiungi foto e file"],
   copyResponse: ["Copia risposta"],
-  modeLabels: ["Istantanea", "Media", "Alta", "Extra elevata"],
+  modeLabels: ["Istantanea", "Media", "Alta", "Extra elevata", "Medio", "Alto", "Molto alto"],
   modeOptions: {
     instant: ["Istantanea"],
-    medium: ["Media"],
-    high: ["Alta"],
-    extraHigh: ["Extra elevata"]
+    medium: ["Media", "Medio"],
+    high: ["Alta", "Alto"],
+    extraHigh: ["Extra elevata", "Molto alto"]
   },
   modeOpenerExtra: ["Configura"],
   tools: {
@@ -438,6 +526,19 @@ var it = {
 
 // src/dom/locale/vi.ts
 var vi = {
+  configurationAxes: {
+    model: ["M\xF4 h\xECnh"],
+    effort: ["M\u1EE9c \u0111\u1ED9"],
+    speed: ["T\u1ED1c \u0111\u1ED9"]
+  },
+  configurationOptions: {
+    light: ["Nh\u1EB9"],
+    medium: ["V\u1EEBa"],
+    high: ["Cao"],
+    extraHigh: ["Chuy\xEAn s\xE2u"],
+    standard: ["Ti\xEAu chu\u1EA9n"],
+    fast: ["Nhanh"]
+  },
   composerTextbox: ["Tr\xF2 chuy\u1EC7n v\u1EDBi ChatGPT"],
   sendButton: ["G\u1EEDi l\u1EDDi nh\u1EAFc"],
   searchChatsButton: ["T\xECm ki\u1EBFm \u0111o\u1EA1n chat"],
@@ -447,12 +548,12 @@ var vi = {
   addFilesOpenerCandidates: ["Th\xEAm t\u1EC7p v\xE0 nhi\u1EC1u t\xEDnh n\u0103ng kh\xE1c"],
   addPhotosFilesMenuItem: ["Th\xEAm \u1EA3nh v\xE0 t\u1EC7p"],
   copyResponse: ["Sao ch\xE9p ph\u1EA3n h\u1ED3i"],
-  modeLabels: ["T\u1EE9c th\xEC", "Trung b\xECnh", "Cao", "R\u1EA5t cao"],
+  modeLabels: ["T\u1EE9c th\xEC", "Trung b\xECnh", "Cao", "R\u1EA5t cao", "V\u1EEBa", "Chuy\xEAn s\xE2u"],
   modeOptions: {
     instant: ["T\u1EE9c th\xEC"],
-    medium: ["Trung b\xECnh"],
+    medium: ["Trung b\xECnh", "V\u1EEBa"],
     high: ["Cao"],
-    extraHigh: ["R\u1EA5t cao"]
+    extraHigh: ["R\u1EA5t cao", "Chuy\xEAn s\xE2u"]
   },
   modeOpenerExtra: ["\u0110\u1ECBnh c\u1EA5u h\xECnh"],
   tools: {
@@ -467,6 +568,19 @@ var vi = {
 
 // src/dom/locale/am.ts
 var am = {
+  configurationAxes: {
+    model: ["\u121E\u12F4\u120D"],
+    effort: ["\u1325\u1228\u1275"],
+    speed: ["\u134D\u1325\u1290\u1275"]
+  },
+  configurationOptions: {
+    light: ["\u1240\u120B\u120D"],
+    medium: ["\u1218\u12AB\u12A8\u1208\u129B"],
+    high: ["\u12A8\u134D\u1270\u129B"],
+    extraHigh: ["\u12A5\u1305\u130D \u12A8\u134D\u1270\u129B"],
+    standard: ["\u1218\u12F0\u1260\u129B"],
+    fast: ["\u1348\u1323\u1295"]
+  },
   composerTextbox: ["\u12A8ChatGPT \u130B\u122D \u12ED\u12C8\u12EB\u12E9"],
   sendButton: ["\u1325\u12EB\u1244 \u120B\u12AD"],
   searchChatsButton: ["\u12CD\u12ED\u12ED\u1276\u127D\u1295 \u1348\u120D\u130D"],
@@ -496,6 +610,19 @@ var am = {
 
 // src/dom/locale/ar.ts
 var ar = {
+  configurationAxes: {
+    model: ["\u0627\u0644\u0646\u0645\u0648\u0630\u062C"],
+    effort: ["\u0627\u0644\u062C\u0647\u062F"],
+    speed: ["\u0627\u0644\u0633\u0631\u0639\u0629"]
+  },
+  configurationOptions: {
+    light: ["\u062E\u0641\u064A\u0641"],
+    medium: ["\u0645\u062A\u0648\u0633\u0637"],
+    high: ["\u0639\u0627\u0644\u064D"],
+    extraHigh: ["\u0639\u0627\u0644\u064D \u062C\u062F\u064B\u0627"],
+    standard: ["\u0642\u064A\u0627\u0633\u064A"],
+    fast: ["\u0633\u0631\u064A\u0639"]
+  },
   composerTextbox: ["\u0627\u0644\u062F\u0631\u062F\u0634\u0629 \u0645\u0639 ChatGPT"],
   sendButton: ["\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0633\u0624\u0627\u0644"],
   searchChatsButton: ["\u0627\u0644\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u062F\u0631\u062F\u0634\u0627\u062A"],
@@ -505,12 +632,12 @@ var ar = {
   addFilesOpenerCandidates: ["\u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0644\u0641\u0627\u062A \u0648\u0627\u0644\u0645\u0632\u064A\u062F"],
   addPhotosFilesMenuItem: ["\u0625\u0636\u0627\u0641\u0629 \u0635\u0648\u0631 \u0648\u0645\u0644\u0641\u0627\u062A"],
   copyResponse: ["\u0646\u0633\u062E \u0625\u062C\u0627\u0628\u0629"],
-  modeLabels: ["\u0641\u0648\u0631\u064A", "\u0645\u062A\u0648\u0633\u0637", "\u0639\u0627\u0644\u064A", "\u0645\u0643\u062B\u0641 \u062C\u062F\u064B\u0627", "\u0627\u062D\u062A\u0631\u0627\u0641\u064A"],
+  modeLabels: ["\u0641\u0648\u0631\u064A", "\u0645\u062A\u0648\u0633\u0637", "\u0639\u0627\u0644\u064A", "\u0645\u0643\u062B\u0641 \u062C\u062F\u064B\u0627", "\u0627\u062D\u062A\u0631\u0627\u0641\u064A", "\u0639\u0627\u0644\u064D", "\u0639\u0627\u0644\u064D \u062C\u062F\u064B\u0627"],
   modeOptions: {
     instant: ["\u0641\u0648\u0631\u064A"],
     medium: ["\u0645\u062A\u0648\u0633\u0637"],
-    high: ["\u0639\u0627\u0644\u064A"],
-    extraHigh: ["\u0645\u0643\u062B\u0641 \u062C\u062F\u064B\u0627"],
+    high: ["\u0639\u0627\u0644\u064A", "\u0639\u0627\u0644\u064D"],
+    extraHigh: ["\u0645\u0643\u062B\u0641 \u062C\u062F\u064B\u0627", "\u0639\u0627\u0644\u064D \u062C\u062F\u064B\u0627"],
     pro: ["\u0627\u062D\u062A\u0631\u0627\u0641\u064A"]
   },
   modeOpenerExtra: ["\u062A\u0643\u0648\u064A\u0646"],
@@ -526,6 +653,19 @@ var ar = {
 
 // src/dom/locale/bg.ts
 var bg = {
+  configurationAxes: {
+    model: ["\u041C\u043E\u0434\u0435\u043B"],
+    effort: ["\u0423\u0441\u0438\u043B\u0438\u0435"],
+    speed: ["\u0421\u043A\u043E\u0440\u043E\u0441\u0442"]
+  },
+  configurationOptions: {
+    light: ["\u041A\u0440\u0430\u0442\u043A\u043E"],
+    medium: ["\u0421\u0440\u0435\u0434\u043D\u043E"],
+    high: ["\u0412\u0438\u0441\u043E\u043A\u043E"],
+    extraHigh: ["\u041C\u043D\u043E\u0433\u043E \u0432\u0438\u0441\u043E\u043A\u043E"],
+    standard: ["\u0421\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u043E"],
+    fast: ["\u0411\u044A\u0440\u0437\u0430"]
+  },
   composerTextbox: ["\u0427\u0430\u0442 \u0441 ChatGPT"],
   sendButton: ["\u0418\u0437\u043F\u0440\u0430\u0449\u0430\u043D\u0435 \u043D\u0430 \u043F\u043E\u0434\u043A\u0430\u043D\u0430"],
   searchChatsButton: ["\u0422\u044A\u0440\u0441\u0435\u043D\u0435 \u043D\u0430 \u0447\u0430\u0442\u043E\u0432\u0435"],
@@ -535,11 +675,11 @@ var bg = {
   addFilesOpenerCandidates: ["\u0414\u043E\u0431\u0430\u0432\u044F\u043D\u0435 \u043D\u0430 \u0444\u0430\u0439\u043B\u043E\u0432\u0435 \u0438 \u0434\u0440."],
   addPhotosFilesMenuItem: ["\u0414\u043E\u0431\u0430\u0432\u044F\u043D\u0435 \u043D\u0430 \u0441\u043D\u0438\u043C\u043A\u0438 \u0438 \u0444\u0430\u0439\u043B\u043E\u0432\u0435"],
   copyResponse: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0439\u0442\u0435 \u043E\u0442\u0433\u043E\u0432\u043E\u0440\u0430"],
-  modeLabels: ["\u041C\u0438\u0433\u043D\u043E\u0432\u0435\u043D", "\u0421\u0440\u0435\u0434\u0435\u043D", "\u0412\u0438\u0441\u043E\u043A", "\u041C\u043D\u043E\u0433\u043E \u0432\u0438\u0441\u043E\u043A\u043E", "\u041F\u0440\u043E"],
+  modeLabels: ["\u041C\u0438\u0433\u043D\u043E\u0432\u0435\u043D", "\u0421\u0440\u0435\u0434\u0435\u043D", "\u0412\u0438\u0441\u043E\u043A", "\u041C\u043D\u043E\u0433\u043E \u0432\u0438\u0441\u043E\u043A\u043E", "\u041F\u0440\u043E", "\u0421\u0440\u0435\u0434\u043D\u043E", "\u0412\u0438\u0441\u043E\u043A\u043E"],
   modeOptions: {
     instant: ["\u041C\u0438\u0433\u043D\u043E\u0432\u0435\u043D"],
-    medium: ["\u0421\u0440\u0435\u0434\u0435\u043D"],
-    high: ["\u0412\u0438\u0441\u043E\u043A"],
+    medium: ["\u0421\u0440\u0435\u0434\u0435\u043D", "\u0421\u0440\u0435\u0434\u043D\u043E"],
+    high: ["\u0412\u0438\u0441\u043E\u043A", "\u0412\u0438\u0441\u043E\u043A\u043E"],
     extraHigh: ["\u041C\u043D\u043E\u0433\u043E \u0432\u0438\u0441\u043E\u043A\u043E"],
     pro: ["\u041F\u0440\u043E"]
   },
@@ -556,6 +696,18 @@ var bg = {
 
 // src/dom/locale/bs.ts
 var bs = {
+  configurationAxes: {
+    effort: ["Napor"],
+    speed: ["Brzina"]
+  },
+  configurationOptions: {
+    light: ["Lagano"],
+    medium: ["Srednja"],
+    high: ["Visoka"],
+    extraHigh: ["Veoma visoka"],
+    standard: ["Standardno"],
+    fast: ["Brzo"]
+  },
   composerTextbox: ["Razgovarajte pomo\u0107u ChatGPT-a"],
   sendButton: ["Po\u0161alji upit"],
   searchChatsButton: ["Pretra\u017Ei razgovore"],
@@ -565,12 +717,12 @@ var bs = {
   addFilesOpenerCandidates: ["Otpremite datoteke i jo\u0161 mnogo toga"],
   addPhotosFilesMenuItem: ["Dodaj slike i datoteke"],
   copyResponse: ["Kopiraj odgovor"],
-  modeLabels: ["Brzo", "Srednji", "Visoko", "Vrlo visoko"],
+  modeLabels: ["Brzo", "Srednji", "Visoko", "Vrlo visoko", "Srednja", "Visoka", "Veoma visoka"],
   modeOptions: {
     instant: ["Brzo"],
-    medium: ["Srednji"],
-    high: ["Visoko"],
-    extraHigh: ["Vrlo visoko"]
+    medium: ["Srednji", "Srednja"],
+    high: ["Visoko", "Visoka"],
+    extraHigh: ["Vrlo visoko", "Veoma visoka"]
   },
   modeOpenerExtra: ["Podesi"],
   tools: {
@@ -585,6 +737,18 @@ var bs = {
 
 // src/dom/locale/ca.ts
 var ca = {
+  configurationAxes: {
+    effort: ["Esfor\xE7"],
+    speed: ["Velocitat"]
+  },
+  configurationOptions: {
+    light: ["Lleuger"],
+    medium: ["Mitjana"],
+    high: ["Alta"],
+    extraHigh: ["Molt alta"],
+    standard: ["Est\xE0ndard"],
+    fast: ["R\xE0pid"]
+  },
   composerTextbox: ["Xateja amb el ChatGPT"],
   sendButton: ["Envia la indicaci\xF3"],
   searchChatsButton: ["Cerca xats"],
@@ -594,12 +758,12 @@ var ca = {
   addFilesOpenerCandidates: ["Afegeix fitxers i m\xE9s"],
   addPhotosFilesMenuItem: ["Afegeix fotos i fitxers"],
   copyResponse: ["Copia la resposta"],
-  modeLabels: ["Instantani", "Mitj\xE0", "Alt", "Molt alt"],
+  modeLabels: ["Instantani", "Mitj\xE0", "Alt", "Molt alt", "Instant\xE0nia", "Mitjana", "Alta", "Molt alta"],
   modeOptions: {
-    instant: ["Instantani"],
-    medium: ["Mitj\xE0"],
-    high: ["Alt"],
-    extraHigh: ["Molt alt"]
+    instant: ["Instantani", "Instant\xE0nia"],
+    medium: ["Mitj\xE0", "Mitjana"],
+    high: ["Alt", "Alta"],
+    extraHigh: ["Molt alt", "Molt alta"]
   },
   modeOpenerExtra: ["Configura\u2026"],
   tools: {
@@ -614,6 +778,18 @@ var ca = {
 
 // src/dom/locale/cs.ts
 var cs = {
+  configurationAxes: {
+    effort: ["\xDAsil\xED"],
+    speed: ["Rychlost"]
+  },
+  configurationOptions: {
+    light: ["N\xEDzk\xE1"],
+    medium: ["St\u0159edn\xED"],
+    high: ["Vysok\xE1"],
+    extraHigh: ["Velmi vysok\xE1"],
+    standard: ["Standardn\xED"],
+    fast: ["Rychl\xE9"]
+  },
   composerTextbox: ["Chatovat s ChatGPT"],
   sendButton: ["Odeslat v\xFDzvu"],
   searchChatsButton: ["Hledat chaty"],
@@ -643,6 +819,17 @@ var cs = {
 
 // src/dom/locale/da.ts
 var da = {
+  configurationAxes: {
+    effort: ["Indsats"],
+    speed: ["Hastighed"]
+  },
+  configurationOptions: {
+    light: ["Let"],
+    medium: ["Mellem"],
+    high: ["H\xF8j"],
+    extraHigh: ["Ekstra h\xF8j"],
+    fast: ["Hurtig"]
+  },
   composerTextbox: ["Chat med ChatGPT"],
   sendButton: ["Send foresp\xF8rgsel"],
   searchChatsButton: ["S\xF8g i chats"],
@@ -652,9 +839,10 @@ var da = {
   addFilesOpenerCandidates: ["Tilf\xF8j filer og mere"],
   addPhotosFilesMenuItem: ["Tilf\xF8j billeder og filer"],
   copyResponse: ["Kopi\xE9r svar"],
-  modeLabels: ["\xD8jeblikkeligt", "H\xF8j", "Ekstra h\xF8j"],
+  modeLabels: ["\xD8jeblikkeligt", "H\xF8j", "Ekstra h\xF8j", "Mellem"],
   modeOptions: {
     instant: ["\xD8jeblikkeligt"],
+    medium: ["Mellem"],
     high: ["H\xF8j"],
     extraHigh: ["Ekstra h\xF8j"]
   },
@@ -671,6 +859,19 @@ var da = {
 
 // src/dom/locale/el.ts
 var el = {
+  configurationAxes: {
+    model: ["\u039C\u03BF\u03BD\u03C4\u03AD\u03BB\u03BF"],
+    effort: ["\u03A0\u03C1\u03BF\u03C3\u03C0\u03AC\u03B8\u03B5\u03B9\u03B1"],
+    speed: ["\u03A4\u03B1\u03C7\u03CD\u03C4\u03B7\u03C4\u03B1"]
+  },
+  configurationOptions: {
+    light: ["\u0395\u03BB\u03B1\u03C6\u03C1\u03B9\u03AC"],
+    medium: ["\u039C\u03B5\u03C3\u03B1\u03AF\u03BF"],
+    high: ["\u03A5\u03C8\u03B7\u03BB\u03CC"],
+    extraHigh: ["\u03A0\u03BF\u03BB\u03CD \u03C5\u03C8\u03B7\u03BB\u03CC"],
+    standard: ["\u03A4\u03C5\u03C0\u03B9\u03BA\u03CC"],
+    fast: ["\u0393\u03C1\u03AE\u03B3\u03BF\u03C1\u03BF"]
+  },
   composerTextbox: ["\u03A3\u03C5\u03BD\u03BF\u03BC\u03B9\u03BB\u03AF\u03B1 \u03BC\u03B5 \u03C4\u03BF ChatGPT"],
   sendButton: ["\u0391\u03C0\u03BF\u03C3\u03C4\u03BF\u03BB\u03AE \u03C0\u03C1\u03BF\u03C4\u03C1\u03BF\u03C0\u03AE\u03C2"],
   searchChatsButton: ["\u0391\u03BD\u03B1\u03B6\u03AE\u03C4\u03B7\u03C3\u03B7 \u03C3\u03C5\u03BD\u03BF\u03BC\u03B9\u03BB\u03B9\u03CE\u03BD"],
@@ -680,11 +881,11 @@ var el = {
   addFilesOpenerCandidates: ["\u03A0\u03C1\u03BF\u03C3\u03B8\u03AE\u03BA\u03B7 \u03B1\u03C1\u03C7\u03B5\u03AF\u03C9\u03BD \u03BA\u03B1\u03B9 \u03AC\u03BB\u03BB\u03B1"],
   addPhotosFilesMenuItem: ["\u03A0\u03C1\u03BF\u03C3\u03B8\u03AE\u03BA\u03B7 \u03C6\u03C9\u03C4\u03BF\u03B3\u03C1\u03B1\u03C6\u03B9\u03CE\u03BD & \u03B1\u03C1\u03C7\u03B5\u03AF\u03C9\u03BD"],
   copyResponse: ["\u0391\u03BD\u03C4\u03B9\u03B3\u03C1\u03B1\u03C6\u03AE \u03B1\u03C0\u03AC\u03BD\u03C4\u03B7\u03C3\u03B7\u03C2"],
-  modeLabels: ["\u0386\u03BC\u03B5\u03C3\u03B7", "\u039C\u03B5\u03C3\u03B1\u03AF\u03B1", "\u03A5\u03C8\u03B7\u03BB\u03AE", "\u03A0\u03BF\u03BB\u03CD \u03C5\u03C8\u03B7\u03BB\u03CC"],
+  modeLabels: ["\u0386\u03BC\u03B5\u03C3\u03B7", "\u039C\u03B5\u03C3\u03B1\u03AF\u03B1", "\u03A5\u03C8\u03B7\u03BB\u03AE", "\u03A0\u03BF\u03BB\u03CD \u03C5\u03C8\u03B7\u03BB\u03CC", "\u039C\u03B5\u03C3\u03B1\u03AF\u03BF", "\u03A5\u03C8\u03B7\u03BB\u03CC"],
   modeOptions: {
     instant: ["\u0386\u03BC\u03B5\u03C3\u03B7"],
-    medium: ["\u039C\u03B5\u03C3\u03B1\u03AF\u03B1"],
-    high: ["\u03A5\u03C8\u03B7\u03BB\u03AE"],
+    medium: ["\u039C\u03B5\u03C3\u03B1\u03AF\u03B1", "\u039C\u03B5\u03C3\u03B1\u03AF\u03BF"],
+    high: ["\u03A5\u03C8\u03B7\u03BB\u03AE", "\u03A5\u03C8\u03B7\u03BB\u03CC"],
     extraHigh: ["\u03A0\u03BF\u03BB\u03CD \u03C5\u03C8\u03B7\u03BB\u03CC"]
   },
   modeOpenerExtra: ["\u0394\u03B9\u03B1\u03BC\u03CC\u03C1\u03C6\u03C9\u03C3\u03B7\u2026"],
@@ -700,6 +901,19 @@ var el = {
 
 // src/dom/locale/es-419.ts
 var es419 = {
+  configurationAxes: {
+    model: ["Modelo"],
+    effort: ["Esfuerzo"],
+    speed: ["Velocidad"]
+  },
+  configurationOptions: {
+    light: ["M\xEDnimo"],
+    medium: ["Media"],
+    high: ["Alta"],
+    extraHigh: ["Muy alta"],
+    standard: ["Est\xE1ndar"],
+    fast: ["R\xE1pido"]
+  },
   composerTextbox: ["Chatear con ChatGPT"],
   sendButton: ["Enviar mensaje"],
   searchChatsButton: ["Buscar chats"],
@@ -729,6 +943,18 @@ var es419 = {
 
 // src/dom/locale/et.ts
 var et = {
+  configurationAxes: {
+    model: ["Mudel"],
+    effort: ["Pingutus"],
+    speed: ["Kiirus"]
+  },
+  configurationOptions: {
+    light: ["Kerge"],
+    medium: ["Keskmine"],
+    high: ["K\xF5rge"],
+    extraHigh: ["V\xE4ga k\xF5rge"],
+    fast: ["Kiire"]
+  },
   composerTextbox: ["Vestle ChatGPT-ga"],
   sendButton: ["Saada viip"],
   searchChatsButton: ["Otsi vestlusi"],
@@ -758,6 +984,18 @@ var et = {
 
 // src/dom/locale/fa.ts
 var fa = {
+  configurationAxes: {
+    model: ["\u0645\u062F\u0644"],
+    effort: ["\u0633\u0637\u062D \u062A\u0644\u0627\u0634"],
+    speed: ["\u0633\u0631\u0639\u062A"]
+  },
+  configurationOptions: {
+    light: ["\u0633\u0628\u06A9"],
+    medium: ["\u0645\u062A\u0648\u0633\u0637"],
+    high: ["\u0628\u0627\u0644\u0627"],
+    extraHigh: ["\u0628\u0633\u06CC\u0627\u0631 \u0628\u0627\u0644\u0627"],
+    fast: ["\u0633\u0631\u06CC\u0639"]
+  },
   composerTextbox: ["\u06AF\u0641\u062A\u06AF\u0648 \u0628\u0627 ChatGPT"],
   sendButton: ["\u0627\u0631\u0633\u0627\u0644 \u062F\u0633\u062A\u0648\u0631"],
   searchChatsButton: ["\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u0686\u062A\u200C\u0647\u0627"],
@@ -767,12 +1005,12 @@ var fa = {
   addFilesOpenerCandidates: ["\u0627\u0641\u0632\u0648\u062F\u0646 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627 \u0648 \u0645\u0648\u0627\u0631\u062F \u0628\u06CC\u0634\u062A\u0631"],
   addPhotosFilesMenuItem: ["\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0635\u0627\u0648\u06CC\u0631 \u0648 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627"],
   copyResponse: ["\u06A9\u067E\u06CC \u06A9\u0631\u062F\u0646 \u067E\u0627\u0633\u062E"],
-  modeLabels: ["\u0641\u0648\u0631\u06CC", "\u0645\u062A\u0648\u0633\u0637", "\u0628\u0627\u0644\u0627", "\u0628\u0633\u06CC\u0627\u0631 \u0632\u06CC\u0627\u062F", "\u062D\u0631\u0641\u0647\u200C\u0627\u06CC"],
+  modeLabels: ["\u0641\u0648\u0631\u06CC", "\u0645\u062A\u0648\u0633\u0637", "\u0628\u0627\u0644\u0627", "\u0628\u0633\u06CC\u0627\u0631 \u0632\u06CC\u0627\u062F", "\u062D\u0631\u0641\u0647\u200C\u0627\u06CC", "\u0628\u0633\u06CC\u0627\u0631 \u0628\u0627\u0644\u0627"],
   modeOptions: {
     instant: ["\u0641\u0648\u0631\u06CC"],
     medium: ["\u0645\u062A\u0648\u0633\u0637"],
     high: ["\u0628\u0627\u0644\u0627"],
-    extraHigh: ["\u0628\u0633\u06CC\u0627\u0631 \u0632\u06CC\u0627\u062F"],
+    extraHigh: ["\u0628\u0633\u06CC\u0627\u0631 \u0632\u06CC\u0627\u062F", "\u0628\u0633\u06CC\u0627\u0631 \u0628\u0627\u0644\u0627"],
     pro: ["\u062D\u0631\u0641\u0647\u200C\u0627\u06CC"]
   },
   modeOpenerExtra: ["\u067E\u06CC\u06A9\u0631\u0628\u0646\u062F\u06CC..."],
@@ -788,6 +1026,19 @@ var fa = {
 
 // src/dom/locale/fi.ts
 var fi = {
+  configurationAxes: {
+    model: ["Malli"],
+    effort: ["M\xE4\xE4r\xE4"],
+    speed: ["Nopeus"]
+  },
+  configurationOptions: {
+    light: ["Kevyt"],
+    medium: ["Keskitaso"],
+    high: ["Korkea"],
+    extraHigh: ["Eritt\xE4in korkea"],
+    standard: ["Perustaso"],
+    fast: ["Nopea"]
+  },
   composerTextbox: ["Keskustele ChatGPT:n kanssa"],
   sendButton: ["L\xE4het\xE4 kehote"],
   searchChatsButton: ["Hae keskusteluista"],
@@ -817,6 +1068,17 @@ var fi = {
 
 // src/dom/locale/fr-CA.ts
 var frCA = {
+  configurationAxes: {
+    model: ["Mod\xE8le"],
+    speed: ["Vitesse"]
+  },
+  configurationOptions: {
+    light: ["L\xE9ger"],
+    medium: ["Moyen"],
+    high: ["\xC9lev\xE9"],
+    extraHigh: ["Tr\xE8s \xE9lev\xE9"],
+    fast: ["Rapide"]
+  },
   composerTextbox: ["Converser avec ChatGPT"],
   sendButton: ["Envoyer la requ\xEAte"],
   searchChatsButton: ["Rechercher les clavardages"],
@@ -846,6 +1108,19 @@ var frCA = {
 
 // src/dom/locale/gu.ts
 var gu = {
+  configurationAxes: {
+    model: ["\u0AAE\u0ACB\u0AA1\u0AC7\u0AB2"],
+    effort: ["\u0AAA\u0ACD\u0AB0\u0AAF\u0ABE\u0AB8"],
+    speed: ["\u0A9D\u0AA1\u0AAA"]
+  },
+  configurationOptions: {
+    light: ["\u0AB2\u0ABE\u0A87\u0A9F"],
+    medium: ["\u0AAE\u0AC0\u0AA1\u0ABF\u0AAF\u0AAE"],
+    high: ["\u0AB9\u0ABE\u0A87"],
+    extraHigh: ["\u0A8F\u0A95\u0ACD\u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABE \u0AB9\u0ABE\u0A87"],
+    standard: ["\u0AB8\u0ACD\u0A9F\u0ABE\u0AA8\u0ACD\u0AA1\u0AB0\u0ACD\u0AA1"],
+    fast: ["\u0A9D\u0AA1\u0AAA\u0AC0"]
+  },
   composerTextbox: ["ChatGPT \u0AB8\u0ABE\u0AA5\u0AC7 \u0A9A\u0AC5\u0A9F"],
   sendButton: ["\u0AAA\u0ACD\u0AB0\u0ACB\u0AAE\u0ACD\u0AAA\u0ACD\u0A9F \u0AAE\u0ACB\u0A95\u0AB2\u0ACB"],
   searchChatsButton: ["\u0A9A\u0AC7\u0A9F \u0AB6\u0ACB\u0AA7\u0ACB"],
@@ -855,12 +1130,12 @@ var gu = {
   addFilesOpenerCandidates: ["\u0AAB\u0ABE\u0A87\u0AB2\u0ACB \u0A85\u0AA8\u0AC7 \u0AB5\u0AA7\u0AC1 \u0A89\u0AAE\u0AC7\u0AB0\u0ACB"],
   addPhotosFilesMenuItem: ["\u0AAB\u0ACB\u0A9F\u0ABE \u0A85\u0AA8\u0AC7 \u0AAB\u0ABE\u0A87\u0AB2\u0ACB \u0A89\u0AAE\u0AC7\u0AB0\u0ACB"],
   copyResponse: ["\u0AAA\u0ACD\u0AB0\u0AA4\u0ABF\u0AAD\u0ABE\u0AB5 \u0A95\u0AC9\u0AAA\u0ABF \u0A95\u0AB0\u0ACB"],
-  modeLabels: ["\u0AA4\u0AB0\u0AA4", "\u0AAE\u0AA7\u0ACD\u0AAF\u0AAE", "\u0A89\u0A9A\u0ACD\u0A9A", "\u0A85\u0AA4\u0ABF \u0A89\u0A9A\u0ACD\u0A9A"],
+  modeLabels: ["\u0AA4\u0AB0\u0AA4", "\u0AAE\u0AA7\u0ACD\u0AAF\u0AAE", "\u0A89\u0A9A\u0ACD\u0A9A", "\u0A85\u0AA4\u0ABF \u0A89\u0A9A\u0ACD\u0A9A", "\u0AAE\u0AC0\u0AA1\u0ABF\u0AAF\u0AAE", "\u0AB9\u0ABE\u0A87", "\u0A8F\u0A95\u0ACD\u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABE \u0AB9\u0ABE\u0A87"],
   modeOptions: {
     instant: ["\u0AA4\u0AB0\u0AA4"],
-    medium: ["\u0AAE\u0AA7\u0ACD\u0AAF\u0AAE"],
-    high: ["\u0A89\u0A9A\u0ACD\u0A9A"],
-    extraHigh: ["\u0A85\u0AA4\u0ABF \u0A89\u0A9A\u0ACD\u0A9A"]
+    medium: ["\u0AAE\u0AA7\u0ACD\u0AAF\u0AAE", "\u0AAE\u0AC0\u0AA1\u0ABF\u0AAF\u0AAE"],
+    high: ["\u0A89\u0A9A\u0ACD\u0A9A", "\u0AB9\u0ABE\u0A87"],
+    extraHigh: ["\u0A85\u0AA4\u0ABF \u0A89\u0A9A\u0ACD\u0A9A", "\u0A8F\u0A95\u0ACD\u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABE \u0AB9\u0ABE\u0A87"]
   },
   modeOpenerExtra: ["\u0A95\u0AA8\u0ACD\u0AAB\u0ABF\u0A97\u0AB0 \u0A95\u0AB0\u0ACB..."],
   tools: {
@@ -875,6 +1150,19 @@ var gu = {
 
 // src/dom/locale/hi.ts
 var hi = {
+  configurationAxes: {
+    model: ["\u092E\u0949\u0921\u0932"],
+    effort: ["\u092A\u094D\u0930\u092F\u093E\u0938"],
+    speed: ["\u0917\u0924\u093F"]
+  },
+  configurationOptions: {
+    light: ["\u0932\u093E\u0907\u091F"],
+    medium: ["\u092E\u0927\u094D\u092F\u092E"],
+    high: ["\u0909\u091A\u094D\u091A"],
+    extraHigh: ["\u090F\u0915\u094D\u0938\u094D\u091F\u094D\u0930\u093E \u0939\u093E\u0908"],
+    standard: ["\u0938\u094D\u091F\u0948\u0902\u0921\u0930\u094D\u0921"],
+    fast: ["\u0924\u0947\u091C\u093C"]
+  },
   composerTextbox: ["ChatGPT \u0915\u0947 \u0938\u093E\u0925 \u091A\u0948\u091F \u0915\u0930\u0947\u0902"],
   sendButton: ["\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D \u092D\u0947\u091C\u0947\u0902"],
   searchChatsButton: ["\u091A\u0948\u091F \u0916\u094B\u091C\u0947\u0902"],
@@ -884,12 +1172,12 @@ var hi = {
   addFilesOpenerCandidates: ["\u092B\u093C\u093E\u0907\u0932\u094B\u0902 \u0915\u094B \u091C\u094B\u0921\u093C\u0947\u0902 \u0914\u0930 \u092D\u0940 \u092C\u0939\u0941\u0924 \u0915\u0941\u091B \u0915\u0930\u0947\u0902"],
   addPhotosFilesMenuItem: ["\u092B\u093C\u094B\u091F\u094B \u0914\u0930 \u092B\u093C\u093E\u0907\u0932\u0947\u0902 \u091C\u094B\u0921\u093C\u0947\u0902"],
   copyResponse: ["\u091C\u0935\u093E\u092C \u0915\u094B \u0915\u0949\u092A\u0940 \u0915\u0930\u0947\u0902"],
-  modeLabels: ["\u0924\u0941\u0930\u0902\u0924", "\u092E\u0927\u094D\u092F\u092E", "\u0909\u091A\u094D\u091A", "\u092C\u0939\u0941\u0924 \u0909\u091A\u094D\u091A"],
+  modeLabels: ["\u0924\u0941\u0930\u0902\u0924", "\u092E\u0927\u094D\u092F\u092E", "\u0909\u091A\u094D\u091A", "\u092C\u0939\u0941\u0924 \u0909\u091A\u094D\u091A", "\u090F\u0915\u094D\u0938\u094D\u091F\u094D\u0930\u093E \u0939\u093E\u0908"],
   modeOptions: {
     instant: ["\u0924\u0941\u0930\u0902\u0924"],
     medium: ["\u092E\u0927\u094D\u092F\u092E"],
     high: ["\u0909\u091A\u094D\u091A"],
-    extraHigh: ["\u092C\u0939\u0941\u0924 \u0909\u091A\u094D\u091A"]
+    extraHigh: ["\u092C\u0939\u0941\u0924 \u0909\u091A\u094D\u091A", "\u090F\u0915\u094D\u0938\u094D\u091F\u094D\u0930\u093E \u0939\u093E\u0908"]
   },
   modeOpenerExtra: ["\u0915\u0949\u0928\u094D\u092B\u093C\u093F\u0917\u0930 \u0915\u0930\u0947\u0902..."],
   tools: {
@@ -904,6 +1192,18 @@ var hi = {
 
 // src/dom/locale/hr.ts
 var hr = {
+  configurationAxes: {
+    effort: ["Razina napora"],
+    speed: ["Brzina"]
+  },
+  configurationOptions: {
+    light: ["Lagano"],
+    medium: ["Srednja"],
+    high: ["Visoka"],
+    extraHigh: ["Vrlo visoka"],
+    standard: ["Standardno"],
+    fast: ["Brzo"]
+  },
   composerTextbox: ["Razgovor s ChatGPT-om"],
   sendButton: ["Po\u0161alji odzivnik"],
   searchChatsButton: ["Pretra\u017Ei razgovore"],
@@ -913,10 +1213,10 @@ var hr = {
   addFilesOpenerCandidates: ["Dodavanje datoteka i ostalo"],
   addPhotosFilesMenuItem: ["Dodaj fotografije i datoteke"],
   copyResponse: ["Kopiraj odgovor"],
-  modeLabels: ["Srednje", "Visoko", "Vrlo visoka"],
+  modeLabels: ["Srednje", "Visoko", "Vrlo visoka", "Srednja", "Visoka"],
   modeOptions: {
-    medium: ["Srednje"],
-    high: ["Visoko"],
+    medium: ["Srednje", "Srednja"],
+    high: ["Visoko", "Visoka"],
     extraHigh: ["Vrlo visoka"]
   },
   modeOpenerExtra: ["Konfiguriraj\u2026"],
@@ -932,6 +1232,19 @@ var hr = {
 
 // src/dom/locale/hu.ts
 var hu = {
+  configurationAxes: {
+    model: ["Modell"],
+    effort: ["R\xE1ford\xEDt\xE1s"],
+    speed: ["Sebess\xE9g"]
+  },
+  configurationOptions: {
+    light: ["Egyszer\u0171"],
+    medium: ["K\xF6zepes"],
+    high: ["Er\u0151s"],
+    extraHigh: ["Extra er\u0151s"],
+    standard: ["Norm\xE1l"],
+    fast: ["Gyors"]
+  },
   composerTextbox: ["Cseveg\xE9s a ChatGPT-vel"],
   sendButton: ["Utas\xEDt\xE1s k\xFCld\xE9se"],
   searchChatsButton: ["Besz\xE9lget\xE9sek keres\xE9se"],
@@ -941,12 +1254,12 @@ var hu = {
   addFilesOpenerCandidates: ["F\xE1jlok \xE9s egyebek hozz\xE1ad\xE1sa"],
   addPhotosFilesMenuItem: ["Fot\xF3k \xE9s f\xE1jlok hozz\xE1ad\xE1sa"],
   copyResponse: ["V\xE1lasz m\xE1sol\xE1sa"],
-  modeLabels: ["Azonnali", "K\xF6zepes", "Magas", "Kiemelked\u0151en magas"],
+  modeLabels: ["Azonnali", "K\xF6zepes", "Magas", "Kiemelked\u0151en magas", "Er\u0151s", "Extra er\u0151s"],
   modeOptions: {
     instant: ["Azonnali"],
     medium: ["K\xF6zepes"],
-    high: ["Magas"],
-    extraHigh: ["Kiemelked\u0151en magas"]
+    high: ["Magas", "Er\u0151s"],
+    extraHigh: ["Kiemelked\u0151en magas", "Extra er\u0151s"]
   },
   modeOpenerExtra: ["Konfigur\xE1l\xE1s..."],
   tools: {
@@ -961,6 +1274,19 @@ var hu = {
 
 // src/dom/locale/hy.ts
 var hy = {
+  configurationAxes: {
+    model: ["\u0544\u0578\u0564\u0565\u056C"],
+    effort: ["\u054B\u0561\u0576\u0584"],
+    speed: ["\u0531\u0580\u0561\u0563\u0578\u0582\u0569\u0575\u0578\u0582\u0576"]
+  },
+  configurationOptions: {
+    light: ["\u0539\u0565\u0569\u0587"],
+    medium: ["\u0544\u056B\u057B\u056B\u0576"],
+    high: ["\u0540\u0566\u0578\u0580"],
+    extraHigh: ["\u0531\u057E\u0565\u056C\u056B \u0570\u0566\u0578\u0580"],
+    standard: ["\u054D\u057F\u0561\u0576\u0564\u0561\u0580\u057F"],
+    fast: ["\u0531\u0580\u0561\u0563"]
+  },
   composerTextbox: ["\u0536\u0580\u0578\u0582\u0575\u0581 ChatGPT-\u056B \u0570\u0565\u057F"],
   sendButton: ["\u0548\u0582\u0572\u0561\u0580\u056F\u0565\u056C \u0570\u0578\u0582\u0577\u0561\u0576\u056B\u0577"],
   searchChatsButton: ["\u0548\u0580\u0578\u0576\u0565\u056C \u0566\u0580\u0578\u0582\u0575\u0581\u0576\u0565\u0580\u0568"],
@@ -970,12 +1296,12 @@ var hy = {
   addFilesOpenerCandidates: ["\u0531\u057E\u0565\u056C\u0561\u0581\u0580\u0565\u0584 \u0586\u0561\u0575\u056C\u0565\u0580 \u0587 \u0561\u057E\u0565\u056C\u056B\u0576"],
   addPhotosFilesMenuItem: ["\u0531\u057E\u0565\u056C\u0561\u0581\u0576\u0565\u056C \u056C\u0578\u0582\u057D\u0561\u0576\u056F\u0561\u0580\u0576\u0565\u0580 \u0587 \u0586\u0561\u0575\u056C\u0565\u0580"],
   copyResponse: ["\u054A\u0561\u057F\u0573\u0565\u0576\u0565\u056C \u057A\u0561\u057F\u0561\u057D\u056D\u0561\u0576\u0568"],
-  modeLabels: ["\u0531\u056F\u0576\u0569\u0561\u0580\u0569\u0561\u0575\u056B\u0576", "\u0544\u056B\u057B\u056B\u0576", "\u0532\u0561\u0580\u0571\u0580", "\u0547\u0561\u057F \u0562\u0561\u0580\u0571\u0580", "\u054A\u0580\u0578"],
+  modeLabels: ["\u0531\u056F\u0576\u0569\u0561\u0580\u0569\u0561\u0575\u056B\u0576", "\u0544\u056B\u057B\u056B\u0576", "\u0532\u0561\u0580\u0571\u0580", "\u0547\u0561\u057F \u0562\u0561\u0580\u0571\u0580", "\u054A\u0580\u0578", "\u0540\u0566\u0578\u0580", "\u0531\u057E\u0565\u056C\u056B \u0570\u0566\u0578\u0580"],
   modeOptions: {
     instant: ["\u0531\u056F\u0576\u0569\u0561\u0580\u0569\u0561\u0575\u056B\u0576"],
     medium: ["\u0544\u056B\u057B\u056B\u0576"],
-    high: ["\u0532\u0561\u0580\u0571\u0580"],
-    extraHigh: ["\u0547\u0561\u057F \u0562\u0561\u0580\u0571\u0580"],
+    high: ["\u0532\u0561\u0580\u0571\u0580", "\u0540\u0566\u0578\u0580"],
+    extraHigh: ["\u0547\u0561\u057F \u0562\u0561\u0580\u0571\u0580", "\u0531\u057E\u0565\u056C\u056B \u0570\u0566\u0578\u0580"],
     pro: ["\u054A\u0580\u0578"]
   },
   modeOpenerExtra: ["\u053F\u0561\u0566\u0574\u0561\u0571\u0587\u0565\u056C\u2024\u2024\u2024"],
@@ -991,6 +1317,18 @@ var hy = {
 
 // src/dom/locale/id.ts
 var id = {
+  configurationAxes: {
+    effort: ["Upaya"],
+    speed: ["Kecepatan"]
+  },
+  configurationOptions: {
+    light: ["Ringan"],
+    medium: ["Sedang"],
+    high: ["Tinggi"],
+    extraHigh: ["Ekstra Tinggi"],
+    standard: ["Standar"],
+    fast: ["Cepat"]
+  },
   composerTextbox: ["Obrolan dengan ChatGPT"],
   sendButton: ["Kirim perintah"],
   searchChatsButton: ["Cari obrolan"],
@@ -1000,12 +1338,12 @@ var id = {
   addFilesOpenerCandidates: ["Tambahkan file dan lainnya"],
   addPhotosFilesMenuItem: ["Tambah foto & file"],
   copyResponse: ["Salin respons"],
-  modeLabels: ["Instan", "Sedang", "Tinggi", "Sangat Tinggi"],
+  modeLabels: ["Instan", "Sedang", "Tinggi", "Sangat Tinggi", "Ekstra Tinggi"],
   modeOptions: {
     instant: ["Instan"],
     medium: ["Sedang"],
     high: ["Tinggi"],
-    extraHigh: ["Sangat Tinggi"]
+    extraHigh: ["Sangat Tinggi", "Ekstra Tinggi"]
   },
   modeOpenerExtra: ["Konfigurasi..."],
   tools: {
@@ -1020,6 +1358,18 @@ var id = {
 
 // src/dom/locale/is.ts
 var is = {
+  configurationAxes: {
+    model: ["L\xEDkan"],
+    effort: ["\xC1reynsla"],
+    speed: ["Hra\xF0i"]
+  },
+  configurationOptions: {
+    light: ["L\xE9tt"],
+    medium: ["Mi\xF0lungs"],
+    high: ["H\xE1tt"],
+    extraHigh: ["Mj\xF6g h\xE1tt"],
+    fast: ["Hratt"]
+  },
   composerTextbox: ["Spjalla\xF0u vi\xF0 ChatGPT"],
   sendButton: ["Senda kva\xF0ningu"],
   searchChatsButton: ["Leita \xED spj\xF6llum"],
@@ -1049,6 +1399,19 @@ var is = {
 
 // src/dom/locale/ka.ts
 var ka = {
+  configurationAxes: {
+    model: ["\u10DB\u10DD\u10D3\u10D4\u10DA\u10D8"],
+    effort: ["\u10EB\u10D0\u10DA\u10D8\u10E1\u10EE\u10DB\u10D4\u10D5\u10D0"],
+    speed: ["\u10E1\u10D8\u10E9\u10E5\u10D0\u10E0\u10D4"]
+  },
+  configurationOptions: {
+    light: ["\u10DB\u10E1\u10E3\u10D1\u10E3\u10E5\u10D8"],
+    medium: ["\u10E1\u10D0\u10E8\u10E3\u10D0\u10DA\u10DD"],
+    high: ["\u10DB\u10D0\u10E6\u10D0\u10DA\u10D8"],
+    extraHigh: ["\u10EB\u10D0\u10DA\u10D8\u10D0\u10DC \u10DB\u10D0\u10E6\u10D0\u10DA\u10D8"],
+    standard: ["\u10E1\u10E2\u10D0\u10DC\u10D3\u10D0\u10E0\u10E2\u10E3\u10DA\u10D8"],
+    fast: ["\u10E1\u10EC\u10E0\u10D0\u10E4\u10D8"]
+  },
   composerTextbox: ["\u10E1\u10D0\u10E3\u10D1\u10D0\u10E0\u10D8 ChatGPT-\u10E1\u10D7\u10D0\u10DC"],
   sendButton: ["\u10DB\u10DD\u10D7\u10EE\u10DD\u10D5\u10DC\u10D8\u10E1 \u10D2\u10D0\u10D2\u10D6\u10D0\u10D5\u10DC\u10D0"],
   searchChatsButton: ["\u10E9\u10D0\u10E2\u10D4\u10D1\u10D8\u10E1 \u10EB\u10D8\u10D4\u10D1\u10D0"],
@@ -1078,6 +1441,19 @@ var ka = {
 
 // src/dom/locale/kk.ts
 var kk = {
+  configurationAxes: {
+    model: ["\u041C\u043E\u0434\u0435\u043B\u044C"],
+    effort: ["\u041A\u04AF\u0448-\u0436\u0456\u0433\u0435\u0440"],
+    speed: ["\u0416\u044B\u043B\u0434\u0430\u043C\u0434\u044B\u049B"]
+  },
+  configurationOptions: {
+    light: ["\u0416\u0435\u04A3\u0456\u043B"],
+    medium: ["\u041E\u0440\u0442\u0430\u0448\u0430"],
+    high: ["\u0416\u043E\u0493\u0430\u0440\u044B"],
+    extraHigh: ["\u04E8\u0442\u0435 \u0436\u043E\u0493\u0430\u0440\u044B"],
+    standard: ["\u0421\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u0442\u044B"],
+    fast: ["\u0416\u044B\u043B\u0434\u0430\u043C"]
+  },
   composerTextbox: ["ChatGPT-\u043C\u0435\u043D \u0447\u0430\u0442"],
   sendButton: ["\u041A\u04E9\u043C\u0435\u043A\u0441\u04E9\u0437 \u0436\u0456\u0431\u0435\u0440\u0443"],
   searchChatsButton: ["\u0427\u0430\u0442\u0442\u0430\u0440\u0434\u044B \u0456\u0437\u0434\u0435\u0443"],
@@ -1087,12 +1463,12 @@ var kk = {
   addFilesOpenerCandidates: ["\u0424\u0430\u0439\u043B\u0434\u0430\u0440\u0434\u044B \u0436\u04D9\u043D\u0435 \u0431\u0430\u0441\u049B\u0430 \u0434\u0435\u0440\u0435\u043A\u0442\u0435\u0440\u0434\u0456 \u049B\u043E\u0441\u0443"],
   addPhotosFilesMenuItem: ["\u0424\u043E\u0442\u043E\u0441\u0443\u0440\u0435\u0442\u0442\u0435\u0440 \u043C\u0435\u043D \u0444\u0430\u0439\u043B\u0434\u0430\u0440 \u049B\u043E\u0441\u0443"],
   copyResponse: ["\u0416\u0430\u0443\u0430\u043F\u0442\u044B \u043A\u04E9\u0448\u0456\u0440\u0443"],
-  modeLabels: ["\u0416\u0435\u0434\u0435\u043B", "\u041E\u0440\u0442\u0430\u0448\u0430", "\u0416\u043E\u0493\u0430\u0440\u044B", "\u0410\u0441\u0430 \u0436\u043E\u0493\u0430\u0440\u044B"],
+  modeLabels: ["\u0416\u0435\u0434\u0435\u043B", "\u041E\u0440\u0442\u0430\u0448\u0430", "\u0416\u043E\u0493\u0430\u0440\u044B", "\u0410\u0441\u0430 \u0436\u043E\u0493\u0430\u0440\u044B", "\u04E8\u0442\u0435 \u0436\u043E\u0493\u0430\u0440\u044B"],
   modeOptions: {
     instant: ["\u0416\u0435\u0434\u0435\u043B"],
     medium: ["\u041E\u0440\u0442\u0430\u0448\u0430"],
     high: ["\u0416\u043E\u0493\u0430\u0440\u044B"],
-    extraHigh: ["\u0410\u0441\u0430 \u0436\u043E\u0493\u0430\u0440\u044B"]
+    extraHigh: ["\u0410\u0441\u0430 \u0436\u043E\u0493\u0430\u0440\u044B", "\u04E8\u0442\u0435 \u0436\u043E\u0493\u0430\u0440\u044B"]
   },
   modeOpenerExtra: ["\u041A\u043E\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044F\u043B\u0430\u0443..."],
   tools: {
@@ -1107,6 +1483,19 @@ var kk = {
 
 // src/dom/locale/kn.ts
 var kn = {
+  configurationAxes: {
+    model: ["\u0CAE\u0CBE\u0CA1\u0CC6\u0CB2\u0CCD"],
+    effort: ["\u0C8E\u0CAB\u0CB0\u0CCD\u0C9F\u0CCD"],
+    speed: ["\u0CB5\u0CC7\u0C97"]
+  },
+  configurationOptions: {
+    light: ["\u0CB2\u0CC8\u0C9F\u0CCD"],
+    medium: ["\u0CAE\u0CC0\u0CA1\u0CBF\u0CAF\u0C82"],
+    high: ["\u0CB9\u0CC8"],
+    extraHigh: ["\u0C8E\u0C95\u0CCD\u0CB8\u0CCD\u200C\u0C9F\u0CCD\u0CB0\u0CBE \u0CB9\u0CC8"],
+    standard: ["\u0CB8\u0CCD\u0C9F\u0CCD\u0CAF\u0CBE\u0C82\u0CA1\u0CB0\u0CCD\u0CA1\u0CCD"],
+    fast: ["\u0CA4\u0CCD\u0CB5\u0CB0\u0CBF\u0CA4"]
+  },
   composerTextbox: ["ChatGPT \u0C9C\u0CCA\u0CA4\u0CC6\u0C97\u0CC6 \u0C9A\u0CBE\u0C9F\u0CCD \u0CAE\u0CBE\u0CA1\u0CBF"],
   sendButton: ["\u0CAA\u0CCD\u0CB0\u0CBE\u0C82\u0CAA\u0CCD\u0C9F\u0CCD\u0C85\u0CA8\u0CCD\u0CA8\u0CC1 \u0C95\u0CB3\u0CC1\u0CB9\u0CBF\u0CB8\u0CBF"],
   searchChatsButton: ["\u0C9A\u0CBE\u0C9F\u0CCD\u200C\u0C97\u0CB3\u0CA8\u0CCD\u0CA8\u0CC1 \u0CB9\u0CC1\u0CA1\u0CC1\u0C95\u0CBF"],
@@ -1116,12 +1505,12 @@ var kn = {
   addFilesOpenerCandidates: ["\u0CAB\u0CC8\u0CB2\u0CCD\u200C\u0C97\u0CB3\u0CC1 \u0CAE\u0CA4\u0CCD\u0CA4\u0CC1 \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CBF\u0CA8\u0CB5\u0CC1\u0C97\u0CB3\u0CA8\u0CCD\u0CA8\u0CC1 \u0CB8\u0CC7\u0CB0\u0CBF\u0CB8\u0CBF"],
   addPhotosFilesMenuItem: ["\u0CAB\u0CCB\u0C9F\u0CCA \u0CAE\u0CA4\u0CCD\u0CA4\u0CC1 \u0CAB\u0CC8\u0CB2\u0CCD\u200C\u0C97\u0CB3\u0CA8\u0CCD\u0CA8\u0CC1 \u0CB8\u0CC7\u0CB0\u0CBF\u0CB8\u0CBF"],
   copyResponse: ["\u0CAA\u0CCD\u0CB0\u0CA4\u0CBF\u0C95\u0CCD\u0CB0\u0CBF\u0CAF\u0CC6\u0CAF\u0CA8\u0CCD\u0CA8\u0CC1 \u0CA8\u0C95\u0CB2\u0CBF\u0CB8\u0CBF"],
-  modeLabels: ["\u0CA4\u0C95\u0CCD\u0CB7\u0CA3", "\u0CAE\u0CA7\u0CCD\u0CAF\u0CAE", "\u0C89\u0CA8\u0CCD\u0CA8\u0CA4", "\u0C85\u0CA4\u0CBF \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CC1", "\u0CAA\u0CCD\u0CB0\u0CCA"],
+  modeLabels: ["\u0CA4\u0C95\u0CCD\u0CB7\u0CA3", "\u0CAE\u0CA7\u0CCD\u0CAF\u0CAE", "\u0C89\u0CA8\u0CCD\u0CA8\u0CA4", "\u0C85\u0CA4\u0CBF \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CC1", "\u0CAA\u0CCD\u0CB0\u0CCA", "\u0CAE\u0CC0\u0CA1\u0CBF\u0CAF\u0C82", "\u0CB9\u0CC8", "\u0C8E\u0C95\u0CCD\u0CB8\u0CCD\u200C\u0C9F\u0CCD\u0CB0\u0CBE \u0CB9\u0CC8"],
   modeOptions: {
     instant: ["\u0CA4\u0C95\u0CCD\u0CB7\u0CA3"],
-    medium: ["\u0CAE\u0CA7\u0CCD\u0CAF\u0CAE"],
-    high: ["\u0C89\u0CA8\u0CCD\u0CA8\u0CA4"],
-    extraHigh: ["\u0C85\u0CA4\u0CBF \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CC1"],
+    medium: ["\u0CAE\u0CA7\u0CCD\u0CAF\u0CAE", "\u0CAE\u0CC0\u0CA1\u0CBF\u0CAF\u0C82"],
+    high: ["\u0C89\u0CA8\u0CCD\u0CA8\u0CA4", "\u0CB9\u0CC8"],
+    extraHigh: ["\u0C85\u0CA4\u0CBF \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CC1", "\u0C8E\u0C95\u0CCD\u0CB8\u0CCD\u200C\u0C9F\u0CCD\u0CB0\u0CBE \u0CB9\u0CC8"],
     pro: ["\u0CAA\u0CCD\u0CB0\u0CCA"]
   },
   modeOpenerExtra: ["\u0C95\u0CBE\u0CA8\u0CCD\u0CAB\u0CBF\u0C97\u0CB0\u0CCD \u0CAE\u0CBE\u0CA1\u0CBF..."],
@@ -1137,6 +1526,17 @@ var kn = {
 
 // src/dom/locale/ko.ts
 var ko = {
+  configurationAxes: {
+    model: ["\uBAA8\uB378"],
+    effort: ["\uCD94\uB860 \uC218\uC900"],
+    speed: ["\uC18D\uB3C4"]
+  },
+  configurationOptions: {
+    medium: ["\uC911\uAC04"],
+    high: ["\uB192\uC74C"],
+    extraHigh: ["\uB9E4\uC6B0 \uB192\uC74C"],
+    fast: ["\uBE60\uB984"]
+  },
   composerTextbox: ["ChatGPT\uC640 \uCC44\uD305"],
   sendButton: ["\uD504\uB86C\uD504\uD2B8 \uBCF4\uB0B4\uAE30"],
   searchChatsButton: ["\uCC44\uD305 \uAC80\uC0C9"],
@@ -1166,6 +1566,19 @@ var ko = {
 
 // src/dom/locale/lt.ts
 var lt = {
+  configurationAxes: {
+    model: ["Modelis"],
+    effort: ["Pastangos"],
+    speed: ["Greitis"]
+  },
+  configurationOptions: {
+    light: ["Lengvas"],
+    medium: ["Vidutinis"],
+    high: ["Auk\u0161tas"],
+    extraHigh: ["Labai auk\u0161tas"],
+    standard: ["Standartinis"],
+    fast: ["Greitas"]
+  },
   composerTextbox: ["Pokalbis su \u201EChatGPT\u201C"],
   sendButton: ["Si\u0173sti raginim\u0105"],
   searchChatsButton: ["Ie\u0161koti pokalbiuose"],
@@ -1175,12 +1588,12 @@ var lt = {
   addFilesOpenerCandidates: ["\u012Etraukti failus ir daugiau"],
   addPhotosFilesMenuItem: ["Prid\u0117ti nuotrauk\u0173 ir fail\u0173"],
   copyResponse: ["Kopijuoti atsakym\u0105"],
-  modeLabels: ["Momentinis", "Vidutinis", "Auk\u0161tas", "Ypa\u010D didelis", "Profesionalus"],
+  modeLabels: ["Momentinis", "Vidutinis", "Auk\u0161tas", "Ypa\u010D didelis", "Profesionalus", "Labai auk\u0161tas"],
   modeOptions: {
     instant: ["Momentinis"],
     medium: ["Vidutinis"],
     high: ["Auk\u0161tas"],
-    extraHigh: ["Ypa\u010D didelis"],
+    extraHigh: ["Ypa\u010D didelis", "Labai auk\u0161tas"],
     pro: ["Profesionalus"]
   },
   modeOpenerExtra: ["Konfig\u016Bruoti..."],
@@ -1196,6 +1609,19 @@ var lt = {
 
 // src/dom/locale/zh-Hans.ts
 var zhHans = {
+  configurationAxes: {
+    model: ["\u6A21\u578B"],
+    effort: ["\u63A8\u7406\u5F3A\u5EA6"],
+    speed: ["\u901F\u5EA6"]
+  },
+  configurationOptions: {
+    light: ["\u8F7B\u5EA6"],
+    medium: ["\u4E2D"],
+    high: ["\u9AD8"],
+    extraHigh: ["\u6781\u9AD8"],
+    standard: ["\u6807\u51C6"],
+    fast: ["\u5FEB\u901F"]
+  },
   composerTextbox: ["\u6709\u95EE\u9898\uFF0C\u5C3D\u7BA1\u95EE"],
   sendButton: ["\u53D1\u9001\u63D0\u793A"],
   searchChatsButton: ["\u641C\u7D22\u804A\u5929"],
@@ -1205,12 +1631,12 @@ var zhHans = {
   addFilesOpenerCandidates: ["\u6DFB\u52A0\u6587\u4EF6\u7B49"],
   addPhotosFilesMenuItem: ["\u6DFB\u52A0\u7167\u7247\u548C\u6587\u4EF6"],
   copyResponse: ["\u590D\u5236\u56DE\u590D"],
-  modeLabels: ["\u6781\u901F", "\u5747\u8861", "\u9AD8\u7EA7", "\u8D85\u9AD8", "\u4E13\u4E1A"],
+  modeLabels: ["\u6781\u901F", "\u5747\u8861", "\u9AD8\u7EA7", "\u8D85\u9AD8", "\u4E13\u4E1A", "\u4E2D", "\u9AD8", "\u6781\u9AD8"],
   modeOptions: {
     instant: ["\u6781\u901F"],
-    medium: ["\u5747\u8861"],
-    high: ["\u9AD8\u7EA7"],
-    extraHigh: ["\u8D85\u9AD8"],
+    medium: ["\u5747\u8861", "\u4E2D"],
+    high: ["\u9AD8\u7EA7", "\u9AD8"],
+    extraHigh: ["\u8D85\u9AD8", "\u6781\u9AD8"],
     pro: ["\u4E13\u4E1A"]
   },
   modeOpenerExtra: ["\u914D\u7F6E\u2026"],
@@ -1226,6 +1652,19 @@ var zhHans = {
 
 // src/dom/locale/ur.ts
 var ur = {
+  configurationAxes: {
+    model: ["\u0645\u0627\u0688\u0644"],
+    effort: ["\u06A9\u0648\u0634\u0634"],
+    speed: ["\u0631\u0641\u062A\u0627\u0631"]
+  },
+  configurationOptions: {
+    light: ["\u0644\u0627\u0626\u0679"],
+    medium: ["\u0627\u0648\u0633\u0637"],
+    high: ["\u06C1\u0627\u0626\u06CC"],
+    extraHigh: ["\u0627\u06CC\u06A9\u0633\u0679\u0631\u0627 \u06C1\u0627\u0626\u06CC"],
+    standard: ["\u0627\u0633\u0679\u06CC\u0646\u0688\u0631\u0688"],
+    fast: ["\u062A\u06CC\u0632"]
+  },
   composerTextbox: ["\u06A9\u0648\u0626\u06CC \u0628\u06BE\u06CC \u0686\u06CC\u0632 \u067E\u0648\u0686\u06BE\u06CC\u06BA\u06D4\u06D4\u06D4"],
   sendButton: ["\u067E\u0631\u0627\u0645\u067E\u0679 \u0628\u06BE\u06CC\u062C\u06CC\u06BA"],
   searchChatsButton: ["\u0686\u06CC\u0679\u0633 \u062A\u0644\u0627\u0634 \u06A9\u0631\u06CC\u06BA"],
@@ -1235,12 +1674,12 @@ var ur = {
   addFilesOpenerCandidates: ["\u0641\u0627\u0626\u0644\u06CC\u06BA \u0648\u063A\u06CC\u0631\u06C1 \u0627\u067E \u0644\u0648\u0688 \u06A9\u0631\u06CC\u06BA"],
   addPhotosFilesMenuItem: ["\u062A\u0635\u0648\u06CC\u0631\u06CC\u06BA \u0627\u0648\u0631 \u0641\u0627\u0626\u0644\u06CC\u06BA \u0634\u0627\u0645\u0644 \u06A9\u0631\u06CC\u06BA"],
   copyResponse: ["\u062C\u0648\u0627\u0628 \u06A9\u0627\u067E\u06CC \u06A9\u0631\u06CC\u06BA"],
-  modeLabels: ["\u0641\u0648\u0631\u06CC", "\u0627\u0648\u0633\u0637", "\u0627\u0639\u0644\u06CC\u0670", "\u0627\u0646\u062A\u06C1\u0627\u0626\u06CC \u0627\u0639\u0644\u06CC\u0670"],
+  modeLabels: ["\u0641\u0648\u0631\u06CC", "\u0627\u0648\u0633\u0637", "\u0627\u0639\u0644\u06CC\u0670", "\u0627\u0646\u062A\u06C1\u0627\u0626\u06CC \u0627\u0639\u0644\u06CC\u0670", "\u06C1\u0627\u0626\u06CC", "\u0627\u06CC\u06A9\u0633\u0679\u0631\u0627 \u06C1\u0627\u0626\u06CC"],
   modeOptions: {
     instant: ["\u0641\u0648\u0631\u06CC"],
     medium: ["\u0627\u0648\u0633\u0637"],
-    high: ["\u0627\u0639\u0644\u06CC\u0670"],
-    extraHigh: ["\u0627\u0646\u062A\u06C1\u0627\u0626\u06CC \u0627\u0639\u0644\u06CC\u0670"]
+    high: ["\u0627\u0639\u0644\u06CC\u0670", "\u06C1\u0627\u0626\u06CC"],
+    extraHigh: ["\u0627\u0646\u062A\u06C1\u0627\u0626\u06CC \u0627\u0639\u0644\u06CC\u0670", "\u0627\u06CC\u06A9\u0633\u0679\u0631\u0627 \u06C1\u0627\u0626\u06CC"]
   },
   modeOpenerExtra: ["\u06A9\u0646\u0641\u06CC\u06AF\u0631 \u06A9\u0631\u06CC\u06BA..."],
   tools: {
@@ -1255,6 +1694,19 @@ var ur = {
 
 // src/dom/locale/uk.ts
 var uk = {
+  configurationAxes: {
+    model: ["\u041C\u043E\u0434\u0435\u043B\u044C"],
+    effort: ["\u0417\u0443\u0441\u0438\u043B\u043B\u044F"],
+    speed: ["\u0428\u0432\u0438\u0434\u043A\u0456\u0441\u0442\u044C"]
+  },
+  configurationOptions: {
+    light: ["\u041D\u0438\u0437\u044C\u043A\u0438\u0439"],
+    medium: ["\u0421\u0435\u0440\u0435\u0434\u043D\u0456\u0439"],
+    high: ["\u0412\u0438\u0441\u043E\u043A\u0438\u0439"],
+    extraHigh: ["\u041D\u0430\u0439\u0432\u0438\u0449\u0438\u0439"],
+    standard: ["\u0421\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u0438\u0439"],
+    fast: ["\u0428\u0432\u0438\u0434\u043A\u0430"]
+  },
   composerTextbox: ["\u0417\u0430\u043F\u0438\u0442\u0430\u0439\u0442\u0435 \u0431\u0443\u0434\u044C-\u0449\u043E"],
   sendButton: ["\u041D\u0430\u0434\u0456\u0441\u043B\u0430\u0442\u0438 \u0437\u0430\u043F\u0438\u0442"],
   searchChatsButton: ["\u041F\u043E\u0448\u0443\u043A \u0447\u0430\u0442\u0456\u0432"],
@@ -1264,12 +1716,12 @@ var uk = {
   addFilesOpenerCandidates: ["\u0414\u043E\u0434\u0430\u0432\u0430\u0439\u0442\u0435 \u0444\u0430\u0439\u043B\u0438 \u0439 \u0432\u0438\u043A\u043E\u043D\u0443\u0439\u0442\u0435 \u0456\u043D\u0448\u0456 \u0434\u0456\u0457"],
   addPhotosFilesMenuItem: ["\u0414\u043E\u0434\u0430\u0442\u0438 \u0441\u0432\u0456\u0442\u043B\u0438\u043D\u0438 \u0442\u0430 \u0444\u0430\u0439\u043B\u0438"],
   copyResponse: ["\u041A\u043E\u043F\u0456\u044E\u0432\u0430\u0442\u0438 \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u044C"],
-  modeLabels: ["\u041C\u0438\u0442\u0442\u0454\u0432\u0438\u0439", "\u0421\u0435\u0440\u0435\u0434\u043D\u0456\u0439", "\u0412\u0438\u0441\u043E\u043A\u0438\u0439", "\u0414\u0443\u0436\u0435 \u0432\u0438\u0441\u043E\u043A\u0438\u0439"],
+  modeLabels: ["\u041C\u0438\u0442\u0442\u0454\u0432\u0438\u0439", "\u0421\u0435\u0440\u0435\u0434\u043D\u0456\u0439", "\u0412\u0438\u0441\u043E\u043A\u0438\u0439", "\u0414\u0443\u0436\u0435 \u0432\u0438\u0441\u043E\u043A\u0438\u0439", "\u041D\u0430\u0439\u0432\u0438\u0449\u0438\u0439"],
   modeOptions: {
     instant: ["\u041C\u0438\u0442\u0442\u0454\u0432\u0438\u0439"],
     medium: ["\u0421\u0435\u0440\u0435\u0434\u043D\u0456\u0439"],
     high: ["\u0412\u0438\u0441\u043E\u043A\u0438\u0439"],
-    extraHigh: ["\u0414\u0443\u0436\u0435 \u0432\u0438\u0441\u043E\u043A\u0438\u0439"]
+    extraHigh: ["\u0414\u0443\u0436\u0435 \u0432\u0438\u0441\u043E\u043A\u0438\u0439", "\u041D\u0430\u0439\u0432\u0438\u0449\u0438\u0439"]
   },
   modeOpenerExtra: ["\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u0442\u0438\u2026"],
   tools: {
@@ -1284,6 +1736,19 @@ var uk = {
 
 // src/dom/locale/pt-BR.ts
 var ptBR = {
+  configurationAxes: {
+    model: ["Modelo"],
+    effort: ["Esfor\xE7o"],
+    speed: ["Velocidade"]
+  },
+  configurationOptions: {
+    light: ["Leve"],
+    medium: ["M\xE9dio"],
+    high: ["Alto"],
+    extraHigh: ["Extra alto"],
+    standard: ["Padr\xE3o"],
+    fast: ["R\xE1pido"]
+  },
   composerTextbox: ["Pergunte alguma coisa"],
   sendButton: ["Enviar prompt"],
   searchChatsButton: ["Buscar chats"],
@@ -1293,12 +1758,12 @@ var ptBR = {
   addFilesOpenerCandidates: ["Adicionar arquivos e mais"],
   addPhotosFilesMenuItem: ["Carregar fotos e arquivos"],
   copyResponse: ["Copiar resposta"],
-  modeLabels: ["Instant\xE2neo", "M\xE9dio", "Alto", "Muito alta"],
+  modeLabels: ["Instant\xE2neo", "M\xE9dio", "Alto", "Muito alta", "Extra alto"],
   modeOptions: {
     instant: ["Instant\xE2neo"],
     medium: ["M\xE9dio"],
     high: ["Alto"],
-    extraHigh: ["Muito alta"]
+    extraHigh: ["Muito alta", "Extra alto"]
   },
   modeOpenerExtra: ["Configurar\u2026"],
   tools: {
@@ -1313,6 +1778,19 @@ var ptBR = {
 
 // src/dom/locale/pt-PT.ts
 var ptPT = {
+  configurationAxes: {
+    model: ["Modelo"],
+    effort: ["Esfor\xE7o"],
+    speed: ["Velocidade"]
+  },
+  configurationOptions: {
+    light: ["Leve"],
+    medium: ["M\xE9dio"],
+    high: ["Elevado"],
+    extraHigh: ["Muito elevado"],
+    standard: ["Padr\xE3o"],
+    fast: ["R\xE1pido"]
+  },
   composerTextbox: ["Pergunte qualquer coisa"],
   sendButton: ["Enviar prompt"],
   searchChatsButton: ["Pesquisar chats"],
@@ -1322,12 +1800,12 @@ var ptPT = {
   addFilesOpenerCandidates: ["Adicionar ficheiros e mais"],
   addPhotosFilesMenuItem: ["Carregar fotos e ficheiros"],
   copyResponse: ["Copiar resposta"],
-  modeLabels: ["Instant\xE2neo", "M\xE9dia", "Alta", "M\xE1ximo"],
+  modeLabels: ["Instant\xE2neo", "M\xE9dia", "Alta", "M\xE1ximo", "M\xE9dio", "Elevado", "Muito elevado"],
   modeOptions: {
     instant: ["Instant\xE2neo"],
-    medium: ["M\xE9dia"],
-    high: ["Alta"],
-    extraHigh: ["M\xE1ximo"]
+    medium: ["M\xE9dia", "M\xE9dio"],
+    high: ["Alta", "Elevado"],
+    extraHigh: ["M\xE1ximo", "Muito elevado"]
   },
   modeOpenerExtra: ["Configurar..."],
   tools: {
@@ -1342,6 +1820,18 @@ var ptPT = {
 
 // src/dom/locale/pl.ts
 var pl = {
+  configurationAxes: {
+    effort: ["Nak\u0142ad pracy"],
+    speed: ["Szybko\u015B\u0107"]
+  },
+  configurationOptions: {
+    light: ["Lekki"],
+    medium: ["\u015Aredni"],
+    high: ["Wysoki"],
+    extraHigh: ["Bardzo wysoki"],
+    standard: ["Standardowy"],
+    fast: ["Szybki"]
+  },
   composerTextbox: ["Zapytaj o cokolwiek"],
   sendButton: ["Wy\u015Blij polecenie"],
   searchChatsButton: ["Szukaj czat\xF3w"],
@@ -1351,11 +1841,11 @@ var pl = {
   addFilesOpenerCandidates: ["Dodawaj pliki i nie tylko"],
   addPhotosFilesMenuItem: ["Prze\u015Blij zdj\u0119cia i pliki"],
   copyResponse: ["Kopiuj odpowied\u017A"],
-  modeLabels: ["B\u0142yskawiczny", "\u015Aredni", "Zaawansowana", "Bardzo wysoki"],
+  modeLabels: ["B\u0142yskawiczny", "\u015Aredni", "Zaawansowana", "Bardzo wysoki", "Wysoki"],
   modeOptions: {
     instant: ["B\u0142yskawiczny"],
     medium: ["\u015Aredni"],
-    high: ["Zaawansowana"],
+    high: ["Zaawansowana", "Wysoki"],
     extraHigh: ["Bardzo wysoki"]
   },
   modeOpenerExtra: ["Skonfiguruj..."],
@@ -1371,6 +1861,18 @@ var pl = {
 
 // src/dom/locale/sk.ts
 var sk = {
+  configurationAxes: {
+    effort: ["\xDAsilie"],
+    speed: ["R\xFDchlos\u0165"]
+  },
+  configurationOptions: {
+    light: ["\u013Dahk\xE9"],
+    medium: ["Stredn\xE1"],
+    high: ["Vysok\xE1"],
+    extraHigh: ["Ve\u013Emi vysok\xE1"],
+    standard: ["\u0160tandardn\xE1"],
+    fast: ["R\xFDchla"]
+  },
   composerTextbox: ["Sp\xFDtaj sa hoci\u010Do\u2026"],
   sendButton: ["Odosla\u0165 pr\xEDkaz"],
   searchChatsButton: ["H\u013Eada\u0165 v \u010Detoch"],
@@ -1380,12 +1882,12 @@ var sk = {
   addFilesOpenerCandidates: ["Prida\u0165 s\xFAbory a in\xE9"],
   addPhotosFilesMenuItem: ["Nahra\u0165 fotografie a s\xFAbory"],
   copyResponse: ["Kop\xEDrova\u0165 odpove\u010F"],
-  modeLabels: ["Okam\u017Eit\xE1", "Stredn\xE1", "Vysok\xE1", "Extra vysok\xE1"],
+  modeLabels: ["Okam\u017Eit\xE1", "Stredn\xE1", "Vysok\xE1", "Extra vysok\xE1", "Ve\u013Emi vysok\xE1"],
   modeOptions: {
     instant: ["Okam\u017Eit\xE1"],
     medium: ["Stredn\xE1"],
     high: ["Vysok\xE1"],
-    extraHigh: ["Extra vysok\xE1"]
+    extraHigh: ["Extra vysok\xE1", "Ve\u013Emi vysok\xE1"]
   },
   modeOpenerExtra: ["Konfigurova\u0165..."],
   tools: {
@@ -1400,6 +1902,17 @@ var sk = {
 
 // src/dom/locale/ro.ts
 var ro = {
+  configurationAxes: {
+    effort: ["Efort"],
+    speed: ["Vitez\u0103"]
+  },
+  configurationOptions: {
+    light: ["U\u0219or"],
+    medium: ["Medie"],
+    high: ["Ridicat\u0103"],
+    extraHigh: ["Foarte ridicat\u0103"],
+    fast: ["Rapid"]
+  },
   composerTextbox: ["\xCEntreab\u0103 orice"],
   sendButton: ["Trimite solicitarea"],
   searchChatsButton: ["Caut\u0103 discu\u021Bii"],
@@ -1409,10 +1922,10 @@ var ro = {
   addFilesOpenerCandidates: ["Adaug\u0103 fi\u0219iere \u0219i multe altele"],
   addPhotosFilesMenuItem: ["\xCEncarc\u0103 fotografii \u0219i fi\u0219iere"],
   copyResponse: ["Copiaz\u0103 r\u0103spunsul"],
-  modeLabels: ["Mediu", "Ridicat", "Foarte ridicat\u0103"],
+  modeLabels: ["Mediu", "Ridicat", "Foarte ridicat\u0103", "Medie", "Ridicat\u0103"],
   modeOptions: {
-    medium: ["Mediu"],
-    high: ["Ridicat"],
+    medium: ["Mediu", "Medie"],
+    high: ["Ridicat", "Ridicat\u0103"],
     extraHigh: ["Foarte ridicat\u0103"]
   },
   modeOpenerExtra: ["Configureaz\u0103..."],
@@ -1428,6 +1941,18 @@ var ro = {
 
 // src/dom/locale/nb.ts
 var nb = {
+  configurationAxes: {
+    model: ["Modell"],
+    effort: ["Innsats"],
+    speed: ["Hastighet"]
+  },
+  configurationOptions: {
+    light: ["Lett"],
+    medium: ["Middels"],
+    high: ["H\xF8y"],
+    extraHigh: ["Ekstra h\xF8y"],
+    fast: ["Rask"]
+  },
   composerTextbox: ["Sp\xF8r om hva som helst"],
   sendButton: ["Send melding"],
   searchChatsButton: ["S\xF8k i samtaler"],
@@ -1457,6 +1982,19 @@ var nb = {
 
 // src/dom/locale/ml.ts
 var ml = {
+  configurationAxes: {
+    model: ["\u0D2E\u0D4B\u0D21\u0D7D"],
+    effort: ["\u0D36\u0D4D\u0D30\u0D2E\u0D02"],
+    speed: ["\u0D35\u0D47\u0D17\u0D24"]
+  },
+  configurationOptions: {
+    light: ["\u0D32\u0D33\u0D3F\u0D24\u0D02"],
+    medium: ["\u0D07\u0D1F\u0D24\u0D4D\u0D24\u0D30\u0D02"],
+    high: ["\u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D"],
+    extraHigh: ["\u0D05\u0D24\u0D4D\u0D2F\u0D27\u0D3F\u0D15\u0D02 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D"],
+    standard: ["\u0D05\u0D1F\u0D3F\u0D38\u0D4D\u0D25\u0D3E\u0D28\u0D02"],
+    fast: ["\u0D35\u0D47\u0D17\u0D02"]
+  },
   composerTextbox: ["\u0D0E\u0D28\u0D4D\u0D24\u0D41\u0D02 \u0D1A\u0D4B\u0D26\u0D3F\u0D15\u0D4D\u0D15\u0D41\u0D15"],
   sendButton: ["\u0D2A\u0D4D\u0D30\u0D4B\u0D02\u0D2A\u0D4D\u0D31\u0D4D\u0D31\u0D4D \u0D05\u0D2F\u0D2F\u0D4D\u0D15\u0D4D\u0D15\u0D41\u0D15"],
   searchChatsButton: ["\u0D1A\u0D3E\u0D31\u0D4D\u0D31\u0D41\u0D15\u0D7E \u0D24\u0D3F\u0D30\u0D2F\u0D41\u0D15"],
@@ -1466,12 +2004,12 @@ var ml = {
   addFilesOpenerCandidates: ["\u0D2B\u0D2F\u0D32\u0D41\u0D15\u0D33\u0D41\u0D02 \u0D2E\u0D31\u0D4D\u0D31\u0D41\u0D02 \u0D1A\u0D47\u0D7C\u0D15\u0D4D\u0D15\u0D41\u0D15"],
   addPhotosFilesMenuItem: ["\u0D2B\u0D4B\u0D1F\u0D4D\u0D1F\u0D4B\u0D15\u0D33\u0D41\u0D02 \u0D2B\u0D2F\u0D32\u0D41\u0D15\u0D33\u0D41\u0D02 \u0D05\u0D2A\u0D4D\u200C\u0D32\u0D4B\u0D21\u0D4D \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15"],
   copyResponse: ["\u0D2E\u0D31\u0D41\u0D2A\u0D1F\u0D3F \u0D15\u0D4B\u0D2A\u0D4D\u0D2A\u0D3F \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15"],
-  modeLabels: ["\u0D24\u0D7D\u0D15\u0D4D\u0D37\u0D23\u0D02", "\u0D07\u0D1F\u0D24\u0D4D\u0D24\u0D30\u0D02", "\u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D", "\u0D35\u0D33\u0D30\u0D46 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28", "\u0D2A\u0D4D\u0D30\u0D4B"],
+  modeLabels: ["\u0D24\u0D7D\u0D15\u0D4D\u0D37\u0D23\u0D02", "\u0D07\u0D1F\u0D24\u0D4D\u0D24\u0D30\u0D02", "\u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D", "\u0D35\u0D33\u0D30\u0D46 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28", "\u0D2A\u0D4D\u0D30\u0D4B", "\u0D05\u0D24\u0D4D\u0D2F\u0D27\u0D3F\u0D15\u0D02 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D"],
   modeOptions: {
     instant: ["\u0D24\u0D7D\u0D15\u0D4D\u0D37\u0D23\u0D02"],
     medium: ["\u0D07\u0D1F\u0D24\u0D4D\u0D24\u0D30\u0D02"],
     high: ["\u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D"],
-    extraHigh: ["\u0D35\u0D33\u0D30\u0D46 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28"],
+    extraHigh: ["\u0D35\u0D33\u0D30\u0D46 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28", "\u0D05\u0D24\u0D4D\u0D2F\u0D27\u0D3F\u0D15\u0D02 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D"],
     pro: ["\u0D2A\u0D4D\u0D30\u0D4B"]
   },
   modeOpenerExtra: ["\u0D15\u0D4B\u0D7A\u0D2B\u0D3F\u0D17\u0D7C \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15\u2026"],
@@ -1487,6 +2025,19 @@ var ml = {
 
 // src/dom/locale/ru.ts
 var ru = {
+  configurationAxes: {
+    model: ["\u041C\u043E\u0434\u0435\u043B\u044C"],
+    effort: ["\u0423\u0440\u043E\u0432\u0435\u043D\u044C"],
+    speed: ["\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C"]
+  },
+  configurationOptions: {
+    light: ["\u041D\u0438\u0437\u043A\u0438\u0439"],
+    medium: ["\u0421\u0440\u0435\u0434\u043D\u0438\u0439"],
+    high: ["\u0412\u044B\u0441\u043E\u043A\u0438\u0439"],
+    extraHigh: ["\u041E\u0447\u0435\u043D\u044C \u0432\u044B\u0441\u043E\u043A\u0438\u0439"],
+    standard: ["\u0421\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u044B\u0439"],
+    fast: ["\u0411\u044B\u0441\u0442\u0440\u043E"]
+  },
   composerTextbox: ["\u0421\u043F\u0440\u043E\u0441\u0438\u0442\u0435 ChatGPT"],
   sendButton: ["\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0443"],
   searchChatsButton: ["\u0418\u0441\u043A\u0430\u0442\u044C \u0447\u0430\u0442\u044B"],
@@ -1496,8 +2047,10 @@ var ru = {
   addFilesOpenerCandidates: ["\u0414\u043E\u0431\u0430\u0432\u043B\u044F\u0439\u0442\u0435 \u0444\u0430\u0439\u043B\u044B \u0438 \u043C\u043D\u043E\u0433\u043E\u0435 \u0434\u0440\u0443\u0433\u043E\u0435"],
   addPhotosFilesMenuItem: ["\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u0438 \u0444\u0430\u0439\u043B\u044B"],
   copyResponse: ["\u041A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043E\u0442\u0432\u0435\u0442"],
-  modeLabels: ["\u041E\u0447\u0435\u043D\u044C \u0432\u044B\u0441\u043E\u043A\u0438\u0439"],
+  modeLabels: ["\u041E\u0447\u0435\u043D\u044C \u0432\u044B\u0441\u043E\u043A\u0438\u0439", "\u0421\u0440\u0435\u0434\u043D\u0438\u0439", "\u0412\u044B\u0441\u043E\u043A\u0438\u0439"],
   modeOptions: {
+    medium: ["\u0421\u0440\u0435\u0434\u043D\u0438\u0439"],
+    high: ["\u0412\u044B\u0441\u043E\u043A\u0438\u0439"],
     extraHigh: ["\u041E\u0447\u0435\u043D\u044C \u0432\u044B\u0441\u043E\u043A\u0438\u0439"]
   },
   modeOpenerExtra: ["\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044F..."],
@@ -1513,6 +2066,19 @@ var ru = {
 
 // src/dom/locale/pa.ts
 var pa = {
+  configurationAxes: {
+    model: ["\u0A2E\u0A3E\u0A21\u0A32"],
+    effort: ["\u0A15\u0A4B\u0A38\u0A3C\u0A3F\u0A38\u0A3C"],
+    speed: ["\u0A17\u0A24\u0A40"]
+  },
+  configurationOptions: {
+    light: ["\u0A39\u0A32\u0A15\u0A3E"],
+    medium: ["\u0A2E\u0A40\u0A21\u0A40\u0A05\u0A2E"],
+    high: ["\u0A39\u0A3E\u0A08"],
+    extraHigh: ["\u0A10\u0A15\u0A38\u0A1F\u0A4D\u0A30\u0A3E \u0A39\u0A3E\u0A08"],
+    standard: ["\u0A2E\u0A3F\u0A06\u0A30\u0A40"],
+    fast: ["\u0A24\u0A47\u0A1C\u0A3C"]
+  },
   composerTextbox: ["\u0A15\u0A41\u0A1D \u0A35\u0A40 \u0A2A\u0A41\u0A71\u0A1B\u0A4B"],
   sendButton: ["\u0A2A\u0A4D\u0A30\u0A4B\u0A02\u0A2A\u0A1F \u0A2D\u0A47\u0A1C\u0A4B"],
   searchChatsButton: ["\u0A1A\u0A48\u0A1F\u0A3E\u0A02 \u0A16\u0A4B\u0A1C\u0A4B"],
@@ -1522,12 +2088,12 @@ var pa = {
   addFilesOpenerCandidates: ["\u0A2B\u0A3E\u0A08\u0A32\u0A3E\u0A02 \u0A05\u0A24\u0A47 \u0A39\u0A4B\u0A30 \u0A2C\u0A39\u0A41\u0A24 \u0A15\u0A41\u0A1D \u0A38\u0A3C\u0A3E\u0A2E\u0A32 \u0A15\u0A30\u0A4B"],
   addPhotosFilesMenuItem: ["\u0A2B\u0A3C\u0A4B\u0A1F\u0A4B\u0A06\u0A02 \u0A05\u0A24\u0A47 \u0A2B\u0A3C\u0A3E\u0A08\u0A32\u0A3E\u0A02 \u0A05\u0A71\u0A2A\u0A32\u0A4B\u0A21 \u0A15\u0A30\u0A4B"],
   copyResponse: ["\u0A1C\u0A35\u0A3E\u0A2C \u0A15\u0A3E\u0A2A\u0A40 \u0A15\u0A30\u0A4B"],
-  modeLabels: ["\u0A24\u0A41\u0A30\u0A70\u0A24", "\u0A2E\u0A71\u0A27\u0A2E", "\u0A09\u0A71\u0A1A", "\u0A05\u0A24\u0A3F \u0A09\u0A71\u0A1A", "\u0A2A\u0A4D\u0A30\u0A4B"],
+  modeLabels: ["\u0A24\u0A41\u0A30\u0A70\u0A24", "\u0A2E\u0A71\u0A27\u0A2E", "\u0A09\u0A71\u0A1A", "\u0A05\u0A24\u0A3F \u0A09\u0A71\u0A1A", "\u0A2A\u0A4D\u0A30\u0A4B", "\u0A2E\u0A40\u0A21\u0A40\u0A05\u0A2E", "\u0A39\u0A3E\u0A08", "\u0A10\u0A15\u0A38\u0A1F\u0A4D\u0A30\u0A3E \u0A39\u0A3E\u0A08"],
   modeOptions: {
     instant: ["\u0A24\u0A41\u0A30\u0A70\u0A24"],
-    medium: ["\u0A2E\u0A71\u0A27\u0A2E"],
-    high: ["\u0A09\u0A71\u0A1A"],
-    extraHigh: ["\u0A05\u0A24\u0A3F \u0A09\u0A71\u0A1A"],
+    medium: ["\u0A2E\u0A71\u0A27\u0A2E", "\u0A2E\u0A40\u0A21\u0A40\u0A05\u0A2E"],
+    high: ["\u0A09\u0A71\u0A1A", "\u0A39\u0A3E\u0A08"],
+    extraHigh: ["\u0A05\u0A24\u0A3F \u0A09\u0A71\u0A1A", "\u0A10\u0A15\u0A38\u0A1F\u0A4D\u0A30\u0A3E \u0A39\u0A3E\u0A08"],
     pro: ["\u0A2A\u0A4D\u0A30\u0A4B"]
   },
   modeOpenerExtra: ["\u0A15\u0A4C\u0A28\u0A2B\u0A3F\u0A17\u0A30..."],
@@ -1543,6 +2109,19 @@ var pa = {
 
 // src/dom/locale/mr.ts
 var mr = {
+  configurationAxes: {
+    model: ["\u092E\u0949\u0921\u0947\u0932"],
+    effort: ["\u092A\u094D\u0930\u092F\u0924\u094D\u0928"],
+    speed: ["\u0935\u0947\u0917"]
+  },
+  configurationOptions: {
+    light: ["\u0939\u0932\u0915\u093E"],
+    medium: ["\u092E\u0927\u094D\u092F\u092E"],
+    high: ["\u0909\u091A\u094D\u091A"],
+    extraHigh: ["\u0905\u0924\u094D\u092F\u0941\u091A\u094D\u091A"],
+    standard: ["\u0938\u094D\u091F\u0901\u0921\u0930\u094D\u0921"],
+    fast: ["\u091C\u0932\u0926"]
+  },
   composerTextbox: ["\u0915\u093E\u0939\u0940\u0939\u0940 \u0935\u093F\u091A\u093E\u0930\u093E"],
   sendButton: ["\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u092A\u093E\u0920\u0935\u093E"],
   searchChatsButton: ["\u091A\u0945\u091F\u094D\u0938 \u0936\u094B\u0927\u093E"],
@@ -1552,12 +2131,12 @@ var mr = {
   addFilesOpenerCandidates: ["\u092B\u093E\u0907\u0932\u094D\u0938 \u091C\u094B\u0921\u093E \u0906\u0923\u093F \u0907\u0924\u0930 \u0905\u0928\u0947\u0915 \u0917\u094B\u0937\u094D\u091F\u0940 \u0915\u0930\u093E"],
   addPhotosFilesMenuItem: ["\u092B\u094B\u091F\u094B \u0906\u0923\u093F \u092B\u093E\u0907\u0932\u094D\u0938 \u0905\u092A\u0932\u094B\u0921 \u0915\u0930\u093E"],
   copyResponse: ["\u092A\u094D\u0930\u0924\u093F\u0938\u093E\u0926 \u0915\u0949\u092A\u0940 \u0915\u0930\u093E"],
-  modeLabels: ["\u091D\u091F\u092A\u091F", "\u092E\u0927\u094D\u092F\u092E", "\u0909\u091A\u094D\u091A", "\u0905\u0924\u093F\u0909\u091A\u094D\u091A", "\u092A\u094D\u0930\u094B"],
+  modeLabels: ["\u091D\u091F\u092A\u091F", "\u092E\u0927\u094D\u092F\u092E", "\u0909\u091A\u094D\u091A", "\u0905\u0924\u093F\u0909\u091A\u094D\u091A", "\u092A\u094D\u0930\u094B", "\u0905\u0924\u094D\u092F\u0941\u091A\u094D\u091A"],
   modeOptions: {
     instant: ["\u091D\u091F\u092A\u091F"],
     medium: ["\u092E\u0927\u094D\u092F\u092E"],
     high: ["\u0909\u091A\u094D\u091A"],
-    extraHigh: ["\u0905\u0924\u093F\u0909\u091A\u094D\u091A"],
+    extraHigh: ["\u0905\u0924\u093F\u0909\u091A\u094D\u091A", "\u0905\u0924\u094D\u092F\u0941\u091A\u094D\u091A"],
     pro: ["\u092A\u094D\u0930\u094B"]
   },
   modeOpenerExtra: ["\u0915\u0949\u0928\u094D\u092B\u093F\u0917\u0930 \u0915\u0930\u093E..."],
@@ -1573,6 +2152,18 @@ var mr = {
 
 // src/dom/locale/tr.ts
 var tr = {
+  configurationAxes: {
+    effort: ["D\xFCzey"],
+    speed: ["H\u0131z"]
+  },
+  configurationOptions: {
+    light: ["S\u0131n\u0131rl\u0131"],
+    medium: ["Orta"],
+    high: ["Y\xFCksek"],
+    extraHigh: ["\xC7ok Y\xFCksek"],
+    standard: ["Standart"],
+    fast: ["H\u0131zl\u0131"]
+  },
   composerTextbox: ["Herhangi bir \u015Fey sor"],
   sendButton: ["Prompt g\xF6nder"],
   searchChatsButton: ["Sohbetlerde ara"],
@@ -1582,9 +2173,9 @@ var tr = {
   addFilesOpenerCandidates: ["Dosyalar\u0131 ve \xE7ok daha fazlas\u0131n\u0131 ekle"],
   addPhotosFilesMenuItem: ["Foto\u011Fraf ve dosya y\xFCkle"],
   copyResponse: ["Yan\u0131t\u0131 kopyala"],
-  modeLabels: ["An\u0131nda", "Orta", "Y\xFCksek", "\xC7ok Y\xFCksek"],
+  modeLabels: ["An\u0131nda", "Orta", "Y\xFCksek", "\xC7ok Y\xFCksek", "H\u0131zl\u0131"],
   modeOptions: {
-    instant: ["An\u0131nda"],
+    instant: ["An\u0131nda", "H\u0131zl\u0131"],
     medium: ["Orta"],
     high: ["Y\xFCksek"],
     extraHigh: ["\xC7ok Y\xFCksek"]
@@ -1602,6 +2193,19 @@ var tr = {
 
 // src/dom/locale/sw.ts
 var sw = {
+  configurationAxes: {
+    model: ["Modeli"],
+    effort: ["Juhudi"],
+    speed: ["Kasi"]
+  },
+  configurationOptions: {
+    light: ["Nyepesi"],
+    medium: ["Wastani"],
+    high: ["Juu"],
+    extraHigh: ["Juu Zaidi"],
+    standard: ["Kawaida"],
+    fast: ["Haraka"]
+  },
   composerTextbox: ["Uliza chochote"],
   sendButton: ["Tuma makumbusho"],
   searchChatsButton: ["Tafuta mazungumzo"],
@@ -1631,6 +2235,19 @@ var sw = {
 
 // src/dom/locale/te.ts
 var te = {
+  configurationAxes: {
+    model: ["\u0C2E\u0C4B\u0C21\u0C32\u0C4D"],
+    effort: ["\u0C2A\u0C4D\u0C30\u0C2F\u0C24\u0C4D\u0C28\u0C02"],
+    speed: ["\u0C35\u0C47\u0C17\u0C02"]
+  },
+  configurationOptions: {
+    light: ["\u0C32\u0C48\u0C1F\u0C4D"],
+    medium: ["\u0C2E\u0C40\u0C21\u0C3F\u0C2F\u0C02"],
+    high: ["\u0C39\u0C48"],
+    extraHigh: ["\u0C0E\u0C15\u0C4D\u0C38\u0C4D\u200C\u0C1F\u0C4D\u0C30\u0C3E \u0C39\u0C48"],
+    standard: ["\u0C38\u0C4D\u0C1F\u0C3E\u0C02\u0C21\u0C30\u0C4D\u0C21\u0C4D"],
+    fast: ["\u0C35\u0C47\u0C17\u0C35\u0C02\u0C24\u0C02"]
+  },
   composerTextbox: ["\u0C0F\u0C26\u0C48\u0C28\u0C3E \u0C05\u0C21\u0C17\u0C02\u0C21\u0C3F"],
   sendButton: ["\u0C2A\u0C4D\u0C30\u0C3E\u0C02\u0C2A\u0C4D\u0C1F\u0C4D\u200C\u0C28\u0C41 \u0C2A\u0C02\u0C2A\u0C3F\u0C02\u0C1A\u0C02\u0C21\u0C3F"],
   searchChatsButton: ["\u0C1A\u0C3E\u0C1F\u0C4D\u200C\u0C32\u0C28\u0C41 \u0C36\u0C4B\u0C27\u0C3F\u0C02\u0C1A\u0C02\u0C21\u0C3F"],
@@ -1640,12 +2257,12 @@ var te = {
   addFilesOpenerCandidates: ["\u0C2B\u0C48\u0C32\u0C4D\u200C\u0C32\u0C28\u0C41 \u0C2E\u0C30\u0C3F\u0C2F\u0C41 \u0C2E\u0C30\u0C3F\u0C28\u0C4D\u0C28\u0C3F \u0C1C\u0C4B\u0C21\u0C3F\u0C02\u0C1A\u0C02\u0C21\u0C3F"],
   addPhotosFilesMenuItem: ["\u0C2B\u0C4B\u0C1F\u0C4B\u0C32\u0C41 & \u0C2B\u0C48\u0C32\u0C4D\u200C\u0C32\u0C28\u0C41 \u0C05\u0C2A\u0C4D\u200C\u0C32\u0C4B\u0C21\u0C4D \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"],
   copyResponse: ["\u0C2A\u0C4D\u0C30\u0C24\u0C3F\u0C38\u0C4D\u0C2A\u0C02\u0C26\u0C28\u0C28\u0C41 \u0C15\u0C3E\u0C2A\u0C40 \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"],
-  modeLabels: ["\u0C24\u0C15\u0C4D\u0C37\u0C23\u0C02", "\u0C2E\u0C27\u0C4D\u0C2F\u0C38\u0C4D\u0C25", "\u0C05\u0C27\u0C3F\u0C15", "\u0C05\u0C24\u0C4D\u0C2F\u0C27\u0C3F\u0C15", "\u0C2A\u0C4D\u0C30\u0C4B"],
+  modeLabels: ["\u0C24\u0C15\u0C4D\u0C37\u0C23\u0C02", "\u0C2E\u0C27\u0C4D\u0C2F\u0C38\u0C4D\u0C25", "\u0C05\u0C27\u0C3F\u0C15", "\u0C05\u0C24\u0C4D\u0C2F\u0C27\u0C3F\u0C15", "\u0C2A\u0C4D\u0C30\u0C4B", "\u0C2E\u0C40\u0C21\u0C3F\u0C2F\u0C02", "\u0C39\u0C48", "\u0C0E\u0C15\u0C4D\u0C38\u0C4D\u200C\u0C1F\u0C4D\u0C30\u0C3E \u0C39\u0C48"],
   modeOptions: {
     instant: ["\u0C24\u0C15\u0C4D\u0C37\u0C23\u0C02"],
-    medium: ["\u0C2E\u0C27\u0C4D\u0C2F\u0C38\u0C4D\u0C25"],
-    high: ["\u0C05\u0C27\u0C3F\u0C15"],
-    extraHigh: ["\u0C05\u0C24\u0C4D\u0C2F\u0C27\u0C3F\u0C15"],
+    medium: ["\u0C2E\u0C27\u0C4D\u0C2F\u0C38\u0C4D\u0C25", "\u0C2E\u0C40\u0C21\u0C3F\u0C2F\u0C02"],
+    high: ["\u0C05\u0C27\u0C3F\u0C15", "\u0C39\u0C48"],
+    extraHigh: ["\u0C05\u0C24\u0C4D\u0C2F\u0C27\u0C3F\u0C15", "\u0C0E\u0C15\u0C4D\u0C38\u0C4D\u200C\u0C1F\u0C4D\u0C30\u0C3E \u0C39\u0C48"],
     pro: ["\u0C2A\u0C4D\u0C30\u0C4B"]
   },
   modeOpenerExtra: ["\u0C15\u0C3E\u0C28\u0C4D\u0C2B\u0C3F\u0C17\u0C30\u0C4D \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"],
@@ -1661,6 +2278,13 @@ var te = {
 
 // src/dom/locale/tl.ts
 var tl = {
+  configurationAxes: {
+    effort: ["Pagsisikap"],
+    speed: ["Bilis"]
+  },
+  configurationOptions: {
+    fast: ["Mabilis"]
+  },
   composerTextbox: ["Mag-chat sa ChatGPT"],
   sendButton: ["Magpadala ng prompt"],
   searchChatsButton: ["Maghanap sa mga chat"],
@@ -1682,6 +2306,11 @@ var tl = {
 
 // src/dom/locale/th.ts
 var th = {
+  configurationAxes: {
+    model: ["\u0E42\u0E21\u0E40\u0E14\u0E25"],
+    effort: ["\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E01\u0E32\u0E23\u0E04\u0E34\u0E14"],
+    speed: ["\u0E04\u0E27\u0E32\u0E21\u0E40\u0E23\u0E47\u0E27"]
+  },
   composerTextbox: ["\u0E16\u0E32\u0E21\u0E2D\u0E30\u0E44\u0E23\u0E01\u0E47\u0E44\u0E14\u0E49"],
   sendButton: ["\u0E2A\u0E48\u0E07\u0E04\u0E33\u0E2A\u0E31\u0E48\u0E07"],
   searchChatsButton: ["\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E41\u0E0A\u0E15"],
@@ -1711,6 +2340,19 @@ var th = {
 
 // src/dom/locale/bn.ts
 var bn = {
+  configurationAxes: {
+    model: ["\u09AE\u09A1\u09C7\u09B2"],
+    effort: ["\u09AA\u09CD\u09B0\u099A\u09C7\u09B7\u09CD\u099F\u09BE"],
+    speed: ["\u0997\u09A4\u09BF"]
+  },
+  configurationOptions: {
+    light: ["\u09B2\u09BE\u0987\u099F"],
+    medium: ["\u09AE\u09BE\u099D\u09BE\u09B0\u09BF"],
+    high: ["\u0989\u099A\u09CD\u099A"],
+    extraHigh: ["\u0985\u09A4\u09BF \u0989\u099A\u09CD\u099A"],
+    standard: ["\u09B8\u09CD\u099F\u09CD\u09AF\u09BE\u09A8\u09CD\u09A1\u09BE\u09B0\u09CD\u09A1"],
+    fast: ["\u09A6\u09CD\u09B0\u09C1\u09A4"]
+  },
   composerTextbox: ["\u09AF\u09C7 \u0995\u09CB\u09A8 \u0995\u09BF\u099B\u09C1 \u099C\u09BF\u099C\u09CD\u099E\u09C7\u09B8 \u0995\u09B0\u09C1\u09A8\u2026"],
   sendButton: ["\u09AA\u09CD\u09B0\u09AE\u09CD\u09AA\u099F \u09AA\u09BE\u09A0\u09BE\u09A8"],
   searchChatsButton: ["\u099A\u09CD\u09AF\u09BE\u099F \u0996\u09C1\u0981\u099C\u09C1\u09A8"],
@@ -1741,6 +2383,17 @@ var bn = {
 
 // src/dom/locale/ms.ts
 var ms = {
+  configurationAxes: {
+    effort: ["Usaha"],
+    speed: ["Kelajuan"]
+  },
+  configurationOptions: {
+    light: ["Ringan"],
+    medium: ["Sederhana"],
+    high: ["Tinggi"],
+    extraHigh: ["Sangat Tinggi"],
+    fast: ["Pantas"]
+  },
   composerTextbox: ["Tanya apa-apa sahaja..."],
   sendButton: ["Hantar gesaan"],
   searchChatsButton: ["Cari sembang"],
@@ -1770,6 +2423,19 @@ var ms = {
 
 // src/dom/locale/so.ts
 var so = {
+  configurationAxes: {
+    model: ["Moodel"],
+    effort: ["Dadaal"],
+    speed: ["Xawaare"]
+  },
+  configurationOptions: {
+    light: ["Fudud"],
+    medium: ["Dhexdhexaad"],
+    high: ["Sare"],
+    extraHigh: ["Aad U Sarreeya"],
+    standard: ["Caadi"],
+    fast: ["Degdeg"]
+  },
   composerTextbox: ["Waydii waxkasta"],
   sendButton: ["Dir qoraal"],
   searchChatsButton: ["Raadi wada-sheekaysiyada"],
@@ -1779,12 +2445,12 @@ var so = {
   addFilesOpenerCandidates: ["Ku dar faylashada iyo wax badan"],
   addPhotosFilesMenuItem: ["Soo geli sawirada & faylasha"],
   copyResponse: ["Koobiyee jawaabta"],
-  modeLabels: ["Degdeg", "Dhexdhexaad", "Sare", "Aad u sarreeya"],
+  modeLabels: ["Degdeg", "Dhexdhexaad", "Sare", "Aad u sarreeya", "Aad U Sarreeya"],
   modeOptions: {
     instant: ["Degdeg"],
     medium: ["Dhexdhexaad"],
     high: ["Sare"],
-    extraHigh: ["Aad u sarreeya"]
+    extraHigh: ["Aad u sarreeya", "Aad U Sarreeya"]
   },
   modeOpenerExtra: ["Ku xidh..."],
   tools: {
@@ -1799,6 +2465,18 @@ var so = {
 
 // src/dom/locale/nl.ts
 var nl = {
+  configurationAxes: {
+    effort: ["Inspanning"],
+    speed: ["Snelheid"]
+  },
+  configurationOptions: {
+    light: ["Licht"],
+    medium: ["Gemiddeld"],
+    high: ["Hoog"],
+    extraHigh: ["Zeer Hoog"],
+    standard: ["Standaard"],
+    fast: ["Snel"]
+  },
   composerTextbox: ["Stel een vraag"],
   sendButton: ["Prompt versturen"],
   searchChatsButton: ["Chats doorzoeken"],
@@ -1808,12 +2486,12 @@ var nl = {
   addFilesOpenerCandidates: ["Bestanden en meer toevoegen"],
   addPhotosFilesMenuItem: ["Foto's en bestanden uploaden"],
   copyResponse: ["Reactie kopi\xEBren"],
-  modeLabels: ["Direct", "Gemiddeld", "Hoog", "Extra hoog"],
+  modeLabels: ["Direct", "Gemiddeld", "Hoog", "Extra hoog", "Zeer Hoog"],
   modeOptions: {
     instant: ["Direct"],
     medium: ["Gemiddeld"],
     high: ["Hoog"],
-    extraHigh: ["Extra hoog"]
+    extraHigh: ["Extra hoog", "Zeer Hoog"]
   },
   modeOpenerExtra: ["Configureren..."],
   tools: {
@@ -1828,6 +2506,18 @@ var nl = {
 
 // src/dom/locale/sv.ts
 var sv = {
+  configurationAxes: {
+    model: ["Modell"],
+    effort: ["Resonemangsniv\xE5"],
+    speed: ["Hastighet"]
+  },
+  configurationOptions: {
+    light: ["L\xE5g"],
+    medium: ["Balanserad"],
+    high: ["H\xF6g"],
+    extraHigh: ["Extra h\xF6g"],
+    fast: ["Snabb"]
+  },
   composerTextbox: ["Fr\xE5ga vad som helst"],
   sendButton: ["Skicka prompt"],
   searchChatsButton: ["S\xF6k i chattar"],
@@ -1857,6 +2547,19 @@ var sv = {
 
 // src/dom/locale/lv.ts
 var lv = {
+  configurationAxes: {
+    model: ["Modelis"],
+    effort: ["P\u016Bles"],
+    speed: ["\u0100trums"]
+  },
+  configurationOptions: {
+    light: ["Viegls"],
+    medium: ["Vid\u0113js"],
+    high: ["Augsts"],
+    extraHigh: ["\u013Boti augsts"],
+    standard: ["Standarta"],
+    fast: ["\u0100trs"]
+  },
   composerTextbox: ["Jaut\u0101 jebko"],
   sendButton: ["S\u016Bt\u012Bt uzvedni"],
   searchChatsButton: ["Mekl\u0113t t\u0113rz\u0113\u0161anas"],
@@ -1886,6 +2589,19 @@ var lv = {
 
 // src/dom/locale/mk.ts
 var mk = {
+  configurationAxes: {
+    model: ["\u041C\u043E\u0434\u0435\u043B"],
+    effort: ["\u041D\u0430\u043F\u043E\u0440"],
+    speed: ["\u0411\u0440\u0437\u0438\u043D\u0430"]
+  },
+  configurationOptions: {
+    light: ["\u041B\u0435\u0441\u043D\u043E"],
+    medium: ["\u0421\u0440\u0435\u0434\u043D\u0430"],
+    high: ["\u0412\u0438\u0441\u043E\u043A\u0430"],
+    extraHigh: ["\u0415\u043A\u0441\u0442\u0440\u0430 \u0432\u0438\u0441\u043E\u043A\u0430"],
+    standard: ["\u0421\u0442\u0430\u043D\u0434\u0430\u0440\u0434\u0435\u043D"],
+    fast: ["\u0411\u0440\u0437\u043E"]
+  },
   composerTextbox: ["\u041F\u0440\u0430\u0448\u0430\u0458 \u0448\u0442\u043E \u0431\u0438\u043B\u043E"],
   sendButton: ["\u0418\u0441\u043F\u0440\u0430\u0442\u0438 \u043F\u0440\u043E\u043C\u043F\u0442"],
   searchChatsButton: ["\u041F\u0440\u0435\u0431\u0430\u0440\u0430\u0458 \u0440\u0430\u0437\u0433\u043E\u0432\u043E\u0440\u0438"],
@@ -1895,11 +2611,11 @@ var mk = {
   addFilesOpenerCandidates: ["\u0414\u043E\u0434\u0430\u0458 \u0434\u0430\u0442\u043E\u0442\u0435\u043A\u0438 \u0438 \u043F\u043E\u0432\u0435\u045C\u0435"],
   addPhotosFilesMenuItem: ["\u041F\u043E\u0441\u0442\u0430\u0432\u0438 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u0438 \u0434\u0430\u0442\u043E\u0442\u0435\u043A\u0438"],
   copyResponse: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0458 \u043E\u0434\u0433\u043E\u0432\u043E\u0440"],
-  modeLabels: ["\u0421\u0440\u0435\u0434\u043D\u043E", "\u0412\u0438\u0441\u043E\u043A\u043E", "\u041C\u043D\u043E\u0433\u0443 \u0432\u0438\u0441\u043E\u043A\u043E"],
+  modeLabels: ["\u0421\u0440\u0435\u0434\u043D\u043E", "\u0412\u0438\u0441\u043E\u043A\u043E", "\u041C\u043D\u043E\u0433\u0443 \u0432\u0438\u0441\u043E\u043A\u043E", "\u0421\u0440\u0435\u0434\u043D\u0430", "\u0412\u0438\u0441\u043E\u043A\u0430", "\u041C\u043D\u043E\u0433\u0443 \u0432\u0438\u0441\u043E\u043A\u0430"],
   modeOptions: {
-    medium: ["\u0421\u0440\u0435\u0434\u043D\u043E"],
-    high: ["\u0412\u0438\u0441\u043E\u043A\u043E"],
-    extraHigh: ["\u041C\u043D\u043E\u0433\u0443 \u0432\u0438\u0441\u043E\u043A\u043E"]
+    medium: ["\u0421\u0440\u0435\u0434\u043D\u043E", "\u0421\u0440\u0435\u0434\u043D\u0430"],
+    high: ["\u0412\u0438\u0441\u043E\u043A\u043E", "\u0412\u0438\u0441\u043E\u043A\u0430"],
+    extraHigh: ["\u041C\u043D\u043E\u0433\u0443 \u0432\u0438\u0441\u043E\u043A\u043E", "\u041C\u043D\u043E\u0433\u0443 \u0432\u0438\u0441\u043E\u043A\u0430"]
   },
   modeOpenerExtra: ["\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0438\u0440\u0430\u0458..."],
   tools: {
@@ -1914,6 +2630,17 @@ var mk = {
 
 // src/dom/locale/sq.ts
 var sq = {
+  configurationAxes: {
+    effort: ["P\xEBrpjekje"],
+    speed: ["Shpejt\xEBsi"]
+  },
+  configurationOptions: {
+    light: ["I leht\xEB"],
+    medium: ["Mesatare"],
+    high: ["E lart\xEB"],
+    extraHigh: ["Tep\xEBr e lart\xEB"],
+    fast: ["I shpejt\xEB"]
+  },
   composerTextbox: ["Pyet p\xEBr \xE7do gj\xEB"],
   sendButton: ["D\xEBrgo k\xEBrkes\xEBn"],
   searchChatsButton: ["K\xEBrko bisedat"],
@@ -1923,12 +2650,12 @@ var sq = {
   addFilesOpenerCandidates: ["Shto skedar\xEB e m\xEB shum\xEB"],
   addPhotosFilesMenuItem: ["Ngarko foto dhe skedar\xEB"],
   copyResponse: ["Kopjo p\xEBrgjigjen"],
-  modeLabels: ["I menj\xEBhersh\xEBm", "Mesatar", "Lart\xEB", "Shum\xEB i lart\xEB"],
+  modeLabels: ["I menj\xEBhersh\xEBm", "Mesatar", "Lart\xEB", "Shum\xEB i lart\xEB", "Mesatare", "E lart\xEB", "Tep\xEBr e lart\xEB"],
   modeOptions: {
     instant: ["I menj\xEBhersh\xEBm"],
-    medium: ["Mesatar"],
-    high: ["Lart\xEB"],
-    extraHigh: ["Shum\xEB i lart\xEB"]
+    medium: ["Mesatar", "Mesatare"],
+    high: ["Lart\xEB", "E lart\xEB"],
+    extraHigh: ["Shum\xEB i lart\xEB", "Tep\xEBr e lart\xEB"]
   },
   modeOpenerExtra: ["Konfiguro..."],
   tools: {
@@ -1943,6 +2670,18 @@ var sq = {
 
 // src/dom/locale/sl.ts
 var sl = {
+  configurationAxes: {
+    effort: ["Napor"],
+    speed: ["Hitrost"]
+  },
+  configurationOptions: {
+    light: ["Osnovno"],
+    medium: ["Srednje"],
+    high: ["Visoko"],
+    extraHigh: ["Zelo visoko"],
+    standard: ["Standardno"],
+    fast: ["Hitro"]
+  },
   composerTextbox: ["Vpra\u0161ajte kar koli"],
   sendButton: ["Po\u0161lji poziv"],
   searchChatsButton: ["I\u0161\u010Di po klepetih"],
@@ -1952,11 +2691,11 @@ var sl = {
   addFilesOpenerCandidates: ["Dodaj datoteke in \u0161e ve\u010D"],
   addPhotosFilesMenuItem: ["Nalo\u017Ei fotografije in datoteke"],
   copyResponse: ["Kopiraj odgovor"],
-  modeLabels: ["Takoj", "Srednja", "Visoka", "Zelo visoko"],
+  modeLabels: ["Takoj", "Srednja", "Visoka", "Zelo visoko", "Srednje", "Visoko"],
   modeOptions: {
     instant: ["Takoj"],
-    medium: ["Srednja"],
-    high: ["Visoka"],
+    medium: ["Srednja", "Srednje"],
+    high: ["Visoka", "Visoko"],
     extraHigh: ["Zelo visoko"]
   },
   modeOpenerExtra: ["Konfiguracija \u2026"],
@@ -1972,6 +2711,19 @@ var sl = {
 
 // src/dom/locale/sr.ts
 var sr = {
+  configurationAxes: {
+    model: ["\u041C\u043E\u0434\u0435\u043B"],
+    effort: ["\u041D\u0438\u0432\u043E"],
+    speed: ["\u0411\u0440\u0437\u0438\u043D\u0430"]
+  },
+  configurationOptions: {
+    light: ["\u041B\u0430\u0433\u0430\u043D\u043E"],
+    medium: ["\u0421\u0440\u0435\u0434\u045A\u0435"],
+    high: ["\u0412\u0438\u0441\u043E\u043A\u043E"],
+    extraHigh: ["\u0412\u0435\u043E\u043C\u0430 \u0432\u0438\u0441\u043E\u043A\u043E"],
+    standard: ["\u0421\u0442\u0430\u043D\u0434\u0430\u0440\u0434\u043D\u043E"],
+    fast: ["\u0411\u0440\u0437\u043E"]
+  },
   composerTextbox: ["\u041F\u0438\u0442\u0430\u0458 \u0431\u0438\u043B\u043E \u0448\u0442\u0430"],
   sendButton: ["\u041F\u043E\u0448\u0430\u0459\u0438 \u043F\u0440\u043E\u043C\u043F\u0442"],
   searchChatsButton: ["\u041F\u0440\u0435\u0442\u0440\u0430\u0436\u0438 \u045B\u0430\u0441\u043A\u0430\u045A\u0430"],
@@ -1981,8 +2733,10 @@ var sr = {
   addFilesOpenerCandidates: ["\u0414\u043E\u0434\u0430\u0458 \u0434\u0430\u0442\u043E\u0442\u0435\u043A\u0435 \u0438 \u0434\u0440\u0443\u0433\u043E"],
   addPhotosFilesMenuItem: ["\u041E\u0442\u043F\u0440\u0435\u043C\u0438 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0458\u0435 \u0438 \u0434\u0430\u0442\u043E\u0442\u0435\u043A\u0435"],
   copyResponse: ["\u041A\u043E\u043F\u0438\u0440\u0430\u0458 \u043E\u0434\u0433\u043E\u0432\u043E\u0440"],
-  modeLabels: ["\u0412\u0435\u043E\u043C\u0430 \u0432\u0438\u0441\u043E\u043A\u043E"],
+  modeLabels: ["\u0412\u0435\u043E\u043C\u0430 \u0432\u0438\u0441\u043E\u043A\u043E", "\u0421\u0440\u0435\u0434\u045A\u0435", "\u0412\u0438\u0441\u043E\u043A\u043E"],
   modeOptions: {
+    medium: ["\u0421\u0440\u0435\u0434\u045A\u0435"],
+    high: ["\u0412\u0438\u0441\u043E\u043A\u043E"],
     extraHigh: ["\u0412\u0435\u043E\u043C\u0430 \u0432\u0438\u0441\u043E\u043A\u043E"]
   },
   modeOpenerExtra: ["\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0438\u0448\u0438..."],
@@ -1998,6 +2752,19 @@ var sr = {
 
 // src/dom/locale/mn.ts
 var mn = {
+  configurationAxes: {
+    model: ["\u0417\u0430\u0433\u0432\u0430\u0440"],
+    effort: ["\u0425\u04AF\u0447\u0438\u043D \u0447\u0430\u0440\u043C\u0430\u0439\u043B\u0442"],
+    speed: ["\u0425\u0443\u0440\u0434"]
+  },
+  configurationOptions: {
+    light: ["\u0425\u04E9\u043D\u0433\u04E9\u043D"],
+    medium: ["\u0414\u0443\u043D\u0434"],
+    high: ["\u0418\u0445"],
+    extraHigh: ["\u041C\u0430\u0448 \u0438\u0445"],
+    standard: ["\u0421\u0442\u0430\u043D\u0434\u0430\u0440\u0442"],
+    fast: ["\u0425\u0443\u0440\u0434\u0430\u043D"]
+  },
   composerTextbox: ["\u0414\u0443\u0440\u044B\u043D \u0437\u04AF\u0439\u043B \u0430\u0441\u0443\u0443\u0433\u0430\u0430\u0440\u0430\u0439..."],
   sendButton: ["\u0421\u0430\u043D\u0443\u0443\u043B\u0433\u0430 \u0438\u043B\u0433\u044D\u044D\u0445"],
   searchChatsButton: ["\u0427\u0430\u0442 \u0445\u0430\u0439\u0445"],
@@ -2028,6 +2795,19 @@ var mn = {
 
 // src/dom/locale/my.ts
 var my = {
+  configurationAxes: {
+    model: ["\u1019\u1031\u102C\u103A\u1012\u101A\u103A"],
+    effort: ["\u1021\u102C\u1038\u1011\u102F\u1010\u103A\u1019\u103E\u102F"],
+    speed: ["\u1021\u1019\u103C\u1014\u103A\u1014\u103E\u102F\u1014\u103A\u1038"]
+  },
+  configurationOptions: {
+    light: ["\u1015\u1031\u102B\u1037\u1015\u102B\u1038"],
+    medium: ["\u1021\u101C\u101A\u103A\u1021\u101C\u1010\u103A"],
+    high: ["\u1021\u1019\u103C\u1004\u1037\u103A"],
+    extraHigh: ["\u1021\u101C\u103D\u1014\u103A\u1019\u103C\u1004\u1037\u103A"],
+    standard: ["\u1015\u102F\u1036\u1019\u103E\u1014\u103A"],
+    fast: ["\u1021\u1019\u103C\u1014\u103A"]
+  },
   composerTextbox: ["\u1010\u1005\u103A\u1001\u102F\u1001\u102F \u1019\u1031\u1038\u1015\u102B\u2026"],
   sendButton: ["\u1010\u102F\u1036\u1037\u1015\u103C\u1014\u103A\u100A\u103D\u103E\u1014\u103A\u1000\u103C\u102C\u1038\u1001\u103B\u1000\u103A \u1015\u102D\u102F\u1037\u1019\u100A\u103A"],
   searchChatsButton: ["\u1001\u103B\u1010\u103A\u1019\u103B\u102C\u1038 \u101B\u103E\u102C\u101B\u1014\u103A"],
@@ -2037,11 +2817,11 @@ var my = {
   addFilesOpenerCandidates: ["\u1016\u102D\u102F\u1004\u103A\u1019\u103B\u102C\u1038\u1014\u103E\u1004\u1037\u103A \u1021\u1001\u103C\u102C\u1038\u1021\u101B\u102C\u1019\u103B\u102C\u1038\u1000\u102D\u102F \u1011\u100A\u1037\u103A\u101B\u1014\u103A"],
   addPhotosFilesMenuItem: ["\u1013\u102C\u1010\u103A\u1015\u102F\u1036\u1019\u103B\u102C\u1038\u1014\u103E\u1004\u1037\u103A \u1016\u102D\u102F\u1004\u103A\u1019\u103B\u102C\u1038\u1000\u102D\u102F \u1010\u1004\u103A\u1015\u102B"],
   copyResponse: ["\u1010\u102F\u1036\u1037\u1015\u103C\u1014\u103A\u1019\u103E\u102F \u1000\u1030\u1038\u101A\u1030\u101B\u1014\u103A"],
-  modeLabels: ["\u1001\u103B\u1000\u103A\u1001\u103B\u1004\u103A\u1038", "\u1021\u101C\u101A\u103A\u1021\u101C\u1010\u103A", "\u1019\u103C\u1004\u1037\u103A", "\u1021\u101C\u103D\u1014\u103A\u1019\u103C\u1004\u1037\u103A"],
+  modeLabels: ["\u1001\u103B\u1000\u103A\u1001\u103B\u1004\u103A\u1038", "\u1021\u101C\u101A\u103A\u1021\u101C\u1010\u103A", "\u1019\u103C\u1004\u1037\u103A", "\u1021\u101C\u103D\u1014\u103A\u1019\u103C\u1004\u1037\u103A", "\u1021\u1019\u103C\u1004\u1037\u103A"],
   modeOptions: {
     instant: ["\u1001\u103B\u1000\u103A\u1001\u103B\u1004\u103A\u1038"],
     medium: ["\u1021\u101C\u101A\u103A\u1021\u101C\u1010\u103A"],
-    high: ["\u1019\u103C\u1004\u1037\u103A"],
+    high: ["\u1019\u103C\u1004\u1037\u103A", "\u1021\u1019\u103C\u1004\u1037\u103A"],
     extraHigh: ["\u1021\u101C\u103D\u1014\u103A\u1019\u103C\u1004\u1037\u103A"]
   },
   modeOpenerExtra: ["\u1015\u103C\u102F\u1015\u103C\u1004\u103A\u1019\u103D\u1019\u103A\u1038\u1019\u1036\u101B\u1014\u103A"],
@@ -2057,6 +2837,19 @@ var my = {
 
 // src/dom/locale/ta.ts
 var ta = {
+  configurationAxes: {
+    model: ["\u0BAE\u0BBE\u0BA4\u0BBF\u0BB0\u0BBF"],
+    effort: ["\u0BAE\u0BC1\u0BAF\u0BB1\u0BCD\u0B9A\u0BBF"],
+    speed: ["\u0BB5\u0BC7\u0B95\u0BAE\u0BCD"]
+  },
+  configurationOptions: {
+    light: ["\u0B95\u0BC1\u0BB1\u0BC8\u0BB5\u0BC1"],
+    medium: ["\u0BAE\u0BBF\u0BA4\u0BAE\u0BBE\u0BA9"],
+    high: ["\u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9"],
+    extraHigh: ["\u0BAE\u0BBF\u0B95 \u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9"],
+    standard: ["\u0BB5\u0BB4\u0B95\u0BCD\u0B95\u0BAE\u0BBE\u0BA9"],
+    fast: ["\u0BB5\u0BBF\u0BB0\u0BC8\u0BB5\u0BC1"]
+  },
   composerTextbox: ["\u0B8E\u0BA4\u0BC8\u0BAF\u0BC1\u0BAE\u0BCD \u0B95\u0BC7\u0BB3\u0BC1\u0B99\u0BCD\u0B95\u0BB3\u0BCD"],
   sendButton: ["\u0BA4\u0BC2\u0BA3\u0BCD\u0B9F\u0BBF\u0BAF\u0BC8 \u0B85\u0BA9\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1"],
   searchChatsButton: ["\u0B85\u0BB0\u0B9F\u0BCD\u0B9F\u0BC8\u0B95\u0BB3\u0BC8\u0BA4\u0BCD \u0BA4\u0BC7\u0B9F\u0BC1"],
@@ -2066,12 +2859,12 @@ var ta = {
   addFilesOpenerCandidates: ["\u0B95\u0BCB\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BC8\u0BAF\u0BC1\u0BAE\u0BCD \u0BAE\u0BC7\u0BB2\u0BC1\u0BAE\u0BCD \u0BAA\u0BB2\u0BB5\u0BB1\u0BCD\u0BB1\u0BC8\u0BAF\u0BC1\u0BAE\u0BCD \u0B9A\u0BC7\u0BB0\u0BCD"],
   addPhotosFilesMenuItem: ["\u0BAA\u0B9F\u0B99\u0BCD\u0B95\u0BB3\u0BCD \u0BAE\u0BB1\u0BCD\u0BB1\u0BC1\u0BAE\u0BCD \u0B83\u0BAA\u0BC8\u0BB2\u0BCD\u0B95\u0BB3\u0BC8\u0BAA\u0BCD \u0BAA\u0BA4\u0BBF\u0BB5\u0BC7\u0BB1\u0BCD\u0BB1\u0BC1"],
   copyResponse: ["\u0BAA\u0BA4\u0BBF\u0BB2\u0BC8 \u0BA8\u0B95\u0BB2\u0BC6\u0B9F\u0BC1\u0B95\u0BCD\u0B95\u0BB2\u0BBE\u0BAE\u0BCD"],
-  modeLabels: ["\u0B89\u0B9F\u0BA9\u0B9F\u0BBF", "\u0BA8\u0B9F\u0BC1\u0BA4\u0BCD\u0BA4\u0BB0", "\u0B89\u0BAF\u0BB0\u0BCD", "\u0BAE\u0BBF\u0B95 \u0B89\u0BAF\u0BB0\u0BCD\u0BB5\u0BC1", "\u0BAA\u0BCD\u0BB0\u0BCB"],
+  modeLabels: ["\u0B89\u0B9F\u0BA9\u0B9F\u0BBF", "\u0BA8\u0B9F\u0BC1\u0BA4\u0BCD\u0BA4\u0BB0", "\u0B89\u0BAF\u0BB0\u0BCD", "\u0BAE\u0BBF\u0B95 \u0B89\u0BAF\u0BB0\u0BCD\u0BB5\u0BC1", "\u0BAA\u0BCD\u0BB0\u0BCB", "\u0BAE\u0BBF\u0BA4\u0BAE\u0BBE\u0BA9", "\u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9", "\u0BAE\u0BBF\u0B95 \u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9"],
   modeOptions: {
     instant: ["\u0B89\u0B9F\u0BA9\u0B9F\u0BBF"],
-    medium: ["\u0BA8\u0B9F\u0BC1\u0BA4\u0BCD\u0BA4\u0BB0"],
-    high: ["\u0B89\u0BAF\u0BB0\u0BCD"],
-    extraHigh: ["\u0BAE\u0BBF\u0B95 \u0B89\u0BAF\u0BB0\u0BCD\u0BB5\u0BC1"],
+    medium: ["\u0BA8\u0B9F\u0BC1\u0BA4\u0BCD\u0BA4\u0BB0", "\u0BAE\u0BBF\u0BA4\u0BAE\u0BBE\u0BA9"],
+    high: ["\u0B89\u0BAF\u0BB0\u0BCD", "\u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9"],
+    extraHigh: ["\u0BAE\u0BBF\u0B95 \u0B89\u0BAF\u0BB0\u0BCD\u0BB5\u0BC1", "\u0BAE\u0BBF\u0B95 \u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9"],
     pro: ["\u0BAA\u0BCD\u0BB0\u0BCB"]
   },
   modeOpenerExtra: ["\u0B95\u0B9F\u0BCD\u0B9F\u0BAE\u0BC8\u0B95\u0BCD\u0B95\u0BB5\u0BC1\u0BAE\u0BCD..."],
@@ -8486,7 +9279,7 @@ async function visibleModeButtonLabelList(page) {
 
 // src/commands/experience.ts
 var CHATGPT_HOME2 = "https://chatgpt.com/";
-var EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS = 5e3;
+var EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS = 15e3;
 var EXPERIENCE_POLL_MS = 250;
 async function detectExperience(env, args = {}) {
   void args;

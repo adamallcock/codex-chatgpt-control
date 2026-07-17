@@ -6,9 +6,21 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const fa = {
+  configurationAxes: {
+    model: ["مدل"],
+    effort: ["سطح تلاش"],
+    speed: ["سرعت"],
+  },
+  configurationOptions: {
+    light: ["سبک"],
+    medium: ["متوسط"],
+    high: ["بالا"],
+    extraHigh: ["بسیار بالا"],
+    fast: ["سریع"],
+  },
   composerTextbox: ["گفتگو با ChatGPT"],
   sendButton: ["ارسال دستور"],
   searchChatsButton: ["جست‌وجوی چت‌ها"],
@@ -18,12 +30,12 @@ export const fa = {
   addFilesOpenerCandidates: ["افزودن فایل‌ها و موارد بیشتر"],
   addPhotosFilesMenuItem: ["افزودن تصاویر و فایل‌ها"],
   copyResponse: ["کپی کردن پاسخ"],
-  modeLabels: ["فوری", "متوسط", "بالا", "بسیار زیاد", "حرفه‌ای"],
+  modeLabels: ["فوری", "متوسط", "بالا", "بسیار زیاد", "حرفه‌ای", "بسیار بالا"],
   modeOptions: {
     instant: ["فوری"],
     medium: ["متوسط"],
     high: ["بالا"],
-    extraHigh: ["بسیار زیاد"],
+    extraHigh: ["بسیار زیاد", "بسیار بالا"],
     pro: ["حرفه‌ای"],
   },
   modeOpenerExtra: ["پیکربندی..."],

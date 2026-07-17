@@ -6,9 +6,21 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const ca = {
+  configurationAxes: {
+    effort: ["Esforç"],
+    speed: ["Velocitat"],
+  },
+  configurationOptions: {
+    light: ["Lleuger"],
+    medium: ["Mitjana"],
+    high: ["Alta"],
+    extraHigh: ["Molt alta"],
+    standard: ["Estàndard"],
+    fast: ["Ràpid"],
+  },
   composerTextbox: ["Xateja amb el ChatGPT"],
   sendButton: ["Envia la indicació"],
   searchChatsButton: ["Cerca xats"],
@@ -18,12 +30,12 @@ export const ca = {
   addFilesOpenerCandidates: ["Afegeix fitxers i més"],
   addPhotosFilesMenuItem: ["Afegeix fotos i fitxers"],
   copyResponse: ["Copia la resposta"],
-  modeLabels: ["Instantani", "Mitjà", "Alt", "Molt alt"],
+  modeLabels: ["Instantani", "Mitjà", "Alt", "Molt alt", "Instantània", "Mitjana", "Alta", "Molt alta"],
   modeOptions: {
-    instant: ["Instantani"],
-    medium: ["Mitjà"],
-    high: ["Alt"],
-    extraHigh: ["Molt alt"],
+    instant: ["Instantani", "Instantània"],
+    medium: ["Mitjà", "Mitjana"],
+    high: ["Alt", "Alta"],
+    extraHigh: ["Molt alt", "Molt alta"],
   },
   modeOpenerExtra: ["Configura…"],
   tools: {
