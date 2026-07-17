@@ -6659,6 +6659,8 @@ function findUniqueMenuItem(items, wanted) {
 
 // src/commands/experience.ts
 var CHATGPT_HOME4 = "https://chatgpt.com/";
+var EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS = 5e3;
+var EXPERIENCE_POLL_MS = 250;
 async function detectExperience(env, args = {}) {
   void args;
   const boot = await ensurePage(env);
@@ -6696,18 +6698,40 @@ async function openExperience(env, args) {
       }));
     }
     const labels = localeLabels.experienceOptions[args.experience];
+    const timeoutMs = args.timeoutMs ?? 3e4;
+    const discoveryAttempts = pollAttempts(
+      Math.min(timeoutMs, EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS),
+      EXPERIENCE_POLL_MS
+    );
+    let observed = before;
     let controlClicked = await clickUniqueExperienceControl(page, labels);
     if (!controlClicked && await navigateConversationToSurfaceHome(page, args.timeoutMs)) {
-      const atHome = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
-      if (atHome.experience === args.experience) {
+      observed = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+      if (observed.experience === args.experience) {
         return resultOk({
           experience: args.experience,
           previousExperience: before.experience,
           changed: true,
-          selectorProfile: atHome.selectorProfile
+          selectorProfile: observed.selectorProfile
         }, await contextFromPage(page, {
-          experience: atHome.experience,
-          selectorProfile: atHome.selectorProfile
+          experience: observed.experience,
+          selectorProfile: observed.selectorProfile
+        }));
+      }
+      controlClicked = await clickUniqueExperienceControl(page, labels);
+    }
+    for (let attempt = 1; !controlClicked && attempt < discoveryAttempts; attempt += 1) {
+      await page.waitForTimeout?.(EXPERIENCE_POLL_MS);
+      observed = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+      if (observed.experience === args.experience) {
+        return resultOk({
+          experience: args.experience,
+          previousExperience: before.experience,
+          changed: true,
+          selectorProfile: observed.selectorProfile
+        }, await contextFromPage(page, {
+          experience: observed.experience,
+          selectorProfile: observed.selectorProfile
         }));
       }
       controlClicked = await clickUniqueExperienceControl(page, labels);
@@ -6716,14 +6740,12 @@ async function openExperience(env, args) {
       return experienceSelectorDrift(
         page,
         `No unique visible ChatGPT ${args.experience === "work" ? "Work" : "Chat"} surface control was found.`,
-        before
+        observed
       );
     }
-    const timeoutMs = args.timeoutMs ?? 3e4;
-    const started = Date.now();
     let after = before;
-    while (Date.now() - started < timeoutMs) {
-      await page.waitForTimeout?.(250);
+    for (let attempt = 0; attempt < pollAttempts(timeoutMs, EXPERIENCE_POLL_MS); attempt += 1) {
+      await page.waitForTimeout?.(EXPERIENCE_POLL_MS);
       after = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
       if (after.experience === args.experience) {
         return resultOk({
@@ -6757,6 +6779,9 @@ async function openExperience(env, args) {
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
+}
+function pollAttempts(timeoutMs, pollMs) {
+  return Math.max(1, Math.ceil(Math.max(0, timeoutMs) / pollMs));
 }
 async function navigateConversationToSurfaceHome(page, timeoutMs) {
   if (page.goto === void 0 || page.url === void 0) return false;
@@ -7626,6 +7651,8 @@ async function visibleModeButtonLabelList(page) {
 
 // src/commands/configuration.ts
 var WORK_AXES = ["model", "effort", "speed"];
+var CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS = 5e3;
+var CONFIGURATION_CONTROL_POLL_MS = 250;
 var CONFIGURATION_AXIS_ORDER = [
   "model",
   "intelligence",
@@ -7666,7 +7693,11 @@ async function inspectConfiguration(env, args = {}) {
       };
     }
     const experience = detected.data.experience;
-    const rootOpened = experience !== "unknown" && await openConfigurationRoot(page, experience);
+    const rootOpened = experience !== "unknown" && await waitForConfigurationRoot(
+      page,
+      experience,
+      args.timeoutMs
+    );
     if (rootOpened) {
       await page.waitForTimeout?.(150);
     }
@@ -7703,6 +7734,20 @@ async function inspectConfiguration(env, args = {}) {
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
+}
+async function waitForConfigurationRoot(page, experience, timeoutMs) {
+  const discoveryMs = Math.min(
+    timeoutMs ?? CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS,
+    CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS
+  );
+  const attempts = Math.max(1, Math.ceil(Math.max(0, discoveryMs) / CONFIGURATION_CONTROL_POLL_MS));
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (await openConfigurationRoot(page, experience)) return true;
+    if (attempt + 1 < attempts) {
+      await page.waitForTimeout?.(CONFIGURATION_CONTROL_POLL_MS);
+    }
+  }
+  return false;
 }
 async function applyConfiguration(env, args) {
   const boot = await ensurePage(env);

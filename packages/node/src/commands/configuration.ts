@@ -24,6 +24,8 @@ import { setMode } from "./modes.js";
 import { ensurePage } from "./session.js";
 
 const WORK_AXES: ConfigurationAxis[] = ["model", "effort", "speed"];
+const CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS = 5_000;
+const CONFIGURATION_CONTROL_POLL_MS = 250;
 const CONFIGURATION_AXIS_ORDER: ConfigurationAxis[] = [
   "model",
   "intelligence",
@@ -76,7 +78,11 @@ export async function inspectConfiguration(
     }
 
     const experience = detected.data.experience;
-    const rootOpened = experience !== "unknown" && await openConfigurationRoot(page, experience);
+    const rootOpened = experience !== "unknown" && await waitForConfigurationRoot(
+      page,
+      experience,
+      args.timeoutMs
+    );
     if (rootOpened) {
       await page.waitForTimeout?.(150);
     }
@@ -117,6 +123,25 @@ export async function inspectConfiguration(
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
+}
+
+async function waitForConfigurationRoot(
+  page: PageLike,
+  experience: ChatGPTExperience,
+  timeoutMs: number | undefined
+): Promise<boolean> {
+  const discoveryMs = Math.min(
+    timeoutMs ?? CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS,
+    CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS
+  );
+  const attempts = Math.max(1, Math.ceil(Math.max(0, discoveryMs) / CONFIGURATION_CONTROL_POLL_MS));
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (await openConfigurationRoot(page, experience)) return true;
+    if (attempt + 1 < attempts) {
+      await page.waitForTimeout?.(CONFIGURATION_CONTROL_POLL_MS);
+    }
+  }
+  return false;
 }
 
 export async function applyConfiguration(

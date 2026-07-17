@@ -27,6 +27,8 @@ type SurfaceSnapshot = {
 };
 
 const CHATGPT_HOME = "https://chatgpt.com/";
+const EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS = 5_000;
+const EXPERIENCE_POLL_MS = 250;
 
 export async function detectExperience(
   env: RuntimeEnv,
@@ -77,18 +79,44 @@ export async function openExperience(
     }
 
     const labels = localeLabels.experienceOptions[args.experience];
+    const timeoutMs = args.timeoutMs ?? 30000;
+    const discoveryAttempts = pollAttempts(
+      Math.min(timeoutMs, EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS),
+      EXPERIENCE_POLL_MS
+    );
+    let observed = before;
     let controlClicked = await clickUniqueExperienceControl(page, labels);
     if (!controlClicked && await navigateConversationToSurfaceHome(page, args.timeoutMs)) {
-      const atHome = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
-      if (atHome.experience === args.experience) {
+      observed = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+      if (observed.experience === args.experience) {
         return resultOk({
           experience: args.experience,
           previousExperience: before.experience,
           changed: true,
-          selectorProfile: atHome.selectorProfile
+          selectorProfile: observed.selectorProfile
         }, await contextFromPage(page, {
-          experience: atHome.experience,
-          selectorProfile: atHome.selectorProfile
+          experience: observed.experience,
+          selectorProfile: observed.selectorProfile
+        }));
+      }
+      controlClicked = await clickUniqueExperienceControl(page, labels);
+    }
+
+    // session.bootstrap can verify the composer before the Chat/Work radio has
+    // hydrated. Give the scoped surface control a short bounded discovery
+    // window instead of reporting selector drift from that transient state.
+    for (let attempt = 1; !controlClicked && attempt < discoveryAttempts; attempt += 1) {
+      await page.waitForTimeout?.(EXPERIENCE_POLL_MS);
+      observed = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+      if (observed.experience === args.experience) {
+        return resultOk({
+          experience: args.experience,
+          previousExperience: before.experience,
+          changed: true,
+          selectorProfile: observed.selectorProfile
+        }, await contextFromPage(page, {
+          experience: observed.experience,
+          selectorProfile: observed.selectorProfile
         }));
       }
       controlClicked = await clickUniqueExperienceControl(page, labels);
@@ -97,15 +125,13 @@ export async function openExperience(
       return experienceSelectorDrift(
         page,
         `No unique visible ChatGPT ${args.experience === "work" ? "Work" : "Chat"} surface control was found.`,
-        before
+        observed
       );
     }
 
-    const timeoutMs = args.timeoutMs ?? 30000;
-    const started = Date.now();
     let after = before;
-    while (Date.now() - started < timeoutMs) {
-      await page.waitForTimeout?.(250);
+    for (let attempt = 0; attempt < pollAttempts(timeoutMs, EXPERIENCE_POLL_MS); attempt += 1) {
+      await page.waitForTimeout?.(EXPERIENCE_POLL_MS);
       after = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
       if (after.experience === args.experience) {
         return resultOk({
@@ -140,6 +166,10 @@ export async function openExperience(
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
+}
+
+function pollAttempts(timeoutMs: number, pollMs: number): number {
+  return Math.max(1, Math.ceil(Math.max(0, timeoutMs) / pollMs));
 }
 
 async function navigateConversationToSurfaceHome(

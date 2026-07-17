@@ -131,6 +131,16 @@ describe("sanitized Chat and Work surface profiles", () => {
     expect(page.requestedRoles()).toEqual(["radio", "button"]);
   });
 
+  it("waits for the Chat and Work surface radio to hydrate after bootstrap", async () => {
+    const page = surfaceSwitchPage("radio", 1);
+
+    const result = await openExperience({ page }, { experience: "work", timeoutMs: 1000 });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({ experience: "work", changed: true });
+    expect(page.switchClickCount()).toBe(1);
+  });
+
   it("returns to the surface selector before switching an active Work task to Chat", async () => {
     const page = activeWorkTaskSwitchPage();
 
@@ -248,6 +258,25 @@ describe("sanitized Chat and Work surface profiles", () => {
     expect(page.configurationOpenCount()).toBe(1);
   });
 
+  it("waits for the configuration opener to hydrate after the composer", async () => {
+    const page = mainScopedWorkConfigurationPage(1);
+
+    const result = await inspectConfiguration({ page }, {
+      experience: "work",
+      includeOptions: false,
+      timeoutMs: 1000
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.verified).toBe(true);
+    expect(result.data?.active).toEqual({
+      model: "GPT-5.5",
+      effort: "Light",
+      speed: "Standard"
+    });
+    expect(page.configurationOpenCount()).toBe(1);
+  });
+
   it("returns selector drift instead of guessing when no unique surface control exists", async () => {
     const page = surfaceSwitchPage(undefined);
 
@@ -307,16 +336,23 @@ type SurfaceSwitchPage = PageLike & {
   requestedRoles: () => string[];
 };
 
-function surfaceSwitchPage(controlRole: "radio" | "button" | undefined): SurfaceSwitchPage {
+function surfaceSwitchPage(
+  controlRole: "radio" | "button" | undefined,
+  delayedControlMisses = 0
+): SurfaceSwitchPage {
   let experience: "chat" | "work" = "chat";
   let switchClicks = 0;
+  let controlChecks = 0;
   const requestedRoles: string[] = [];
   const missing: LocatorLike = {
     count: async () => 0,
     click: async () => {}
   };
   const workControl: LocatorLike = {
-    count: async () => 1,
+    count: async () => {
+      controlChecks += 1;
+      return controlChecks <= delayedControlMisses ? 0 : 1;
+    },
     click: async () => {
       switchClicks += 1;
       experience = "work";
@@ -422,9 +458,10 @@ type MainScopedWorkConfigurationPage = PageLike & {
   configurationOpenCount: () => number;
 };
 
-function mainScopedWorkConfigurationPage(): MainScopedWorkConfigurationPage {
+function mainScopedWorkConfigurationPage(delayedPanelReads = 0): MainScopedWorkConfigurationPage {
   let configurationOpen = false;
   let configurationOpenCount = 0;
+  let panelReads = 0;
   const opener: LocatorLike = {
     count: async () => 1,
     click: async () => {
@@ -457,8 +494,15 @@ function mainScopedWorkConfigurationPage(): MainScopedWorkConfigurationPage {
         } as T;
       }
       if (source.includes("normalizedAxes") && source.includes("axisRows")) {
+        panelReads += 1;
         if (!source.includes("document.querySelector(\"main\")")) {
           throw new Error("Configuration opener discovery did not include main.");
+        }
+        if (!configurationOpen && panelReads <= delayedPanelReads) {
+          return {
+            axisRows: [],
+            advancedVisible: false
+          } as T;
         }
         return (configurationOpen
           ? {
@@ -485,6 +529,9 @@ function mainScopedWorkConfigurationPage(): MainScopedWorkConfigurationPage {
             ]
           : [];
         return { items, labels: [], split: false } as T;
+      }
+      if (source.includes("matches.length !== 1") && source.includes("model-switcher")) {
+        return false as T;
       }
       throw new Error(`Unexpected evaluate call: ${source}`);
     },
