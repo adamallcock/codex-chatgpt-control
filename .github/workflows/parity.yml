@@ -2,6 +2,8 @@ name: codex-chatgpt-control-parity
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 jobs:
