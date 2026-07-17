@@ -298,6 +298,7 @@ function primitiveArgs(name: string): Record<string, string> {
   if (name === "artifacts.listLatest") return { kind: "artifact kind; currently image", max: "maximum artifacts to return" };
   if (name === "artifacts.wait") return { kind: "artifact kind; currently image", afterArtifactCount: "baseline artifact count", requireDownload: "wait until a download affordance is visible" };
   if (name === "artifacts.downloadLatest") return { destDir: "download destination directory", prefer: "download_control or visible_image_source" };
+  if (name === "files.downloadLatest") return { destDir: "download destination directory", filenamePattern: "optional case-insensitive regular expression for the expected filename", from: "latest_assistant, visible_conversation, or assistantIndex" };
   if (name === "response.copy") return { prefer: "clipboard or dom", format: "markdown, normalized_text, visible_text, html, blocks, or all" };
   if (name.startsWith("threads.search")) return { query: "history search query" };
   if (name === "files.preflight") return {
@@ -367,6 +368,9 @@ function primitiveExamples(name: string): string[] {
       `await chatgpt.files.attach({ paths: ["/absolute/host/path.jpg"] });`,
       String.raw`// On Windows backend hosts, use paths such as C:\Users\you\Pictures\image.jpg.`
     ];
+  }
+  if (name === "files.downloadLatest") {
+    return [`await chatgpt.files.downloadLatest({ destDir: "/absolute/host/output", filenamePattern: "^report\\.csv$" });`];
   }
   if (name === "projects.sources.list") {
     return [`await chatgpt.projects.sources.list({ projectUrl: "https://chatgpt.com/g/g-p-example/project" });`];

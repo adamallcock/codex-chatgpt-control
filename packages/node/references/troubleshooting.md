@@ -168,7 +168,14 @@ When ChatGPT exposes previous/next response controls, `readLatest` and `copyLate
 
 ## Download Unavailable
 
-The command only downloads visible files with a download affordance. If no download control exists, ask ChatGPT to create or expose the file again.
+The command only downloads visible files with a download affordance. Current
+ChatGPT file answers may first expose a filename-labelled button; the SDK opens
+that artifact preview and then uses its visible Download control. When the
+expected filename is known, pass a case-insensitive regular expression such as
+`filenamePattern: "^report\\.csv$"`. A `download_filename_not_found` blocker
+means no visible assistant file matched; the SDK deliberately did not accept an
+unrelated image fallback. If no download control exists, ask ChatGPT to create
+or expose the file again.
 
 ## Redacted Reports
 

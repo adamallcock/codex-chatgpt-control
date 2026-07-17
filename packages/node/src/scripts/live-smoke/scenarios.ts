@@ -816,10 +816,24 @@ export const optionalScenarios: LiveSmokeScenario[] = [
       read: true
     });
     if (!asked.ok) return fail(meta, asked);
-    const result = await downloadLatestAttachment({ destDir: context.reportDir, timeoutMs: 120000 }, env);
-    const path = typeof result.data === "object" && result.data !== null ? (result.data as { path?: string }).path : undefined;
+    const result = await downloadLatestAttachment({
+      destDir: context.reportDir,
+      filenamePattern: "^chatgpt-live-smoke\\.csv$",
+      timeoutMs: 120000
+    }, env);
+    const download = typeof result.data === "object" && result.data !== null
+      ? result.data as { path?: string; suggestedFilename?: string }
+      : undefined;
+    const path = download?.path;
     const bytes = path === undefined ? 0 : (await stat(path).catch(() => undefined))?.size ?? 0;
-    return result.ok && bytes > 0 ? pass(meta, result, { path, bytes }) : fail(meta, result, { path, bytes });
+    const content = path === undefined ? "" : await readFile(path, "utf8").catch(() => "");
+    const rows = content.replace(/^\uFEFF/, "").trim().split(/\r?\n/).map(row => row.trim());
+    const exactFile = download?.suggestedFilename === "chatgpt-live-smoke.csv";
+    const exactContent = rows[0] === "name,value" && rows[1] === "smoke,1" && rows.length === 2;
+    const details = { path, bytes, suggestedFilename: download?.suggestedFilename, exactFile, exactContent };
+    return result.ok && bytes > 0 && exactFile && exactContent
+      ? pass(meta, result, details)
+      : fail(meta, result, details);
   }),
   scenario("set-mode-visible", false, context => contextEnvText(context, "CHATGPT_E2E_MODE_LABEL") !== undefined, async (context, meta) => {
     const label = requireInput(contextEnvText(context, "CHATGPT_E2E_MODE_LABEL"), "CHATGPT_E2E_MODE_LABEL");

@@ -164,9 +164,16 @@ capability to inventory and bundle the latest non-SVG image asset. This is an
 implementation detail of the TypeScript runtime; the wire command and result
 shape are unchanged.
 
-`files.downloadLatest` preserves the existing file-link behavior and falls back
-to generated-artifact download only when no conventional ChatGPT file affordance
-is visible. Artifact failures are reported as structured blockers such as
+`files.downloadLatest` preserves the existing file-link behavior, recognizes
+filename-labelled buttons in the latest assistant turn, opens ChatGPT's artifact
+preview, and then activates its visible Download control. `filenamePattern` is
+an optional case-insensitive regular expression that prevents a different file
+or image fallback from being accepted as the requested output. When the browser
+bridge exposes only a completed local download `path()`, the runtime copies that
+file into `destDir`; bridges exposing `saveAs()` remain supported. Without a
+filename pattern, the command falls back to generated-artifact download only
+when no conventional ChatGPT file affordance is visible. Artifact failures are
+reported as structured blockers such as
 `artifact_unavailable`, `artifact_selector_drift`, or
 `artifact_download_unavailable`, not protocol errors.
 

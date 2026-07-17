@@ -1,4 +1,4 @@
-import { mkdir, stat } from "node:fs/promises";
+import { copyFile, mkdir, stat } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import type { DownloadedFile, PageLike } from "../types.js";
 import { localGuardTimeout, withTimeout } from "../commands/timeouts.js";
@@ -13,7 +13,8 @@ export async function waitForDownloadFromClick(
   page: PageLike,
   click: () => Promise<void>,
   destDir: string,
-  timeoutMs: number
+  timeoutMs: number,
+  filenameHint?: string
 ): Promise<DownloadedFile> {
   const absoluteDest = resolve(destDir);
   await mkdir(absoluteDest, { recursive: true });
@@ -29,13 +30,21 @@ export async function waitForDownloadFromClick(
     "Download control click did not complete before the local guard timeout."
   );
   const download = await downloadPromise;
-  const suggestedFilename = download.suggestedFilename?.() ?? `chatgpt-download-${Date.now()}`;
+  const sourcePath = typeof download.path === "function" ? await download.path() : null;
+  const suggestedFilename = filenameHint
+    ?? download.suggestedFilename?.()
+    ?? (sourcePath === null ? undefined : basename(sourcePath))
+    ?? `chatgpt-download-${Date.now()}`;
   const targetPath = join(absoluteDest, basename(suggestedFilename));
 
   if (typeof download.saveAs === "function") {
     await download.saveAs(targetPath);
+  } else if (sourcePath !== null) {
+    if (resolve(sourcePath) !== resolve(targetPath)) {
+      await copyFile(sourcePath, targetPath);
+    }
   } else {
-    throw new Error("The browser download object does not expose saveAs().");
+    throw new Error("The browser download object exposes neither saveAs() nor a completed local path().");
   }
 
   const saved = await stat(targetPath);

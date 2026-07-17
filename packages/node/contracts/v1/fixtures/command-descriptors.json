@@ -1083,7 +1083,11 @@
       "summary": "Attach absolute local file paths through visible ChatGPT upload controls."
     },
     {
-      "args": {},
+      "args": {
+        "destDir": "download destination directory",
+        "filenamePattern": "optional case-insensitive regular expression for the expected filename",
+        "from": "latest_assistant, visible_conversation, or assistantIndex"
+      },
       "blockers": [
         "browser_bridge_unavailable",
         "login_required",
@@ -1091,7 +1095,9 @@
       ],
       "defaults": {},
       "defaultTimeoutMs": 120000,
-      "examples": [],
+      "examples": [
+        "await chatgpt.files.downloadLatest({ destDir: \"/absolute/host/output\", filenamePattern: \"^report\\.csv$\" });"
+      ],
       "layer": "primitive",
       "name": "files.downloadLatest",
       "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
