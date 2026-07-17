@@ -115,24 +115,58 @@ the package upload itself reproducible and tokenless.
 ## Release Tag Flow
 
 1. Merge the generated public PR after required public checks pass.
-2. Confirm versions and registry availability on public `main`:
+2. Before tagging, run the release canary from a bridge-hosted JavaScript call
+   against an exact dedicated ChatGPT tab:
+
+   ```js
+   const canary = await import("file:///absolute/path/to/packages/node/dist/codex-chatgpt-control-release-canary.bundle.mjs?t=" + Date.now());
+   await canary.runReleaseCanary(globalThis, { tabId: "<dedicated-tab-id>" });
+   ```
+
+   This is a local authenticated gate, not public CI. It captures sanitized Chat
+   and Work profiles, verifies the expansion flow, mutates/restores Work effort,
+   verifies an exact generated CSV download, and restores Chat. Add
+   `includeUpload: true` only with explicit upload authorization.
+
+3. When selector/localization drift is in scope, run the visible Settings loop
+   and review its JSONL before applying it:
+
+   ```bash
+   npm --prefix packages/node run capture:intelligence-locales -- \
+     --auto-switch --all --capture-surfaces --if-missing open
+   npm --prefix packages/node run apply:intelligence-locales -- \
+     --in <capture.jsonl> --reviewed
+   ```
+
+4. Confirm versions and registry availability on public `main`:
 
    ```bash
    npm run release:check-version
    npm run release:check-names
    ```
 
-3. Create and push a `v*` tag that matches the Node package version:
+5. Create and push a `v*` tag that matches the Node package version:
 
    ```bash
    git tag v0.5.1-alpha.1
    git push origin v0.5.1-alpha.1
    ```
 
-4. Approve the `release` environment deployment in GitHub Actions.
-5. Let the workflow publish npm and PyPI independently. If one registry publish
+6. Approve the `release` environment deployment in GitHub Actions. The workflow
+   first runs all release gates plus a clean-install package smoke on
+   `macos-latest`.
+7. Let the workflow publish npm and PyPI independently. If one registry publish
    succeeds and the other fails, rerun only the failed job.
-6. Verify the published packages:
+8. The workflow must then clean-install the exact published npm and PyPI
+   versions, import both SDKs, exercise the installed Node backend from Python,
+   and only then create the GitHub prerelease. Re-run the same verification
+   locally if diagnosing propagation:
+
+   ```bash
+   npm run release:verify-published
+   ```
+
+9. Verify the published package metadata:
 
    ```bash
    npm view codex-chatgpt-control version dist-tags --json
