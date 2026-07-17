@@ -7902,8 +7902,7 @@ async function inspectWorkAxisOptions(page, axis) {
     return [];
   }
   await page.waitForTimeout?.(120);
-  const items = await enumerateVisibleMenuItems(page);
-  const options = items.filter((item) => !isConfigurationAxisRow(item.label)).map(menuItemToOption);
+  const options = filterWorkAxisOptions(await enumerateVisibleMenuItems(page), axis).map(menuItemToOption);
   await page.keyboard?.press?.("Escape");
   await page.waitForTimeout?.(80);
   return dedupeOptions(options);
@@ -7917,13 +7916,39 @@ async function selectWorkAxis(page, axis, requested) {
     return void 0;
   }
   await page.waitForTimeout?.(120);
-  const candidates = await enumerateVisibleMenuItems(page);
+  const candidates = filterWorkAxisOptions(await enumerateVisibleMenuItems(page), axis);
   const match = findConfigurationOption(candidates, requested);
   if (match === void 0 || !await clickVisibleMenuItem(page, match)) {
     return void 0;
   }
   await page.waitForTimeout?.(150);
   return match.label;
+}
+function filterWorkAxisOptions(items, axis) {
+  return items.filter((item) => {
+    if (isConfigurationAxisRow(item.label)) return false;
+    if (item.checked !== void 0 || item.role === "menuitemradio" || item.role === "option") {
+      return true;
+    }
+    return workAxisOptionLabelMatches(axis, item.label);
+  });
+}
+function workAxisOptionLabelMatches(axis, label) {
+  if (axis === "model") {
+    return /\b(?:gpt[\s-]?\d|sol|luna|terra)\b/i.test(label);
+  }
+  const candidates = axis === "effort" ? [
+    ...localeLabels.configurationOptions.light,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.extraHigh,
+    ...localeLabels.configurationOptions.max,
+    ...localeLabels.configurationOptions.ultra
+  ] : axis === "speed" ? [
+    ...localeLabels.configurationOptions.standard,
+    ...localeLabels.configurationOptions.fast
+  ] : [];
+  return candidates.some((candidate) => visibleLabelMatches(label, candidate));
 }
 async function selectChatAxis(env, axis, requested, timeoutMs) {
   const legacyArgs = axis === "modelVersion" ? { modelVersion: requested } : axis === "intelligence" ? { intelligence: requested } : axis === "effort" ? { effort: requested } : axis === "model" ? { model: requested } : void 0;
