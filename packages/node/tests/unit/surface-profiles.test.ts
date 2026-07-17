@@ -13,6 +13,7 @@ import {
   openExperience
 } from "../../src/commands/experience.js";
 import type {
+  BrowserLike,
   ConfigurationAxis,
   LocatorLike,
   PageLike,
@@ -277,6 +278,29 @@ describe("sanitized Chat and Work surface profiles", () => {
     expect(page.configurationOpenCount()).toBe(1);
   });
 
+  it("opens the Work Advanced panel before inspecting its axes", async () => {
+    const page = mainScopedWorkConfigurationPage(0, true);
+
+    const result = await inspectConfiguration({ page }, {
+      experience: "work",
+      includeOptions: false,
+      timeoutMs: 1000
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({
+      selectorProfile: "work_advanced_v1",
+      availableAxes: ["model", "effort", "speed"],
+      active: {
+        model: "GPT-5.5",
+        effort: "Light",
+        speed: "Standard"
+      },
+      verified: true
+    });
+    expect(page.advancedOpenCount()).toBe(1);
+  });
+
   it("returns selector drift instead of guessing when no unique surface control exists", async () => {
     const page = surfaceSwitchPage(undefined);
 
@@ -354,6 +378,96 @@ describe("sanitized Chat and Work surface profiles", () => {
     ]);
   });
 
+  it("hovers directly between Work axes without leaving the root menu", async () => {
+    const page = configurableWorkPage();
+    const moves: Array<{ x: number; y: number }> = [];
+    const browser: BrowserLike = {
+      tabs: {
+        get: async () => ({
+          capabilities: {
+            get: async () => ({
+              send: async (_method: string, params: Record<string, unknown> = {}) => {
+                const x = Number(params.x);
+                const y = Number(params.y);
+                moves.push({ x, y });
+                page.hoverAxisAt(y);
+              }
+            })
+          }
+        })
+      }
+    };
+
+    const result = await inspectConfiguration({ page, browser }, {
+      experience: "work",
+      includeOptions: true,
+      timeoutMs: 100
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.options.effort?.map(option => option.label)).toContain("High");
+    expect(moves).toEqual([
+      { x: 150, y: 110 },
+      { x: 150, y: 210 },
+      { x: 150, y: 310 }
+    ]);
+    expect(moves).not.toContainEqual({ x: 0, y: 0 });
+  });
+
+  it("reopens the Work root once when an axis menu detaches", async () => {
+    const page = configurableWorkPage({ transientAxisOpenMiss: true });
+
+    const result = await inspectConfiguration({ page }, {
+      experience: "work",
+      includeOptions: true,
+      timeoutMs: 100
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.options.model?.map(option => option.label)).toContain("GPT-5.6 Terra");
+    expect(result.data?.options.effort?.map(option => option.label)).toContain("Medium");
+    expect(result.data?.options.speed?.map(option => option.label)).toContain("Fast");
+  });
+
+  it("uses the Playwright mouse fallback for Work submenu hover", async () => {
+    const page = configurableWorkPage();
+    page.mouse = {
+      move: async (_x, y) => page.hoverAxisAt(y)
+    };
+
+    const result = await inspectConfiguration({ page }, {
+      experience: "work",
+      includeOptions: true,
+      timeoutMs: 100
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.options.effort?.map(option => option.label)).toContain("High");
+    expect(page.axisClicks()).toEqual([]);
+  });
+
+  it("uses Computer Use hover and Escape when page input helpers are unavailable", async () => {
+    const page = configurableWorkPage();
+    const pressEscape = page.keyboard?.press;
+    delete page.keyboard;
+    page.cua = {
+      move: async ({ y }) => page.hoverAxisAt(y),
+      keypress: async ({ keys }) => {
+        if (keys.includes("ESC")) await pressEscape?.("Escape");
+      }
+    };
+
+    const result = await inspectConfiguration({ page }, {
+      experience: "work",
+      includeOptions: true,
+      timeoutMs: 100
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.options.speed?.map(option => option.label)).toContain("Fast");
+    expect(page.axisClicks()).toEqual([]);
+  });
+
   it("does not accept a parent-menu reset action as an effort value", async () => {
     const page = configurableWorkPage();
 
@@ -366,6 +480,32 @@ describe("sanitized Chat and Work surface profiles", () => {
     expect(result.ok).toBe(false);
     expect(result.status).toBe("unsupported");
     expect(result.blocker?.code).toBe("configuration_option_not_found");
+  });
+
+  it("selects the sole visible Work option when Radix retains a hidden duplicate", async () => {
+    const page = configurableWorkPage({ duplicateHiddenOptions: true });
+
+    const result = await applyConfiguration({ page }, {
+      experience: "work",
+      desired: { effort: "Medium" },
+      timeoutMs: 100
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.after.active.effort).toBe("Medium");
+  });
+
+  it("retries a Work selection when the submenu disappears before the click", async () => {
+    const page = configurableWorkPage({ transientOptionClickMiss: true });
+
+    const result = await applyConfiguration({ page }, {
+      experience: "work",
+      desired: { effort: "Medium" },
+      timeoutMs: 100
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.after.active.effort).toBe("Medium");
   });
 });
 
@@ -498,12 +638,18 @@ function activeWorkTaskSwitchPage(failNavigation = false): ActiveWorkTaskSwitchP
 }
 
 type MainScopedWorkConfigurationPage = PageLike & {
+  advancedOpenCount: () => number;
   configurationOpenCount: () => number;
 };
 
-function mainScopedWorkConfigurationPage(delayedPanelReads = 0): MainScopedWorkConfigurationPage {
+function mainScopedWorkConfigurationPage(
+  delayedPanelReads = 0,
+  requiresAdvanced = false
+): MainScopedWorkConfigurationPage {
   let configurationOpen = false;
   let configurationOpenCount = 0;
+  let advancedOpen = !requiresAdvanced;
+  let advancedOpenCount = 0;
   let panelReads = 0;
   const opener: LocatorLike = {
     count: async () => 1,
@@ -516,13 +662,24 @@ function mainScopedWorkConfigurationPage(delayedPanelReads = 0): MainScopedWorkC
     count: async () => 0,
     click: async () => {}
   };
+  const advanced: LocatorLike = {
+    count: async () => configurationOpen && !advancedOpen ? 1 : 0,
+    click: async () => {
+      advancedOpen = true;
+      advancedOpenCount += 1;
+    }
+  };
 
   return {
+    advancedOpenCount: () => advancedOpenCount,
     configurationOpenCount: () => configurationOpenCount,
     url: () => "https://chatgpt.com/",
     title: async () => "ChatGPT",
-    getByRole: (role, options = {}) =>
-      role === "button" && options.name === "5.5 Light" ? opener : missing,
+    getByRole: (role, options = {}) => {
+      if (role === "button" && options.name === "5.5 Light") return opener;
+      if (role === "menuitem" && options.name === "Advanced") return advanced;
+      return missing;
+    },
     evaluate: async <T, A = unknown>(
       fn: (arg: A) => T | Promise<T>,
       _arg?: A
@@ -547,7 +704,7 @@ function mainScopedWorkConfigurationPage(delayedPanelReads = 0): MainScopedWorkC
             advancedVisible: false
           } as T;
         }
-        return (configurationOpen
+        return (configurationOpen && advancedOpen
           ? {
               openerLabel: "5.5 Light",
               axisRows: [
@@ -565,11 +722,12 @@ function mainScopedWorkConfigurationPage(delayedPanelReads = 0): MainScopedWorkC
       }
       if (source.includes("allRoleNodes") && source.includes("scopedRoleNodes")) {
         const items = configurationOpen
-          ? [
+          ? advancedOpen ? [
               { label: "Model GPT-5.5", role: "menuitem" },
               { label: "Effort Light", role: "menuitem" },
               { label: "Speed Standard", role: "menuitem" }
             ]
+            : [{ label: "Advanced", role: "menuitem" }]
           : [];
         return { items, labels: [], split: false } as T;
       }
@@ -584,9 +742,16 @@ function mainScopedWorkConfigurationPage(delayedPanelReads = 0): MainScopedWorkC
 
 type ConfigurableWorkPage = PageLike & {
   axisClicks: () => ConfigurationAxis[];
+  hoverAxisAt: (y: number) => void;
 };
 
-function configurableWorkPage(): ConfigurableWorkPage {
+function configurableWorkPage(
+  optionsForPage: {
+    duplicateHiddenOptions?: boolean;
+    transientAxisOpenMiss?: boolean;
+    transientOptionClickMiss?: boolean;
+  } = {}
+): ConfigurableWorkPage {
   const values: Record<"model" | "effort" | "speed", string> = {
     model: "GPT-5.6 Sol",
     effort: "Light",
@@ -598,7 +763,14 @@ function configurableWorkPage(): ConfigurableWorkPage {
     speed: ["Standard", "Fast"]
   };
   const clicks: ConfigurationAxis[] = [];
+  const optionCountChecks = new Map<string, number>();
+  const axisOpenAttempts = new Map<ConfigurationAxis, number>();
   let openAxis: "model" | "effort" | "speed" | undefined;
+  const axisCenters: Record<"model" | "effort" | "speed", number> = {
+    model: 110,
+    effort: 210,
+    speed: 310
+  };
 
   const missing: LocatorLike = {
     count: async () => 0,
@@ -606,22 +778,52 @@ function configurableWorkPage(): ConfigurableWorkPage {
   };
   const axisLocator = (axis: "model" | "effort" | "speed"): LocatorLike => ({
     count: async () => 1,
+    evaluate: async fn => fn({
+      getBoundingClientRect: () => ({ left: 100, top: axisCenters[axis] - 10, width: 100, height: 20 })
+    } as unknown as Element),
     click: async () => {
-      openAxis = axis;
       clicks.push(axis);
+      const attempts = axisOpenAttempts.get(axis) ?? 0;
+      axisOpenAttempts.set(axis, attempts + 1);
+      if (optionsForPage.transientAxisOpenMiss === true && attempts === 0) {
+        openAxis = undefined;
+        return;
+      }
+      openAxis = axis;
     }
   });
-  const optionLocator = (label: string): LocatorLike => ({
-    count: async () => openAxis !== undefined && options[openAxis].includes(label) ? 1 : 0,
-    click: async () => {
-      if (openAxis === undefined || !options[openAxis].includes(label)) return;
-      values[openAxis] = label;
-      openAxis = undefined;
-    }
-  });
+  const selectOption = async (label: string): Promise<void> => {
+    if (openAxis === undefined || !options[openAxis].includes(label)) return;
+    values[openAxis] = label;
+    openAxis = undefined;
+  };
+  const optionLocator = (label: string): LocatorLike => {
+    const available = (): boolean => openAxis !== undefined && options[openAxis].includes(label);
+    return {
+      count: async () => {
+        if (!available()) return 0;
+        const checks = optionCountChecks.get(label) ?? 0;
+        optionCountChecks.set(label, checks + 1);
+        if (optionsForPage.transientOptionClickMiss === true && checks === 0) return 0;
+        return optionsForPage.duplicateHiddenOptions === true ? 2 : 1;
+      },
+      click: async () => selectOption(label),
+      nth: index => ({
+        isVisible: async () => available() && index === 1,
+        click: async () => {
+          if (index === 1) await selectOption(label);
+        }
+      })
+    };
+  };
 
   return {
+    id: "work-configuration-tab",
     axisClicks: () => [...clicks],
+    hoverAxisAt: y => {
+      openAxis = (Object.entries(axisCenters) as Array<["model" | "effort" | "speed", number]>)
+        .find(([, center]) => center === y)?.[0];
+    },
     url: () => "https://chatgpt.com/work",
     title: async () => "ChatGPT Work",
     getByRole: (role, roleOptions = {}) => {

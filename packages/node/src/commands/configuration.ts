@@ -2,6 +2,7 @@ import { enumerateVisibleMenuItems, type MenuItem } from "../dom/menus.js";
 import { localeLabels } from "../dom/locale-labels.js";
 import { normalizeForLabelMatch, visibleLabelMatches } from "../dom/label-match.js";
 import { resultError, resultOk } from "../errors.js";
+import { tabIdFromPage } from "../browser/attach.js";
 import type {
   AppliedConfigurationSelection,
   ApplyConfigurationArgs,
@@ -87,6 +88,12 @@ export async function inspectConfiguration(
       await page.waitForTimeout?.(150);
     }
 
+    const workAdvancedOpened = experience !== "work"
+      || (rootOpened && await ensureWorkAdvancedPanel(page));
+    if (experience === "work" && workAdvancedOpened) {
+      await page.waitForTimeout?.(150);
+    }
+
     const panel = await readConfigurationPanel(page);
     const rootItems = rootOpened ? await enumerateVisibleMenuItems(page) : [];
     const data = configurationInspectionFromSurface(
@@ -100,7 +107,7 @@ export async function inspectConfiguration(
     if (args.includeOptions !== false && experience === "work" && panel.axisRows.length > 0) {
       for (const axis of WORK_AXES) {
         if (!data.availableAxes.includes(axis)) continue;
-        const options = await inspectWorkAxisOptions(page, axis);
+        const options = await inspectWorkAxisOptions(env, axis);
         if (options.length > 0) {
           data.options[axis] = options;
         }
@@ -111,6 +118,9 @@ export async function inspectConfiguration(
     const warnings: string[] = [];
     if (!rootOpened) {
       warnings.push("No scoped configuration opener was available; inspection is limited to controls already visible in the composer.");
+    }
+    if (experience === "work" && rootOpened && !workAdvancedOpened) {
+      warnings.push("The Work configuration menu opened, but its Advanced model, effort, and speed controls could not be made visible.");
     }
     if (!data.verified) {
       warnings.push("The visible configuration could not be verified from a recognized Chat or Work selector profile.");
@@ -205,7 +215,7 @@ export async function applyConfiguration(
       }
 
       const selection = before.experience === "work"
-        ? await selectWorkAxis(page, axis, requested)
+        ? await selectWorkAxis(env, axis, requested)
         : await selectChatAxis(env, axis, requested, args.timeoutMs);
       if (selection === undefined) {
         return configurationFailure(
@@ -317,55 +327,157 @@ export function configurationInspectionFromSurface(
   };
 }
 
-async function inspectWorkAxisOptions(page: PageLike, axis: ConfigurationAxis): Promise<ConfigurationOption[]> {
-  await ensureWorkConfigurationRoot(page);
-  if (!await clickWorkAxisRow(page, axis)) {
-    return [];
-  }
-  await page.waitForTimeout?.(120);
-  const options = filterWorkAxisOptions(await enumerateVisibleMenuItems(page), axis)
+async function inspectWorkAxisOptions(env: RuntimeEnv, axis: ConfigurationAxis): Promise<ConfigurationOption[]> {
+  const page = env.page!;
+  const options = (await openWorkAxisOptions(env, axis))
     .map(menuItemToOption);
-  await page.keyboard?.press?.("Escape");
-  await page.waitForTimeout?.(80);
+  await closeConfigurationSubmenu(page);
   return dedupeOptions(options);
 }
 
 async function selectWorkAxis(
-  page: PageLike,
+  env: RuntimeEnv,
   axis: ConfigurationAxis,
   requested: string
 ): Promise<string | undefined> {
+  const page = env.page!;
   if (!WORK_AXES.includes(axis)) {
     return undefined;
   }
-  await ensureWorkConfigurationRoot(page);
-  if (!await clickWorkAxisRow(page, axis)) {
-    return undefined;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const candidates = await openWorkAxisOptions(env, axis);
+    const match = findConfigurationOption(candidates, requested);
+    if (match !== undefined && await clickVisibleMenuItem(page, match)) {
+      await page.waitForTimeout?.(150);
+      return match.label;
+    }
+    if (attempt === 0) {
+      // The submenu can disappear between enumeration and the visible click
+      // when ChatGPT's pointer-grace timer fires. Reopen once and click from a
+      // fresh DOM instance instead of treating that transient race as drift.
+      await closeConfigurationMenus(page);
+      await page.waitForTimeout?.(200);
+    }
   }
-  await page.waitForTimeout?.(120);
-  const candidates = filterWorkAxisOptions(await enumerateVisibleMenuItems(page), axis);
-  const match = findConfigurationOption(candidates, requested);
-  if (match === undefined || !await clickVisibleMenuItem(page, match)) {
-    return undefined;
+  return undefined;
+}
+
+async function openWorkAxisOptions(
+  env: RuntimeEnv,
+  axis: ConfigurationAxis,
+  allowRootRetry = true
+): Promise<MenuItem[]> {
+  const page = env.page!;
+  if (!await ensureWorkAdvancedPanel(page)) return [];
+
+  const row = await findWorkAxisRow(page, axis);
+  if (row === undefined) return [];
+
+  const visibleOptions = async (): Promise<MenuItem[]> =>
+    filterWorkAxisOptions(await enumerateVisibleMenuItems(page), axis);
+  const alreadyOpen = await visibleOptions();
+  if (alreadyOpen.length > 0) return alreadyOpen;
+
+  const point = await locatorCenter(row);
+  if (point !== undefined && await movePointerWithCdp(env, point)) {
+    await page.waitForTimeout?.(180);
+    const hoveredOptions = await visibleOptions();
+    if (hoveredOptions.length > 0) return hoveredOptions;
+
+    // Radix may apply the previous submenu's pointer-grace close after the new
+    // axis briefly opens. Once that timer has elapsed, a tiny in-row nudge
+    // creates a fresh hover transition without ever leaving the root menu.
+    await movePointerWithCdp(env, { x: point.x - 2, y: point.y });
+    await movePointerWithCdp(env, point);
+    await page.waitForTimeout?.(180);
+    const retriedOptions = await visibleOptions();
+    if (retriedOptions.length > 0) return retriedOptions;
   }
-  await page.waitForTimeout?.(150);
-  return match.label;
+
+  if (point !== undefined && page.mouse?.move !== undefined) {
+    try {
+      await page.mouse.move(point.x, point.y);
+    } catch {
+      // Fall through to the Computer Use and click fallbacks.
+    }
+    await page.waitForTimeout?.(180);
+    const mouseOptions = await visibleOptions();
+    if (mouseOptions.length > 0) return mouseOptions;
+  }
+
+  if (point !== undefined && typeof page.cua?.move === "function") {
+    try {
+      await page.cua.move(point);
+    } catch {
+      // Fall through to the click fallback.
+    }
+    await page.waitForTimeout?.(180);
+    const movedOptions = await visibleOptions();
+    if (movedOptions.length > 0) return movedOptions;
+  }
+
+  if (row.click !== undefined) {
+    await row.click().catch(() => undefined);
+    await page.waitForTimeout?.(180);
+  }
+  const clickedOptions = await visibleOptions();
+  if (clickedOptions.length > 0 || !allowRootRetry) return clickedOptions;
+
+  // A submenu pointer-grace dismissal can also close the root menu. Reopen the
+  // complete Advanced panel once and resolve a fresh row locator; stale row
+  // handles and same-coordinate pointer moves cannot recover a detached menu.
+  await closeConfigurationMenus(page);
+  await page.waitForTimeout?.(200);
+  return openWorkAxisOptions(env, axis, false);
+}
+
+async function locatorCenter(locator: LocatorLike): Promise<{ x: number; y: number } | undefined> {
+  if (locator.evaluate === undefined) return undefined;
+  return locator.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2)
+    };
+  }).catch(() => undefined);
+}
+
+async function movePointerWithCdp(
+  env: RuntimeEnv,
+  point: { x: number; y: number }
+): Promise<boolean> {
+  const page = env.page;
+  const tabId = page === undefined ? undefined : tabIdFromPage(page);
+  if (tabId === undefined || env.browser?.tabs?.get === undefined) return false;
+  try {
+    const tab = await env.browser.tabs.get(tabId);
+    const capability = await tab.capabilities?.get?.("cdp") as {
+      send?: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
+    } | undefined;
+    if (capability?.send === undefined) return false;
+    // Move directly between axis rows. Moving outside the Radix root menu first
+    // schedules its dismissal; the submenu can briefly appear and then vanish
+    // before the bounded option inspection runs.
+    await capability.send("Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      x: Math.round(point.x),
+      y: Math.round(point.y),
+      button: "none",
+      buttons: 0,
+      pointerType: "mouse"
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function filterWorkAxisOptions(items: MenuItem[], axis: ConfigurationAxis): MenuItem[] {
   return items.filter(item => {
     if (isConfigurationAxisRow(item.label)) return false;
-
-    // Current Work submenus are radio-like choices while the still-visible
-    // parent menu can contribute action rows such as "Reset to default".
-    // Prefer that structural distinction so localized action text cannot be
-    // mistaken for a model, effort, or speed value.
-    if (item.checked !== undefined || item.role === "menuitemradio" || item.role === "option") {
-      return true;
-    }
-
-    // Older/text-only menu snapshots do not expose roles or aria-checked.
-    // Retain only labels that are semantically valid for the requested axis.
+    // Keep every choice axis-specific. This excludes parent actions such as
+    // "Reset to default" and prevents a still-open model submenu from being
+    // mistaken for effort or speed choices if Escape is unavailable.
     return workAxisOptionLabelMatches(axis, item.label);
   });
 }
@@ -437,11 +549,21 @@ async function openConfigurationRoot(page: PageLike, experience: ChatGPTExperien
       const visible = (element: Element): boolean => {
         const html = element as HTMLElement;
         const rect = html.getBoundingClientRect?.();
-        const style = typeof window !== "undefined" ? window.getComputedStyle?.(html) : undefined;
-        return (rect === undefined || (rect.width > 0 && rect.height > 0))
-          && style?.display !== "none"
-          && style?.visibility !== "hidden"
-          && style?.opacity !== "0";
+        if (rect !== undefined && (rect.width <= 0 || rect.height <= 0)) return false;
+        let current: Element | null = element;
+        while (current !== null) {
+          if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
+            return false;
+          }
+          const style = typeof window !== "undefined"
+            ? window.getComputedStyle?.(current as HTMLElement)
+            : undefined;
+          if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
+            return false;
+          }
+          current = current.parentElement ?? null;
+        }
+        return true;
       };
       const composerRoots = Array.from(document.querySelectorAll(
         "main form, main [data-testid*='composer' i], main [class*='composer' i]"
@@ -503,6 +625,10 @@ function configurationMenuLooksRecognized(
   if (items.some(item => /(?:model|mode|effort|speed)-(?:switcher|selector)|model-switcher/i.test(item.testId ?? ""))) {
     return true;
   }
+  if (experience === "work" && items.some(item =>
+    localeLabels.configurationAxes.advanced.some(label => visibleLabelMatches(item.label, label)))) {
+    return true;
+  }
   if (openerLabel === undefined || items.length === 0) {
     return false;
   }
@@ -534,12 +660,21 @@ function configurationMenuLooksRecognized(
   return matched.size >= 2;
 }
 
-async function ensureWorkConfigurationRoot(page: PageLike): Promise<boolean> {
+async function ensureWorkAdvancedPanel(page: PageLike): Promise<boolean> {
   const panel = await readConfigurationPanel(page);
   if (panel.axisRows.length > 0) return true;
-  await page.keyboard?.press?.("Escape");
-  await page.waitForTimeout?.(50);
-  return openConfigurationRoot(page, "work");
+  if (!await openConfigurationRoot(page, "work")) return false;
+  const reopenedPanel = await readConfigurationPanel(page);
+  if (reopenedPanel.axisRows.length > 0) return true;
+
+  const items = await enumerateVisibleMenuItems(page);
+  const advanced = items.filter(item =>
+    localeLabels.configurationAxes.advanced.some(label => visibleLabelMatches(item.label, label)));
+  if (advanced.length !== 1 || !await clickVisibleMenuItem(page, advanced[0]!)) {
+    return false;
+  }
+  await page.waitForTimeout?.(200);
+  return (await readConfigurationPanel(page)).axisRows.length > 0;
 }
 
 async function readConfigurationPanel(page: PageLike): Promise<ConfigurationPanelSnapshot> {
@@ -557,11 +692,21 @@ async function readConfigurationPanel(page: PageLike): Promise<ConfigurationPane
     const visible = (element: Element): boolean => {
       const html = element as HTMLElement;
       const rect = html.getBoundingClientRect?.();
-      const style = typeof window !== "undefined" ? window.getComputedStyle?.(html) : undefined;
-      return (rect === undefined || (rect.width > 0 && rect.height > 0))
-        && style?.display !== "none"
-        && style?.visibility !== "hidden"
-        && style?.opacity !== "0";
+      if (rect !== undefined && (rect.width <= 0 || rect.height <= 0)) return false;
+      let current: Element | null = element;
+      while (current !== null) {
+        if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
+          return false;
+        }
+        const style = typeof window !== "undefined"
+          ? window.getComputedStyle?.(current as HTMLElement)
+          : undefined;
+        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
+          return false;
+        }
+        current = current.parentElement ?? null;
+      }
+      return true;
     };
     const overlays = Array.from(document.querySelectorAll(
       "[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
@@ -571,14 +716,10 @@ async function readConfigurationPanel(page: PageLike): Promise<ConfigurationPane
       "button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option']"
     ))).filter(visible);
     const axisRows: Array<{ axis: ConfigurationAxis; label: string; value?: string }> = [];
-    let advancedVisible = false;
     for (const row of rows) {
       const html = row as HTMLElement;
       const label = normalize(row.getAttribute("aria-label") ?? html.innerText ?? row.textContent ?? "");
       const normalized = label.toLocaleLowerCase();
-      if (normalizedAxes.advanced?.some(candidate => normalized === candidate || normalized.startsWith(`${candidate} `))) {
-        advancedVisible = true;
-      }
       for (const axis of ["model", "intelligence", "effort", "speed"] as ConfigurationAxis[]) {
         const candidates = normalizedAxes[axis] ?? [];
         const prefix = candidates.find(candidate => normalized === candidate || normalized.startsWith(`${candidate} `));
@@ -615,7 +756,7 @@ async function readConfigurationPanel(page: PageLike): Promise<ConfigurationPane
         || /\b(?:gpt|sol|luna|terra|instant|medium|high|extra high|pro|thinking|extended|light|standard|fast)\b/i.test(item.label));
     const result: ConfigurationPanelSnapshot = {
       axisRows,
-      advancedVisible
+      advancedVisible: axisRows.length > 0
     };
     if (openerCandidates.length === 1 && openerCandidates[0]?.label.length) {
       result.openerLabel = openerCandidates[0].label;
@@ -624,33 +765,18 @@ async function readConfigurationPanel(page: PageLike): Promise<ConfigurationPane
   }, localeLabels.configurationAxes).catch(() => ({ axisRows: [], advancedVisible: false }));
 }
 
-async function clickWorkAxisRow(page: PageLike, axis: ConfigurationAxis): Promise<boolean> {
+async function findWorkAxisRow(page: PageLike, axis: ConfigurationAxis): Promise<LocatorLike | undefined> {
   const labels = axis === "modelVersion" ? [] : localeLabels.configurationAxes[axis as keyof typeof localeLabels.configurationAxes] ?? [];
   for (const label of labels) {
     const pattern = new RegExp(`^${escapeRegExp(label)}(?:\\s|$)`, "i");
     for (const role of ["button", "menuitem"]) {
-      if (await clickIfUnique(page.getByRole?.(role, { name: pattern }))) {
-        return true;
+      const locator = page.getByRole?.(role, { name: pattern });
+      if (locator?.count !== undefined && await locator.count().catch(() => 0) === 1) {
+        return locator;
       }
     }
   }
-  if (typeof page.evaluate !== "function") return false;
-  return page.evaluate((wantedLabels: string[]) => {
-    const normalize = (value: string): string => value.replace(/\s+/g, " ").trim().toLocaleLowerCase();
-    const wanted = wantedLabels.map(normalize);
-    const overlays = Array.from(document.querySelectorAll(
-      "[role='menu'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
-    ));
-    const nodes = overlays.flatMap(root => Array.from(root.querySelectorAll("button, [role='button'], [role='menuitem']")));
-    const matches = nodes.filter(node => {
-      const html = node as HTMLElement;
-      const label = normalize(node.getAttribute("aria-label") ?? html.innerText ?? node.textContent ?? "");
-      return wanted.some(prefix => label === prefix || label.startsWith(`${prefix} `));
-    });
-    if (matches.length !== 1) return false;
-    (matches[0] as HTMLElement).click();
-    return true;
-  }, labels).catch(() => false);
+  return undefined;
 }
 
 async function clickVisibleMenuItem(page: PageLike, item: MenuItem): Promise<boolean> {
@@ -801,15 +927,53 @@ function normalizeConfigurationId(value: string): string {
 }
 
 async function closeConfigurationMenus(page: PageLike): Promise<void> {
-  await page.keyboard?.press?.("Escape");
+  if (!await pressConfigurationEscape(page)) return;
   await page.waitForTimeout?.(50);
-  await page.keyboard?.press?.("Escape");
+  await pressConfigurationEscape(page);
+}
+
+async function closeConfigurationSubmenu(page: PageLike): Promise<void> {
+  if (!await pressConfigurationEscape(page)) return;
+  // Radix retains a short pointer-grace timer after a submenu closes. If the
+  // next axis is hovered too quickly, that stale timer can dismiss the newly
+  // opened submenu. Let the prior close settle before moving to another row.
+  await page.waitForTimeout?.(200);
+}
+
+async function pressConfigurationEscape(page: PageLike): Promise<boolean> {
+  if (page.keyboard?.press !== undefined) {
+    await page.keyboard.press("Escape");
+    return true;
+  }
+  if (page.cua?.keypress !== undefined) {
+    try {
+      await page.cua.keypress({ keys: ["ESC"] });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 async function clickIfUnique(locator: LocatorLike | undefined): Promise<boolean> {
   if (locator?.count === undefined || locator.click === undefined) return false;
-  if (await locator.count().catch(() => 0) !== 1) return false;
-  await locator.click();
+  const count = await locator.count().catch(() => 0);
+  if (count === 1) {
+    await locator.click();
+    return true;
+  }
+  if (count <= 1 || locator.nth === undefined) return false;
+
+  const visible: LocatorLike[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const candidate = locator.nth(index);
+    if (candidate.isVisible !== undefined && await candidate.isVisible().catch(() => false)) {
+      visible.push(candidate);
+    }
+  }
+  if (visible.length !== 1 || visible[0]?.click === undefined) return false;
+  await visible[0].click();
   return true;
 }
 

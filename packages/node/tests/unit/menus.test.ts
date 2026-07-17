@@ -68,21 +68,36 @@ describe("menu helpers", () => {
 
     expect(items.map(item => item.label)).toEqual(["Instant", "Thinking"]);
   });
+
+  it("excludes role items inside inert hidden menu panels", async () => {
+    const page = containerScopedPage({
+      containerItems: ["Advanced"],
+      hiddenContainerItems: ["Model GPT-5.6 Sol", "Effort Light", "Speed Standard"],
+      strayItems: []
+    });
+
+    const items = await enumerateVisibleMenuItems(page);
+
+    expect(items.map(item => item.label)).toEqual(["Advanced"]);
+  });
 });
 
 function containerScopedPage({
   containerItems,
+  hiddenContainerItems = [],
   strayItems,
   emptyContainer = false
 }: {
   containerItems: string[];
+  hiddenContainerItems?: string[];
   strayItems: string[];
   emptyContainer?: boolean;
 }): PageLike {
   const scopedNodes = containerItems.map(label => fakeRoleNode(label));
+  const hiddenScopedNodes = hiddenContainerItems.map(label => fakeRoleNode(label, true));
   const strayNodes = strayItems.map(label => fakeRoleNode(label));
-  const containers = containerItems.length > 0 || emptyContainer
-    ? [{ contains: (node: unknown) => scopedNodes.includes(node as ReturnType<typeof fakeRoleNode>) }]
+  const containers = containerItems.length > 0 || hiddenContainerItems.length > 0 || emptyContainer
+    ? [{ contains: (node: unknown) => [...scopedNodes, ...hiddenScopedNodes].includes(node as ReturnType<typeof fakeRoleNode>) }]
     : [];
 
   return {
@@ -92,7 +107,7 @@ function containerScopedPage({
         globalThis.document = {
           querySelectorAll: (selector: string) => {
             if (selector.includes("menuitem") || selector.includes("option")) {
-              return [...scopedNodes, ...strayNodes];
+              return [...scopedNodes, ...hiddenScopedNodes, ...strayNodes];
             }
             if (selector.includes("[role='menu']")) {
               return containers;
@@ -108,10 +123,25 @@ function containerScopedPage({
   };
 }
 
-function fakeRoleNode(label: string): { getAttribute: (name: string) => string | undefined; innerText: string; textContent: string } {
+function fakeRoleNode(label: string, hidden = false): {
+  getAttribute: (name: string) => string | undefined;
+  hasAttribute: (name: string) => boolean;
+  innerText: string;
+  parentElement: unknown;
+  textContent: string;
+} {
+  const hiddenParent = hidden
+    ? {
+        getAttribute: () => undefined,
+        hasAttribute: (name: string) => name === "inert",
+        parentElement: null
+      }
+    : null;
   return {
     getAttribute: () => undefined,
+    hasAttribute: () => false,
     innerText: label,
+    parentElement: hiddenParent,
     textContent: label
   };
 }

@@ -878,6 +878,8 @@ function intelligencePickerPage({
 }
 
 function fakeElement(item: Partial<FakeMenuItem> & { label: string }): Element {
+  const width = item.rect?.width ?? 100;
+  const height = item.rect?.height ?? 32;
   return {
     getAttribute: (name: string) => {
       if (name === "role") return item.role;
@@ -889,10 +891,10 @@ function fakeElement(item: Partial<FakeMenuItem> & { label: string }): Element {
     getBoundingClientRect: () => ({
       left: item.rect?.left ?? 0,
       top: item.rect?.top ?? 0,
-      width: item.rect?.width ?? 0,
-      height: item.rect?.height ?? 0,
-      right: (item.rect?.left ?? 0) + (item.rect?.width ?? 0),
-      bottom: (item.rect?.top ?? 0) + (item.rect?.height ?? 0),
+      width,
+      height,
+      right: (item.rect?.left ?? 0) + width,
+      bottom: (item.rect?.top ?? 0) + height,
       x: item.rect?.left ?? 0,
       y: item.rect?.top ?? 0,
       toJSON: () => ({})

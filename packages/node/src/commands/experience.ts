@@ -281,11 +281,21 @@ export async function readSurfaceSnapshot(page: PageLike): Promise<SurfaceSnapsh
     const visible = (element: Element): boolean => {
       const html = element as HTMLElement;
       const rect = html.getBoundingClientRect?.();
-      const style = typeof window !== "undefined" ? window.getComputedStyle?.(html) : undefined;
-      return (rect === undefined || (rect.width > 0 && rect.height > 0))
-        && style?.display !== "none"
-        && style?.visibility !== "hidden"
-        && style?.opacity !== "0";
+      if (rect !== undefined && (rect.width <= 0 || rect.height <= 0)) return false;
+      let current: Element | null = element;
+      while (current !== null) {
+        if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
+          return false;
+        }
+        const style = typeof window !== "undefined"
+          ? window.getComputedStyle?.(current as HTMLElement)
+          : undefined;
+        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
+          return false;
+        }
+        current = current.parentElement ?? null;
+      }
+      return true;
     };
     const labelFor = (element: Element): string => {
       const html = element as HTMLElement;
@@ -405,11 +415,21 @@ async function clickUniqueExperienceControl(page: PageLike, labels: string[]): P
     const visible = (element: Element): boolean => {
       const html = element as HTMLElement;
       const rect = html.getBoundingClientRect?.();
-      const style = typeof window !== "undefined" ? window.getComputedStyle?.(html) : undefined;
-      return (rect === undefined || (rect.width > 0 && rect.height > 0))
-        && style?.display !== "none"
-        && style?.visibility !== "hidden"
-        && style?.opacity !== "0";
+      if (rect !== undefined && (rect.width <= 0 || rect.height <= 0)) return false;
+      let current: Element | null = element;
+      while (current !== null) {
+        if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
+          return false;
+        }
+        const style = typeof window !== "undefined"
+          ? window.getComputedStyle?.(current as HTMLElement)
+          : undefined;
+        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
+          return false;
+        }
+        current = current.parentElement ?? null;
+      }
+      return true;
     };
     const labelFor = (node: Element): string => {
       const html = node as HTMLElement;
