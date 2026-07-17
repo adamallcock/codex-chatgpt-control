@@ -5,11 +5,16 @@ import process from "node:process";
 import { describe, expect, it } from "vitest";
 import {
   basenameForHostPath,
+  currentHostPathPlatform,
   isHostAbsolutePath,
   resolveForHostPath
 } from "../../src/platform/local-paths.js";
 
 describe("local path platform semantics", () => {
+  it("reads the host platform without requiring the global process object", () => {
+    expect(currentHostPathPlatform()).toBe(process.platform);
+  });
+
   it("accepts POSIX absolute paths only on POSIX-like hosts", () => {
     expect(isHostAbsolutePath("/tmp/file.md", "linux")).toBe(true);
     expect(isHostAbsolutePath("/example/user/file.md", "darwin")).toBe(true);

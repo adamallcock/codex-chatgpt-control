@@ -19,6 +19,9 @@ This skill is for visible, user-directed ChatGPT workflows only. It is not an Op
 6. Redact run reports by default. Raw prompt/response content is opt-in only.
 7. Attach only files the user approved.
 8. Use official Codex capabilities for local repository editing, commands, tests, branches, and deployment. This SDK controls visible ChatGPT surfaces.
+9. When the user requests Chat or Work, call `experience.open` before
+   configuration or submission. Do not assume the currently visible pane is
+   already the requested experience.
 
 ## Runtime Requirements
 
@@ -113,6 +116,18 @@ Inspect the visible Chat or Work surface:
 const surface = await chatgpt.experience.detect();
 const capabilities = await chatgpt.configuration.inspect();
 ```
+
+If a specific surface was requested, open it explicitly even when detection
+already returned a value:
+
+```ts
+await chatgpt.experience.open({ experience: "work" });
+```
+
+Current ChatGPT can expose Chat and Work as radios in a `Select chat surface`
+group and can hide that group inside an active Work task. The SDK verifies the
+checked pane, returns to home when required, and retains older selector
+fallbacks.
 
 Apply strict Work configuration and start a task once:
 
@@ -302,4 +317,20 @@ cd packages/python
 python -m unittest discover -s tests
 python -m compileall -q src examples
 python scripts/live_smoke.py --mode ordinary-shell
+```
+
+Before claiming the expansion is live-qualified, run its reusable canary from
+a bridge-enabled runtime:
+
+```bash
+CHATGPT_E2E_SCENARIOS="chat-work-expansion" npm run smoke:live
+```
+
+The opt-in configuration mutation canary restores the original Work effort and
+Chat pane in a `finally` path:
+
+```bash
+CHATGPT_E2E_CONFIGURATION_MUTATION=1 \
+CHATGPT_E2E_SCENARIOS="configuration-mutate-restore" \
+npm run smoke:live
 ```

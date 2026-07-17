@@ -49,7 +49,7 @@ python scripts/live_smoke.py \
   --backend-command "node scripts/http_stdio_relay.mjs"
 ```
 
-Keep the bridge-hosted JS execution active while Python runs. If that call returns first, browser operations can fail with `node_repl exec context not found`.
+Create the backend server and wait on it in the **same** bridge-hosted JS execution. Starting it in one Node REPL call and waiting in another loses the first call's browser execution context. Keep that single call active while Python runs. If it returns first, browser operations can fail with `node_repl exec context not found`.
 
 ## `login_required`
 
@@ -79,6 +79,13 @@ If `work.start` returns `work_new_task_control_not_found`, a task is already
 loaded and the SDK refused to append. Pass `newTask: false` only when the user
 intends to continue that exact task. If a Work submission returns partial or
 timeout, use `work.status`, `work.wait`, or `work.readLatest`; do not resubmit.
+
+On the current home page, inspect the `Select chat surface` Chat/Work radio
+group before diagnosing Work as unavailable. Once a Work task is active, that
+radio group can disappear; the compound model-plus-effort opener is the SDK's
+continuation evidence, while the visible Work task chrome can corroborate a
+manual diagnosis. `experience.open` returns to the home selector before
+changing panes from an active task.
 
 ## Existing Tab Not Found Or Ambiguous
 
@@ -161,7 +168,14 @@ When ChatGPT exposes previous/next response controls, `readLatest` and `copyLate
 
 ## Download Unavailable
 
-The command only downloads visible files with a download affordance. If no download control exists, ask ChatGPT to create or expose the file again.
+The command only downloads visible files with a download affordance. Current
+ChatGPT file answers may first expose a filename-labelled button; the SDK opens
+that artifact preview and then uses its visible Download control. When the
+expected filename is known, pass a case-insensitive regular expression such as
+`filenamePattern: "^report\\.csv$"`. A `download_filename_not_found` blocker
+means no visible assistant file matched; the SDK deliberately did not accept an
+unrelated image fallback. If no download control exists, ask ChatGPT to create
+or expose the file again.
 
 ## Redacted Reports
 

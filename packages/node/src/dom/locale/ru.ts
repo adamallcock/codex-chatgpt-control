@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const ru = {
+  configurationAxes: {
+    model: ["Модель"],
+    effort: ["Уровень"],
+    speed: ["Скорость"],
+  },
+  configurationOptions: {
+    light: ["Низкий"],
+    medium: ["Средний"],
+    high: ["Высокий"],
+    extraHigh: ["Очень высокий"],
+    standard: ["Стандартный"],
+    fast: ["Быстро"],
+  },
   composerTextbox: ["Спросите ChatGPT"],
   sendButton: ["Отправить подсказку"],
   searchChatsButton: ["Искать чаты"],
@@ -18,8 +31,10 @@ export const ru = {
   addFilesOpenerCandidates: ["Добавляйте файлы и многое другое"],
   addPhotosFilesMenuItem: ["Загрузить фотографии и файлы"],
   copyResponse: ["Копировать ответ"],
-  modeLabels: ["Очень высокий"],
+  modeLabels: ["Очень высокий", "Средний", "Высокий"],
   modeOptions: {
+    medium: ["Средний"],
+    high: ["Высокий"],
     extraHigh: ["Очень высокий"],
   },
   modeOpenerExtra: ["Конфигурация..."],

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1a1
+
+- Picks up the corrected Node-backed Chat/Work radio selection and active Work
+  detection without changing the Python API or shared wire shapes.
+- Retains sync/async experience, configuration, Work, Runner, and Responses
+  parity while the expanded cross-language and package-install gates qualify
+  the replacement alpha.
+
 ## 0.5.0a1
 
 - Adds matching sync and async `experience`, `configuration`, and `work` clients.

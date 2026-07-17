@@ -42,6 +42,7 @@ if (agent === undefined) {
     context.knownConversationId = knownConversationId;
   }
   context.env = {
+    CHATGPT_E2E_CONFIGURATION_MUTATION: envText("CHATGPT_E2E_CONFIGURATION_MUTATION"),
     CHATGPT_E2E_CREATE_IMAGE: envText("CHATGPT_E2E_CREATE_IMAGE"),
     CHATGPT_E2E_DEEP_RESEARCH: envText("CHATGPT_E2E_DEEP_RESEARCH"),
     CHATGPT_E2E_DOWNLOAD: envText("CHATGPT_E2E_DOWNLOAD"),

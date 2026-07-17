@@ -6,9 +6,21 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const sk = {
+  configurationAxes: {
+    effort: ["Úsilie"],
+    speed: ["Rýchlosť"],
+  },
+  configurationOptions: {
+    light: ["Ľahké"],
+    medium: ["Stredná"],
+    high: ["Vysoká"],
+    extraHigh: ["Veľmi vysoká"],
+    standard: ["Štandardná"],
+    fast: ["Rýchla"],
+  },
   composerTextbox: ["Spýtaj sa hocičo…"],
   sendButton: ["Odoslať príkaz"],
   searchChatsButton: ["Hľadať v četoch"],
@@ -18,12 +30,12 @@ export const sk = {
   addFilesOpenerCandidates: ["Pridať súbory a iné"],
   addPhotosFilesMenuItem: ["Nahrať fotografie a súbory"],
   copyResponse: ["Kopírovať odpoveď"],
-  modeLabels: ["Okamžitá", "Stredná", "Vysoká", "Extra vysoká"],
+  modeLabels: ["Okamžitá", "Stredná", "Vysoká", "Extra vysoká", "Veľmi vysoká"],
   modeOptions: {
     instant: ["Okamžitá"],
     medium: ["Stredná"],
     high: ["Vysoká"],
-    extraHigh: ["Extra vysoká"],
+    extraHigh: ["Extra vysoká", "Veľmi vysoká"],
   },
   modeOpenerExtra: ["Konfigurovať..."],
   tools: {

@@ -20,6 +20,9 @@ This skill is for visible, user-directed ChatGPT workflows only. It is not an Op
 7. Attach only files the user approved.
 8. Load reference files only for the issue at hand; do not read every reference by default.
 9. Route local repository editing, terminal execution, testing, and deployment to official Codex capabilities. This plugin controls visible ChatGPT Chat and Work; it does not replace Codex.
+10. When the user requests Chat or Work, call `experience.open` for that
+    surface before configuration or submission. Do not assume the currently
+    visible pane is already correct.
 
 ## Plugin Runtime
 
@@ -111,6 +114,11 @@ await chatgpt.configuration.apply({
 });
 ```
 
+The current home UI may expose Chat and Work as radios in a `Select chat
+surface` group. An active Work task may hide that group. Use
+`experience.open` in both cases: it verifies the checked pane, returns home
+when necessary, and retains legacy button/menu/tab/link fallbacks.
+
 Selector profiles describe observed UI shapes (`chat_legacy_v1`, `chat_simplified_v1`, `work_basic_v1`, and `work_advanced_v1`). They are not plan or entitlement labels. Treat unavailable controls and rollout differences as structured results instead of guessing.
 
 Start Work exactly once, then poll or steer the same task:
@@ -173,6 +181,26 @@ await chatgpt.askWithFiles({
 });
 ```
 
+Download an exact generated deliverable without accepting another visible
+artifact as success:
+
+```js
+await chatgpt.askAndDownload({
+  prompt: "Create report.csv and provide it as a downloadable file.",
+  download: {
+    destDir: "/absolute/output/dir",
+    filenamePattern: "^report\\.csv$"
+  },
+  wait: true,
+  read: true
+});
+```
+
+`filenamePattern` is a case-insensitive regular expression. The runtime handles
+both direct file links and current filename-button -> artifact-preview ->
+Download flows. A mismatch blocks instead of silently accepting an unrelated
+image fallback.
+
 Run a diagnostic before long workflows:
 
 ```js
@@ -233,6 +261,7 @@ npm run build
 npm run bundle
 npm run bundle:backend
 npm run bundle:live-smoke
+npm run bundle:release-canary
 npm run contract:validate
 npm run parity:fixtures
 npm run test:backend-conformance
@@ -249,3 +278,34 @@ python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/codex-chatgpt
 ```
 
 Use public-export validation before claiming the public plugin package is release-ready.
+
+Run the reusable expansion canary through the installed candidate before
+claiming Chat/Work support is live-qualified:
+
+```bash
+CHATGPT_E2E_SCENARIOS="chat-work-expansion" npm run smoke:live
+```
+
+The canary tests the Chat/Work round trip, both configuration graphs, strict
+no-op configuration application, Work start/status/wait/read/steer/artifacts,
+Work-backed Runner and Responses calls, and Chat restoration. A real Work
+setting change is separate and opt-in; it restores the original effort in a
+`finally` path:
+
+```bash
+CHATGPT_E2E_CONFIGURATION_MUTATION=1 \
+CHATGPT_E2E_SCENARIOS="configuration-mutate-restore" \
+npm run smoke:live
+```
+
+The packaged runtime also includes
+`runtime/node/codex-chatgpt-control-release-canary.bundle.mjs`. Import it from a
+bridge-hosted JavaScript call and run `runReleaseCanary(globalThis, { tabId })`
+against an exact dedicated ChatGPT tab before publishing. It creates sanitized
+Chat/Work profiles, exercises the expansion, mutates/restores Work effort,
+verifies a generated CSV download, and restores Chat. Upload remains explicit
+via `includeUpload: true`.
+
+For locale drift, use the Node package's existing language loop with
+`--auto-switch --all --capture-surfaces`; review the JSONL before using the
+`--reviewed` apply gate.

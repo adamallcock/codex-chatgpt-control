@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const hi = {
+  configurationAxes: {
+    model: ["मॉडल"],
+    effort: ["प्रयास"],
+    speed: ["गति"],
+  },
+  configurationOptions: {
+    light: ["लाइट"],
+    medium: ["मध्यम"],
+    high: ["उच्च"],
+    extraHigh: ["एक्स्ट्रा हाई"],
+    standard: ["स्टैंडर्ड"],
+    fast: ["तेज़"],
+  },
   composerTextbox: ["ChatGPT के साथ चैट करें"],
   sendButton: ["प्रॉम्प् भेजें"],
   searchChatsButton: ["चैट खोजें"],
@@ -18,12 +31,12 @@ export const hi = {
   addFilesOpenerCandidates: ["फ़ाइलों को जोड़ें और भी बहुत कुछ करें"],
   addPhotosFilesMenuItem: ["फ़ोटो और फ़ाइलें जोड़ें"],
   copyResponse: ["जवाब को कॉपी करें"],
-  modeLabels: ["तुरंत", "मध्यम", "उच्च", "बहुत उच्च"],
+  modeLabels: ["तुरंत", "मध्यम", "उच्च", "बहुत उच्च", "एक्स्ट्रा हाई"],
   modeOptions: {
     instant: ["तुरंत"],
     medium: ["मध्यम"],
     high: ["उच्च"],
-    extraHigh: ["बहुत उच्च"],
+    extraHigh: ["बहुत उच्च", "एक्स्ट्रा हाई"],
   },
   modeOpenerExtra: ["कॉन्फ़िगर करें..."],
   tools: {

@@ -6,9 +6,16 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const tl = {
+  configurationAxes: {
+    effort: ["Pagsisikap"],
+    speed: ["Bilis"],
+  },
+  configurationOptions: {
+    fast: ["Mabilis"],
+  },
   composerTextbox: ["Mag-chat sa ChatGPT"],
   sendButton: ["Magpadala ng prompt"],
   searchChatsButton: ["Maghanap sa mga chat"],

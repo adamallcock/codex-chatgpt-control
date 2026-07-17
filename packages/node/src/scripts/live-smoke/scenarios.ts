@@ -12,6 +12,7 @@ import {
   downloadLatestAttachment,
   messageStatus,
   newThread,
+  openExperience,
   openThread,
   readLatest,
   runSequence,
@@ -27,6 +28,9 @@ import { readAssistantGenerationState } from "../../dom/generation-state.js";
 import type {
   AskReadData,
   CommandResult,
+  ConfigurationAxis,
+  ConfigurationInspectionData,
+  ConfigurationSelection,
   RuntimeEnv,
   SequencePlan,
   SequenceStepResult
@@ -152,6 +156,189 @@ export const requiredScenarios: LiveSmokeScenario[] = [
       && uploadRemediation.includes("Allow access to file URLs")
       ? pass(meta, result)
       : fail(meta, result, { uploadRemediation });
+  }),
+  scenario("chat-work-expansion", true, () => true, async (context, meta) => {
+    const chatgpt = createChatGPT(clientOptionsFor(context));
+    const details: Record<string, unknown> = {};
+    let booted = false;
+    let terminal: CommandResult<unknown> = syntheticCommand(meta.startedAt);
+    let failure: LiveSmokeCommandFailure | undefined;
+
+    try {
+      const boot = await chatgpt.session.bootstrap({ preferExistingTab: false, timeoutMs: 60000 });
+      terminal = asCommand(boot);
+      requireLiveCommand("session.bootstrap", boot);
+      booted = true;
+
+      const openedChat = await chatgpt.experience.open({ experience: "chat", timeoutMs: 60000 });
+      terminal = asCommand(openedChat);
+      requireLiveCommand("experience.open.chat", openedChat,
+        openedChat.ok && openedChat.data?.experience === "chat");
+
+      const chatConfiguration = await chatgpt.configuration.inspect({
+        experience: "chat",
+        includeOptions: true,
+        timeoutMs: 60000
+      });
+      terminal = asCommand(chatConfiguration);
+      requireLiveCommand("configuration.inspect.chat", chatConfiguration,
+        chatConfiguration.ok
+        && chatConfiguration.data?.experience === "chat"
+        && chatConfiguration.data.verified === true);
+      const chatDesired = activeSelection(chatConfiguration.data!, ["intelligence", "model", "modelVersion"]);
+      requireLiveCommand("configuration.inspect.chat.active", chatConfiguration,
+        Object.keys(chatDesired).length > 0);
+
+      const verifiedChatConfiguration = await chatgpt.configuration.apply({
+        experience: "chat",
+        desired: chatDesired,
+        strict: true,
+        timeoutMs: 60000
+      });
+      terminal = asCommand(verifiedChatConfiguration);
+      requireLiveCommand("configuration.apply.chat.noop", verifiedChatConfiguration,
+        verifiedChatConfiguration.ok && verifiedChatConfiguration.data?.verified === true);
+
+      const openedWork = await chatgpt.experience.open({ experience: "work", timeoutMs: 60000 });
+      terminal = asCommand(openedWork);
+      requireLiveCommand("experience.open.work", openedWork,
+        openedWork.ok && openedWork.data?.experience === "work");
+
+      const workConfiguration = await chatgpt.configuration.inspect({
+        experience: "work",
+        includeOptions: true,
+        timeoutMs: 60000
+      });
+      terminal = asCommand(workConfiguration);
+      requireLiveCommand("configuration.inspect.work", workConfiguration,
+        workConfiguration.ok
+        && workConfiguration.data?.experience === "work"
+        && workConfiguration.data.verified === true
+        && hasAxes(workConfiguration.data, ["model", "effort", "speed"]));
+      const workDesired = activeSelection(workConfiguration.data!, ["model", "effort", "speed"]);
+      requireLiveCommand("configuration.inspect.work.active", workConfiguration,
+        hasSelectionAxes(workDesired, ["model", "effort", "speed"]));
+
+      const verifiedWorkConfiguration = await chatgpt.configuration.apply({
+        experience: "work",
+        desired: workDesired,
+        strict: true,
+        timeoutMs: 60000
+      });
+      terminal = asCommand(verifiedWorkConfiguration);
+      requireLiveCommand("configuration.apply.work.noop", verifiedWorkConfiguration,
+        verifiedWorkConfiguration.ok && verifiedWorkConfiguration.data?.verified === true);
+
+      const started = await chatgpt.work.start({
+        prompt: "Reply with exactly WORK_EXPANSION_START_OK.",
+        newTask: true,
+        wait: { timeoutMs: 180000, stableMs: 1500, pollMs: 750 },
+        read: { format: "normalized_text" },
+        timeoutMs: 60000
+      });
+      terminal = asCommand(started);
+      const startedText = started.data?.response?.text ?? started.output_text;
+      requireLiveCommand("work.start", started, started.ok && textEquals(startedText, "WORK_EXPANSION_START_OK"));
+
+      const status = await chatgpt.work.status({ includeArtifacts: true, maxPreviewChars: 200 });
+      terminal = asCommand(status);
+      requireLiveCommand("work.status", status,
+        status.ok && status.data?.experience === "work");
+
+      const waited = await chatgpt.work.wait({
+        timeoutMs: 30000,
+        stableMs: 1000,
+        pollMs: 500,
+        responseContent: "metadata"
+      });
+      terminal = asCommand(waited);
+      requireLiveCommand("work.wait", waited, waited.ok && waited.data?.complete === true);
+
+      const read = await chatgpt.work.readLatest({ format: "normalized_text" });
+      terminal = asCommand(read);
+      requireLiveCommand("work.readLatest", read,
+        read.ok && textEquals(read.data?.text, "WORK_EXPANSION_START_OK"));
+
+      const artifacts = await chatgpt.work.artifacts.listLatest({});
+      terminal = asCommand(artifacts);
+      requireLiveCommand("work.artifacts.listLatest", artifacts, artifacts.ok);
+
+      const steered = await chatgpt.work.steer({
+        prompt: "Reply with exactly WORK_EXPANSION_STEER_OK.",
+        wait: { timeoutMs: 180000, stableMs: 1500, pollMs: 750 },
+        read: { format: "normalized_text" },
+        timeoutMs: 60000
+      });
+      terminal = asCommand(steered);
+      requireLiveCommand("work.steer", steered,
+        steered.ok && textEquals(okText(steered), "WORK_EXPANSION_STEER_OK"));
+
+      const workAgent = chatgpt.agent({
+        name: "live-smoke-work-runner",
+        defaults: {
+          wait: { timeoutMs: 180000, stableMs: 1500, pollMs: 750 },
+          read: { format: "normalized_text" }
+        }
+      });
+      const runner = await chatgpt.runner.run(workAgent, {
+        input: "Reply with exactly WORK_EXPANSION_RUNNER_OK.",
+        thread: { type: "current" },
+        experience: "work",
+        configuration: workDesired,
+        response: { format: "normalized_text" }
+      });
+      terminal = asCommand(runner);
+      requireLiveCommand("runner.run.work", runner,
+        runner.ok && textEquals(runner.output_text, "WORK_EXPANSION_RUNNER_OK"));
+
+      const response = await chatgpt.responses.create({
+        input: "Reply with exactly WORK_EXPANSION_RESPONSES_OK.",
+        thread: { type: "current" },
+        experience: "work",
+        configuration: workDesired,
+        text: { format: "normalized_text" },
+        stream: false
+      });
+      const responseResult = responseCommand(response);
+      terminal = responseResult;
+      requireLiveCommand("responses.create.work", responseResult,
+        response.object === "chatgpt.browser.response"
+        && response.status === "ok"
+        && textEquals(response.output_text, "WORK_EXPANSION_RESPONSES_OK"));
+
+      details.chat = configurationDetails(chatConfiguration.data!);
+      details.work = configurationDetails(workConfiguration.data!);
+      details.workLifecycle = {
+        start: true,
+        status: true,
+        wait: true,
+        read: true,
+        steer: true,
+        artifacts: true,
+        runner: true,
+        responses: true
+      };
+    } catch (error) {
+      if (error instanceof LiveSmokeCommandFailure) {
+        failure = error;
+      } else {
+        throw error;
+      }
+    } finally {
+      if (booted) {
+        const restored = await chatgpt.experience.open({ experience: "chat", timeoutMs: 60000 });
+        terminal = asCommand(restored);
+        if (!restored.ok || restored.data?.experience !== "chat") {
+          failure = new LiveSmokeCommandFailure("experience.restore.chat", asCommand(restored));
+        } else {
+          details.restoredExperience = "chat";
+        }
+      }
+    }
+
+    return failure === undefined
+      ? pass(meta, terminal, details)
+      : fail(meta, failure.command, { ...details, failedStage: failure.stage });
   }),
   scenario("redacted-run-report", true, () => true, async (context, meta) => {
     const chatgpt = createChatGPT(clientOptionsFor(context));
@@ -463,6 +650,89 @@ export const requiredScenarios: LiveSmokeScenario[] = [
 ];
 
 export const optionalScenarios: LiveSmokeScenario[] = [
+  scenario("configuration-mutate-restore", false, context => contextEnvFlag(context, "CHATGPT_E2E_CONFIGURATION_MUTATION"), async (context, meta) => {
+    const chatgpt = createChatGPT(clientOptionsFor(context));
+    const details: Record<string, unknown> = {};
+    let booted = false;
+    let restoreNeeded = false;
+    let originalEffort: string | undefined;
+    let terminal: CommandResult<unknown> = syntheticCommand(meta.startedAt);
+    let failure: LiveSmokeCommandFailure | undefined;
+
+    try {
+      const boot = await chatgpt.session.bootstrap({ preferExistingTab: false, timeoutMs: 60000 });
+      terminal = asCommand(boot);
+      requireLiveCommand("session.bootstrap", boot);
+      booted = true;
+
+      const opened = await chatgpt.experience.open({ experience: "work", timeoutMs: 60000 });
+      terminal = asCommand(opened);
+      requireLiveCommand("experience.open.work", opened,
+        opened.ok && opened.data?.experience === "work");
+
+      const inspected = await chatgpt.configuration.inspect({
+        experience: "work",
+        includeOptions: true,
+        timeoutMs: 60000
+      });
+      terminal = asCommand(inspected);
+      requireLiveCommand("configuration.inspect.work", inspected,
+        inspected.ok && inspected.data?.verified === true);
+
+      originalEffort = inspected.data?.active.effort;
+      const alternative = inspected.data?.options.effort?.find(option => !option.selected && option.disabled !== true)?.label;
+      requireLiveCommand("configuration.inspect.work.alternative", inspected,
+        originalEffort !== undefined && alternative !== undefined);
+
+      restoreNeeded = true;
+      const changed = await chatgpt.configuration.apply({
+        experience: "work",
+        desired: { effort: alternative! },
+        strict: true,
+        timeoutMs: 60000
+      });
+      terminal = asCommand(changed);
+      requireLiveCommand("configuration.apply.work.mutate", changed,
+        changed.ok && changed.data?.verified === true);
+      details.axis = "effort";
+      details.changedFrom = originalEffort;
+      details.changedTo = alternative;
+    } catch (error) {
+      if (error instanceof LiveSmokeCommandFailure) {
+        failure = error;
+      } else {
+        throw error;
+      }
+    } finally {
+      if (booted && restoreNeeded && originalEffort !== undefined) {
+        const restoredConfiguration = await chatgpt.configuration.apply({
+          experience: "work",
+          desired: { effort: originalEffort },
+          strict: true,
+          timeoutMs: 60000
+        });
+        terminal = asCommand(restoredConfiguration);
+        if (!restoredConfiguration.ok || restoredConfiguration.data?.verified !== true) {
+          failure = new LiveSmokeCommandFailure("configuration.restore.work", asCommand(restoredConfiguration));
+        } else {
+          details.configurationRestored = true;
+        }
+      }
+      if (booted) {
+        const restoredExperience = await chatgpt.experience.open({ experience: "chat", timeoutMs: 60000 });
+        terminal = asCommand(restoredExperience);
+        if (!restoredExperience.ok || restoredExperience.data?.experience !== "chat") {
+          failure = new LiveSmokeCommandFailure("experience.restore.chat", asCommand(restoredExperience));
+        } else {
+          details.restoredExperience = "chat";
+        }
+      }
+    }
+
+    return failure === undefined
+      ? pass(meta, terminal, details)
+      : fail(meta, failure.command, { ...details, failedStage: failure.stage });
+  }),
   scenario("long-response-partial-short-timeout", false, context => contextEnvFlag(context, "CHATGPT_E2E_LONG_PARTIAL"), async (context, meta) => {
     const env = await bootNewThread(context, meta);
     if ("status" in env) return env;
@@ -541,16 +811,34 @@ export const optionalScenarios: LiveSmokeScenario[] = [
   scenario("download-generated-file", false, context => contextEnvFlag(context, "CHATGPT_E2E_DOWNLOAD"), async (context, meta) => {
     const env = await bootNewThread(context, meta);
     if ("status" in env) return env;
+    const chat = await openExperience(env, { experience: "chat", timeoutMs: 60000 });
+    if (!chat.ok || chat.data?.experience !== "chat") {
+      return fail(meta, chat, { failedStage: "experience.open.chat" });
+    }
     const asked = await askMessage(env, {
       text: "Create a tiny CSV file named chatgpt-live-smoke.csv containing one row with columns name,value and values smoke,1. Provide it as a downloadable file.",
       wait: { timeoutMs: 180000, stableMs: 3000 },
       read: true
     });
-    if (!asked.ok) return fail(meta, asked);
-    const result = await downloadLatestAttachment({ destDir: context.reportDir, timeoutMs: 120000 }, env);
-    const path = typeof result.data === "object" && result.data !== null ? (result.data as { path?: string }).path : undefined;
+    if (!generatedFileAskCanProceed(asked)) return fail(meta, asked);
+    const result = await downloadLatestAttachment({
+      destDir: context.reportDir,
+      filenamePattern: "^chatgpt-live-smoke\\.csv$",
+      timeoutMs: 120000
+    }, env);
+    const download = typeof result.data === "object" && result.data !== null
+      ? result.data as { path?: string; suggestedFilename?: string }
+      : undefined;
+    const path = download?.path;
     const bytes = path === undefined ? 0 : (await stat(path).catch(() => undefined))?.size ?? 0;
-    return result.ok && bytes > 0 ? pass(meta, result, { path, bytes }) : fail(meta, result, { path, bytes });
+    const content = path === undefined ? "" : await readFile(path, "utf8").catch(() => "");
+    const rows = content.replace(/^\uFEFF/, "").trim().split(/\r?\n/).map(row => row.trim());
+    const exactFile = download?.suggestedFilename === "chatgpt-live-smoke.csv";
+    const exactContent = rows[0] === "name,value" && rows[1] === "smoke,1" && rows.length === 2;
+    const details = { path, bytes, suggestedFilename: download?.suggestedFilename, exactFile, exactContent, askStatus: asked.status };
+    return result.ok && bytes > 0 && exactFile && exactContent
+      ? pass(meta, result, details)
+      : fail(meta, result, details);
   }),
   scenario("set-mode-visible", false, context => contextEnvText(context, "CHATGPT_E2E_MODE_LABEL") !== undefined, async (context, meta) => {
     const label = requireInput(contextEnvText(context, "CHATGPT_E2E_MODE_LABEL"), "CHATGPT_E2E_MODE_LABEL");
@@ -609,6 +897,11 @@ export const optionalScenarios: LiveSmokeScenario[] = [
       : fail(meta, result, { events });
   })
 ];
+
+export function generatedFileAskCanProceed(result: CommandResult<AskReadData>): boolean {
+  return result.ok
+    || (result.status === "partial" && result.data?.generationActive !== true);
+}
 
 function scenario(
   name: string,
@@ -761,6 +1054,74 @@ function responseCommand(response: ChatGPTResponse): CommandResult<unknown> {
     data: response,
     warnings: [],
     context: { timestamp: new Date(response.created_at * 1000).toISOString() }
+  };
+}
+
+class LiveSmokeCommandFailure extends Error {
+  constructor(
+    readonly stage: string,
+    readonly command: CommandResult<unknown>
+  ) {
+    super(`Live smoke command failed at ${stage}`);
+    this.name = "LiveSmokeCommandFailure";
+  }
+}
+
+function requireLiveCommand<T>(
+  stage: string,
+  command: CommandResult<T>,
+  condition = command.ok
+): void {
+  if (!condition) {
+    throw new LiveSmokeCommandFailure(stage, asCommand(command));
+  }
+}
+
+function asCommand<T>(command: CommandResult<T>): CommandResult<unknown> {
+  return command as CommandResult<unknown>;
+}
+
+function syntheticCommand(timestamp: string): CommandResult<unknown> {
+  return {
+    ok: true,
+    status: "ok",
+    warnings: [],
+    context: { timestamp }
+  };
+}
+
+function activeSelection(
+  inspection: ConfigurationInspectionData,
+  axes: ConfigurationAxis[]
+): ConfigurationSelection {
+  const selection: ConfigurationSelection = {};
+  for (const axis of axes) {
+    const value = inspection.active[axis];
+    if (value !== undefined) {
+      selection[axis] = value;
+    }
+  }
+  return selection;
+}
+
+function hasAxes(inspection: ConfigurationInspectionData, axes: ConfigurationAxis[]): boolean {
+  return axes.every(axis => inspection.availableAxes.includes(axis));
+}
+
+function hasSelectionAxes(selection: ConfigurationSelection, axes: ConfigurationAxis[]): boolean {
+  return axes.every(axis => selection[axis] !== undefined);
+}
+
+function configurationDetails(inspection: ConfigurationInspectionData): Record<string, unknown> {
+  return {
+    experience: inspection.experience,
+    selectorProfile: inspection.selectorProfile,
+    verified: inspection.verified,
+    availableAxes: inspection.availableAxes,
+    active: inspection.active,
+    optionCounts: Object.fromEntries(
+      Object.entries(inspection.options).map(([axis, options]) => [axis, options?.length ?? 0])
+    )
   };
 }
 

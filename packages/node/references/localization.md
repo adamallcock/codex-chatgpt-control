@@ -117,7 +117,8 @@ Create a read-only draft from an already-open authorized ChatGPT tab:
 ```bash
 npm run capture:surface-profile -- \
   --id work-basic-de \
-  --locale de-DE
+  --locale de-DE \
+  --experience work
 ```
 
 The command defaults region, plan, account, and workspace metadata to
@@ -126,6 +127,23 @@ identifiers, and excludes prompt/response/sidebar text. Review the draft under
 `outputs/surface-profiles/`, add only verified localized labels to the registry,
 then move a sanitized fixture into `contracts/v1/fixtures/` and update the
 manifest/parity matrix.
+
+To refresh every language in one visible-session sweep, use the existing
+Settings language loop with structural Chat/Work capture enabled:
+
+```bash
+npm run capture:intelligence-locales -- \
+  --auto-switch --all --capture-surfaces --if-missing open
+```
+
+Review the JSONL evidence, then apply it only with the explicit review gate:
+
+```bash
+npm run apply:intelligence-locales -- --in <capture.jsonl> --reviewed
+```
+
+The applier keeps older locale contributions valid, adds only observed
+non-English labels, and refuses incomplete surface captures instead of guessing.
 
 ## Adding a new language
 

@@ -1,13 +1,13 @@
 {
   "name": "codex-chatgpt-control-repo",
-  "version": "0.5.0-alpha.1",
+  "version": "0.5.1-alpha.1",
   "private": true,
   "description": "Public source repo for the unofficial visible ChatGPT Chat and Work control SDK.",
   "type": "module",
   "scripts": {
     "node:test": "npm --prefix packages/node test",
     "node:build": "npm --prefix packages/node run build",
-    "node:bundle": "npm --prefix packages/node run bundle && npm --prefix packages/node run bundle:backend && npm --prefix packages/node run bundle:live-smoke",
+    "node:bundle": "npm --prefix packages/node run bundle && npm --prefix packages/node run bundle:backend && npm --prefix packages/node run bundle:live-smoke && npm --prefix packages/node run bundle:release-canary",
     "node:contracts": "npm --prefix packages/node run contract:validate && npm --prefix packages/node run docs:drift && npm --prefix packages/node run parity:fixtures && npm --prefix packages/node run parity:suite",
     "python:test": "node scripts/run-python-gate.mjs test",
     "python:compile": "node scripts/run-python-gate.mjs compile",
@@ -20,7 +20,9 @@
     "release:check-names": "node scripts/check-release-names.mjs",
     "release:check-node-pack": "node scripts/check-node-pack.mjs",
     "release:build-python": "python -m build --sdist --wheel --outdir dist/python packages/python",
-    "release:check-python": "python -m twine check dist/python/*"
+    "release:check-python": "python -m twine check dist/python/*",
+    "release:smoke-source": "node scripts/verify-release-install.mjs --source",
+    "release:verify-published": "node scripts/verify-release-install.mjs --registry"
   },
   "license": "MIT"
 }

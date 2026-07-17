@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const kn = {
+  configurationAxes: {
+    model: ["ಮಾಡೆಲ್"],
+    effort: ["ಎಫರ್ಟ್"],
+    speed: ["ವೇಗ"],
+  },
+  configurationOptions: {
+    light: ["ಲೈಟ್"],
+    medium: ["ಮೀಡಿಯಂ"],
+    high: ["ಹೈ"],
+    extraHigh: ["ಎಕ್ಸ್‌ಟ್ರಾ ಹೈ"],
+    standard: ["ಸ್ಟ್ಯಾಂಡರ್ಡ್"],
+    fast: ["ತ್ವರಿತ"],
+  },
   composerTextbox: ["ChatGPT ಜೊತೆಗೆ ಚಾಟ್ ಮಾಡಿ"],
   sendButton: ["ಪ್ರಾಂಪ್ಟ್ಅನ್ನು ಕಳುಹಿಸಿ"],
   searchChatsButton: ["ಚಾಟ್‌ಗಳನ್ನು ಹುಡುಕಿ"],
@@ -18,12 +31,12 @@ export const kn = {
   addFilesOpenerCandidates: ["ಫೈಲ್‌ಗಳು ಮತ್ತು ಹೆಚ್ಚಿನವುಗಳನ್ನು ಸೇರಿಸಿ"],
   addPhotosFilesMenuItem: ["ಫೋಟೊ ಮತ್ತು ಫೈಲ್‌ಗಳನ್ನು ಸೇರಿಸಿ"],
   copyResponse: ["ಪ್ರತಿಕ್ರಿಯೆಯನ್ನು ನಕಲಿಸಿ"],
-  modeLabels: ["ತಕ್ಷಣ", "ಮಧ್ಯಮ", "ಉನ್ನತ", "ಅತಿ ಹೆಚ್ಚು", "ಪ್ರೊ"],
+  modeLabels: ["ತಕ್ಷಣ", "ಮಧ್ಯಮ", "ಉನ್ನತ", "ಅತಿ ಹೆಚ್ಚು", "ಪ್ರೊ", "ಮೀಡಿಯಂ", "ಹೈ", "ಎಕ್ಸ್‌ಟ್ರಾ ಹೈ"],
   modeOptions: {
     instant: ["ತಕ್ಷಣ"],
-    medium: ["ಮಧ್ಯಮ"],
-    high: ["ಉನ್ನತ"],
-    extraHigh: ["ಅತಿ ಹೆಚ್ಚು"],
+    medium: ["ಮಧ್ಯಮ", "ಮೀಡಿಯಂ"],
+    high: ["ಉನ್ನತ", "ಹೈ"],
+    extraHigh: ["ಅತಿ ಹೆಚ್ಚು", "ಎಕ್ಸ್‌ಟ್ರಾ ಹೈ"],
     pro: ["ಪ್ರೊ"],
   },
   modeOpenerExtra: ["ಕಾನ್ಫಿಗರ್ ಮಾಡಿ..."],

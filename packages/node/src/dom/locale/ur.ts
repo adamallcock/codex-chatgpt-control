@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const ur = {
+  configurationAxes: {
+    model: ["ماڈل"],
+    effort: ["کوشش"],
+    speed: ["رفتار"],
+  },
+  configurationOptions: {
+    light: ["لائٹ"],
+    medium: ["اوسط"],
+    high: ["ہائی"],
+    extraHigh: ["ایکسٹرا ہائی"],
+    standard: ["اسٹینڈرڈ"],
+    fast: ["تیز"],
+  },
   composerTextbox: ["کوئی بھی چیز پوچھیں۔۔۔"],
   sendButton: ["پرامپٹ بھیجیں"],
   searchChatsButton: ["چیٹس تلاش کریں"],
@@ -18,12 +31,12 @@ export const ur = {
   addFilesOpenerCandidates: ["فائلیں وغیرہ اپ لوڈ کریں"],
   addPhotosFilesMenuItem: ["تصویریں اور فائلیں شامل کریں"],
   copyResponse: ["جواب کاپی کریں"],
-  modeLabels: ["فوری", "اوسط", "اعلیٰ", "انتہائی اعلیٰ"],
+  modeLabels: ["فوری", "اوسط", "اعلیٰ", "انتہائی اعلیٰ", "ہائی", "ایکسٹرا ہائی"],
   modeOptions: {
     instant: ["فوری"],
     medium: ["اوسط"],
-    high: ["اعلیٰ"],
-    extraHigh: ["انتہائی اعلیٰ"],
+    high: ["اعلیٰ", "ہائی"],
+    extraHigh: ["انتہائی اعلیٰ", "ایکسٹرا ہائی"],
   },
   modeOpenerExtra: ["کنفیگر کریں..."],
   tools: {

@@ -1,4 +1,4 @@
-import { access, chmod, mkdir, mkdtemp, stat, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -512,6 +512,144 @@ describe("attachFiles", () => {
 });
 
 describe("downloadLatestFile", () => {
+  it("opens a filename-labelled artifact preview and copies a path-only Chrome download", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-generated-file-download-"));
+    const dest = join(dir, "out");
+    const browserDownload = join(dir, "chatgpt-live-smoke (1).csv");
+    await mkdir(dest);
+    await writeFile(browserDownload, "name,value\nsmoke,1\n");
+
+    let previewOpen = false;
+    let filenameClicked = false;
+    let downloadClicked = false;
+    const filenameButton: LocatorLike = {
+      count: async () => 1,
+      click: async () => {
+        filenameClicked = true;
+        previewOpen = true;
+      }
+    };
+    const assistant: LocatorLike = {
+      getByRole: (_role, options) => options?.name === "chatgpt-live-smoke.csv" ? filenameButton : { count: async () => 0 }
+    };
+    const assistants: LocatorLike = {
+      count: async () => 1,
+      nth: () => assistant
+    };
+    const previewDownload: LocatorLike = {
+      count: async () => previewOpen ? 1 : 0,
+      click: async () => {
+        downloadClicked = true;
+      }
+    };
+    const preview: LocatorLike = {
+      getByRole: (_role, options) => options?.name === "Download" ? previewDownload : { count: async () => 0 }
+    };
+    const noConventionalDownload: LocatorLike = { count: async () => 0 };
+    const html = [
+      "<main><div data-message-author-role='assistant'>",
+      "<button aria-label='chatgpt-live-smoke.csv'>chatgpt-live-smoke.csv</button>",
+      "<img alt='Generated image' width='256' height='256' src='data:image/png;base64,aW1hZ2U='>",
+      "</div></main>"
+    ].join("");
+    const page: PageLike = {
+      content: async () => html,
+      locator: selector => {
+        if (selector === "[data-message-author-role='assistant']") return assistants;
+        if (selector === "section[aria-label=\"chatgpt-live-smoke.csv\"]") return preview;
+        return noConventionalDownload;
+      },
+      waitForEvent: async () => ({ path: async () => browserDownload }),
+      waitForTimeout: async () => {},
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/c/mock"
+    };
+
+    const result = await downloadLatestFile({ page }, {
+      destDir: dest,
+      filenamePattern: "^chatgpt-live-smoke\\.csv$",
+      timeoutMs: 100
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.suggestedFilename).toBe("chatgpt-live-smoke.csv");
+    expect(result.data?.path).toBe(join(dest, "chatgpt-live-smoke.csv"));
+    expect(filenameClicked).toBe(true);
+    expect(downloadClicked).toBe(true);
+    await expect(readFile(join(dest, "chatgpt-live-smoke.csv"), "utf8")).resolves.toBe("name,value\nsmoke,1\n");
+  });
+
+  it("does not accept an unrelated image fallback when filenamePattern does not match", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-generated-file-mismatch-"));
+    const html = [
+      "<main><div data-message-author-role='assistant'>",
+      "<button aria-label='other.csv'>other.csv</button>",
+      "<img alt='Generated image' width='256' height='256' src='data:image/png;base64,aW1hZ2U='>",
+      "</div></main>"
+    ].join("");
+    const page: PageLike = {
+      content: async () => html,
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/c/mock"
+    };
+
+    const result = await downloadLatestFile({ page }, {
+      destDir: dir,
+      filenamePattern: "^chatgpt-live-smoke\\.csv$",
+      timeoutMs: 100
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: "unsupported",
+      blocker: {
+        kind: "download_unavailable",
+        code: "download_filename_not_found"
+      }
+    });
+  });
+
+  it("keeps direct assistant file links working with filenamePattern", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-direct-file-link-"));
+    const dest = join(dir, "out");
+    const browserDownload = join(dir, "report (2).csv");
+    await mkdir(dest);
+    await writeFile(browserDownload, "metric,value\nrequests,2\n");
+
+    let clicked = false;
+    const link: LocatorLike = {
+      count: async () => 1,
+      click: async () => {
+        clicked = true;
+      }
+    };
+    const assistant: LocatorLike = {
+      getByRole: (_role, options) => options?.name === "report.csv" ? link : { count: async () => 0 }
+    };
+    const assistants: LocatorLike = {
+      count: async () => 1,
+      nth: () => assistant
+    };
+    const page: PageLike = {
+      content: async () => "<main><div data-message-author-role='assistant'><a download aria-label='report.csv'>report.csv</a></div></main>",
+      locator: selector => selector === "[data-message-author-role='assistant']" ? assistants : { count: async () => 0 },
+      waitForEvent: async () => ({ path: async () => browserDownload }),
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/c/mock"
+    };
+
+    const result = await downloadLatestFile({ page }, {
+      destDir: dest,
+      filenamePattern: "^report\\.csv$",
+      timeoutMs: 100
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.suggestedFilename).toBe("report.csv");
+    expect(clicked).toBe(true);
+    await expect(readFile(join(dest, "report.csv"), "utf8")).resolves.toBe("metric,value\nrequests,2\n");
+  });
+
   it("saves a non-empty mocked browser download", async () => {
     const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-download-"));
     const dest = join(dir, "out");

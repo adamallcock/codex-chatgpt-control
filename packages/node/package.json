@@ -1,6 +1,6 @@
 {
   "name": "codex-chatgpt-control",
-  "version": "0.5.0-alpha.1",
+  "version": "0.5.1-alpha.1",
   "description": "Unofficial SDK for controlling visible ChatGPT Chat and Work sessions.",
   "type": "module",
   "license": "MIT",
@@ -26,6 +26,7 @@
     "bundle": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/codex-chatgpt-control.bundle.mjs",
     "bundle:backend": "esbuild src/scripts/backend-server.ts --bundle --platform=node --format=esm --outfile=dist/codex-chatgpt-control-backend.mjs",
     "bundle:live-smoke": "esbuild src/scripts/live-smoke-module.ts --bundle --platform=node --format=esm --outfile=dist/codex-chatgpt-control-live-smoke.bundle.mjs",
+    "bundle:release-canary": "esbuild src/scripts/release-canary-module.ts --bundle --platform=node --format=esm --outfile=dist/codex-chatgpt-control-release-canary.bundle.mjs",
     "contract:validate": "node scripts/validate-contract.mjs",
     "docs:drift": "tsx src/scripts/check-surface-drift.ts",
     "parity:fixtures": "node scripts/check-parity-fixtures.mjs",
@@ -34,11 +35,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "thread": "tsx src/scripts/continue-thread.ts",
+    "capture:intelligence-locales": "tsx src/scripts/capture-intelligence-locales.ts",
+    "capture:intelligence-locales:queue": "tsx src/scripts/capture-intelligence-locales.ts --print-queue",
     "capture:surface-profile": "tsx src/scripts/capture-surface-profile.ts",
+    "apply:intelligence-locales": "tsx src/scripts/apply-intelligence-locale-captures.ts",
     "smoke:hi": "tsx src/scripts/smoke-hi.ts",
     "smoke:search": "tsx src/scripts/smoke-search-open-read.ts",
     "smoke:attach": "tsx src/scripts/smoke-attach-file.ts",
-    "smoke:live": "tsx src/scripts/live-smoke.ts"
+    "smoke:live": "tsx src/scripts/live-smoke.ts",
+    "smoke:release:build": "npm run bundle:release-canary"
   },
   "exports": {
     ".": {

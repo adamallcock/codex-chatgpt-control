@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const mr = {
+  configurationAxes: {
+    model: ["मॉडेल"],
+    effort: ["प्रयत्न"],
+    speed: ["वेग"],
+  },
+  configurationOptions: {
+    light: ["हलका"],
+    medium: ["मध्यम"],
+    high: ["उच्च"],
+    extraHigh: ["अत्युच्च"],
+    standard: ["स्टँडर्ड"],
+    fast: ["जलद"],
+  },
   composerTextbox: ["काहीही विचारा"],
   sendButton: ["प्रॉम्प्ट पाठवा"],
   searchChatsButton: ["चॅट्स शोधा"],
@@ -18,12 +31,12 @@ export const mr = {
   addFilesOpenerCandidates: ["फाइल्स जोडा आणि इतर अनेक गोष्टी करा"],
   addPhotosFilesMenuItem: ["फोटो आणि फाइल्स अपलोड करा"],
   copyResponse: ["प्रतिसाद कॉपी करा"],
-  modeLabels: ["झटपट", "मध्यम", "उच्च", "अतिउच्च", "प्रो"],
+  modeLabels: ["झटपट", "मध्यम", "उच्च", "अतिउच्च", "प्रो", "अत्युच्च"],
   modeOptions: {
     instant: ["झटपट"],
     medium: ["मध्यम"],
     high: ["उच्च"],
-    extraHigh: ["अतिउच्च"],
+    extraHigh: ["अतिउच्च", "अत्युच्च"],
     pro: ["प्रो"],
   },
   modeOpenerExtra: ["कॉन्फिगर करा..."],

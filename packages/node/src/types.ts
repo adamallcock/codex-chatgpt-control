@@ -995,6 +995,7 @@ export type PageLike = {
   cua?: {
     move?: (options: { x: number; y: number }) => Promise<void> | void;
     click?: (options: { x: number; y: number; button?: number }) => Promise<void> | void;
+    keypress?: (options: { keys: string[] }) => Promise<void> | void;
   };
   waitForTimeout?: (ms: number) => Promise<void>;
   waitForEvent?: (event: string, optionsOrCallback?: WaitForEventOptions | unknown) => Promise<unknown>;

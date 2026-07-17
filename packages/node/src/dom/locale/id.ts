@@ -6,9 +6,21 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const id = {
+  configurationAxes: {
+    effort: ["Upaya"],
+    speed: ["Kecepatan"],
+  },
+  configurationOptions: {
+    light: ["Ringan"],
+    medium: ["Sedang"],
+    high: ["Tinggi"],
+    extraHigh: ["Ekstra Tinggi"],
+    standard: ["Standar"],
+    fast: ["Cepat"],
+  },
   composerTextbox: ["Obrolan dengan ChatGPT"],
   sendButton: ["Kirim perintah"],
   searchChatsButton: ["Cari obrolan"],
@@ -18,12 +30,12 @@ export const id = {
   addFilesOpenerCandidates: ["Tambahkan file dan lainnya"],
   addPhotosFilesMenuItem: ["Tambah foto & file"],
   copyResponse: ["Salin respons"],
-  modeLabels: ["Instan", "Sedang", "Tinggi", "Sangat Tinggi"],
+  modeLabels: ["Instan", "Sedang", "Tinggi", "Sangat Tinggi", "Ekstra Tinggi"],
   modeOptions: {
     instant: ["Instan"],
     medium: ["Sedang"],
     high: ["Tinggi"],
-    extraHigh: ["Sangat Tinggi"],
+    extraHigh: ["Sangat Tinggi", "Ekstra Tinggi"],
   },
   modeOpenerExtra: ["Konfigurasi..."],
   tools: {

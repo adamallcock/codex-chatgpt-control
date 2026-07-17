@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const bg = {
+  configurationAxes: {
+    model: ["Модел"],
+    effort: ["Усилие"],
+    speed: ["Скорост"],
+  },
+  configurationOptions: {
+    light: ["Кратко"],
+    medium: ["Средно"],
+    high: ["Високо"],
+    extraHigh: ["Много високо"],
+    standard: ["Стандартно"],
+    fast: ["Бърза"],
+  },
   composerTextbox: ["Чат с ChatGPT"],
   sendButton: ["Изпращане на подкана"],
   searchChatsButton: ["Търсене на чатове"],
@@ -18,11 +31,11 @@ export const bg = {
   addFilesOpenerCandidates: ["Добавяне на файлове и др."],
   addPhotosFilesMenuItem: ["Добавяне на снимки и файлове"],
   copyResponse: ["Копирайте отговора"],
-  modeLabels: ["Мигновен", "Среден", "Висок", "Много високо", "Про"],
+  modeLabels: ["Мигновен", "Среден", "Висок", "Много високо", "Про", "Средно", "Високо"],
   modeOptions: {
     instant: ["Мигновен"],
-    medium: ["Среден"],
-    high: ["Висок"],
+    medium: ["Среден", "Средно"],
+    high: ["Висок", "Високо"],
     extraHigh: ["Много високо"],
     pro: ["Про"],
   },

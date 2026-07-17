@@ -6,9 +6,21 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const sl = {
+  configurationAxes: {
+    effort: ["Napor"],
+    speed: ["Hitrost"],
+  },
+  configurationOptions: {
+    light: ["Osnovno"],
+    medium: ["Srednje"],
+    high: ["Visoko"],
+    extraHigh: ["Zelo visoko"],
+    standard: ["Standardno"],
+    fast: ["Hitro"],
+  },
   composerTextbox: ["Vprašajte kar koli"],
   sendButton: ["Pošlji poziv"],
   searchChatsButton: ["Išči po klepetih"],
@@ -18,11 +30,11 @@ export const sl = {
   addFilesOpenerCandidates: ["Dodaj datoteke in še več"],
   addPhotosFilesMenuItem: ["Naloži fotografije in datoteke"],
   copyResponse: ["Kopiraj odgovor"],
-  modeLabels: ["Takoj", "Srednja", "Visoka", "Zelo visoko"],
+  modeLabels: ["Takoj", "Srednja", "Visoka", "Zelo visoko", "Srednje", "Visoko"],
   modeOptions: {
     instant: ["Takoj"],
-    medium: ["Srednja"],
-    high: ["Visoka"],
+    medium: ["Srednja", "Srednje"],
+    high: ["Visoka", "Visoko"],
     extraHigh: ["Zelo visoko"],
   },
   modeOpenerExtra: ["Konfiguracija …"],

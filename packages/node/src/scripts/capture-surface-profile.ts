@@ -4,6 +4,7 @@ import { attachChatGPTBrowser } from "../browser/attach.js";
 import { inspectConfiguration } from "../commands/configuration.js";
 import {
   detectExperienceFromSnapshot,
+  openExperience,
   readSurfaceSnapshot
 } from "../commands/experience.js";
 import {
@@ -13,6 +14,7 @@ import {
 } from "../errors.js";
 import type {
   BrowserLike,
+  ChatGPTExperience,
   ConfigurationInspectionData,
   ExistingTabPolicy,
   RuntimeEnv,
@@ -40,6 +42,8 @@ type CaptureOptions = {
   provenance: string;
   tabId?: string;
   ifMissing: NonNullable<ExistingTabPolicy["ifMissing"]>;
+  experience?: Exclude<ChatGPTExperience, "unknown">;
+  restoreExperience: boolean;
 };
 
 class UsageError extends Error {
@@ -66,9 +70,12 @@ const USAGE = [
   "  --provenance       Non-private provenance note.",
   "  --tab-id           Claim an exact already-open ChatGPT tab.",
   "  --if-missing       block|open|create. Default: block.",
+  "  --experience       Capture chat|work, switching visibly when needed.",
+  "  --no-restore-experience  Leave the requested surface selected. Default: restore.",
   "",
-  "The capture is read-only with respect to ChatGPT configuration. It opens and",
-  "closes visible menus, writes a sanitized draft locally, and never records",
+  "The capture does not mutate model configuration. With --experience it visibly",
+  "switches panes and restores the prior pane by default. It writes a sanitized draft",
+  "locally and never records",
   "prompts, responses, sidebar titles, account names, cookies, or network data."
 ].join("\n");
 
@@ -119,28 +126,55 @@ export async function main(
     });
     env.page = attached.page;
 
-    const snapshot = await readSurfaceSnapshot(attached.page);
-    const detected = detectExperienceFromSnapshot(snapshot);
-    const inspectionResult = await inspectConfiguration(env, { includeOptions: true });
-    if (!inspectionResult.ok || inspectionResult.data === undefined) {
-      console.log(JSON.stringify(inspectionResult, null, 2));
-      return 1;
+    const initial = detectExperienceFromSnapshot(await readSurfaceSnapshot(attached.page));
+    const previousExperience = initial.experience === "unknown" ? undefined : initial.experience;
+    if (options.experience !== undefined && previousExperience === undefined) {
+      throw new Error("Cannot safely switch surfaces because the initial Chat/Work pane could not be identified.");
     }
 
-    const locale = options.locale ?? await readDocumentLocale(attached.page) ?? "und";
-    const profile = buildSurfaceProfileDraft(options, locale, snapshot, detected, inspectionResult.data);
-    await mkdir(dirname(options.out), { recursive: true });
-    await writeFile(options.out, `${JSON.stringify(profile, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
-    console.log(JSON.stringify({
-      ok: true,
-      status: "ok",
-      path: options.out,
-      id: profile.id,
-      experience: profile.expected.experience,
-      selectorProfile: profile.expected.selectorProfile,
-      supportState: profile.supportState
-    }, null, 2));
-    return 0;
+    try {
+      if (options.experience !== undefined) {
+        const opened = await openExperience(env, { experience: options.experience, timeoutMs: 60_000 });
+        if (!opened.ok || opened.data?.experience !== options.experience) {
+          console.log(JSON.stringify(opened, null, 2));
+          return 1;
+        }
+      }
+
+      const snapshot = await readSurfaceSnapshot(attached.page);
+      const detected = detectExperienceFromSnapshot(snapshot);
+      const inspectionResult = await inspectConfiguration(env, { includeOptions: true });
+      if (!inspectionResult.ok || inspectionResult.data === undefined) {
+        console.log(JSON.stringify(inspectionResult, null, 2));
+        return 1;
+      }
+
+      const locale = options.locale ?? await readDocumentLocale(attached.page) ?? "und";
+      const profile = buildSurfaceProfileDraft(options, locale, snapshot, detected, inspectionResult.data);
+      await mkdir(dirname(options.out), { recursive: true });
+      await writeFile(options.out, `${JSON.stringify(profile, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+      console.log(JSON.stringify({
+        ok: true,
+        status: "ok",
+        path: options.out,
+        id: profile.id,
+        experience: profile.expected.experience,
+        selectorProfile: profile.expected.selectorProfile,
+        supportState: profile.supportState,
+        restoreExperience: options.restoreExperience
+      }, null, 2));
+      return 0;
+    } finally {
+      if (options.experience !== undefined
+        && options.restoreExperience
+        && previousExperience !== undefined
+        && previousExperience !== options.experience) {
+        const restored = await openExperience(env, { experience: previousExperience, timeoutMs: 60_000 });
+        if (!restored.ok || restored.data?.experience !== previousExperience) {
+          throw new Error(`Captured ${options.experience}, but failed to restore ${previousExperience}.`);
+        }
+      }
+    }
   } catch (error) {
     console.log(JSON.stringify(toCommandResult(error), null, 2));
     return 1;
@@ -242,6 +276,8 @@ export function parseArgs(argv: readonly string[]): CaptureOptions {
   let provenance = DEFAULT_PROVENANCE;
   let tabId: string | undefined;
   let ifMissing: NonNullable<ExistingTabPolicy["ifMissing"]> = "block";
+  let experience: Exclude<ChatGPTExperience, "unknown"> | undefined;
+  let restoreExperience = true;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -283,6 +319,15 @@ export function parseArgs(argv: readonly string[]): CaptureOptions {
       case "--if-missing":
         ifMissing = parseIfMissing(requiredValue(argv, ++index, arg));
         break;
+      case "--experience":
+        experience = parseExperience(requiredValue(argv, ++index, arg));
+        break;
+      case "--restore-experience":
+        restoreExperience = true;
+        break;
+      case "--no-restore-experience":
+        restoreExperience = false;
+        break;
       default:
         throw new UsageError(`Unknown argument: ${arg}\n\n${USAGE}`);
     }
@@ -320,7 +365,9 @@ export function parseArgs(argv: readonly string[]): CaptureOptions {
     supportState,
     provenance,
     ...(tabId === undefined ? {} : { tabId }),
-    ifMissing
+    ifMissing,
+    ...(experience === undefined ? {} : { experience }),
+    restoreExperience
   };
 }
 
@@ -362,6 +409,11 @@ function parseSupportState(value: string): SurfaceProfileSupportState {
   throw new UsageError(`Invalid --support-state: ${value}`);
 }
 
+function parseExperience(value: string): Exclude<ChatGPTExperience, "unknown"> {
+  if (value === "chat" || value === "work") return value;
+  throw new UsageError("--experience must be chat or work.");
+}
+
 function parseIfMissing(value: string): NonNullable<ExistingTabPolicy["ifMissing"]> {
   if (value === "block" || value === "open" || value === "create") return value;
   throw new UsageError(`Invalid --if-missing: ${value}`);
@@ -373,6 +425,9 @@ function assertNormalizedSlug(value: string, flag: string): void {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (typeof process !== "undefined"
+  && Array.isArray(process.argv)
+  && typeof process.argv[1] === "string"
+  && import.meta.url === `file://${process.argv[1]}`) {
   process.exitCode = await main();
 }

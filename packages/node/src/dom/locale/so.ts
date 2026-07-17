@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const so = {
+  configurationAxes: {
+    model: ["Moodel"],
+    effort: ["Dadaal"],
+    speed: ["Xawaare"],
+  },
+  configurationOptions: {
+    light: ["Fudud"],
+    medium: ["Dhexdhexaad"],
+    high: ["Sare"],
+    extraHigh: ["Aad U Sarreeya"],
+    standard: ["Caadi"],
+    fast: ["Degdeg"],
+  },
   composerTextbox: ["Waydii waxkasta"],
   sendButton: ["Dir qoraal"],
   searchChatsButton: ["Raadi wada-sheekaysiyada"],
@@ -18,12 +31,12 @@ export const so = {
   addFilesOpenerCandidates: ["Ku dar faylashada iyo wax badan"],
   addPhotosFilesMenuItem: ["Soo geli sawirada & faylasha"],
   copyResponse: ["Koobiyee jawaabta"],
-  modeLabels: ["Degdeg", "Dhexdhexaad", "Sare", "Aad u sarreeya"],
+  modeLabels: ["Degdeg", "Dhexdhexaad", "Sare", "Aad u sarreeya", "Aad U Sarreeya"],
   modeOptions: {
     instant: ["Degdeg"],
     medium: ["Dhexdhexaad"],
     high: ["Sare"],
-    extraHigh: ["Aad u sarreeya"],
+    extraHigh: ["Aad u sarreeya", "Aad U Sarreeya"],
   },
   modeOpenerExtra: ["Ku xidh..."],
   tools: {

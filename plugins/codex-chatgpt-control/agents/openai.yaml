@@ -2,4 +2,4 @@ interface:
   display_name: "ChatGPT Surface Control"
   short_description: "Visible Chat and Work delegation for Codex"
   brand_color: "#10A37F"
-  default_prompt: "Use ChatGPT Surface Control to delegate this task to the appropriate visible Chat or Work experience."
+  default_prompt: "Use $codex-chatgpt-control to delegate this task to the appropriate visible Chat or Work experience."

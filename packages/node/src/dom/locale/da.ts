@@ -6,9 +6,20 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const da = {
+  configurationAxes: {
+    effort: ["Indsats"],
+    speed: ["Hastighed"],
+  },
+  configurationOptions: {
+    light: ["Let"],
+    medium: ["Mellem"],
+    high: ["Høj"],
+    extraHigh: ["Ekstra høj"],
+    fast: ["Hurtig"],
+  },
   composerTextbox: ["Chat med ChatGPT"],
   sendButton: ["Send forespørgsel"],
   searchChatsButton: ["Søg i chats"],
@@ -18,9 +29,10 @@ export const da = {
   addFilesOpenerCandidates: ["Tilføj filer og mere"],
   addPhotosFilesMenuItem: ["Tilføj billeder og filer"],
   copyResponse: ["Kopiér svar"],
-  modeLabels: ["Øjeblikkeligt", "Høj", "Ekstra høj"],
+  modeLabels: ["Øjeblikkeligt", "Høj", "Ekstra høj", "Mellem"],
   modeOptions: {
     instant: ["Øjeblikkeligt"],
+    medium: ["Mellem"],
     high: ["Høj"],
     extraHigh: ["Ekstra høj"],
   },

@@ -6,9 +6,22 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const mk = {
+  configurationAxes: {
+    model: ["Модел"],
+    effort: ["Напор"],
+    speed: ["Брзина"],
+  },
+  configurationOptions: {
+    light: ["Лесно"],
+    medium: ["Средна"],
+    high: ["Висока"],
+    extraHigh: ["Екстра висока"],
+    standard: ["Стандарден"],
+    fast: ["Брзо"],
+  },
   composerTextbox: ["Прашај што било"],
   sendButton: ["Испрати промпт"],
   searchChatsButton: ["Пребарај разговори"],
@@ -18,11 +31,11 @@ export const mk = {
   addFilesOpenerCandidates: ["Додај датотеки и повеќе"],
   addPhotosFilesMenuItem: ["Постави фотографии и датотеки"],
   copyResponse: ["Копирај одговор"],
-  modeLabels: ["Средно", "Високо", "Многу високо"],
+  modeLabels: ["Средно", "Високо", "Многу високо", "Средна", "Висока", "Многу висока"],
   modeOptions: {
-    medium: ["Средно"],
-    high: ["Високо"],
-    extraHigh: ["Многу високо"],
+    medium: ["Средно", "Средна"],
+    high: ["Високо", "Висока"],
+    extraHigh: ["Многу високо", "Многу висока"],
   },
   modeOpenerExtra: ["Конфигурирај..."],
   tools: {

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { filterScenarios, requiredFailures, writeReport } from "../../src/scripts/live-smoke/harness.js";
-import { optionalScenarios } from "../../src/scripts/live-smoke/scenarios.js";
+import { generatedFileAskCanProceed, optionalScenarios, requiredScenarios } from "../../src/scripts/live-smoke/scenarios.js";
 import type { LiveSmokeScenario } from "../../src/scripts/live-smoke/types.js";
 import type { LiveSmokeScenarioResult } from "../../src/scripts/live-smoke/types.js";
 
@@ -51,6 +51,42 @@ describe("live smoke harness", () => {
     expect(stop?.enabled({ agent: {}, reportDir: "/tmp/reports", env: {} })).toBe(false);
     expect(partial?.enabled({ agent: {}, reportDir: "/tmp/reports", env: { CHATGPT_E2E_LONG_PARTIAL: "1" } })).toBe(true);
     expect(stop?.enabled({ agent: {}, reportDir: "/tmp/reports", env: { CHATGPT_E2E_STOP_CONTROL: "1" } })).toBe(true);
+  });
+
+  it("registers the Chat and Work expansion as required live coverage", () => {
+    const expansion = requiredScenarios.find(item => item.name === "chat-work-expansion");
+
+    expect(expansion?.required).toBe(true);
+    expect(expansion?.enabled({ agent: {}, reportDir: "/tmp/reports", env: {} })).toBe(true);
+  });
+
+  it("keeps configuration mutation opt-in and restoration-oriented", () => {
+    const mutation = optionalScenarios.find(item => item.name === "configuration-mutate-restore");
+
+    expect(mutation?.required).toBe(false);
+    expect(mutation?.enabled({ agent: {}, reportDir: "/tmp/reports", env: {} })).toBe(false);
+    expect(mutation?.enabled({
+      agent: {},
+      reportDir: "/tmp/reports",
+      env: { CHATGPT_E2E_CONFIGURATION_MUTATION: "1" }
+    })).toBe(true);
+  });
+
+  it("lets artifact verification decide a settled partial generated-file response", () => {
+    expect(generatedFileAskCanProceed({
+      ok: false,
+      status: "partial",
+      data: { prompt: "generated file probe", complete: false, generationActive: false },
+      warnings: [],
+      context: { timestamp: "2026-07-17T00:00:00.000Z" }
+    })).toBe(true);
+    expect(generatedFileAskCanProceed({
+      ok: false,
+      status: "partial",
+      data: { prompt: "generated file probe", complete: false, generationActive: true },
+      warnings: [],
+      context: { timestamp: "2026-07-17T00:00:00.000Z" }
+    })).toBe(false);
   });
 
   it("redacts command content in persisted live-smoke reports", async () => {

@@ -9,6 +9,21 @@ type CaptureRecord = {
   intelligenceLabels?: string[];
   generationStopLabels?: string[];
   generationStoppedLabels?: string[];
+  surfaceCapture?: {
+    status: "ok" | "blocked";
+    restoredChat: boolean;
+    chat?: { optionLabel: string; composerLabels: string[] };
+    work?: {
+      optionLabel: string;
+      composerLabels: string[];
+      configurationRows: Array<{
+        axis: "model" | "effort" | "speed";
+        axisLabel: string;
+        options: Array<{ label: string; checked: boolean }>;
+      }>;
+    };
+    blocker?: { message?: string };
+  };
 };
 
 type ApplyOptions = {
@@ -18,6 +33,15 @@ type ApplyOptions = {
 };
 
 type IntelligenceModeOptionId = "instant" | "medium" | "high" | "extraHigh" | "pro";
+type ExperienceOptionId = "chat" | "work";
+type ConfigurationAxisId = "model" | "effort" | "speed";
+type ConfigurationOptionId = "light" | "medium" | "high" | "extraHigh" | "max" | "ultra" | "standard" | "fast";
+type SurfaceContribution = {
+  workComposerTextbox: string[];
+  experienceOptions: Partial<Record<ExperienceOptionId, string[]>>;
+  configurationAxes: Partial<Record<ConfigurationAxisId, string[]>>;
+  configurationOptions: Partial<Record<ConfigurationOptionId, string[]>>;
+};
 
 const ENGLISH_MODE_LABELS = new Set(["Latest", "Instant", "Thinking", "Extended", "Medium", "High", "Extra High", "Pro"]);
 const ENGLISH_STOP_CONTROL = new Set(["stop generating", "stop streaming", "stop answering", "cancel"]);
@@ -30,7 +54,25 @@ const ENGLISH_INTELLIGENCE_MODE_OPTIONS: Record<IntelligenceModeOptionId, string
   extraHigh: "Extra High",
   pro: "Pro",
 };
-const UPDATE_NOTE = " * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.";
+const EXPERIENCE_OPTION_IDS: ExperienceOptionId[] = ["chat", "work"];
+const CONFIGURATION_AXIS_IDS: ConfigurationAxisId[] = ["model", "effort", "speed"];
+const CONFIGURATION_OPTION_IDS: ConfigurationOptionId[] = ["light", "medium", "high", "extraHigh", "max", "ultra", "standard", "fast"];
+const EFFORT_OPTION_IDS: ConfigurationOptionId[] = ["light", "medium", "high", "extraHigh", "max", "ultra"];
+const SPEED_OPTION_IDS: ConfigurationOptionId[] = ["standard", "fast"];
+const ENGLISH_EXPERIENCE_OPTIONS = new Set(["chat", "quick chat", "work"]);
+const ENGLISH_CONFIGURATION_AXES: Record<ConfigurationAxisId, string> = { model: "Model", effort: "Effort", speed: "Speed" };
+const ENGLISH_CONFIGURATION_OPTIONS: Record<ConfigurationOptionId, string> = {
+  light: "Light",
+  medium: "Medium",
+  high: "High",
+  extraHigh: "Extra High",
+  max: "Max",
+  ultra: "Ultra",
+  standard: "Standard",
+  fast: "Fast",
+};
+const ENGLISH_COMPOSER_LABELS = new Set(["chat with chatgpt", "ask chatgpt", "work on anything", "work on something"]);
+const UPDATE_NOTE = " * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.";
 
 class ApplyUsageError extends Error {
   constructor(message: string, readonly exitCode = 2) {
@@ -71,6 +113,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     modeOptions: Partial<Record<IntelligenceModeOptionId, string[]>>;
     stopControl: string[];
     stoppedAssistant: string[];
+    surface: SurfaceContribution;
   }> = [];
 
   for (const language of languages) {
@@ -83,7 +126,15 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     const modeOptions = observedNonEnglishModeOptions(record);
     const stopControl = observedNonEnglishGenerationLabels(record.generationStopLabels, ENGLISH_STOP_CONTROL);
     const stoppedAssistant = observedNonEnglishGenerationLabels(record.generationStoppedLabels, ENGLISH_STOPPED_ASSISTANT);
-    if (labels.length === 0 && Object.keys(modeOptions).length === 0 && stopControl.length === 0 && stoppedAssistant.length === 0) continue;
+    const surface = observedNonEnglishSurface(record);
+    if (labels.length === 0
+      && Object.keys(modeOptions).length === 0
+      && stopControl.length === 0
+      && stoppedAssistant.length === 0
+      && surface.workComposerTextbox.length === 0
+      && Object.keys(surface.experienceOptions).length === 0
+      && Object.keys(surface.configurationAxes).length === 0
+      && Object.keys(surface.configurationOptions).length === 0) continue;
     planned.push({
       locale: language.bcp47,
       file: resolve(root, "src/dom/locale", `${language.bcp47}.ts`),
@@ -91,6 +142,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       modeOptions,
       stopControl,
       stoppedAssistant,
+      surface,
     });
   }
 
@@ -107,10 +159,10 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     const after = mergeCapture(before, change.labels, change.modeOptions, {
       stopControl: change.stopControl,
       stoppedAssistant: change.stoppedAssistant,
-    });
+    }, change.surface);
     if (after !== before) {
       await writeFile(change.file, after, "utf8");
-      console.log(`updated ${change.locale} labels=${change.labels.length} modeOptions=${Object.keys(change.modeOptions).length} stopControl=${change.stopControl.length} stoppedAssistant=${change.stoppedAssistant.length}`);
+      console.log(`updated ${change.locale} labels=${change.labels.length} modeOptions=${Object.keys(change.modeOptions).length} surfaces=${surfaceContributionCount(change.surface)} stopControl=${change.stopControl.length} stoppedAssistant=${change.stoppedAssistant.length}`);
     }
   }
 
@@ -165,6 +217,95 @@ function observedNonEnglishGenerationLabels(
     .filter(value => value.length > 0 && !englishValues.has(value.toLowerCase())));
 }
 
+function observedNonEnglishSurface(record: CaptureRecord): SurfaceContribution {
+  const empty: SurfaceContribution = {
+    workComposerTextbox: [],
+    experienceOptions: {},
+    configurationAxes: {},
+    configurationOptions: {},
+  };
+  const capture = record.surfaceCapture;
+  if (capture === undefined) return empty;
+  if (capture.status !== "ok" || capture.chat === undefined || capture.work === undefined || !capture.restoredChat) {
+    throw new ApplyUsageError(
+      `${record.requestedLocale} surface capture was not successful and restored: ${capture.blocker?.message ?? "unknown blocker"}.`,
+      1
+    );
+  }
+
+  const contribution: SurfaceContribution = { ...empty };
+  contribution.experienceOptions = {
+    ...nonEnglishSlot("chat", capture.chat.optionLabel, ENGLISH_EXPERIENCE_OPTIONS),
+    ...nonEnglishSlot("work", capture.work.optionLabel, ENGLISH_EXPERIENCE_OPTIONS),
+  };
+
+  const sharedComposerLabels = new Set(capture.chat.composerLabels.map(normalizedLower));
+  contribution.workComposerTextbox = dedupe(capture.work.composerLabels
+    .map(normalized)
+    .filter(label => label.length > 0
+      && !sharedComposerLabels.has(normalizedLower(label))
+      && !ENGLISH_COMPOSER_LABELS.has(normalizedLower(label))));
+
+  const rows = capture.work.configurationRows;
+  if (rows.length !== CONFIGURATION_AXIS_IDS.length
+    || rows.some((row, index) => row.axis !== CONFIGURATION_AXIS_IDS[index])) {
+    throw new ApplyUsageError(`${record.requestedLocale} did not capture the ordered Model/Effort/Speed rows.`, 1);
+  }
+
+  for (const row of rows) {
+    const axisLabel = normalized(row.axisLabel);
+    if (axisLabel.length > 0 && axisLabel !== ENGLISH_CONFIGURATION_AXES[row.axis]) {
+      contribution.configurationAxes[row.axis] = [axisLabel];
+    }
+    if (row.axis === "effort") {
+      assignOrderedLocalizedOptions(
+        record.requestedLocale,
+        row.options,
+        EFFORT_OPTION_IDS,
+        contribution.configurationOptions,
+        "Effort"
+      );
+    } else if (row.axis === "speed") {
+      assignOrderedLocalizedOptions(
+        record.requestedLocale,
+        row.options,
+        SPEED_OPTION_IDS,
+        contribution.configurationOptions,
+        "Speed"
+      );
+    }
+  }
+  return contribution;
+}
+
+function assignOrderedLocalizedOptions(
+  locale: string,
+  options: readonly { label: string }[],
+  ids: readonly ConfigurationOptionId[],
+  target: Partial<Record<ConfigurationOptionId, string[]>>,
+  axis: string
+): void {
+  if (options.length === 0 || options.length > ids.length) {
+    throw new ApplyUsageError(`${locale} captured ${options.length} ${axis} options; expected 1-${ids.length}.`, 1);
+  }
+  options.forEach((option, index) => {
+    const id = ids[index]!;
+    const label = normalized(option.label);
+    if (label.length > 0 && label !== ENGLISH_CONFIGURATION_OPTIONS[id]) {
+      target[id] = [label];
+    }
+  });
+}
+
+function nonEnglishSlot<T extends string>(
+  id: T,
+  value: string,
+  englishValues: ReadonlySet<string>
+): Partial<Record<T, string[]>> {
+  const label = normalized(value);
+  return label.length > 0 && !englishValues.has(normalizedLower(label)) ? { [id]: [label] } as Partial<Record<T, string[]>> : {};
+}
+
 export function mergeCapture(
   source: string,
   labels: readonly string[],
@@ -172,7 +313,13 @@ export function mergeCapture(
   generationLabels: {
     stopControl?: readonly string[];
     stoppedAssistant?: readonly string[];
-  } = {}
+  } = {},
+  surface: SurfaceContribution = {
+    workComposerTextbox: [],
+    experienceOptions: {},
+    configurationAxes: {},
+    configurationOptions: {},
+  }
 ): string {
   let text = updateComment(source);
   if (labels.length > 0) {
@@ -190,6 +337,10 @@ export function mergeCapture(
   }
 
   text = mergeModeOptions(text, modeOptions);
+  text = mergeTopLevelStringArrayProperty(text, "workComposerTextbox", surface.workComposerTextbox, "composerTextbox");
+  text = mergeNestedOptions(text, "experienceOptions", EXPERIENCE_OPTION_IDS, surface.experienceOptions, "modeOpenerExtra");
+  text = mergeNestedOptions(text, "configurationAxes", CONFIGURATION_AXIS_IDS, surface.configurationAxes, "experienceOptions");
+  text = mergeNestedOptions(text, "configurationOptions", CONFIGURATION_OPTION_IDS, surface.configurationOptions, "configurationAxes");
   text = mergeStringArrayProperty(text, "stopControl", generationLabels.stopControl ?? []);
   text = mergeStringArrayProperty(text, "stoppedAssistant", generationLabels.stoppedAssistant ?? []);
   return text;
@@ -266,6 +417,71 @@ function formatModeOptions(modeOptions: Partial<Record<IntelligenceModeOptionId,
   return ["  modeOptions: {", ...lines, "  },"].join("\n");
 }
 
+function mergeTopLevelStringArrayProperty(
+  source: string,
+  property: string,
+  values: readonly string[],
+  insertAfterProperty: string
+): string {
+  if (values.length === 0) return source;
+  const existing = parseExistingStringArrayProperty(source, property);
+  const merged = dedupe([...existing, ...values]);
+  const line = `  ${property}: [${merged.map(value => JSON.stringify(value)).join(", ")}],`;
+  const propertyPattern = new RegExp(`^\\s*${property}:\\s*\\[[^\\]]*\\],`, "m");
+  if (propertyPattern.test(source)) return source.replace(propertyPattern, line);
+  const anchor = new RegExp(`^(\\s*${insertAfterProperty}:\\s*[^\\n]+,\\n)`, "m");
+  if (anchor.test(source)) return source.replace(anchor, `$1${line}\n`);
+  return source.replace(/^export const \w+ = \{\n/m, match => `${match}${line}\n`);
+}
+
+function mergeNestedOptions<T extends string>(
+  source: string,
+  property: string,
+  ids: readonly T[],
+  additions: Partial<Record<T, string[]>>,
+  insertAfterProperty: string
+): string {
+  const existing = parseNestedOptions(source, property, ids);
+  const merged: Partial<Record<T, string[]>> = {};
+  for (const id of ids) {
+    const values = dedupe([...(existing[id] ?? []), ...(additions[id] ?? [])]);
+    if (values.length > 0) merged[id] = values;
+  }
+  const lines = ids.flatMap(id => {
+    const values = merged[id];
+    return values === undefined || values.length === 0
+      ? []
+      : [`    ${id}: [${values.map(value => JSON.stringify(value)).join(", ")}],`];
+  });
+  if (lines.length === 0) return source;
+  const block = [`  ${property}: {`, ...lines, "  },"].join("\n");
+  const blockPattern = new RegExp(`^\\s*${property}:\\s*\\{[\\s\\S]*?^\\s*\\},\\n`, "m");
+  if (blockPattern.test(source)) return source.replace(blockPattern, `${block}\n`);
+
+  const nestedAnchor = new RegExp(`^(\\s*${insertAfterProperty}:\\s*\\{[\\s\\S]*?^\\s*\\},\\n)`, "m");
+  if (nestedAnchor.test(source)) return source.replace(nestedAnchor, `$1${block}\n`);
+  const lineAnchor = new RegExp(`^(\\s*${insertAfterProperty}:\\s*[^\\n]+,\\n)`, "m");
+  if (lineAnchor.test(source)) return source.replace(lineAnchor, `$1${block}\n`);
+  return source.replace(/^export const \w+ = \{\n/m, match => `${match}${block}\n`);
+}
+
+function parseNestedOptions<T extends string>(
+  source: string,
+  property: string,
+  ids: readonly T[]
+): Partial<Record<T, string[]>> {
+  const result: Partial<Record<T, string[]>> = {};
+  const block = new RegExp(`^\\s*${property}:\\s*\\{(?<body>[\\s\\S]*?)^\\s*\\},`, "m").exec(source)?.groups?.body;
+  if (block === undefined) return result;
+  for (const id of ids) {
+    const body = new RegExp(`^\\s*${id}:\\s*\\[(?<body>[^\\]]*)\\],`, "m").exec(block)?.groups?.body;
+    if (body === undefined) continue;
+    const values = parseJsonStringList(body);
+    if (values.length > 0) result[id] = values;
+  }
+  return result;
+}
+
 function mergeStringArrayProperty(source: string, property: "stopControl" | "stoppedAssistant", values: readonly string[]): string {
   if (values.length === 0) return source;
   const existing = parseExistingStringArrayProperty(source, property);
@@ -300,10 +516,37 @@ function updateComment(source: string): string {
     /\n \* Omitted because they match English case-insensitively: `modeLabels`[\s\S]*?blocker copy\.\n/g,
     "\n * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.\n"
   );
+  text = text.replace(
+    /^ \* Intelligence picker labels updated 2026-06-10[^\n]*$/m,
+    UPDATE_NOTE
+  );
   if (!text.includes(UPDATE_NOTE)) {
     text = text.replace(/\n \*\//, `\n *\n${UPDATE_NOTE}\n */`);
   }
   return text;
+}
+
+function parseJsonStringList(body: string): string[] {
+  const values: string[] = [];
+  for (const stringMatch of body.matchAll(/"((?:\\"|[^"])*)"/g)) {
+    values.push(JSON.parse(`"${stringMatch[1]}"`) as string);
+  }
+  return values;
+}
+
+function normalized(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function normalizedLower(value: string): string {
+  return normalized(value).toLocaleLowerCase();
+}
+
+function surfaceContributionCount(surface: SurfaceContribution): number {
+  return surface.workComposerTextbox.length
+    + Object.keys(surface.experienceOptions).length
+    + Object.keys(surface.configurationAxes).length
+    + Object.keys(surface.configurationOptions).length;
 }
 
 function dedupe(values: readonly string[]): string[] {

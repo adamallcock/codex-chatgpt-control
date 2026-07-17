@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
@@ -92,8 +93,12 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const root = detectRoot(args.root);
   const pluginRoot = path.join(root, "plugins/codex-chatgpt-control");
+  const releaseCanary = path.join(pluginRoot, "runtime/node/codex-chatgpt-control-release-canary.bundle.mjs");
   const marketplacePath = path.join(root, ".agents/plugins/marketplace.json");
   const manifestPath = path.join(pluginRoot, ".codex-plugin/plugin.json");
+  const releasePackagePath = existsSync(path.join(root, "tools/public-export/root/package.json"))
+    ? path.join(root, "tools/public-export/root/package.json")
+    : path.join(root, "package.json");
 
   const requiredFiles = [
     marketplacePath,
@@ -103,6 +108,7 @@ async function main() {
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control.bundle.mjs"),
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control-backend.mjs"),
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control-live-smoke.bundle.mjs"),
+    path.join(pluginRoot, "runtime/node/codex-chatgpt-control-release-canary.bundle.mjs"),
     path.join(pluginRoot, "skills/codex-chatgpt-control/SKILL.md"),
     path.join(pluginRoot, "skills/chatgpt-delegate/SKILL.md"),
     path.join(pluginRoot, "skills/chatgpt-pro-consult/SKILL.md")
@@ -110,6 +116,12 @@ async function main() {
   for (const file of requiredFiles) {
     assert(existsSync(file), `Missing required plugin file: ${path.relative(root, file)}`);
   }
+
+  execFileSync(process.execPath, [
+    "--input-type=module",
+    "--eval",
+    `process.argv = undefined; await import(${JSON.stringify(pathToFileURL(releaseCanary).href)});`
+  ], { stdio: "pipe" });
 
   const marketplace = await readJson(marketplacePath);
   assert(marketplace.name === "codex-chatgpt-control", "Marketplace name must be codex-chatgpt-control");
@@ -120,7 +132,11 @@ async function main() {
   assert(entry.policy?.authentication === "ON_INSTALL", "Marketplace authentication policy must be ON_INSTALL");
 
   const manifest = await readJson(manifestPath);
+  const releasePackage = await readJson(releasePackagePath);
   assert(manifest.name === "codex-chatgpt-control", "Plugin manifest name mismatch");
+  assert(typeof manifest.version === "string", "Plugin manifest version must be a string");
+  assert(manifest.version.split("+", 1)[0] === releasePackage.version, "Plugin base version must match the release package version");
+  assert(/^\d+\.\d+\.\d+-(?:alpha|beta|rc)\.\d+\+codex\.[a-z0-9-]+$/.test(manifest.version), "Plugin version must contain exactly one +codex.<cachebuster> suffix");
   assert(manifest.skills === "./skills/", "Plugin manifest must point at ./skills/");
   assert(!manifest.mcpServers, "V1 plugin must not declare MCP servers");
   assert(!manifest.apps, "V1 plugin must not declare apps");
@@ -128,9 +144,20 @@ async function main() {
   await assertReferencedAsset(pluginRoot, manifest.interface?.logo, "Plugin logo", 256);
   await assertReferencedAsset(pluginRoot, manifest.interface?.composerIcon, "Plugin composerIcon", 64);
 
-  const broadSkill = await readFile(path.join(pluginRoot, "skills/codex-chatgpt-control/SKILL.md"), "utf8");
-  const delegateSkill = await readFile(path.join(pluginRoot, "skills/chatgpt-delegate/SKILL.md"), "utf8");
-  const proSkill = await readFile(path.join(pluginRoot, "skills/chatgpt-pro-consult/SKILL.md"), "utf8");
+  const skillRoot = path.join(pluginRoot, "skills");
+  const expectedSkills = ["chatgpt-delegate", "chatgpt-pro-consult", "codex-chatgpt-control"];
+  const actualSkills = (await readdir(skillRoot, { withFileTypes: true }))
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
+    .sort();
+  assert(JSON.stringify(actualSkills) === JSON.stringify(expectedSkills), `Plugin skill inventory mismatch: ${actualSkills.join(", ")}`);
+
+  const broadSkill = await readFile(path.join(skillRoot, "codex-chatgpt-control/SKILL.md"), "utf8");
+  const delegateSkill = await readFile(path.join(skillRoot, "chatgpt-delegate/SKILL.md"), "utf8");
+  const proSkill = await readFile(path.join(skillRoot, "chatgpt-pro-consult/SKILL.md"), "utf8");
+  validateSkillFrontmatter(broadSkill, "codex-chatgpt-control");
+  validateSkillFrontmatter(delegateSkill, "chatgpt-delegate");
+  validateSkillFrontmatter(proSkill, "chatgpt-pro-consult");
   assert(broadSkill.includes("name: codex-chatgpt-control"), "Broad skill frontmatter missing name");
   assert(delegateSkill.includes("name: chatgpt-delegate"), "Delegate skill frontmatter missing name");
   assert(proSkill.includes("name: chatgpt-pro-consult"), "Pro skill frontmatter missing name");
@@ -139,6 +166,9 @@ async function main() {
   assert(proSkill.includes("../../runtime/import-chatgpt-control.mjs"), "Pro skill must use plugin runtime loader");
   assert(!proSkill.includes("~/.codex/skills/"), "Pro skill must not depend on an installed skill runtime");
 
+  const agentMetadata = await readFile(path.join(pluginRoot, "agents/openai.yaml"), "utf8");
+  assert(agentMetadata.includes('$codex-chatgpt-control'), "agents/openai.yaml default_prompt must explicitly invoke $codex-chatgpt-control");
+
   const pluginFiles = await listTextFiles(pluginRoot);
   for (const file of pluginFiles) {
     const text = await readFile(file, "utf8");
@@ -146,6 +176,19 @@ async function main() {
   }
 
   console.log(`Plugin layout is valid at ${pluginRoot}`);
+}
+
+function validateSkillFrontmatter(text, expectedName) {
+  const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+  assert(match, `${expectedName} skill must begin with YAML frontmatter`);
+  const frontmatter = match[1];
+  const rootKeys = frontmatter.split(/\r?\n/)
+    .filter(line => /^[A-Za-z][A-Za-z0-9_-]*\s*:/.test(line))
+    .map(line => line.match(/^([A-Za-z][A-Za-z0-9_-]*)\s*:/)?.[1])
+    .filter(Boolean);
+  assert(JSON.stringify(rootKeys.sort()) === JSON.stringify(["description", "name"]), `${expectedName} skill frontmatter may contain only name and description`);
+  assert(new RegExp(`^name:\\s*${expectedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "m").test(frontmatter), `${expectedName} skill frontmatter name mismatch`);
+  assert(/^description:\s*\S.+$/m.test(frontmatter), `${expectedName} skill frontmatter requires a non-empty description`);
 }
 
 main().catch(error => {

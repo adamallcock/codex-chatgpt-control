@@ -44,6 +44,10 @@ async function readPythonMetadata() {
   return { name, version };
 }
 
+async function readPluginMetadata() {
+  return readJson("../plugins/codex-chatgpt-control/.codex-plugin/plugin.json");
+}
+
 function tagFromEnvironment() {
   if (process.env.RELEASE_TAG) return process.env.RELEASE_TAG;
   if (process.env.GITHUB_REF_TYPE === "tag" && process.env.GITHUB_REF_NAME) return process.env.GITHUB_REF_NAME;
@@ -74,6 +78,7 @@ async function main() {
   const rootPackage = await readJson("../package.json");
   const nodePackage = await readJson("../packages/node/package.json");
   const pythonPackage = await readPythonMetadata();
+  const pluginPackage = await readPluginMetadata();
 
   const tag = args.tag ?? tagFromEnvironment();
   const normalizedTag = tag ? normalizeTag(tag) : undefined;
@@ -92,6 +97,18 @@ async function main() {
   if (pythonPackage.version !== expectedPython) {
     errors.push(`Python package version ${pythonPackage.version} does not match expected ${expectedPython} for Node ${nodePackage.version}`);
   }
+  const pluginBaseVersion = typeof pluginPackage.version === "string"
+    ? pluginPackage.version.split("+", 1)[0]
+    : undefined;
+  if (pluginPackage.name !== NODE_PACKAGE) {
+    errors.push(`Plugin name ${pluginPackage.name} does not match ${NODE_PACKAGE}`);
+  }
+  if (pluginBaseVersion !== nodePackage.version) {
+    errors.push(`Plugin base version ${pluginBaseVersion ?? "missing"} does not match Node package version ${nodePackage.version}`);
+  }
+  if (typeof pluginPackage.version !== "string" || !/^\d+\.\d+\.\d+-(?:alpha|beta|rc)\.\d+\+codex\.[a-z0-9-]+$/.test(pluginPackage.version)) {
+    errors.push(`Plugin version ${pluginPackage.version ?? "missing"} must include one +codex.<cachebuster> suffix`);
+  }
   if (normalizedTag && normalizedTag !== nodePackage.version) {
     errors.push(`Release tag ${tag} resolves to ${normalizedTag}, but Node package version is ${nodePackage.version}`);
   }
@@ -108,6 +125,11 @@ async function main() {
       package: pythonPackage.name,
       version: pythonPackage.version,
       expectedVersion: expectedPython
+    },
+    plugin: {
+      package: pluginPackage.name,
+      version: pluginPackage.version,
+      baseVersion: pluginBaseVersion ?? null
     }
   };
 

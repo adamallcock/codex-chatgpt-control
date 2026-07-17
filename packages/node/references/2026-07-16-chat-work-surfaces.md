@@ -50,6 +50,19 @@ Legacy `modes.set/get` and runner `mode` inputs remain supported. They preserve
 their pre-0.5 warning-oriented behavior. New code requiring a verified
 postcondition should use `configuration.apply({ strict: true })`.
 
+## Surface Transitions
+
+On the current home surface, ChatGPT exposes Chat and Work as a radio group in
+the page banner. The checked radio is the strongest experience signal; the
+textbox accessible name is shared and cannot classify the surface by itself.
+Older button, tab, link, and menu-item controls remain compatibility fallbacks.
+
+An active Work task may remove the home radio group while retaining the Work
+model-plus-effort opener, such as `5.5 Light`. That compound control is a Work
+continuation signal. To switch panes from an active conversation, the SDK
+returns to the stable ChatGPT home surface and selects the requested radio; it
+does not infer or navigate to a private Work route.
+
 ## Work Lifecycle
 
 `work.start` defaults to `newTask: true`. If messages are already loaded and a

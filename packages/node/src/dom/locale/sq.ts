@@ -6,9 +6,20 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const sq = {
+  configurationAxes: {
+    effort: ["Përpjekje"],
+    speed: ["Shpejtësi"],
+  },
+  configurationOptions: {
+    light: ["I lehtë"],
+    medium: ["Mesatare"],
+    high: ["E lartë"],
+    extraHigh: ["Tepër e lartë"],
+    fast: ["I shpejtë"],
+  },
   composerTextbox: ["Pyet për çdo gjë"],
   sendButton: ["Dërgo kërkesën"],
   searchChatsButton: ["Kërko bisedat"],
@@ -18,12 +29,12 @@ export const sq = {
   addFilesOpenerCandidates: ["Shto skedarë e më shumë"],
   addPhotosFilesMenuItem: ["Ngarko foto dhe skedarë"],
   copyResponse: ["Kopjo përgjigjen"],
-  modeLabels: ["I menjëhershëm", "Mesatar", "Lartë", "Shumë i lartë"],
+  modeLabels: ["I menjëhershëm", "Mesatar", "Lartë", "Shumë i lartë", "Mesatare", "E lartë", "Tepër e lartë"],
   modeOptions: {
     instant: ["I menjëhershëm"],
-    medium: ["Mesatar"],
-    high: ["Lartë"],
-    extraHigh: ["Shumë i lartë"],
+    medium: ["Mesatar", "Mesatare"],
+    high: ["Lartë", "E lartë"],
+    extraHigh: ["Shumë i lartë", "Tepër e lartë"],
   },
   modeOpenerExtra: ["Konfiguro..."],
   tools: {

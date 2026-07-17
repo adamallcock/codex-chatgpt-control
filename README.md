@@ -145,6 +145,7 @@ Inspect and apply visible configuration:
 const surface = await chatgpt.experience.detect();
 const capabilities = await chatgpt.configuration.inspect();
 
+await chatgpt.experience.open({ experience: "work" });
 await chatgpt.configuration.apply({
   experience: "work",
   desired: {
@@ -155,6 +156,11 @@ await chatgpt.configuration.apply({
   strict: true
 });
 ```
+
+Do not assume the currently selected ChatGPT pane matches the requested
+experience. `experience.open` handles the current Chat/Work home radios,
+returns from an active Work task to the selector when necessary, retains older
+UI fallbacks, and verifies the resulting pane.
 
 Start Work once, then poll or steer the same task:
 
@@ -369,16 +375,40 @@ python scripts/live_smoke.py --mode ordinary-shell
 
 Ordinary-shell smoke checks are expected to return structured browser-bridge blockers for browser-required actions. A real ChatGPT run requires a compatible visible browser session and bridge.
 
+Before claiming Chat/Work support is live-qualified, run the reusable expansion
+scenario from a bridge-enabled installed candidate:
+
+```bash
+CHATGPT_E2E_SCENARIOS="chat-work-expansion" npm --prefix packages/node run smoke:live
+```
+
+The real-setting mutation scenario is opt-in and restores the original Work
+effort plus Chat pane in a `finally` path:
+
+```bash
+CHATGPT_E2E_CONFIGURATION_MUTATION=1 \
+CHATGPT_E2E_SCENARIOS="configuration-mutate-restore" \
+npm --prefix packages/node run smoke:live
+```
+
 To prepare a sanitized locale/rollout fixture draft from an already-open
 authorized ChatGPT tab:
 
 ```bash
 cd packages/node
-npm run capture:surface-profile -- --id work-basic-en --locale en-US
+npm run capture:surface-profile -- --id work-basic-en --locale en-US --experience work
 ```
 
 The draft defaults to `unverified`, strips conversation identity/content, and
 must pass contract validation and human review before being committed.
+
+Use `--experience chat` or `--experience work` to select and safely restore a
+specific pane. For all supported languages, the existing loop can also capture
+the localized Chat/Work radios and Work configuration graph:
+
+```bash
+npm run capture:intelligence-locales -- --auto-switch --all --capture-surfaces
+```
 
 ## Package Coordinates
 

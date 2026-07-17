@@ -7,7 +7,12 @@ import { waitForDownloadFromClick } from "../browser/downloads.js";
 import { resultError, resultOk } from "../errors.js";
 import { addFilesButton, cssSelectors, requiredLocator } from "../dom/selectors.js";
 import { localeLabels } from "../dom/locale-labels.js";
-import { basenameForHostPath, isHostAbsolutePath, resolveForHostPath } from "../platform/local-paths.js";
+import {
+  basenameForHostPath,
+  currentHostPathPlatform,
+  isHostAbsolutePath,
+  resolveForHostPath
+} from "../platform/local-paths.js";
 import type {
   AttachedFile,
   AttachFilesArgs,
@@ -29,7 +34,7 @@ import type {
 } from "../types.js";
 import { contextFromPage } from "./context.js";
 import { ensurePage } from "./session.js";
-import { localGuardTimeout } from "./timeouts.js";
+import { localGuardTimeout, withTimeout } from "./timeouts.js";
 
 const CODEX_UPLOAD_PERMISSION_FIX = "Codex Settings > Computer Use > Chrome > Permissions > Uploads: set to Always allow, or add chatgpt.com to the allowed upload domains.";
 const CHROME_FILE_URL_PERMISSION_FIX = "Chrome chrome://extensions > Codex extension > Details: enable Allow access to file URLs.";
@@ -311,7 +316,7 @@ async function fileMetadata(absolute: string, bytes: number, includeHash = false
 }
 
 function extensionForHostPath(value: string): string {
-  return process.platform === "win32"
+  return currentHostPathPlatform() === "win32"
     ? path.win32.extname(value).toLowerCase()
     : path.posix.extname(value).toLowerCase();
 }
@@ -642,6 +647,26 @@ export async function downloadLatestFile(
   const page = env.page!;
 
   try {
+    const generatedFileDownload = await tryGeneratedFilePreviewDownload(page, args);
+    if (generatedFileDownload !== undefined) {
+      return generatedFileDownload;
+    }
+
+    if (args.filenamePattern !== undefined) {
+      return {
+        ok: false,
+        status: "unsupported",
+        warnings: [],
+        blocker: {
+          kind: "download_unavailable",
+          code: "download_filename_not_found",
+          message: `No visible ChatGPT file affordance matched filenamePattern ${JSON.stringify(args.filenamePattern)}.`,
+          resumable: true
+        },
+        context: await contextFromPage(page)
+      };
+    }
+
     const controls = requiredLocator(page, cssSelectors.downloadControls);
     let count: number;
     try {
@@ -690,6 +715,195 @@ export async function downloadLatestFile(
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
+}
+
+type GeneratedFileAffordance = {
+  assistantIndex: number;
+  filename: string;
+  tag: "button" | "a";
+};
+
+async function tryGeneratedFilePreviewDownload(
+  page: RuntimeEnv["page"] & {},
+  args: DownloadLatestArgs
+): Promise<CommandResult<DownloadedFile> | undefined> {
+  const timeoutMs = args.timeoutMs ?? 120000;
+  const candidates = await inspectGeneratedFileAffordances(page, localGuardTimeout(timeoutMs, 5000));
+  const selected = selectGeneratedFileAffordance(candidates, args);
+  if (selected === undefined) return undefined;
+
+  try {
+    const assistantMessages = requiredLocator(page, cssSelectors.assistantMessages);
+    const assistantCount = await locatorCountWithTimeout(
+      assistantMessages,
+      localGuardTimeout(timeoutMs, 5000),
+      "generated_file_assistant_count_timeout"
+    );
+    if (selected.assistantIndex < 0 || selected.assistantIndex >= assistantCount) {
+      throw new Error("The selected generated-file assistant turn is no longer present.");
+    }
+
+    const assistant = assistantMessages.nth?.(selected.assistantIndex) ?? assistantMessages;
+    const role = selected.tag === "button" ? "button" : "link";
+    const affordance = assistant.getByRole?.(role, { name: selected.filename, exact: true })
+      ?? assistant.locator?.(`${selected.tag}[aria-label="${escapeCssAttribute(selected.filename)}"]`);
+    const affordanceCount = await locatorCountWithTimeout(
+      affordance,
+      localGuardTimeout(timeoutMs, 5000),
+      "generated_file_affordance_count_timeout"
+    );
+    if (affordance === undefined || affordanceCount !== 1 || typeof affordance.click !== "function") {
+      throw new Error(`Expected one clickable generated-file affordance for ${selected.filename}, found ${affordanceCount}.`);
+    }
+
+    if (selected.tag === "a") {
+      const downloaded = await waitForDownloadFromClick(
+        page,
+        () => affordance.click!({ timeoutMs: localGuardTimeout(timeoutMs, 10000) }),
+        args.destDir,
+        timeoutMs,
+        selected.filename
+      );
+      return resultOk(downloaded, await contextFromPage(page));
+    }
+
+    await affordance.click({ timeoutMs: localGuardTimeout(timeoutMs, 10000) });
+    const preview = requiredLocator(page, `section[aria-label="${escapeCssAttribute(selected.filename)}"]`);
+    const download = await waitForPreviewDownloadControl(page, preview, timeoutMs);
+    if (download === undefined) {
+      throw new Error(`The artifact preview for ${selected.filename} did not expose a visible Download control.`);
+    }
+
+    const downloaded = await waitForDownloadFromClick(
+      page,
+      async () => download.click?.({ timeoutMs: localGuardTimeout(timeoutMs, 10000) }),
+      args.destDir,
+      timeoutMs,
+      selected.filename
+    );
+    return resultOk(downloaded, await contextFromPage(page));
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+
+async function inspectGeneratedFileAffordances(
+  page: RuntimeEnv["page"] & {},
+  timeoutMs: number
+): Promise<GeneratedFileAffordance[]> {
+  if (typeof page.evaluate === "function") {
+    const fromDom = await withTimeout(
+      page.evaluate(() => {
+        const visible = (element: Element): boolean => {
+          let current: Element | null = element;
+          while (current !== null) {
+            const html = current as HTMLElement;
+            const style = window.getComputedStyle(html);
+            const rect = html.getBoundingClientRect();
+            if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity || "1") <= 0) return false;
+            if (current === element && (rect.width <= 0 || rect.height <= 0)) return false;
+            current = current.parentElement;
+          }
+          return true;
+        };
+        const fileLike = (value: string): boolean => /^[^\\/\r\n]{1,255}\.[a-z0-9][a-z0-9._-]{0,15}$/i.test(value);
+        const assistants = Array.from(document.querySelectorAll("[data-message-author-role='assistant']"));
+        return assistants.flatMap((assistant, assistantIndex) => Array.from(assistant.querySelectorAll("button[aria-label], a[download], a[href*='/backend-api/files/']"))
+          .filter(visible)
+          .map(element => ({
+            assistantIndex,
+            filename: (element.getAttribute("aria-label") ?? element.textContent ?? "").trim(),
+            tag: element.tagName.toLocaleLowerCase(),
+            text: (element.textContent ?? "").trim()
+          }))
+          .filter(item => (item.tag === "button" || item.tag === "a") && fileLike(item.filename) && item.filename === item.text)
+          .map(({ assistantIndex, filename, tag }) => ({ assistantIndex, filename, tag })));
+      }),
+      timeoutMs,
+      "Timed out while inspecting generated-file buttons."
+    ).catch(() => undefined);
+    if (Array.isArray(fromDom)) return fromDom as GeneratedFileAffordance[];
+  }
+
+  if (typeof page.content !== "function") return [];
+  const html = await withTimeout(
+    page.content(),
+    timeoutMs,
+    "Timed out while reading generated-file button markup."
+  ).catch(() => "");
+  const candidates: GeneratedFileAffordance[] = [];
+  const buttonPattern = /<(button|a)\b[^>]*\baria-label=(['"])(.*?)\2[^>]*>([\s\S]*?)<\/\1>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = buttonPattern.exec(html)) !== null) {
+    const filename = decodeBasicHtml(match[3] ?? "").trim();
+    const text = decodeBasicHtml((match[4] ?? "").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+    if (/^[^\\/\r\n]{1,255}\.[a-z0-9][a-z0-9._-]{0,15}$/i.test(filename) && filename === text) {
+      candidates.push({ assistantIndex: 0, filename, tag: (match[1] ?? "button").toLocaleLowerCase() as "button" | "a" });
+    }
+  }
+  return candidates;
+}
+
+function selectGeneratedFileAffordance(
+  candidates: GeneratedFileAffordance[],
+  args: DownloadLatestArgs
+): GeneratedFileAffordance | undefined {
+  let scoped = candidates;
+  const from = args.from;
+  if (typeof from === "object" && from !== null) {
+    scoped = scoped.filter(candidate => candidate.assistantIndex === from.assistantIndex);
+  } else if (from !== "visible_conversation") {
+    const latestAssistant = Math.max(-1, ...scoped.map(candidate => candidate.assistantIndex));
+    scoped = scoped.filter(candidate => candidate.assistantIndex === latestAssistant);
+  }
+  if (args.filenamePattern !== undefined) {
+    scoped = scoped.filter(candidate => filenameMatches(candidate.filename, args.filenamePattern!));
+  }
+  return scoped.at(-1);
+}
+
+function filenameMatches(filename: string, pattern: string): boolean {
+  try {
+    return new RegExp(pattern, "i").test(filename);
+  } catch {
+    return filename.toLocaleLowerCase().includes(pattern.toLocaleLowerCase());
+  }
+}
+
+async function waitForPreviewDownloadControl(
+  page: RuntimeEnv["page"] & {},
+  preview: LocatorLike,
+  timeoutMs: number
+): Promise<LocatorLike | undefined> {
+  const deadline = Date.now() + Math.min(timeoutMs, 15000);
+  while (Date.now() < deadline) {
+    for (const label of localeLabels.download) {
+      const control = preview.getByRole?.("button", { name: label, exact: true })
+        ?? preview.locator?.(`button[aria-label="${escapeCssAttribute(label)}"]`);
+      if (await locatorCountWithTimeout(control, localGuardTimeout(timeoutMs, 2000), "artifact_preview_download_count_timeout") === 1) {
+        return control;
+      }
+    }
+    if (typeof page.waitForTimeout === "function") {
+      await page.waitForTimeout(100);
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  return undefined;
+}
+
+function escapeCssAttribute(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/[\r\n]/g, " ");
+}
+
+function decodeBasicHtml(value: string): string {
+  return value
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&amp;/gi, "&");
 }
 
 async function setHiddenFileInput(page: RuntimeEnv["page"], files: AttachedFile[]): Promise<void> {

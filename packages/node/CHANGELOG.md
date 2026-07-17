@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.1-alpha.1
+
+- Fixes current Chat/Work switching through the visible surface-radio group and
+  preserves older selector fallbacks.
+- Correctly identifies checked Work home state, active Work tasks, and the
+  current compound Work configuration opener.
+- Adds reusable live-smoke coverage for Chat/Work routing, strict configuration
+  verification, Work start/status/wait/read/steer/artifacts, and Work-backed
+  Runner and Responses paths.
+
 ## 0.5.0-alpha.1
 
 - Adds `experience.detect/open`, `configuration.inspect/apply`, and the Work task lifecycle command group.

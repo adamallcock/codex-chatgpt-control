@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.1-alpha.1
+
+- Fixes current Chat/Work pane switching by selecting the visible
+  `Select chat surface` radios while retaining legacy button, menu-item, tab,
+  link, and bounded DOM fallbacks.
+- Correctly detects the checked Work pane and active Work tasks whose home
+  surface radio is no longer visible.
+- Expands reusable live qualification to cover explicit Chat/Work round trips,
+  strict no-op configuration verification, the complete Work lifecycle,
+  Work-backed Runner and Responses calls, artifact enumeration, and safe Chat
+  restoration.
+- Upgrades all bundled skills and plugin packaging validation, and adds an
+  opt-in Work configuration mutation test that restores the original setting.
+
 ## 0.5.0-alpha.1
 
 - Adds first-class Chat/Work experience detection and verified surface switching.

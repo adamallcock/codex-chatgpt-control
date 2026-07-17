@@ -24,6 +24,27 @@ export function extractMenuItemsFromText(text: string): MenuItem[] {
 export async function enumerateVisibleMenuItems(page: PageLike): Promise<MenuItem[]> {
   if (typeof page.evaluate === "function") {
     const labels = await page.evaluate(() => {
+      const visible = (element: Element): boolean => {
+        const html = element as HTMLElement;
+        const rect = html.getBoundingClientRect?.();
+        if (rect !== undefined && (rect.width <= 0 || rect.height <= 0)) return false;
+        let current: Element | null = element;
+        while (current !== null) {
+          if (current.hasAttribute?.("inert") || current.getAttribute?.("aria-hidden") === "true") {
+            return false;
+          }
+          const style = typeof window !== "undefined"
+            ? window.getComputedStyle?.(current as HTMLElement)
+            : undefined;
+          if (style?.display === "none"
+            || style?.visibility === "hidden"
+            || style?.opacity === "0") {
+            return false;
+          }
+          current = current.parentElement ?? null;
+        }
+        return true;
+      };
       const toItem = (node: Element) => {
         const element = node as HTMLElement;
         const label = (element.innerText ?? element.textContent ?? "").replace(/\s+/g, " ").trim();
@@ -51,13 +72,14 @@ export async function enumerateVisibleMenuItems(page: PageLike): Promise<MenuIte
         if (ariaLabel !== null) item.ariaLabel = ariaLabel;
         return item;
       };
-      const allRoleNodes = Array.from(document.querySelectorAll("[role='menuitem'], [role='menuitemradio'], [role='option']"));
+      const allRoleNodes = Array.from(document.querySelectorAll("[role='menuitem'], [role='menuitemradio'], [role='option']"))
+        .filter(visible);
       // Scope to open menu containers when any exist, so stray role items elsewhere on
       // the page (sidebar rows, decorative listboxes) cannot contaminate menu matching.
       // An empty scoped set falls back to the unscoped list: real menus keep their items
       // inside the container, so an empty intersection means the container heuristic failed.
       const containers = Array.from(document.querySelectorAll("[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper]"))
-        .filter(container => typeof container.contains === "function");
+        .filter(container => visible(container) && typeof container.contains === "function");
       const scopedRoleNodes = containers.length > 0
         ? allRoleNodes.filter(node => containers.some(container => container.contains(node)))
         : allRoleNodes;
@@ -70,6 +92,7 @@ export async function enumerateVisibleMenuItems(page: PageLike): Promise<MenuIte
       }
 
       const menus = Array.from(document.querySelectorAll("[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper]"))
+        .filter(visible)
         .map(node => (node as HTMLElement).innerText ?? node.textContent ?? "")
         .filter(Boolean);
 

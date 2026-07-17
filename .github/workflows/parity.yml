@@ -2,6 +2,8 @@ name: codex-chatgpt-control-parity
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 jobs:
@@ -27,12 +29,14 @@ jobs:
       - run: npm run build
       - run: npm run bundle
       - run: npm run bundle:live-smoke
+      - run: npm run bundle:release-canary
       - run: npm run bundle:backend
       - run: npm run contract:validate
       - run: npm run docs:drift
       - run: npm run parity:fixtures
       - run: npm run parity:suite
       - run: npm run test:backend-conformance
+      - run: npm audit
 
   python-parity:
     name: python parity (${{ matrix.os }})

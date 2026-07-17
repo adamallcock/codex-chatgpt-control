@@ -124,11 +124,12 @@ For a single current Chat or Work surface, generate a sanitized, unverified
 profile draft from an already-open authorized tab:
 
 ```bash
-npm run capture:surface-profile -- --id work-basic-en --locale en-US
+npm run capture:surface-profile -- --id work-basic-en --locale en-US --experience work
 ```
 
-This command does not submit a prompt or change configuration. It opens visible
-menus for inspection, normalizes any conversation URL to `/c/sanitized`, and
+This command does not submit a prompt or change model configuration. When
+`--experience` is supplied it visibly selects Chat or Work and restores the
+prior pane by default. It opens visible menus for inspection, normalizes any conversation URL to `/c/sanitized`, and
 writes only bounded composer/configuration structure under
 `outputs/surface-profiles/`.
 
@@ -137,6 +138,16 @@ Use the repository capture script to drive the visible ChatGPT UI through Settin
 
 ```bash
 npm run capture:intelligence-locales -- --auto-switch --all --if-missing open
+```
+
+For a complete Chat/Work selector and Work configuration localization sweep,
+add `--capture-surfaces`. This reads the two ordered pane radios plus the three
+ordered Work rows and their visible submenus, restores Chat after every locale,
+and restores the initial language after the sweep:
+
+```bash
+npm run capture:intelligence-locales -- \
+  --auto-switch --all --capture-surfaces --if-missing open
 ```
 
 To also capture localized running-generation controls such as `stopControl`, run the same

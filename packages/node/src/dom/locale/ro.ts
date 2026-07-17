@@ -6,9 +6,20 @@ import type { LocaleContribution } from "./types.js";
  *
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
- * Intelligence picker labels updated 2026-06-10 and stop-control labels updated 2026-06-15 from visible ChatGPT Pro sessions.
+ * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, and Chat/Work surface labels updated 2026-07-17 from visible ChatGPT sessions.
  */
 export const ro = {
+  configurationAxes: {
+    effort: ["Efort"],
+    speed: ["Viteză"],
+  },
+  configurationOptions: {
+    light: ["Ușor"],
+    medium: ["Medie"],
+    high: ["Ridicată"],
+    extraHigh: ["Foarte ridicată"],
+    fast: ["Rapid"],
+  },
   composerTextbox: ["Întreabă orice"],
   sendButton: ["Trimite solicitarea"],
   searchChatsButton: ["Caută discuții"],
@@ -18,10 +29,10 @@ export const ro = {
   addFilesOpenerCandidates: ["Adaugă fișiere și multe altele"],
   addPhotosFilesMenuItem: ["Încarcă fotografii și fișiere"],
   copyResponse: ["Copiază răspunsul"],
-  modeLabels: ["Mediu", "Ridicat", "Foarte ridicată"],
+  modeLabels: ["Mediu", "Ridicat", "Foarte ridicată", "Medie", "Ridicată"],
   modeOptions: {
-    medium: ["Mediu"],
-    high: ["Ridicat"],
+    medium: ["Mediu", "Medie"],
+    high: ["Ridicat", "Ridicată"],
     extraHigh: ["Foarte ridicată"],
   },
   modeOpenerExtra: ["Configurează..."],

@@ -48,9 +48,31 @@ jobs:
           npm run release:build-python
           npm run release:check-python
 
+  package-smoke-macos:
+    name: release package smoke (macos-latest)
+    needs: preflight
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: packages/node/package-lock.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: npm --prefix packages/node ci
+      - run: python -m pip install --upgrade build
+      - run: npm run node:build
+      - run: npm run node:bundle
+      - run: npm run release:check-node-pack
+      - run: npm run release:smoke-source
+
   publish-npm:
     name: publish npm
-    needs: preflight
+    needs: [preflight, package-smoke-macos]
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -73,7 +95,7 @@ jobs:
 
   publish-pypi:
     name: publish PyPI
-    needs: preflight
+    needs: [preflight, package-smoke-macos]
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -99,3 +121,36 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/python
+
+  verify-published:
+    name: verify published registry installs
+    needs: [publish-npm, publish-pypi]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: npm run release:verify-published
+
+  github-release:
+    name: publish GitHub prerelease
+    needs: verify-published
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Publish release notes for the verified tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${GITHUB_REF_NAME}"
+          --repo "${GITHUB_REPOSITORY}"
+          --verify-tag
+          --prerelease
+          --generate-notes
+          --title "ChatGPT Surface Control ${GITHUB_REF_NAME#v}"
