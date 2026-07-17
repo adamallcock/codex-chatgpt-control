@@ -7,7 +7,12 @@ import { waitForDownloadFromClick } from "../browser/downloads.js";
 import { resultError, resultOk } from "../errors.js";
 import { addFilesButton, cssSelectors, requiredLocator } from "../dom/selectors.js";
 import { localeLabels } from "../dom/locale-labels.js";
-import { basenameForHostPath, isHostAbsolutePath, resolveForHostPath } from "../platform/local-paths.js";
+import {
+  basenameForHostPath,
+  currentHostPathPlatform,
+  isHostAbsolutePath,
+  resolveForHostPath
+} from "../platform/local-paths.js";
 import type {
   AttachedFile,
   AttachFilesArgs,
@@ -311,7 +316,7 @@ async function fileMetadata(absolute: string, bytes: number, includeHash = false
 }
 
 function extensionForHostPath(value: string): string {
-  return process.platform === "win32"
+  return currentHostPathPlatform() === "win32"
     ? path.win32.extname(value).toLowerCase()
     : path.posix.extname(value).toLowerCase();
 }
