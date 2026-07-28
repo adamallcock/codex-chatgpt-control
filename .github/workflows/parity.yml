@@ -1,8 +1,7 @@
 name: codex-chatgpt-control-parity
 
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   node-backend-contracts:

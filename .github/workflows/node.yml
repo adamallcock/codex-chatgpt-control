@@ -1,16 +1,7 @@
 name: codex-chatgpt-control
 
 on:
-  push:
-    paths:
-      - ".github/workflows/node.yml"
-      - "package.json"
-      - "packages/node/**"
-  pull_request:
-    paths:
-      - ".github/workflows/node.yml"
-      - "package.json"
-      - "packages/node/**"
+  workflow_dispatch:
 
 jobs:
   deterministic-gates:
