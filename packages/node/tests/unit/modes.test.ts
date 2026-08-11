@@ -987,7 +987,7 @@ function advancedEffortPickerPage(
       return role === "button" && name === currentLabel ? opener : locatorForItem(name, role);
     },
     getByText: label => locatorForItem(String(label)),
-    locator: selector => selector === "[role='slider']" ? slider : ({
+    locator: selector => selector.startsWith("[role='slider']") ? slider : ({
       ...missing,
       filter: options => {
         const wanted = String((options as { hasText?: unknown } | undefined)?.hasText ?? "");

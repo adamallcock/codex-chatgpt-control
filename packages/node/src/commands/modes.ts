@@ -159,7 +159,7 @@ async function selectModeWithPowerSlider(
   const wanted = request.modeId === undefined
     ? undefined
     : CANONICAL_INTELLIGENCE_ORDER.get(request.modeId);
-  const slider = page.locator?.("[role='slider']");
+  const slider = page.locator?.("[role='slider'][aria-valuemin='0'][aria-valuemax='4']");
   if (wanted === undefined
     || slider?.count === undefined
     || slider.evaluate === undefined

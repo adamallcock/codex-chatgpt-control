@@ -79,6 +79,7 @@ export async function inspectConfiguration(
     }
 
     const experience = detected.data.experience;
+    const initialPanel = await readConfigurationPanel(page);
     const rootOpened = experience !== "unknown" && await waitForConfigurationRoot(
       page,
       experience,
@@ -95,6 +96,9 @@ export async function inspectConfiguration(
     }
 
     const panel = await readConfigurationPanel(page);
+    if (panel.openerLabel === undefined && initialPanel.openerLabel !== undefined) {
+      panel.openerLabel = initialPanel.openerLabel;
+    }
     const rootItems = rootOpened ? await enumerateVisibleMenuItems(page) : [];
     const data = configurationInspectionFromSurface(
       experience,
@@ -565,14 +569,18 @@ async function openConfigurationRoot(page: PageLike, experience: ChatGPTExperien
         }
         return true;
       };
-      const composerRoots = Array.from(document.querySelectorAll(
-        "main form, main [data-testid*='composer' i], main [class*='composer' i]"
-      ));
+      const formRoots = Array.from(document.querySelectorAll("main form"));
+      const testIdRoots = Array.from(document.querySelectorAll("main [data-testid*='composer' i]"));
+      const classRoots = Array.from(document.querySelectorAll("main [class*='composer' i]"));
+      const composerRoots = formRoots.length > 0
+        ? formRoots
+        : testIdRoots.length > 0
+          ? testIdRoots
+          : classRoots;
       const main = document.querySelector("main");
-      const roots = Array.from(new Set<Element>([
-        ...composerRoots,
-        ...(main === null ? [] : [main])
-      ]));
+      const roots = Array.from(new Set<Element>(composerRoots.length > 0
+        ? composerRoots
+        : (main === null ? [] : [main])));
       const controls = Array.from(new Set(roots.flatMap(root =>
         Array.from(root.querySelectorAll("button, [role='button']"))
       )))
@@ -732,14 +740,18 @@ async function readConfigurationPanel(page: PageLike): Promise<ConfigurationPane
       }
     }
 
-    const composerRoots = Array.from(document.querySelectorAll(
-      "main form, main [data-testid*='composer' i], main [class*='composer' i]"
-    ));
+    const formRoots = Array.from(document.querySelectorAll("main form"));
+    const testIdRoots = Array.from(document.querySelectorAll("main [data-testid*='composer' i]"));
+    const classRoots = Array.from(document.querySelectorAll("main [class*='composer' i]"));
+    const composerRoots = formRoots.length > 0
+      ? formRoots
+      : testIdRoots.length > 0
+        ? testIdRoots
+        : classRoots;
     const main = document.querySelector("main");
-    const openerRoots = Array.from(new Set<Element>([
-      ...composerRoots,
-      ...(main === null ? [] : [main])
-    ]));
+    const openerRoots = Array.from(new Set<Element>(composerRoots.length > 0
+      ? composerRoots
+      : (main === null ? [] : [main])));
     const openerCandidates = Array.from(new Set(openerRoots.flatMap(root =>
       Array.from(root.querySelectorAll("button, [role='button']"))
     )))

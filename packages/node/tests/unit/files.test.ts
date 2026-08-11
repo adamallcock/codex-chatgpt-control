@@ -604,6 +604,75 @@ describe("downloadLatestFile", () => {
     await expect(readFile(join(dest, "chatgpt-live-smoke.csv"), "utf8")).resolves.toBe("name,value\nsmoke,1\n");
   });
 
+  it("normalizes Chat's download-prefixed artifact control and uses the workbook preview", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-generated-workbook-download-"));
+    const dest = join(dir, "out");
+    const browserDownload = join(dir, "review.csv");
+    await mkdir(dest);
+    await writeFile(browserDownload, "finding,severity\nexample,low\n");
+
+    let previewOpen = false;
+    let controlClicked = false;
+    let downloadClicked = false;
+    const artifactControl: LocatorLike = {
+      count: async () => 1,
+      click: async () => {
+        controlClicked = true;
+        previewOpen = true;
+      }
+    };
+    const missing: LocatorLike = {
+      count: async () => 0,
+      filter: () => missing
+    };
+    const assistant: LocatorLike = {
+      getByRole: (_role, options) => options?.name === "download review.csv" ? artifactControl : missing
+    };
+    const assistants: LocatorLike = {
+      count: async () => 1,
+      nth: () => assistant
+    };
+    const previewDownload: LocatorLike = {
+      count: async () => previewOpen ? 1 : 0,
+      click: async () => {
+        downloadClicked = true;
+      }
+    };
+    const workbookPreview: LocatorLike = {
+      count: async () => previewOpen ? 1 : 0,
+      filter: options => options?.hasText === "review.csv" ? workbookPreview : missing,
+      getByRole: (_role, options) => options?.name === "Download" ? previewDownload : missing
+    };
+    const page: PageLike = {
+      content: async () => [
+        "<main><div data-message-author-role='assistant'>",
+        "<button aria-label='download review.csv'>download review.csv</button>",
+        "</div></main>"
+      ].join(""),
+      locator: selector => {
+        if (selector === "[data-message-author-role='assistant']") return assistants;
+        if (selector === "section[data-testid^='popcorn-']") return workbookPreview;
+        return missing;
+      },
+      waitForEvent: async () => ({ path: async () => browserDownload }),
+      waitForTimeout: async () => {},
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/c/mock"
+    };
+
+    const result = await downloadLatestFile({ page }, {
+      destDir: dest,
+      filenamePattern: "^review\\.csv$",
+      timeoutMs: 100
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.suggestedFilename).toBe("review.csv");
+    expect(controlClicked).toBe(true);
+    expect(downloadClicked).toBe(true);
+    await expect(readFile(join(dest, "review.csv"), "utf8")).resolves.toBe("finding,severity\nexample,low\n");
+  });
+
   it("does not accept an unrelated image fallback when filenamePattern does not match", async () => {
     const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-generated-file-mismatch-"));
     const html = [

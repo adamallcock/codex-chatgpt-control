@@ -222,11 +222,6 @@ function normalizeExplicitExistingTabPolicy(args: BootstrapArgs): ExistingTabPol
 }
 
 async function selectExistingTab(browser: BrowserLike, policy: ExistingTabPolicy): Promise<ExistingTabSelectionOutcome> {
-  const userMatch = await selectExistingUserTab(browser, policy, shouldCollectExistingTabDiagnostics(policy));
-  if (userMatch.page !== undefined) {
-    return userMatch;
-  }
-
   if (policy.target?.type === "selected" && typeof browser.tabs?.selected === "function") {
     const selected = await Promise.resolve(browser.tabs.selected.call(browser.tabs)).catch(() => undefined);
     if (selected !== undefined) {
@@ -245,6 +240,29 @@ async function selectExistingTab(browser: BrowserLike, policy: ExistingTabPolicy
         return { page: normalized };
       }
     }
+  }
+
+  if (typeof browser.tabs?.list === "function") {
+    const controlled = await Promise.resolve(browser.tabs.list.call(browser.tabs)).catch(() => []);
+    const matches: PageLike[] = [];
+    for (const candidate of controlled) {
+      const page = await hydrateTab(browser, candidate);
+      if (await pageMatchesExistingTarget(page, policy)) matches.push(page);
+    }
+    if (matches.length === 1 || (matches.length > 1 && (policy.ifMultiple ?? "block") === "first")) {
+      return { page: matches[0]! };
+    }
+    if (matches.length > 1) {
+      throw new ExistingTabSelectionError(
+        "Multiple already-controlled ChatGPT tabs matched the requested existing-tab target.",
+        "existing_tab_ambiguous"
+      );
+    }
+  }
+
+  const userMatch = await selectExistingUserTab(browser, policy, shouldCollectExistingTabDiagnostics(policy));
+  if (userMatch.page !== undefined) {
+    return userMatch;
   }
 
   return userMatch.diagnostics === undefined
@@ -426,15 +444,10 @@ async function pageMatchesExistingTarget(page: PageLike, policy: ExistingTabPoli
 }
 
 async function findExistingChatGPTTab(browser: BrowserLike): Promise<PageLike | undefined> {
-  const userTab = await selectExistingUserTab(browser, {
-    target: { type: "selected", host: "chatgpt" },
-    ifMultiple: "first",
-    requireChatGPT: true
-  }, false).catch(() => ({ page: undefined }));
-  if (userTab.page !== undefined) {
-    return userTab.page;
-  }
-
+  // Reuse a tab already controlled by this browser session before attempting
+  // to claim an external user tab. Claiming a tab that is still associated
+  // with an interrupted host call can otherwise wait on a stale control lock
+  // until the next bounded browser call is killed.
   const selected = browser.tabs?.selected;
   if (typeof selected === "function") {
     try {
@@ -469,6 +482,15 @@ async function findExistingChatGPTTab(browser: BrowserLike): Promise<PageLike | 
     } catch {
       // Keep looking.
     }
+  }
+
+  const userTab = await selectExistingUserTab(browser, {
+    target: { type: "selected", host: "chatgpt" },
+    ifMultiple: "first",
+    requireChatGPT: true
+  }, false).catch(() => ({ page: undefined }));
+  if (userTab.page !== undefined) {
+    return userTab.page;
   }
   return undefined;
 }

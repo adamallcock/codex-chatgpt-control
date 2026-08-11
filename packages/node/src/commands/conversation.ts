@@ -37,6 +37,13 @@ export async function ensureConversationTarget(
 
   await page.goto?.(targetUrl, { waitUntil: "domcontentloaded", timeout: options.timeoutMs });
   await waitForConversationHydrated(page, options.timeoutMs, expectedConversationId);
+  const finalUrl = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
+  if (
+    expectedConversationId !== undefined
+    && parseConversationId(typeof finalUrl === "string" ? finalUrl : "") !== expectedConversationId
+  ) {
+    throw new Error(`Visible Chat navigation did not reach conversation ${expectedConversationId}.`);
+  }
   return ensureResult(true, targetUrl, expectedConversationId);
 }
 
