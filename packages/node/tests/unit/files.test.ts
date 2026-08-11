@@ -232,71 +232,6 @@ describe("validateAttachPaths", () => {
 });
 
 describe("attachFiles", () => {
-  it("uses ChatGPT's Add photos & files chooser when the file input is hidden", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-"));
-    const file = join(dir, "notes.txt");
-    await writeFile(file, "hello");
-
-    let plusClicked = false;
-    let menuClicked = false;
-    let uploadedPaths: string[] = [];
-
-    const messageLocator: LocatorLike = {
-      count: async () => 0
-    };
-    const hiddenInput: LocatorLike = {
-      count: async () => 1,
-      isVisible: async () => false
-    };
-    const plusButton: LocatorLike = {
-      count: async () => 1,
-      click: async () => {
-        plusClicked = true;
-      }
-    };
-    const menuItem: LocatorLike = {
-      count: async () => plusClicked ? 1 : 0,
-      filter: () => menuItem,
-      click: async () => {
-        menuClicked = true;
-      }
-    };
-    const genericButton: LocatorLike = {
-      click: async () => {
-        throw new Error("generic button should not be used");
-      }
-    };
-
-    const page: PageLike = {
-      locator: (selector: string) => {
-        if (selector === "#upload-files") return hiddenInput;
-        if (selector === "#composer-plus-btn, button[aria-label='Add files and more']") return plusButton;
-        if (selector === "div[role='menuitem']") return menuItem;
-        if (selector.includes("data-message-author-role")) return messageLocator;
-        return genericButton;
-      },
-      waitForEvent: async event => {
-        expect(event).toBe("filechooser");
-        return {
-          isMultiple: async () => true,
-          setFiles: async (paths: string[]) => {
-            uploadedPaths = paths;
-          }
-        };
-      },
-      waitForTimeout: async () => {},
-      title: async () => "ChatGPT",
-      url: () => "https://chatgpt.com/"
-    };
-
-    const result = await attachFiles({ page }, { paths: [file] });
-
-    expect(result.ok).toBe(true);
-    expect(plusClicked).toBe(true);
-    expect(menuClicked).toBe(true);
-    expect(uploadedPaths).toEqual([file]);
-  });
-
   it("can return preflight and browser-side file-size diagnostics", async () => {
     const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-diagnostics-"));
     const file = join(dir, "notes.txt");
@@ -358,6 +293,58 @@ describe("attachFiles", () => {
       size: 5,
       type: "text/plain"
     });
+  });
+
+  it("uses the current focusable command-palette upload row", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-palette-"));
+    const file = join(dir, "notes.txt");
+    await writeFile(file, "hello");
+
+    let plusClicked = false;
+    let paletteClicked = false;
+    let uploadedPaths: string[] = [];
+    const hiddenInput: LocatorLike = {
+      count: async () => 1,
+      isVisible: async () => false
+    };
+    const plusButton: LocatorLike = {
+      count: async () => 1,
+      click: async () => { plusClicked = true; }
+    };
+    const missingMenuItem: LocatorLike = {
+      count: async () => 0,
+      filter: () => missingMenuItem
+    };
+    const paletteItem: LocatorLike = {
+      count: async () => plusClicked ? 1 : 0,
+      filter: () => paletteItem,
+      click: async () => { paletteClicked = true; }
+    };
+    const messageLocator: LocatorLike = { count: async () => 0 };
+    const page: PageLike = {
+      locator: selector => {
+        if (selector === "#upload-files") return hiddenInput;
+        if (selector === "#composer-plus-btn, button[aria-label='Add files and more']") return plusButton;
+        if (selector === "div[role='menuitem']") return missingMenuItem;
+        if (selector === "div[tabindex='0']") return paletteItem;
+        if (selector.includes("data-message-author-role")) return messageLocator;
+        return missingMenuItem;
+      },
+      waitForEvent: async () => ({
+        isMultiple: async () => true,
+        setFiles: async (paths: string[]) => { uploadedPaths = paths; }
+      }),
+      waitForTimeout: async () => {},
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/"
+    };
+
+    const result = await attachFiles({ page }, { paths: [file] });
+
+    expect(result.ok).toBe(true);
+    expect(plusClicked).toBe(true);
+    expect(paletteClicked).toBe(true);
+    expect(uploadedPaths).toEqual([file]);
   });
 
   it("waits for attached files to finish processing before returning success", async () => {

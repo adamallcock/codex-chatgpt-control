@@ -532,10 +532,10 @@ async function clickChatGPTAddPhotosMenuItem(
 ): Promise<void> {
   // The `#composer-plus-btn` id is the language-agnostic primary; the aria-label and the
   // menu-item text are locale-sensitive (menu text sourced from the locale registry).
-  const addPhotosFilesText = localeLabels.addPhotosFilesMenuItem[0];
-  const menuItem = requiredLocator(page, "div[role='menuitem']").filter?.({ hasText: addPhotosFilesText });
+  const addPhotosFilesText = localeLabels.addPhotosFilesMenuItem[0] ?? "Add photos & files";
+  let menuItem = await findChatGPTUploadMenuItem(page, addPhotosFilesText);
 
-  if (await locatorCount(menuItem) !== 1) {
+  if (menuItem === undefined) {
     const plusButton = requiredLocator(page, "#composer-plus-btn, button[aria-label='Add files and more']");
     if (await locatorCount(plusButton) !== 1) {
       throw new Error("ChatGPT Add files button was not uniquely available.");
@@ -544,8 +544,22 @@ async function clickChatGPTAddPhotosMenuItem(
     await page.waitForTimeout?.(250);
   }
 
-  const refreshedMenuItem = requiredLocator(page, "div[role='menuitem']").filter?.({ hasText: addPhotosFilesText });
+  menuItem = await findChatGPTUploadMenuItem(page, addPhotosFilesText);
+  if (menuItem === undefined) {
+    throw new Error("ChatGPT's visible Add photos & files upload row was not uniquely available.");
+  }
+  const refreshedMenuItem = menuItem;
   await clickFileChooserLocator(page, refreshedMenuItem, paths, timeoutMs);
+}
+
+async function findChatGPTUploadMenuItem(
+  page: PageLike,
+  addPhotosFilesText: string
+): Promise<LocatorLike | undefined> {
+  // Current Chat renders the command palette upload action as a focusable row
+  // with tabindex=0 and no ARIA menuitem role.
+  const candidate = requiredLocator(page, "div[tabindex='0']").filter?.({ hasText: addPhotosFilesText });
+  return await locatorCount(candidate) === 1 ? candidate : undefined;
 }
 
 async function clickFileChooserTarget(
