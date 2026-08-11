@@ -132,6 +132,19 @@ describe("mode and tool selection blockers", () => {
     });
   });
 
+  it("uses the verified five-position power slider before opening Advanced", async () => {
+    const page = advancedEffortPickerPage("Extra High", { powerSlider: true });
+
+    const result = await setMode({ page }, { effort: "Pro" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["Pro"],
+      candidates: ["Advanced"]
+    });
+    expect(page.advancedOpenCount()).toBe(0);
+  });
+
   it("selects a nested model version from the new intelligence picker", async () => {
     const page = intelligencePickerPage({ current: "High" });
 
@@ -898,10 +911,14 @@ function intelligencePickerPage({
   };
 }
 
-function advancedEffortPickerPage(current: string): PageLike {
+function advancedEffortPickerPage(
+  current: string,
+  { powerSlider = false }: { powerSlider?: boolean } = {}
+): PageLike & { advancedOpenCount: () => number } {
   let currentLabel = current;
   let rootOpen = false;
   let advancedOpen = false;
+  let advancedClicks = 0;
   let effortOpen = false;
   const rootItems: FakeMenuItem[] = [
     { label: "Advanced", role: "menuitem" },
@@ -920,6 +937,24 @@ function advancedEffortPickerPage(current: string): PageLike {
     click: async () => { rootOpen = true; },
     filter: () => opener
   };
+  const canonical = ["Instant", "Medium", "High", "Extra High", "Pro"];
+  const slider: LocatorLike = {
+    count: async () => rootOpen && powerSlider ? 1 : 0,
+    evaluate: async fn => fn({
+      getAttribute: (name: string) => name === "aria-valuemin"
+        ? "0"
+        : name === "aria-valuemax"
+          ? "4"
+          : name === "aria-valuenow"
+            ? String(canonical.indexOf(currentLabel))
+            : null
+    } as unknown as Element),
+    press: async key => {
+      const currentIndex = canonical.indexOf(currentLabel);
+      const nextIndex = key === "ArrowRight" ? currentIndex + 1 : currentIndex - 1;
+      currentLabel = canonical[Math.max(0, Math.min(canonical.length - 1, nextIndex))]!;
+    }
+  };
   const locatorForItem = (label: string, role?: string): LocatorLike => {
     const item = [...rootItems, ...effortItems].find(candidate =>
       candidate.label === label && (role === undefined || candidate.role === role)
@@ -933,6 +968,7 @@ function advancedEffortPickerPage(current: string): PageLike {
       click: async () => {
         if (item.label === "Advanced") {
           advancedOpen = true;
+          advancedClicks += 1;
         } else if (item.label.startsWith("Effort ")) {
           effortOpen = true;
         } else if (effortItems.includes(item)) {
@@ -951,7 +987,7 @@ function advancedEffortPickerPage(current: string): PageLike {
       return role === "button" && name === currentLabel ? opener : locatorForItem(name, role);
     },
     getByText: label => locatorForItem(String(label)),
-    locator: selector => ({
+    locator: selector => selector === "[role='slider']" ? slider : ({
       ...missing,
       filter: options => {
         const wanted = String((options as { hasText?: unknown } | undefined)?.hasText ?? "");
@@ -990,7 +1026,8 @@ function advancedEffortPickerPage(current: string): PageLike {
     },
     waitForTimeout: async () => {},
     title: async () => "ChatGPT",
-    url: () => "https://chatgpt.com/"
+    url: () => "https://chatgpt.com/",
+    advancedOpenCount: () => advancedClicks
   };
 }
 

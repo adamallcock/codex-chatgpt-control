@@ -96,6 +96,11 @@ export async function setMode(
     for (const request of requested) {
       let match = findModeMenuItem(candidates, request);
       if (match === undefined) {
+        const sliderSelection = await selectModeWithPowerSlider(page, request);
+        if (sliderSelection !== undefined) {
+          selected.push(sliderSelection);
+          continue;
+        }
         const nested = await openEffortSubmenu(page, candidates, request);
         observedCandidates.push(...nested);
         candidates = nested;
@@ -138,6 +143,51 @@ export async function setMode(
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
+}
+
+/**
+ * Chat's compact picker exposes the five canonical intelligence levels as an
+ * ARIA slider. Use it only when its visible min/max/current metadata exactly
+ * matches that five-step scale, and accept the move only when the composer
+ * visibly echoes the requested label. The Advanced submenu remains the
+ * fallback for every unrecognized shape.
+ */
+async function selectModeWithPowerSlider(
+  page: PageLike,
+  request: RequestedMode
+): Promise<string | undefined> {
+  const wanted = request.modeId === undefined
+    ? undefined
+    : CANONICAL_INTELLIGENCE_ORDER.get(request.modeId);
+  const slider = page.locator?.("[role='slider']");
+  if (wanted === undefined
+    || slider?.count === undefined
+    || slider.evaluate === undefined
+    || slider.press === undefined
+    || await slider.count().catch(() => 0) !== 1) {
+    return undefined;
+  }
+
+  const state = await slider.evaluate(element => ({
+    min: Number(element.getAttribute("aria-valuemin")),
+    max: Number(element.getAttribute("aria-valuemax")),
+    now: Number(element.getAttribute("aria-valuenow"))
+  })).catch(() => undefined);
+  if (state === undefined
+    || state.min !== 0
+    || state.max !== CANONICAL_INTELLIGENCE_ORDER.size - 1
+    || !Number.isInteger(state.now)
+    || state.now < state.min
+    || state.now > state.max) {
+    return undefined;
+  }
+
+  const key = wanted > state.now ? "ArrowRight" : "ArrowLeft";
+  for (let step = 0; step < Math.abs(wanted - state.now); step += 1) {
+    await slider.press(key);
+  }
+  await page.waitForTimeout?.(150);
+  return findUniqueVisibleLabelForRequest(await visibleModeButtonLabelList(page), request);
 }
 
 /**

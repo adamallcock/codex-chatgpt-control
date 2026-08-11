@@ -948,6 +948,7 @@ export type BrowserUserTabInfo = {
 
 export type LocatorLike = {
   click?: (options?: unknown) => Promise<void>;
+  press?: (key: string, options?: unknown) => Promise<void>;
   fill?: (value: string, options?: unknown) => Promise<void>;
   textContent?: (options?: unknown) => Promise<string | null>;
   innerText?: (options?: unknown) => Promise<string>;
