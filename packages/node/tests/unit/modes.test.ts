@@ -111,6 +111,27 @@ describe("mode and tool selection blockers", () => {
     });
   });
 
+  it("opens the current Chat Advanced effort submenu and selects Pro", async () => {
+    const page = advancedEffortPickerPage("Extra High");
+
+    const result = await setMode({ page }, { effort: "Pro" });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({
+      selected: ["Pro"],
+      candidates: [
+        "Advanced",
+        "Model GPT-5.6 Sol",
+        "Effort Extra High",
+        "Instant",
+        "Medium",
+        "High",
+        "Extra High",
+        "Pro"
+      ]
+    });
+  });
+
   it("selects a nested model version from the new intelligence picker", async () => {
     const page = intelligencePickerPage({ current: "High" });
 
@@ -869,6 +890,102 @@ function intelligencePickerPage({
         if (versionSubmenuTrigger === "pointer" && Math.abs(x - centerX) <= 1 && Math.abs(y - centerY) <= 1) {
           modelSubmenuOpen = true;
         }
+      }
+    },
+    waitForTimeout: async () => {},
+    title: async () => "ChatGPT",
+    url: () => "https://chatgpt.com/"
+  };
+}
+
+function advancedEffortPickerPage(current: string): PageLike {
+  let currentLabel = current;
+  let rootOpen = false;
+  let advancedOpen = false;
+  let effortOpen = false;
+  const rootItems: FakeMenuItem[] = [
+    { label: "Advanced", role: "menuitem" },
+    { label: "Model GPT-5.6 Sol", role: "menuitem", hasPopup: true },
+    { label: `Effort ${current}`, role: "menuitem", hasPopup: true }
+  ];
+  const effortItems: FakeMenuItem[] = ["Instant", "Medium", "High", "Extra High", "Pro"]
+    .map(label => ({ label, role: "menuitemradio", checked: label === current }));
+  const missing: LocatorLike = {
+    count: async () => 0,
+    click: async () => {},
+    filter: () => missing
+  };
+  const opener: LocatorLike = {
+    count: async () => 1,
+    click: async () => { rootOpen = true; },
+    filter: () => opener
+  };
+  const locatorForItem = (label: string, role?: string): LocatorLike => {
+    const item = [...rootItems, ...effortItems].find(candidate =>
+      candidate.label === label && (role === undefined || candidate.role === role)
+    );
+    const visibleRoot = item !== undefined && rootItems.includes(item) && rootOpen
+      && (item.label === "Advanced" || advancedOpen);
+    const visible = item !== undefined && (visibleRoot || (effortOpen && effortItems.includes(item)));
+    if (!visible || item === undefined) return missing;
+    return {
+      count: async () => 1,
+      click: async () => {
+        if (item.label === "Advanced") {
+          advancedOpen = true;
+        } else if (item.label.startsWith("Effort ")) {
+          effortOpen = true;
+        } else if (effortItems.includes(item)) {
+          currentLabel = item.label;
+          rootOpen = false;
+          effortOpen = false;
+        }
+      },
+      filter: () => locatorForItem(label, role)
+    };
+  };
+
+  return {
+    getByRole: (role, options) => {
+      const name = String((options as { name?: unknown } | undefined)?.name ?? "");
+      return role === "button" && name === currentLabel ? opener : locatorForItem(name, role);
+    },
+    getByText: label => locatorForItem(String(label)),
+    locator: selector => ({
+      ...missing,
+      filter: options => {
+        const wanted = String((options as { hasText?: unknown } | undefined)?.hasText ?? "");
+        if (selector === "button, [role='button']" && wanted === currentLabel) return opener;
+        return locatorForItem(wanted);
+      }
+    }),
+    evaluate: async <T, A = unknown>(fn: (arg: A) => T | Promise<T>, arg?: A) => {
+      const previousDocument = globalThis.document;
+      const previousWindow = globalThis.window;
+      try {
+        globalThis.document = {
+          querySelectorAll: (selector: string) => {
+            if (selector === "button, [role='button']") return [fakeElement({ label: currentLabel })];
+            if (selector.includes("menuitem") || selector.includes("option")) {
+              if (!rootOpen) return [];
+              return [
+                ...rootItems
+                  .filter(item => item.label === "Advanced" || advancedOpen)
+                  .map(item => fakeElement(item)),
+                ...(effortOpen ? effortItems.map(item => fakeElement(item)) : [])
+              ];
+            }
+            if (selector.includes("data-testid")) return [];
+            return [];
+          }
+        } as unknown as Document;
+        globalThis.window = {
+          getComputedStyle: () => ({ display: "block", opacity: "1", visibility: "visible" })
+        } as unknown as Window & typeof globalThis;
+        return await fn(arg as A);
+      } finally {
+        globalThis.document = previousDocument;
+        globalThis.window = previousWindow;
       }
     },
     waitForTimeout: async () => {},

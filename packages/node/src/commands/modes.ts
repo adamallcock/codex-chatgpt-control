@@ -78,7 +78,8 @@ export async function setMode(
       return selectorDrift(page, "No unique ChatGPT mode menu opener was found.");
     }
     await page.waitForTimeout?.(250);
-    const candidates = await enumerateVisibleMenuItems(page);
+    let candidates = await enumerateVisibleMenuItems(page);
+    const observedCandidates: MenuItem[] = [...candidates];
     const selected: string[] = [];
 
     if (requested.length > 0 && shouldRejectAsWrongModeMenu(candidates)) {
@@ -93,9 +94,15 @@ export async function setMode(
     }
 
     for (const request of requested) {
-      const match = findModeMenuItem(candidates, request);
+      let match = findModeMenuItem(candidates, request);
       if (match === undefined) {
-        const candidateLabels = candidates.map(candidate => candidate.label);
+        const nested = await openEffortSubmenu(page, candidates, request);
+        observedCandidates.push(...nested);
+        candidates = nested;
+        match = findModeMenuItem(candidates, request);
+      }
+      if (match === undefined) {
+        const candidateLabels = dedupeLabels(observedCandidates.map(candidate => candidate.label));
         return {
           ok: false,
           status: "unsupported",
@@ -110,7 +117,7 @@ export async function setMode(
       selected.push(match.label);
     }
 
-    let candidateLabels = candidates.map(candidate => candidate.label);
+    let candidateLabels = dedupeLabels(observedCandidates.map(candidate => candidate.label));
     if (requestedVersion !== undefined) {
       const versionResult = await selectModelVersion(page, requestedVersion, candidates, args.timeoutMs ?? 30000);
       candidateLabels = dedupeLabels([...candidateLabels, ...versionResult.candidates]);
@@ -131,6 +138,51 @@ export async function setMode(
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
+}
+
+/**
+ * Current Chat exposes the intelligence choices inside an Advanced "Effort <value>"
+ * submenu.  Only traverse a uniquely labelled visible Effort/Intelligence row and
+ * only accept the submenu when it contains the exact requested mode.  This keeps the
+ * legacy flat picker working while avoiding any inference from the five-position
+ * power slider.
+ */
+async function openEffortSubmenu(
+  page: PageLike,
+  rootItems: MenuItem[],
+  request: RequestedMode
+): Promise<MenuItem[]> {
+  const axisLabels = [
+    ...localeLabels.configurationAxes.effort,
+    ...localeLabels.configurationAxes.intelligence,
+  ].map(normalizeForLabelMatch);
+  const effortRows = (items: MenuItem[]): MenuItem[] => items.filter(item => {
+    if (item.role === "menuitemradio") return false;
+    const normalized = normalizeForLabelMatch(item.label);
+    return axisLabels.some(axis => normalized === axis || normalized.startsWith(`${axis} `));
+  });
+  let visibleRootItems = rootItems;
+  let rows = effortRows(visibleRootItems);
+  if (rows.length === 0) {
+    const advancedLabels = localeLabels.configurationAxes.advanced.map(normalizeForLabelMatch);
+    const advancedRows = visibleRootItems.filter(item => {
+      const normalized = normalizeForLabelMatch(item.label);
+      return advancedLabels.some(label => normalized === label || visibleLabelMatches(item.label, label));
+    });
+    if (advancedRows.length !== 1 || !await clickResolvedMenuItem(page, advancedRows[0]!)) {
+      return [];
+    }
+    await page.waitForTimeout?.(250);
+    visibleRootItems = await enumerateVisibleMenuItems(page);
+    rows = effortRows(visibleRootItems);
+  }
+  if (rows.length !== 1 || !await clickResolvedMenuItem(page, rows[0]!)) {
+    return [];
+  }
+
+  await page.waitForTimeout?.(250);
+  const nested = await enumerateVisibleMenuItems(page);
+  return findModeMenuItem(nested, request) === undefined ? [] : nested;
 }
 
 /**
