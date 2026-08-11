@@ -111,7 +111,7 @@ export async function setMode(
           context: await contextFromPage(page)
         };
       }
-      if (!await clickMenuItem(page, match.label)) {
+      if (!await clickResolvedMenuItem(page, match)) {
         return selectorDrift(page, `Mode option "${match.label}" was visible but could not be clicked.`, candidates.map(candidate => candidate.label));
       }
       selected.push(match.label);
