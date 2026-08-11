@@ -581,15 +581,26 @@ async function clickFileChooserLocator(
     throw new Error("Upload locator does not expose click().");
   }
 
-  const chooserPromise = waitForFileChooser(page, timeoutMs);
+  // Attach a rejection handler immediately. Browser bridges can reject the
+  // chooser wait before the visible click promise settles; leaving that
+  // rejection temporarily unobserved can terminate the host JavaScript
+  // runtime even though attachFiles has a surrounding error boundary.
+  const chooserPromise = waitForFileChooser(page, timeoutMs).then(
+    chooser => ({ ok: true as const, chooser }),
+    error => ({ ok: false as const, error })
+  );
   try {
     await locator.click({ timeoutMs: Math.min(timeoutMs, 10000) });
   } catch (error) {
-    await chooserPromise.catch(() => undefined);
+    await chooserPromise;
     throw error;
   }
 
-  const chooser = await chooserPromise;
+  const chooserResult = await chooserPromise;
+  if (!chooserResult.ok) {
+    throw chooserResult.error;
+  }
+  const chooser = chooserResult.chooser;
   await validateChooserMultiplicity(chooser, paths);
   try {
     await chooser.setFiles(paths);

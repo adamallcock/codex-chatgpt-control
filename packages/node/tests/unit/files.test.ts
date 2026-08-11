@@ -451,6 +451,44 @@ describe("attachFiles", () => {
     expect(result.blocker?.visibleText).toContain("Upload permission troubleshooting");
   });
 
+  it("settles an early chooser rejection before a slow visible click completes", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-chooser-timeout-"));
+    const file = join(dir, "notes.txt");
+    await writeFile(file, "hello");
+
+    const visibleInput: LocatorLike = {
+      count: async () => 1,
+      isVisible: async () => true,
+      click: async () => {
+        await new Promise(resolve => setTimeout(resolve, 5));
+      }
+    };
+    const missing: LocatorLike = {
+      count: async () => 0,
+      filter: () => missing
+    };
+    const page: PageLike = {
+      locator: selector => selector === "#upload-files" ? visibleInput : missing,
+      waitForEvent: async () => {
+        throw new Error("Timed out waiting for file chooser.");
+      },
+      waitForTimeout: async () => {},
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/"
+    };
+
+    const result = await attachFiles({ page }, { paths: [file], timeoutMs: 50 });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("blocked");
+    expect(result.blocker).toMatchObject({
+      kind: "permission",
+      code: "upload_permission_required",
+      resumable: true
+    });
+    expect(result.blocker?.visibleText).toContain("Timed out waiting for file chooser");
+  });
+
   it("explains both permission gates when Chrome rejects fileChooser.setFiles", async () => {
     const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-not-allowed-"));
     const file = join(dir, "notes.txt");
