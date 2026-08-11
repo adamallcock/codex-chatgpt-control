@@ -18,6 +18,15 @@ describe("readPageState", () => {
     expect(state.signedIn).toBe(false);
     expect(state.blocker?.kind).toBe("login_required");
   });
+
+  it("does not let the logged-out shell's generic navigation markers mask the login wall", async () => {
+    const state = await readPageState(textPage(
+      "New chat Search chats Chat with ChatGPT Log in Log in Sign up for free"
+    ));
+
+    expect(state.signedIn).toBe(false);
+    expect(state.blocker?.kind).toBe("login_required");
+  });
 });
 
 function textPage(text: string): PageLike {

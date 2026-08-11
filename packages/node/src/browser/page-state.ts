@@ -33,8 +33,9 @@ export async function readPageState(page: PageLike): Promise<PageState> {
   const rawTitle = typeof page.title === "function" ? await page.title().catch(() => undefined) : undefined;
   const title = typeof rawTitle === "string" ? rawTitle : undefined;
   const visibleText = await readVisibleText(page);
-  const signedIn = isLikelySignedIn(visibleText);
   const classifiedBlocker = classifyVisibleText(visibleText);
+  const loginWall = classifiedBlocker?.kind === "login_required" && isLikelyLoginWall(visibleText);
+  const signedIn = isLikelySignedIn(visibleText) && !loginWall;
   const blocker = classifiedBlocker?.kind === "login_required" && signedIn
     ? undefined
     : classifiedBlocker;
@@ -106,4 +107,10 @@ export function htmlToText(html: string): string {
 function isLikelySignedIn(visibleText: string): boolean {
   const markers = localeLabels.signedInMarkers.map(escapeRegExp).join("|");
   return new RegExp(`\\b(${markers})\\b`, "i").test(visibleText);
+}
+
+function isLikelyLoginWall(visibleText: string): boolean {
+  const labels = localeLabels.loginBlocker.map(escapeRegExp).join("|");
+  const matches = visibleText.match(new RegExp(`(?:${labels})`, "gi")) ?? [];
+  return matches.length >= 2 || /\bsign\s?up\b|\bcreate (?:an )?account\b/i.test(visibleText);
 }
