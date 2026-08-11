@@ -249,7 +249,34 @@ export async function attachFiles(
     }
     return resultOk(data, await contextFromPage(page), preflight.warnings);
   } catch (error) {
-    if (isUploadBridgeBlocker(error)) {
+    if (isUploadTransportFailure(error)) {
+      return {
+        ok: false,
+        status: "blocked",
+        warnings: [],
+        blocker: {
+          kind: "browser_bridge_unavailable",
+          code: "upload_transport_failed",
+          message: "The Codex Chrome bridge disconnected while handing files to ChatGPT's visible composer. File attachment did not complete, so callers must not submit the prompt.",
+          visibleText: error instanceof Error ? error.message : String(error),
+          remediation: [
+            {
+              label: "Retry live attachment",
+              instruction: "Retry the attachment from the live Codex Chrome runtime; the operation is safe to resume because file attachment did not complete.",
+              userActionRequired: false
+            },
+            {
+              label: "Restart bridge if repeated",
+              instruction: "If the bridge disconnects again, restart Chrome or Codex before retrying. Do not change upload permissions unless Chrome explicitly reports a permission denial.",
+              userActionRequired: true
+            }
+          ],
+          resumable: true
+        },
+        context: await contextFromPage(page)
+      };
+    }
+    if (isUploadPermissionBlocker(error)) {
       return {
         ok: false,
         status: "blocked",
@@ -260,6 +287,28 @@ export async function attachFiles(
           message: uploadPermissionMessage(error),
           visibleText: uploadPermissionDetails(error),
           remediation: uploadPermissionRemediation(),
+          resumable: true
+        },
+        context: await contextFromPage(page)
+      };
+    }
+    if (isUploadPathFailure(error)) {
+      return {
+        ok: false,
+        status: "blocked",
+        warnings: [],
+        blocker: {
+          kind: "upload_failed",
+          code: "upload_path_unavailable",
+          message: "None of the browser's supported ChatGPT file-attachment paths completed. Callers must not submit the prompt.",
+          visibleText: error instanceof Error ? error.message : String(error),
+          remediation: [
+            {
+              label: "Retry live attachment",
+              instruction: "Retry from the live Codex Chrome runtime after confirming the ChatGPT composer is visible. Do not change upload permissions unless Chrome explicitly reports a permission denial.",
+              userActionRequired: false
+            }
+          ],
           resumable: true
         },
         context: await contextFromPage(page)
@@ -494,6 +543,12 @@ async function uploadFiles(page: NonNullable<RuntimeEnv["page"]>, files: Attache
       }
     },
     {
+      name: "cdp-file-input-chooser",
+      run: async () => {
+        await clickHiddenFileInputWithCdp(page, paths, timeoutMs);
+      }
+    },
+    {
       name: "add-photos-files-menu-item",
       run: async () => {
         await clickChatGPTAddPhotosMenuItem(page, paths, timeoutMs);
@@ -618,6 +673,56 @@ async function clickFileChooserLocator(
   await validateChooserMultiplicity(chooser, paths);
   try {
     await chooser.setFiles(paths);
+  } catch (error) {
+    throw new Error(`fileChooser.setFiles failed. ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function clickHiddenFileInputWithCdp(
+  page: PageLike,
+  paths: string[],
+  timeoutMs: number
+): Promise<void> {
+  // Codex Chrome exposes page.evaluate as read-only and intentionally omits
+  // locator.setInputFiles. CDP supplies only the trusted user gesture here;
+  // the sanctioned file-chooser object still performs the local handoff.
+  if (typeof page.waitForEvent !== "function") {
+    throw new Error("The active browser page does not expose file chooser events.");
+  }
+
+  const rawCapability = await Promise.resolve(page.capabilities?.get?.("cdp"));
+  const cdp = rawCapability as {
+    send?: (method: string, params?: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> | unknown;
+  } | undefined;
+  if (typeof cdp?.send !== "function") {
+    throw new Error("The active browser page does not expose the scoped CDP capability needed to click a hidden file input.");
+  }
+
+  const chooserPromise = waitForFileChooser(page, timeoutMs).then(
+    chooser => ({ ok: true as const, chooser }),
+    error => ({ ok: false as const, error })
+  );
+  try {
+    await cdp.send("Runtime.evaluate", {
+      expression: "document.querySelector(\"#upload-files, input[type='file']:not([accept='image/*']), input[type='file']\")?.click()",
+      userGesture: true,
+      awaitPromise: true,
+      returnByValue: true
+    }, {
+      timeoutMs: Math.min(timeoutMs, 10000)
+    });
+  } catch (error) {
+    await chooserPromise;
+    throw error;
+  }
+
+  const chooserResult = await chooserPromise;
+  if (!chooserResult.ok) {
+    throw chooserResult.error;
+  }
+  await validateChooserMultiplicity(chooserResult.chooser, paths);
+  try {
+    await chooserResult.chooser.setFiles(paths);
   } catch (error) {
     throw new Error(`fileChooser.setFiles failed. ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -1062,9 +1167,19 @@ function guessMimeType(name: string): string {
   return "application/octet-stream";
 }
 
-function isUploadBridgeBlocker(error: unknown): boolean {
+function isUploadPermissionBlocker(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /DataTransfer is not a constructor|No file chooser|setInputFiles|Allow access to file URLs|file upload|fileChooser\.setFiles failed|Not allowed|No ChatGPT upload path completed/i.test(message);
+  return /Allow access to file URLs|Codex Settings > Computer Use|Browser Use rejected|requested that files not be uploaded|permission denied|browser blocked|fileChooser\.setFiles failed[^\n]*(?:Not allowed|permission|denied|rejected)/i.test(message);
+}
+
+function isUploadTransportFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /native pipe closed before response|browser bridge.*(?:closed|disconnect)|connection (?:was )?closed|target page, context or browser has been closed/i.test(message);
+}
+
+function isUploadPathFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /No ChatGPT upload path completed/i.test(message);
 }
 
 function uploadPermissionMessage(error: unknown): string {

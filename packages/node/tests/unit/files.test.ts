@@ -406,6 +406,58 @@ describe("attachFiles", () => {
     expect(waitCalls).toBeGreaterThan(1);
   });
 
+  it("uses scoped CDP only to open the hidden input's approved file chooser", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-cdp-chooser-"));
+    const first = join(dir, "first.md");
+    const second = join(dir, "second.txt");
+    await writeFile(first, "first-file");
+    await writeFile(second, "second-file");
+
+    const hiddenInput: LocatorLike = {
+      count: async () => 1,
+      isVisible: async () => false
+    };
+    const missing: LocatorLike = {
+      count: async () => 0,
+      filter: () => missing
+    };
+    let uploadedPaths: string[] = [];
+    let sentMethod: string | undefined;
+    let sentParams: Record<string, unknown> | undefined;
+    const page: PageLike = {
+      locator: selector => selector === "#upload-files" ? hiddenInput : missing,
+      waitForEvent: async () => ({
+        isMultiple: async () => true,
+        setFiles: async (paths: string[]) => {
+          uploadedPaths = paths;
+        }
+      }),
+      capabilities: {
+        get: async id => id === "cdp" ? {
+          send: async (method: string, params: Record<string, unknown>) => {
+            sentMethod = method;
+            sentParams = params;
+          }
+        } : undefined
+      },
+      waitForTimeout: async () => {},
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/"
+    };
+
+    const result = await attachFiles({ page }, { paths: [first, second] });
+
+    expect(result.ok).toBe(true);
+    expect(uploadedPaths).toEqual([first, second]);
+    expect(sentMethod).toBe("Runtime.evaluate");
+    expect(sentParams).toMatchObject({
+      userGesture: true,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    expect(sentParams?.expression).toContain("#upload-files");
+  });
+
   it("returns a permission blocker when no upload primitive is available", async () => {
     const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-blocked-"));
     const file = join(dir, "notes.txt");
@@ -436,6 +488,91 @@ describe("attachFiles", () => {
       "Chrome file URLs"
     ]);
     expect(result.blocker?.visibleText).toContain("Upload permission troubleshooting");
+  });
+
+  it("does not misclassify a disconnected native upload pipe as a permission failure", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-pipe-closed-"));
+    const file = join(dir, "notes.txt");
+    await writeFile(file, "hello");
+
+    const missing: LocatorLike = {
+      count: async () => 0,
+      filter: () => missing,
+      last: () => hiddenInput
+    };
+    const hiddenInput: LocatorLike = {
+      count: async () => 1,
+      isVisible: async () => false
+    };
+    const page: PageLike = {
+      locator: selector => selector.includes("input[type='file']") ? hiddenInput : missing,
+      evaluate: async () => {
+        throw new Error("native pipe closed before response");
+      },
+      waitForTimeout: async () => {},
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/"
+    };
+
+    const result = await attachFiles({ page }, { paths: [file] });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("blocked");
+    expect(result.blocker).toMatchObject({
+      kind: "browser_bridge_unavailable",
+      code: "upload_transport_failed",
+      resumable: true
+    });
+    expect(result.blocker?.message).toContain("must not submit");
+    expect(result.blocker?.message).not.toContain("permission");
+    expect(result.blocker?.visibleText).toContain("native pipe closed before response");
+  });
+
+  it("reports an incompatible browser upload surface without blaming permissions", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-surface-"));
+    const file = join(dir, "notes.txt");
+    await writeFile(file, "hello");
+
+    const hiddenInput: LocatorLike = {
+      count: async () => 1,
+      isVisible: async () => false
+    };
+    const missing: LocatorLike = {
+      count: async () => 0,
+      filter: () => missing
+    };
+    const page: PageLike = {
+      locator: selector => selector === "#upload-files" ? hiddenInput : missing,
+      waitForEvent: async () => {
+        throw new Error("Timed out waiting for file chooser.");
+      },
+      capabilities: {
+        get: async () => ({
+          send: async () => {
+            throw new Error("Runtime.evaluate is unavailable in this browser surface.");
+          }
+        })
+      },
+      evaluate: async () => {
+        throw new Error("The browser exposes a read-only DOM snapshot.");
+      },
+      waitForTimeout: async () => {},
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/"
+    };
+
+    const result = await attachFiles({ page }, { paths: [file] });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("blocked");
+    expect(result.blocker).toMatchObject({
+      kind: "upload_failed",
+      code: "upload_path_unavailable",
+      resumable: true
+    });
+    expect(result.blocker?.message).toContain("must not submit");
+    expect(result.blocker?.message).not.toContain("permission");
+    expect(result.blocker?.visibleText).toContain("read-only DOM snapshot");
   });
 
   it("settles an early chooser rejection before a slow visible click completes", async () => {
