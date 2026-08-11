@@ -5,7 +5,7 @@
   "description": "Public source repo for the unofficial visible ChatGPT Chat and Work control SDK.",
   "type": "module",
   "scripts": {
-    "node:test": "npm --prefix packages/node test",
+    "node:test": "node --test scripts/tests/*.test.mjs && npm --prefix packages/node test",
     "node:build": "npm --prefix packages/node run build",
     "node:bundle": "npm --prefix packages/node run bundle && npm --prefix packages/node run bundle:backend && npm --prefix packages/node run bundle:live-smoke && npm --prefix packages/node run bundle:release-canary",
     "node:contracts": "npm --prefix packages/node run contract:validate && npm --prefix packages/node run docs:drift && npm --prefix packages/node run parity:fixtures && npm --prefix packages/node run parity:suite",

@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import https from "node:https";
 import { promisify } from "node:util";
 
+import { npmInvocation } from "./lib/npm-command.mjs";
+
 const execFileAsync = promisify(execFile);
 
 const npmPackage = "codex-chatgpt-control";
@@ -23,7 +25,8 @@ async function readPythonVersion() {
 
 async function npmView(spec) {
   try {
-    const { stdout } = await execFileAsync("npm", ["view", spec, "name", "version", "--json"], {
+    const npm = npmInvocation(["view", spec, "name", "version", "--json"]);
+    const { stdout } = await execFileAsync(npm.program, npm.args, {
       maxBuffer: 1024 * 1024
     });
     return { exists: true, data: JSON.parse(stdout) };

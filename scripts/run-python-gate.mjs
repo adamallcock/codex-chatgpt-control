@@ -4,11 +4,12 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
+import { npmInvocation } from "./lib/npm-command.mjs";
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pythonRoot = join(repoRoot, "packages", "python");
 const nodeRoot = join(repoRoot, "packages", "node");
 const venvDir = join(pythonRoot, ".venv");
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const pythonCommand = process.env.PYTHON ?? (process.platform === "win32" ? "python.exe" : "python");
 const venvPython = process.platform === "win32"
   ? join(venvDir, "Scripts", "python.exe")
@@ -34,7 +35,8 @@ function ensureVenv() {
 }
 
 if (gate === "test") {
-  run(npmCommand, ["--prefix", nodeRoot, "run", "bundle:backend"]);
+  const npm = npmInvocation(["--prefix", nodeRoot, "run", "bundle:backend"]);
+  run(npm.program, npm.args);
   ensureVenv();
   run(venvPython, ["-m", "unittest", "discover", "-s", "tests"], { cwd: pythonRoot });
 } else if (gate === "compile") {
@@ -44,7 +46,8 @@ if (gate === "test") {
   ensureVenv();
   run(venvPython, ["-m", "pyright", "--pythonpath", venvPython, "src", "tests"], { cwd: pythonRoot });
 } else if (gate === "ordinary-shell") {
-  run(npmCommand, ["--prefix", nodeRoot, "run", "bundle:backend"]);
+  const npm = npmInvocation(["--prefix", nodeRoot, "run", "bundle:backend"]);
+  run(npm.program, npm.args);
   ensureVenv();
   run(venvPython, ["scripts/live_smoke.py", "--mode", "ordinary-shell"], { cwd: pythonRoot });
 } else {

@@ -2,6 +2,8 @@
 import { execFileSync } from "node:child_process";
 import process from "node:process";
 
+import { npmInvocation } from "./lib/npm-command.mjs";
+
 const REQUIRED_FILES = [
   "package.json",
   "README.md",
@@ -26,7 +28,8 @@ const FORBIDDEN_PATTERNS = [
 ];
 
 function main() {
-  const output = execFileSync("npm", ["pack", "--dry-run", "--json"], {
+  const npm = npmInvocation(["pack", "--dry-run", "--json"]);
+  const output = execFileSync(npm.program, npm.args, {
     cwd: new URL("../packages/node", import.meta.url),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"]

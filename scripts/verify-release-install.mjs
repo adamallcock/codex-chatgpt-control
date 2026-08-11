@@ -7,6 +7,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import process from "node:process";
 
+import { npmInvocation } from "./lib/npm-command.mjs";
+
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NODE_ROOT = join(REPO_ROOT, "packages", "node");
 const PYTHON_ROOT = join(REPO_ROOT, "packages", "python");
@@ -38,10 +40,6 @@ function parseArgs(argv) {
   }
   if (options.mode === undefined) throw new Error("Choose exactly one mode: --source or --registry");
   return options;
-}
-
-function command(name) {
-  return process.platform === "win32" ? `${name}.cmd` : name;
 }
 
 function run(program, args, options = {}) {
@@ -78,13 +76,14 @@ async function waitForRegistryVersions(versions, timeoutMs) {
   let last = "registry metadata not checked";
   while (Date.now() <= deadline) {
     try {
-      const npmVersion = JSON.parse(run(command("npm"), [
+      const npm = npmInvocation([
         "view",
         `${NPM_PACKAGE}@${versions.nodeVersion}`,
         "version",
         "--json",
         `--registry=${NPM_REGISTRY}`
-      ], { capture: true }));
+      ]);
+      const npmVersion = JSON.parse(run(npm.program, npm.args, { capture: true }));
       const response = await fetch(`https://pypi.org/pypi/${PYPI_PACKAGE}/${versions.pythonVersion}/json`, {
         headers: { "User-Agent": "codex-chatgpt-control-release-verifier" }
       });
@@ -123,7 +122,8 @@ async function sourceSpecs(root) {
   const nodeDist = join(root, "node-dist");
   const pythonDist = join(root, "python-dist");
   await Promise.all([mkdir(nodeDist, { recursive: true }), mkdir(pythonDist, { recursive: true })]);
-  const packed = JSON.parse(run(command("npm"), ["pack", "--json", "--pack-destination", nodeDist], {
+  const npm = npmInvocation(["pack", "--json", "--pack-destination", nodeDist]);
+  const packed = JSON.parse(run(npm.program, npm.args, {
     cwd: NODE_ROOT,
     capture: true
   }));
@@ -153,7 +153,8 @@ async function installAndVerify(root, specs, versions) {
   const npmInstallArgs = ["install", "--ignore-scripts", "--no-audit", "--no-fund"];
   if (specs.registry) npmInstallArgs.push(`--registry=${NPM_REGISTRY}`);
   npmInstallArgs.push(specs.nodeSpec);
-  run(command("npm"), npmInstallArgs, { cwd: nodeEnv });
+  const npm = npmInvocation(npmInstallArgs);
+  run(npm.program, npm.args, { cwd: nodeEnv });
 
   const installedNodeRoot = join(nodeEnv, "node_modules", NPM_PACKAGE);
   const installedNode = JSON.parse(await readFile(join(installedNodeRoot, "package.json"), "utf8"));

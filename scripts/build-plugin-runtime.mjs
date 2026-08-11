@@ -6,6 +6,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { npmInvocation } from "./lib/npm-command.mjs";
+
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PRIVATE_PACKAGE_REL = path.join("work", "chatgpt-" + "browser-control");
 const PRIVATE_BUNDLE_PREFIX = "chatgpt-" + "browser-control";
@@ -101,7 +103,8 @@ async function main() {
 
   if (!args.skipBuild) {
     for (const script of ["build", "bundle", "bundle:backend", "bundle:live-smoke", "bundle:release-canary"]) {
-      execFileSync("npm", ["run", script], { cwd: packageDir, stdio: "inherit" });
+      const npm = npmInvocation(["run", script]);
+      execFileSync(npm.program, npm.args, { cwd: packageDir, stdio: "inherit" });
     }
   }
 
