@@ -33,7 +33,7 @@ describe("readPageState blocker scoping", () => {
       evaluate: async <T>(): Promise<T> => {
         evaluations += 1;
         return (evaluations === 1
-          ? "New chat Search chats Responses will use a smaller model."
+          ? "New chat Search chats You've reached your usage limit. Try again later."
           : { text: "", hasConversationMessages: true }) as T;
       }
     });
@@ -49,12 +49,12 @@ describe("readPageState blocker scoping", () => {
       evaluate: async <T>(): Promise<T> => {
         evaluations += 1;
         return (evaluations === 1
-          ? "New chat Search chats Responses will use a smaller model."
-          : { text: "Responses will use a smaller model.", hasConversationMessages: true }) as T;
+          ? "New chat Search chats You've reached your usage limit. Try again later."
+          : { text: "You've reached your usage limit. Try again later.", hasConversationMessages: true }) as T;
       }
     });
 
-    expect(state.blocker?.kind).toBe("model_fallback");
+    expect(state.blocker?.kind).toBe("rate_limit");
   });
 });
 
