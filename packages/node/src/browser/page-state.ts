@@ -32,8 +32,10 @@ export async function readPageState(page: PageLike): Promise<PageState> {
   const url = typeof rawUrl === "string" ? rawUrl : "";
   const rawTitle = typeof page.title === "function" ? await page.title().catch(() => undefined) : undefined;
   const title = typeof rawTitle === "string" ? rawTitle : undefined;
-  const visibleText = await readVisibleText(page);
-  const blockerSurface = await readBlockerSurface(page);
+  const [visibleText, blockerSurface] = await Promise.all([
+    readVisibleText(page),
+    readBlockerSurface(page)
+  ]);
   const fullPageBlocker = classifyVisibleText(visibleText);
   const classifiedBlocker = blockerSurface.hasConversationMessages
     ? classifyVisibleText(blockerSurface.text)
@@ -116,7 +118,7 @@ function isLikelySignedIn(visibleText: string): boolean {
 async function readBlockerSurface(page: PageLike): Promise<{ text: string; hasConversationMessages: boolean }> {
   if (typeof page.evaluate === "function") {
     try {
-      return await withTimeout(page.evaluate(() => {
+      const snapshot = await withTimeout(page.evaluate(() => {
         const messageSelector = "[data-message-author-role], [data-testid^='conversation-turn']";
         const systemSelector = [
           "[role='alert']",
@@ -137,6 +139,11 @@ async function readBlockerSurface(page: PageLike): Promise<{ text: string; hasCo
           hasConversationMessages: document.querySelector(messageSelector) !== null
         };
       }), 1000, "Timed out while reading system blocker surfaces.");
+      if (typeof snapshot === "object" && snapshot !== null
+        && typeof (snapshot as { text?: unknown }).text === "string"
+        && typeof (snapshot as { hasConversationMessages?: unknown }).hasConversationMessages === "boolean") {
+        return snapshot as { text: string; hasConversationMessages: boolean };
+      }
     } catch {
       // Fall through to content parsing.
     }
