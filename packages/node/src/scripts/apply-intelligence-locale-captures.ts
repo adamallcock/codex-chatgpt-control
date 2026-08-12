@@ -44,7 +44,7 @@ type SurfaceContribution = {
 };
 
 const ENGLISH_MODE_LABELS = new Set(["Latest", "Instant", "Thinking", "Extended", "Medium", "High", "Extra High", "Pro"]);
-const ENGLISH_STOP_CONTROL = new Set(["stop generating", "stop streaming", "stop answering", "cancel"]);
+const ENGLISH_STOP_CONTROL = new Set(["stop generating", "stop streaming", "stop answering"]);
 const ENGLISH_STOPPED_ASSISTANT = new Set(["stopped thinking", "stopped answering", "generation stopped"]);
 const INTELLIGENCE_MODE_OPTION_IDS: IntelligenceModeOptionId[] = ["instant", "medium", "high", "extraHigh", "pro"];
 const ENGLISH_INTELLIGENCE_MODE_OPTIONS: Record<IntelligenceModeOptionId, string> = {

@@ -52,6 +52,19 @@ describe("wait snapshot metadata", () => {
     expect(snapshot?.generation.active).toBe(false);
   });
 
+  it("does not treat a generic cancel control as active generation", async () => {
+    const page = domBackedPage({
+      assistantText: "A finished answer.",
+      stopButtonText: "Cancel",
+      actionButtonText: "Copy response"
+    });
+
+    const snapshot = await readWaitDomSnapshot(page);
+
+    expect(snapshot?.generation.active).toBe(false);
+    expect(snapshot?.hasResponseActions).toBe(true);
+  });
+
   it("returns undefined response actions when no conversation turn markers exist", async () => {
     const page = domBackedPage({
       assistantText: "Answer without turn testids",
