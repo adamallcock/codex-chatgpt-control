@@ -455,7 +455,7 @@ async function findExistingChatGPTTab(browser: BrowserLike): Promise<PageLike | 
       if (current !== undefined) {
         const normalized = normalizePage(current);
         try {
-          if ((await normalized.url?.())?.includes("chatgpt.com") === true) {
+          if (isChatGPTUrl(await normalized.url?.())) {
             return normalized;
           }
         } catch {
@@ -468,19 +468,17 @@ async function findExistingChatGPTTab(browser: BrowserLike): Promise<PageLike | 
   }
 
   const list = browser.tabs?.list;
-  if (typeof list !== "function") {
-    return undefined;
-  }
-
-  const tabs = await list.call(browser.tabs);
-  const normalized = await Promise.all(tabs.map(tab => hydrateTab(browser, tab)));
-  for (const tab of normalized) {
-    try {
-      if ((await tab.url?.())?.includes("chatgpt.com") === true) {
-        return tab;
+  if (typeof list === "function") {
+    const tabs = await list.call(browser.tabs);
+    const normalized = await Promise.all(tabs.map(tab => hydrateTab(browser, tab)));
+    for (const tab of normalized) {
+      try {
+        if (isChatGPTUrl(await tab.url?.())) {
+          return tab;
+        }
+      } catch {
+        // Keep looking.
       }
-    } catch {
-      // Keep looking.
     }
   }
 
@@ -537,7 +535,7 @@ function targetRequiresChatGPT(target: ExistingTabTarget): boolean {
   }
 }
 
-function isChatGPTUrl(url: string | undefined): boolean {
+export function isChatGPTUrl(url: string | undefined): boolean {
   if (url === undefined) {
     return false;
   }
@@ -632,11 +630,21 @@ async function createTab(browser: BrowserLike, url: string): Promise<PageLike | 
 
 async function ensurePageAt(page: PageLike, url: string): Promise<void> {
   const currentUrl = await Promise.resolve(page.url?.()).catch(() => "");
-  if (currentUrl?.includes("chatgpt.com") === true) {
+  if (isChatGPTUrl(currentUrl)) {
     return;
   }
   if (typeof page.goto === "function") {
     await page.goto(url);
+    const navigatedUrl = await Promise.resolve(page.url?.()).catch(() => "");
+    if (!isChatGPTUrl(navigatedUrl)) {
+      throw new ChatGPTControlError(
+        "The browser did not remain on a supported ChatGPT origin after navigation.",
+        "selector_drift",
+        false,
+        undefined,
+        { code: "unsafe_chatgpt_origin" }
+      );
+    }
   }
 }
 

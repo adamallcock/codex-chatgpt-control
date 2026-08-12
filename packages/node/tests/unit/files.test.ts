@@ -334,6 +334,11 @@ describe("attachFiles", () => {
         isMultiple: async () => true,
         setFiles: async (paths: string[]) => { uploadedPaths = paths; }
       }),
+      evaluate: async <T>(): Promise<T> => ({
+        supported: true,
+        files: [{ name: "notes.txt", visible: true }],
+        processing: false
+      }) as T,
       waitForTimeout: async () => {},
       title: async () => "ChatGPT",
       url: () => "https://chatgpt.com/"
@@ -432,6 +437,14 @@ describe("attachFiles", () => {
           uploadedPaths = paths;
         }
       }),
+      evaluate: async <T>(): Promise<T> => ({
+        supported: true,
+        files: [
+          { name: "first.md", visible: true },
+          { name: "second.txt", visible: true }
+        ],
+        processing: false
+      }) as T,
       capabilities: {
         get: async id => id === "cdp" ? {
           send: async (method: string, params: Record<string, unknown>) => {
@@ -458,7 +471,7 @@ describe("attachFiles", () => {
     expect(sentParams?.expression).toContain("#upload-files");
   });
 
-  it("returns a permission blocker when no upload primitive is available", async () => {
+  it("fails closed when no sanctioned upload primitive is available", async () => {
     const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-blocked-"));
     const file = join(dir, "notes.txt");
     await writeFile(file, "hello");
@@ -478,16 +491,105 @@ describe("attachFiles", () => {
 
     expect(result.ok).toBe(false);
     expect(result.status).toBe("blocked");
-    expect(result.blocker?.kind).toBe("permission");
-    expect(result.blocker?.code).toBe("upload_permission_required");
+    expect(result.blocker?.kind).toBe("upload_failed");
+    expect(result.blocker?.code).toBe("upload_path_unavailable");
     expect(result.blocker?.resumable).toBe(true);
-    expect(result.blocker?.message).toContain("Codex Settings > Computer Use > Chrome");
-    expect(result.blocker?.message).toContain("Allow access to file URLs");
-    expect(result.blocker?.remediation?.map(step => step.label)).toEqual([
-      "Codex Chrome uploads",
-      "Chrome file URLs"
-    ]);
-    expect(result.blocker?.visibleText).toContain("Upload permission troubleshooting");
+    expect(result.blocker?.message).toContain("must not submit");
+    expect(result.blocker?.message).not.toContain("permission");
+    expect(result.blocker?.visibleText).toContain("no sanctioned native file handoff");
+  });
+
+  it("refuses to upload when the controlled tab leaves the ChatGPT allowlist", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-origin-"));
+    const file = join(dir, "notes.txt");
+    await writeFile(file, "hello");
+    let chooserCalls = 0;
+    const page: PageLike = {
+      locator: () => ({ count: async () => 1, isVisible: async () => true, click: async () => {} }),
+      waitForEvent: async () => {
+        chooserCalls += 1;
+        return { setFiles: async () => {} };
+      },
+      title: async () => "Lookalike",
+      url: () => "https://evil.example/?next=https://chatgpt.com/"
+    };
+
+    const result = await attachFiles({ page }, { paths: [file] });
+
+    expect(result.ok).toBe(false);
+    expect(result.blocker).toMatchObject({
+      kind: "selector_drift",
+      code: "unsafe_chatgpt_origin",
+      resumable: false
+    });
+    expect(chooserCalls).toBe(0);
+  });
+
+  it("blocks when attachment evidence cannot be inspected", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-unverified-"));
+    const file = join(dir, "notes.txt");
+    await writeFile(file, "hello");
+
+    const input: LocatorLike = {
+      count: async () => 1,
+      isVisible: async () => true,
+      click: async () => {}
+    };
+    const page: PageLike = {
+      locator: selector => selector === "#upload-files" ? input : { count: async () => 0 },
+      waitForEvent: async () => ({
+        isMultiple: async () => true,
+        setFiles: async () => {}
+      }),
+      evaluate: async () => {
+        throw new Error("DOM readiness unavailable");
+      },
+      waitForTimeout: async () => {},
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/"
+    };
+
+    const result = await attachFiles({ page }, { paths: [file], timeoutMs: 50 });
+
+    expect(result.ok).toBe(false);
+    expect(result.blocker).toMatchObject({
+      kind: "upload_failed",
+      code: "attachment_verification_failed",
+      resumable: true
+    });
+    expect(result.blocker?.message).toContain("composer-scoped evidence");
+  });
+
+  it("does not accept an attachment filename outside the composer", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-attach-history-name-"));
+    const file = join(dir, "notes.txt");
+    await writeFile(file, "hello");
+
+    const input: LocatorLike = {
+      count: async () => 1,
+      isVisible: async () => true,
+      click: async () => {}
+    };
+    const page: PageLike = {
+      locator: selector => selector === "#upload-files" ? input : { count: async () => 0 },
+      waitForEvent: async () => ({
+        isMultiple: async () => true,
+        setFiles: async () => {}
+      }),
+      evaluate: async <T>(): Promise<T> => ({
+        supported: true,
+        files: [{ name: "notes.txt", visible: false }],
+        processing: false
+      }) as T,
+      waitForTimeout: async () => {},
+      title: async () => "Old message mentions notes.txt",
+      url: () => "https://chatgpt.com/"
+    };
+
+    const result = await attachFiles({ page }, { paths: [file], timeoutMs: 10 });
+
+    expect(result.ok).toBe(false);
+    expect(result.blocker?.code).toBe("attachment_verification_failed");
   });
 
   it("does not misclassify a disconnected native upload pipe as a permission failure", async () => {
@@ -506,8 +608,13 @@ describe("attachFiles", () => {
     };
     const page: PageLike = {
       locator: selector => selector.includes("input[type='file']") ? hiddenInput : missing,
-      evaluate: async () => {
-        throw new Error("native pipe closed before response");
+      waitForEvent: async () => ({ setFiles: async () => {} }),
+      capabilities: {
+        get: async () => ({
+          send: async () => {
+            throw new Error("native pipe closed before response");
+          }
+        })
       },
       waitForTimeout: async () => {},
       title: async () => "ChatGPT",
@@ -572,7 +679,7 @@ describe("attachFiles", () => {
     });
     expect(result.blocker?.message).toContain("must not submit");
     expect(result.blocker?.message).not.toContain("permission");
-    expect(result.blocker?.visibleText).toContain("read-only DOM snapshot");
+    expect(result.blocker?.visibleText).toContain("no sanctioned native file handoff");
   });
 
   it("settles an early chooser rejection before a slow visible click completes", async () => {
@@ -606,8 +713,8 @@ describe("attachFiles", () => {
     expect(result.ok).toBe(false);
     expect(result.status).toBe("blocked");
     expect(result.blocker).toMatchObject({
-      kind: "permission",
-      code: "upload_permission_required",
+      kind: "upload_failed",
+      code: "upload_path_unavailable",
       resumable: true
     });
     expect(result.blocker?.visibleText).toContain("Timed out waiting for file chooser");
@@ -619,6 +726,7 @@ describe("attachFiles", () => {
     await writeFile(file, "hello");
 
     let plusClicked = false;
+    const evaluatedSources: string[] = [];
     const messageLocator: LocatorLike = {
       count: async () => 0
     };
@@ -652,6 +760,10 @@ describe("attachFiles", () => {
           throw new Error('{"code":-32000,"message":"Not allowed"}');
         }
       }),
+      evaluate: async <T, A = unknown>(fn: (arg: A) => T | Promise<T>, arg?: A): Promise<T> => {
+        evaluatedSources.push(`${String(fn)}\n${JSON.stringify(arg)}`);
+        return undefined as T;
+      },
       waitForTimeout: async () => {},
       title: async () => "ChatGPT",
       url: () => "https://chatgpt.com/"
@@ -670,6 +782,8 @@ describe("attachFiles", () => {
     expect(result.blocker?.remediation?.map(step => step.instruction).join(" ")).toContain("Allow access to file URLs");
     expect(result.blocker?.visibleText).toContain("fileChooser.setFiles failed");
     expect(result.blocker?.visibleText).toContain("Not allowed");
+    expect(evaluatedSources.join("\n")).not.toContain("DataTransfer");
+    expect(evaluatedSources.join("\n")).not.toContain("bytesBase64");
   });
 });
 

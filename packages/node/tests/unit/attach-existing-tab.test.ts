@@ -60,6 +60,55 @@ describe("existing Chrome tab bootstrap", () => {
     ]);
   });
 
+  it("uses user-open Chrome tabs when controlled tab enumeration is unavailable", async () => {
+    const claimed: unknown[] = [];
+    const browser: BrowserLike = {
+      name: "chrome",
+      user: {
+        openTabs: async () => [
+          { id: "user-only", url: "https://chatgpt.com/c/user-only", title: "User-only APIs" }
+        ],
+        claimTab: async tab => {
+          claimed.push(tab);
+          return fakeChatGPTPage("user-only", "https://chatgpt.com/c/user-only", "User-only APIs");
+        }
+      }
+    };
+
+    const result = await bootstrap({ browser }, { preferExistingTab: true });
+
+    expect(result.ok).toBe(true);
+    expect(result.context.tabId).toBe("user-only");
+    expect(claimed).toHaveLength(1);
+  });
+
+  it.each([
+    "https://evil.example/?next=https://chatgpt.com/c/abc",
+    "https://evil.example/chatgpt.com/c/abc",
+    "https://chatgpt.com.evil.example/c/abc",
+    "https://notchatgpt.com/c/abc"
+  ])("does not reuse a lookalike controlled URL: %s", async lookalike => {
+    const created: string[] = [];
+    const lookalikePage = fakeChatGPTPage("lookalike", lookalike, "Lookalike");
+    const browser: BrowserLike = {
+      name: "chrome",
+      tabs: {
+        selected: async () => lookalikePage,
+        list: async () => [lookalikePage],
+        create: async url => {
+          created.push(url);
+          return fakeChatGPTPage("fresh", url, "ChatGPT");
+        }
+      }
+    };
+
+    const result = await bootstrap({ browser }, { preferExistingTab: true });
+
+    expect(result.ok).toBe(true);
+    expect(result.context.tabId).toBe("fresh");
+    expect(created).toEqual(["https://chatgpt.com/"]);
+  });
+
   it("falls back to a fresh tab when implicit user-tab reuse is already claimed", async () => {
     const created: string[] = [];
     const browser: BrowserLike = {

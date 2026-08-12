@@ -42,10 +42,15 @@ const DEFAULT_MAX_BYTES_PER_FILE = 512 * 1024 * 1024;
 const DEFAULT_MAX_TOTAL_BYTES = 2 * 1024 * 1024 * 1024;
 
 type AttachmentReadinessSnapshot = {
+  supported?: boolean;
   files: Array<{ name: string; visible: boolean }>;
   processing: boolean;
   processingText?: string;
 };
+
+type AttachmentReadinessResult =
+  | { ready: true }
+  | { ready: false; reason: "processing" | "unverified"; processingText?: string };
 
 export async function validateAttachPaths(paths: string[]): Promise<AttachedFile[]> {
   const result = await preflightFiles({}, { paths });
@@ -211,22 +216,33 @@ export async function attachFiles(
     await page.waitForTimeout?.(args.timeoutMs === undefined ? 1000 : Math.min(args.timeoutMs, 3000));
     const readiness = await waitForAttachedFilesReady(page, files, args.timeoutMs ?? 30000);
     if (!readiness.ready) {
+      const verificationFailed = readiness.reason === "unverified";
       const blocker: NonNullable<CommandResult<AttachFilesData>["blocker"]> = {
         kind: "upload_failed",
-        code: "attachment_processing",
-        message: "ChatGPT still appears to be processing the attached file, so the prompt was not submitted.",
-        remediation: [
-          {
-            label: "Wait for upload",
-            instruction: "Wait until the visible attachment finishes uploading or processing, then retry the askWithFiles call.",
-            userActionRequired: false
-          },
-          {
-            label: "Retry smaller file",
-            instruction: "If processing never finishes, retry with a smaller file or a different supported file type.",
-            userActionRequired: true
-          }
-        ],
+        code: verificationFailed ? "attachment_verification_failed" : "attachment_processing",
+        message: verificationFailed
+          ? "ChatGPT did not expose composer-scoped evidence for every requested attachment, so the prompt was not submitted."
+          : "ChatGPT still appears to be processing the attached file, so the prompt was not submitted.",
+        remediation: verificationFailed
+          ? [
+              {
+                label: "Verify visible attachments",
+                instruction: "Confirm that every requested filename is visible in the current ChatGPT composer, then retry the attachment step. Do not submit while attachment evidence is missing.",
+                userActionRequired: true
+              }
+            ]
+          : [
+              {
+                label: "Wait for upload",
+                instruction: "Wait until the visible attachment finishes uploading or processing, then retry the askWithFiles call.",
+                userActionRequired: false
+              },
+              {
+                label: "Retry smaller file",
+                instruction: "If processing never finishes, retry with a smaller file or a different supported file type.",
+                userActionRequired: true
+              }
+            ],
         resumable: true
       };
       if (readiness.processingText !== undefined) {
@@ -452,31 +468,33 @@ async function waitForAttachedFilesReady(
   page: PageLike,
   files: AttachedFile[],
   timeoutMs: number
-): Promise<{ ready: true } | { ready: false; processingText?: string }> {
+): Promise<AttachmentReadinessResult> {
   const started = Date.now();
   let lastProcessingText: string | undefined;
+  let sawProcessing = false;
 
   while (Date.now() - started < timeoutMs) {
     const snapshot = await readAttachmentReadiness(page, files).catch(() => undefined);
-    if (snapshot === undefined) {
-      return { ready: true };
+    if (snapshot === undefined || snapshot.supported === false) {
+      return { ready: false, reason: "unverified" };
     }
 
-    const allNamesVisible = snapshot.files.length > 0 && snapshot.files.every(file => file.visible);
+    const allNamesVisible = snapshot.files.length === files.length && snapshot.files.every(file => file.visible);
     if (!snapshot.processing && allNamesVisible) {
       return { ready: true };
     }
-    if (!snapshot.processing && Date.now() - started >= Math.min(timeoutMs, 1000)) {
-      return { ready: true };
-    }
 
+    sawProcessing ||= snapshot.processing;
     if (snapshot.processingText !== undefined) {
       lastProcessingText = snapshot.processingText;
     }
     await page.waitForTimeout?.(250);
   }
 
-  const blocked: { ready: false; processingText?: string } = { ready: false };
+  const blocked: Extract<AttachmentReadinessResult, { ready: false }> = {
+    ready: false,
+    reason: sawProcessing ? "processing" : "unverified"
+  };
   if (lastProcessingText !== undefined) {
     blocked.processingText = lastProcessingText;
   }
@@ -491,14 +509,16 @@ async function readAttachmentReadiness(
     return undefined;
   }
 
-  return page.evaluate((fileNames: string[]) => {
-    const visibleText = document.body?.innerText ?? "";
+  return page.evaluate((expectedFiles: Array<{ name: string; bytes: number }>) => {
     const normalize = (value: string) => value.toLocaleLowerCase();
-    const normalizedVisibleText = normalize(visibleText);
-    const files = fileNames.map(name => ({
-      name,
-      visible: normalizedVisibleText.includes(normalize(name))
-    }));
+    const input = (document.querySelector("#upload-files")
+      || document.querySelector("input[type='file']:not([accept='image/*'])")
+      || document.querySelector("input[type='file']")) as HTMLInputElement | null;
+    const composer = input?.closest("form, [data-testid*='composer' i], [class*='composer' i]")
+      ?? document.querySelector("form[data-type='unified-composer'], form:has(textarea), form:has([contenteditable='true'])");
+    if (input === null || composer === null) {
+      return { supported: false, files: expectedFiles.map(file => ({ name: file.name, visible: false })), processing: false };
+    }
 
     const attachmentSelectors = [
       "[data-testid*='attachment' i]",
@@ -511,24 +531,51 @@ async function readAttachmentReadiness(
       "[class*='file' i]",
       "[role='progressbar']"
     ].join(", ");
-    const attachmentText = Array.from(document.querySelectorAll(attachmentSelectors))
+    const attachmentElements = Array.from(composer.querySelectorAll(attachmentSelectors));
+    const attachmentText = attachmentElements
       .map(element => [
         element.textContent ?? "",
         element.getAttribute("aria-label") ?? "",
         element.getAttribute("title") ?? ""
       ].join(" "))
       .join(" ");
-    const relevantText = attachmentText.length > 0 ? attachmentText : visibleText;
-    const processingMatch = /\b(uploading|processing|attaching|preparing|reading|scanning|analyzing)\b/i.exec(relevantText);
+    const inputFiles = Array.from(input.files ?? []).map(file => ({
+      name: normalize(file.name),
+      size: file.size
+    }));
+    const attachmentLabels = attachmentElements.map(element => normalize([
+      element.textContent ?? "",
+      element.getAttribute("aria-label") ?? "",
+      element.getAttribute("title") ?? ""
+    ].join(" ")));
+    const usedInputs = new Set<number>();
+    const usedLabels = new Set<number>();
+    const visibleFiles = expectedFiles.map(expected => {
+      const expectedName = normalize(expected.name);
+      const inputIndex = inputFiles.findIndex((candidate, index) =>
+        !usedInputs.has(index) && candidate.name === expectedName && candidate.size === expected.bytes
+      );
+      if (inputIndex >= 0) {
+        usedInputs.add(inputIndex);
+        return { name: expected.name, visible: true };
+      }
+      const labelIndex = attachmentLabels.findIndex((label, index) =>
+        !usedLabels.has(index) && label.includes(expectedName)
+      );
+      if (labelIndex >= 0) usedLabels.add(labelIndex);
+      return { name: expected.name, visible: labelIndex >= 0 };
+    });
+    const processingMatch = /\b(uploading|processing|attaching|preparing|reading|scanning|analyzing)\b/i.exec(attachmentText);
     const snapshot: AttachmentReadinessSnapshot = {
-      files,
+      supported: true,
+      files: visibleFiles,
       processing: processingMatch !== null
     };
     if (processingMatch !== null) {
-      snapshot.processingText = relevantText.slice(0, 500);
+      snapshot.processingText = attachmentText.slice(0, 500);
     }
     return snapshot;
-  }, files.map(file => file.name));
+  }, files.map(file => ({ name: file.name, bytes: file.bytes })));
 }
 
 async function uploadFiles(page: NonNullable<RuntimeEnv["page"]>, files: AttachedFile[], timeoutMs: number): Promise<void> {
@@ -573,6 +620,9 @@ async function uploadFiles(page: NonNullable<RuntimeEnv["page"]>, files: Attache
       await attempt.run();
       return;
     } catch (error) {
+      if (isUploadPermissionBlocker(error) || isUploadTransportFailure(error)) {
+        throw error;
+      }
       errors.push(`${attempt.name}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -1082,8 +1132,7 @@ async function setHiddenFileInput(page: RuntimeEnv["page"], files: AttachedFile[
   }
   const input = requiredLocator(page, cssSelectors.hiddenFileInputs).last?.() ?? requiredLocator(page, cssSelectors.hiddenFileInputs);
   if (typeof input.setInputFiles !== "function") {
-    await setFilesViaDomDataTransfer(page, files);
-    return;
+    throw new Error("The active browser exposes no sanctioned native file handoff for ChatGPT's file input.");
   }
   await input.setInputFiles(files.map(file => file.path));
 }
@@ -1116,46 +1165,6 @@ async function readBrowserInputDiagnostic(page: PageLike): Promise<BrowserInputD
       })
     };
   });
-}
-
-async function setFilesViaDomDataTransfer(page: NonNullable<RuntimeEnv["page"]>, files: AttachedFile[]): Promise<void> {
-  const totalBytes = files.reduce((sum, file) => sum + file.bytes, 0);
-  const maxInlineBytes = 25 * 1024 * 1024;
-  if (totalBytes > maxInlineBytes) {
-    throw new Error(`No file chooser or setInputFiles support is available for large uploads. ${CODEX_UPLOAD_PERMISSION_FIX} ${CHROME_FILE_URL_PERMISSION_FIX}`);
-  }
-
-  if (typeof page.evaluate !== "function") {
-    throw new Error(`No file chooser, setInputFiles, or page.evaluate support is available for file upload. ${CODEX_UPLOAD_PERMISSION_FIX} ${CHROME_FILE_URL_PERMISSION_FIX}`);
-  }
-
-  const payload = await Promise.all(files.map(async file => ({
-    name: file.name,
-    bytesBase64: (await readFile(file.path)).toString("base64"),
-    type: guessMimeType(file.name)
-  })));
-
-  await page.evaluate(
-    async (payload) => {
-      const input = (document.querySelector("#upload-files") || document.querySelector("input[type='file']:not([accept='image/*'])") || document.querySelector("input[type='file']")) as HTMLInputElement | null;
-      if (!input) {
-        throw new Error("No ChatGPT file input found in the DOM.");
-      }
-      const dataTransfer = new DataTransfer();
-      for (const item of payload) {
-        const binary = atob(item.bytesBase64);
-        const bytes = new Uint8Array(binary.length);
-        for (let index = 0; index < binary.length; index += 1) {
-          bytes[index] = binary.charCodeAt(index);
-        }
-        dataTransfer.items.add(new File([bytes], item.name, { type: item.type }));
-      }
-      input.files = dataTransfer.files;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    },
-    payload
-  );
 }
 
 function guessMimeType(name: string): string {

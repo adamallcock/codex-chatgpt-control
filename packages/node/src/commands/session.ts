@@ -1,4 +1,4 @@
-import { attachChatGPTBrowser, tabIdFromPage } from "../browser/attach.js";
+import { attachChatGPTBrowser, isChatGPTUrl, tabIdFromPage } from "../browser/attach.js";
 import { readPageState } from "../browser/page-state.js";
 import { resultError, resultOk } from "../errors.js";
 import type { BootstrapArgs, BootstrapData, CommandResult, RuntimeEnv } from "../types.js";
@@ -44,7 +44,38 @@ export async function ensurePage(env: RuntimeEnv): Promise<CommandResult<unknown
     return affinity;
   }
 
+  const origin = await verifyChatGPTOrigin(env);
+  if (origin !== undefined) {
+    return origin;
+  }
+
   return resultOk({}, await contextFromPage(env.page, tabContext(env)));
+}
+
+async function verifyChatGPTOrigin(env: RuntimeEnv): Promise<CommandResult<unknown> | undefined> {
+  if (env.page === undefined) return undefined;
+  const actualUrl = await Promise.resolve(env.page.url?.()).catch(() => undefined);
+  if (isChatGPTUrl(actualUrl)) return undefined;
+  return {
+    ok: false,
+    status: "blocked",
+    warnings: [],
+    blocker: {
+      kind: "selector_drift",
+      code: "unsafe_chatgpt_origin",
+      message: "ChatGPT command refused to operate because the controlled tab is not on an allowlisted ChatGPT origin.",
+      visibleText: actualUrl ?? "The current tab URL could not be verified.",
+      remediation: [
+        {
+          label: "Reopen ChatGPT",
+          instruction: "Run session.bootstrap against https://chatgpt.com or claim an exact supported ChatGPT tab before retrying.",
+          userActionRequired: false
+        }
+      ],
+      resumable: false
+    },
+    context: await contextFromPage(env.page, tabContext(env))
+  };
 }
 
 export async function verifyTabAffinity(env: RuntimeEnv): Promise<CommandResult<unknown> | undefined> {
