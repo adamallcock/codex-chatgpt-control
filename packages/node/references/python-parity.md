@@ -34,6 +34,8 @@ Incomplete response capture is also shared contract behavior. Python must preser
 
 For long-answer polling, Python forwards `response_content="metadata"` to the shared wire field `responseContent: "metadata"` on `messages.wait`. The TypeScript backend then omits assistant text from wait results and returns compact metadata such as `data.responseChars` and `data.responseSha256`; Python must preserve those fields without trying to reconstruct omitted content.
 
+Python exposes the explicit stop primitive as `chatgpt.messages.stop(confirm_stop=True)`, mapping to `messages.stop` with `confirmStop: true`. The TypeScript backend owns visible-control selection and inactive-state verification; Python adds no independent browser behavior.
+
 Generated-image behavior stays owned by the TypeScript runtime. Python exposes
 the same backend commands through `chatgpt.artifacts.list_latest(...)`,
 `chatgpt.artifacts.wait(...)`, and `chatgpt.artifacts.download_latest(...)`.

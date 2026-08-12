@@ -947,6 +947,27 @@
       "summary": "Read a compact latest-assistant progress snapshot without treating partial text as complete."
     },
     {
+      "args": {
+        "confirmStop": "must be true to stop a visible response",
+        "timeoutMs": "maximum time to verify generation became inactive"
+      },
+      "blockers": [
+        "browser_bridge_unavailable",
+        "login_required",
+        "captcha",
+        "rate_limit",
+        "selector_drift"
+      ],
+      "defaults": {},
+      "defaultTimeoutMs": 5000,
+      "examples": [],
+      "layer": "primitive",
+      "name": "messages.stop",
+      "retryPolicy": "Return structured CommandResult failures; retry only when the blocker is recoverable and no duplicate prompt will be submitted.",
+      "risk": "medium",
+      "summary": "Stop the current visible ChatGPT response after explicit confirmation and verify generation became inactive."
+    },
+    {
       "args": {},
       "blockers": [
         "browser_bridge_unavailable",

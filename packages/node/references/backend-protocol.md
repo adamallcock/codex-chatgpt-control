@@ -71,6 +71,8 @@ Browser-control blockers are not protocol errors. They are normal command or run
 
 Use `messages.status({ maxPreviewChars })` for a compact latest-assistant progress snapshot when a host tool-call ceiling is shorter than the expected ChatGPT generation. It returns counts, latest-assistant preview length, `completionState`, `generationActive`, and generation signals without treating partial text as final, and without the cost of a full `readLatest`/`wait` probe.
 
+Use `messages.stop({ confirmStop: true })` only after the caller explicitly decides that the current visible response should stop. It clicks the visible stop control once and succeeds only after generation is observed inactive. Without `confirmStop: true`, it returns `needs_confirmation`; if generation is already inactive, it is a no-op.
+
 ## Streaming
 
 Streaming commands emit backend event lines until `completed` or `error`.

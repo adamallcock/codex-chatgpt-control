@@ -100,6 +100,7 @@ const descriptors: CommandDescriptor[] = [
   primitive("messages.wait", "Wait for the latest assistant response to stabilize.", 120000),
   primitive("messages.readLatest", "Read the latest message as Markdown, normalized text, blocks, or HTML.", 30000),
   primitive("messages.status", "Read a compact latest-assistant progress snapshot without treating partial text as complete.", 5000),
+  primitive("messages.stop", "Stop the current visible ChatGPT response after explicit confirmation and verify generation became inactive.", 5000),
   primitive("messages.waitAndRead", "Wait for completion and read the latest message.", 120000),
   primitive("artifacts.listLatest", "Detect the latest visible generated ChatGPT artifact, such as an image-only result.", 30000),
   primitive("artifacts.wait", "Wait for a visible generated ChatGPT artifact to appear and stabilize.", 120000),
@@ -287,6 +288,7 @@ function primitiveArgs(name: string): Record<string, string> {
   };
   if (name === "messages.readLatest") return { role: "assistant or user", format: "markdown, normalized_text, visible_text, html, blocks, or all" };
   if (name === "messages.status") return { maxPreviewChars: "maximum latest-assistant preview characters to return; defaults to 240" };
+  if (name === "messages.stop") return { confirmStop: "must be true to stop a visible response", timeoutMs: "maximum time to verify generation became inactive" };
   if (name === "experience.detect") return { timeoutMs: "optional timeout for attaching to the ChatGPT page" };
   if (name === "experience.open") return { experience: "chat or work", timeoutMs: "optional verified-switch timeout" };
   if (name === "configuration.inspect") return { experience: "optional expected chat or work surface", includeOptions: "open visible axis menus to enumerate options; defaults to true", timeoutMs: "optional inspection timeout" };

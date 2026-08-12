@@ -198,6 +198,8 @@ async function dispatchBackendCommand(client: ChatGPTClient, request: BackendReq
       return client.messages.readLatest(emptyToUndefined(payload));
     case "messages.status":
       return client.messages.status(emptyToUndefined(payload));
+    case "messages.stop":
+      return client.messages.stop(payload as Parameters<ChatGPTClient["messages"]["stop"]>[0]);
     case "messages.waitAndRead":
       return client.messages.waitAndRead(payload as Parameters<ChatGPTClient["messages"]["waitAndRead"]>[0]);
     case "artifacts.listLatest":

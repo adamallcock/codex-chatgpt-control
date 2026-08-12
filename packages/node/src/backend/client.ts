@@ -41,6 +41,8 @@ import type {
   InspectConfigurationArgs,
   ListArtifactsArgs,
   MessageStatusArgs,
+  StopGenerationArgs,
+  StopGenerationData,
   NewThreadArgs,
   OpenThreadArgs,
   OpenExperienceData,
@@ -161,6 +163,7 @@ export type ChatGPTBackendClient = {
     wait(args?: WaitArgs): Promise<CommandResult<unknown>>;
     readLatest(args?: ReadLatestArgs): Promise<CommandResult<unknown>>;
     status(args?: MessageStatusArgs): Promise<CommandResult<unknown>>;
+    stop(args: StopGenerationArgs): Promise<CommandResult<StopGenerationData>>;
     waitAndRead(args?: WaitArgs & ReadLatestArgs): Promise<CommandResult<unknown>>;
   };
   files: {
@@ -266,6 +269,7 @@ export function createChatGPTBackendClient(transport: BackendTransport): ChatGPT
       wait: args => request("messages.wait", args as Record<string, unknown> | undefined ?? {}),
       readLatest: args => request("messages.readLatest", args as Record<string, unknown> | undefined ?? {}),
       status: args => request("messages.status", args as Record<string, unknown> | undefined ?? {}),
+      stop: args => request("messages.stop", args as unknown as Record<string, unknown>),
       waitAndRead: args => request("messages.waitAndRead", args as Record<string, unknown>)
     },
     artifacts: {

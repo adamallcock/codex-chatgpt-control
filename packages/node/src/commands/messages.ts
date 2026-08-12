@@ -3,7 +3,7 @@ import { readPageState, type PageState } from "../browser/page-state.js";
 import { resultError, resultOk } from "../errors.js";
 import { EMPTY_GENERATION_STATE, latestAssistantTurnHasResponseActions, readAssistantGenerationState, type AssistantGenerationState } from "../dom/generation-state.js";
 import { countPageMessages, isTransientAssistantText, readLatestMessage, readLatestMessageText, readLatestMessageTextSnapshot, readMessages } from "../dom/messages.js";
-import { composerTextbox, copyResponseButtons, sendButton } from "../dom/selectors.js";
+import { composerTextbox, copyResponseButtons, sendButton, stopGenerationButton } from "../dom/selectors.js";
 import { readWaitDomSnapshot, waitTextMetadata, type WaitDomSnapshot } from "../dom/wait-snapshot.js";
 import { normalizeLineBreaks, normalizeWhitespace } from "../dom/visible-text.js";
 import type {
@@ -21,6 +21,8 @@ import type {
   RuntimeEnv,
   SubmitArgs,
   SubmitData,
+  StopGenerationArgs,
+  StopGenerationData,
   WaitAndReadArgs,
   WaitArgs,
   WaitData
@@ -209,6 +211,95 @@ export async function submitMessage(
       ),
       await contextFromPage(page)
     );
+  } catch (error) {
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+  }
+}
+
+export async function stopGeneration(
+  env: RuntimeEnv,
+  args: StopGenerationArgs = {}
+): Promise<CommandResult<StopGenerationData>> {
+  const boot = await ensurePage(env);
+  if (!boot.ok) return boot as CommandResult<StopGenerationData>;
+  const page = env.page!;
+  if (args.confirmStop !== true) {
+    return {
+      ok: false,
+      status: "needs_confirmation",
+      warnings: [],
+      blocker: {
+        kind: "confirmation",
+        code: "stop_generation_confirmation_required",
+        fieldPath: "confirmStop",
+        message: "Stopping the visible ChatGPT response requires an explicit caller decision.",
+        resumable: true
+      },
+      context: await contextFromPage(page)
+    };
+  }
+
+  try {
+    const before = await readAssistantGenerationState(page);
+    if (!before.active) {
+      return resultOk({
+        wasGenerating: false,
+        stopped: false,
+        signalsBefore: before.signals,
+        signalsAfter: before.signals
+      }, await contextFromPage(page));
+    }
+
+    const candidates = stopGenerationButton(page);
+    const control = typeof candidates.last === "function" ? candidates.last() : candidates;
+    const count = typeof candidates.count === "function" ? await candidates.count() : undefined;
+    const visible = typeof control.isVisible === "function" ? await control.isVisible().catch(() => false) : true;
+    if (count === 0 || !visible || typeof control.click !== "function") {
+      return {
+        ok: false,
+        status: "blocked",
+        data: { wasGenerating: true, stopped: false, signalsBefore: before.signals, signalsAfter: before.signals },
+        warnings: [],
+        blocker: {
+          kind: "selector_drift",
+          code: "stop_generation_control_unavailable",
+          message: "ChatGPT is generating, but no visible Stop control could be activated.",
+          resumable: true
+        },
+        context: await contextFromPage(page)
+      };
+    }
+
+    await control.click();
+    const timeoutMs = Math.max(250, args.timeoutMs ?? 5_000);
+    const startedAt = Date.now();
+    let after = await readAssistantGenerationState(page);
+    while (after.active && Date.now() - startedAt < timeoutMs) {
+      await sleep(page, 100);
+      after = await readAssistantGenerationState(page);
+    }
+    const data: StopGenerationData = {
+      wasGenerating: true,
+      stopped: !after.active,
+      signalsBefore: before.signals,
+      signalsAfter: after.signals
+    };
+    if (!data.stopped) {
+      return {
+        ok: false,
+        status: "timeout",
+        data,
+        warnings: [],
+        blocker: {
+          kind: "selector_drift",
+          code: "stop_generation_unverified",
+          message: "The visible Stop control was clicked, but ChatGPT generation did not become inactive before the deadline.",
+          resumable: true
+        },
+        context: await contextFromPage(page)
+      };
+    }
+    return resultOk(data, await contextFromPage(page));
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }

@@ -79,6 +79,9 @@ class MessagesClient:
     def status(self, **kwargs: Any) -> CommandResult:
         return command_result(self._backend, "messages.status", wire_kwargs(**kwargs))
 
+    def stop(self, **kwargs: Any) -> CommandResult:
+        return command_result(self._backend, "messages.stop", wire_kwargs(**kwargs))
+
     def wait_and_read(self, **kwargs: Any) -> CommandResult:
         return command_result(self._backend, "messages.waitAndRead", wire_kwargs(**kwargs))
 

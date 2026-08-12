@@ -143,6 +143,7 @@ describe("createChatGPT", () => {
     expect(typeof chatgpt.threads.search).toBe("function");
     expect(typeof chatgpt.messages.readLatest).toBe("function");
     expect(typeof chatgpt.messages.status).toBe("function");
+    expect(typeof chatgpt.messages.stop).toBe("function");
     expect(typeof chatgpt.artifacts.downloadLatest).toBe("function");
     expect(typeof chatgpt.files.preflight).toBe("function");
     expect(typeof chatgpt.files.attach).toBe("function");

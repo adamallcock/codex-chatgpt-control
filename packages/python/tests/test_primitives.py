@@ -94,6 +94,7 @@ class PrimitiveFacadeTests(unittest.TestCase):
             (lambda: chatgpt.messages.wait(timeout_ms=100, response_content="metadata"), "messages.wait", {"timeoutMs": 100, "responseContent": "metadata"}),
             (lambda: chatgpt.messages.read_latest(format="markdown"), "messages.readLatest", {"format": "markdown"}),
             (lambda: chatgpt.messages.status(max_preview_chars=80), "messages.status", {"maxPreviewChars": 80}),
+            (lambda: chatgpt.messages.stop(confirm_stop=True), "messages.stop", {"confirmStop": True}),
             (lambda: chatgpt.messages.wait_and_read(format="markdown"), "messages.waitAndRead", {"format": "markdown"}),
             (lambda: chatgpt.artifacts.list_latest(kind="image"), "artifacts.listLatest", {"kind": "image"}),
             (lambda: chatgpt.artifacts.wait(kind="image", after_artifact_count=0, require_download=True), "artifacts.wait", {"kind": "image", "afterArtifactCount": 0, "requireDownload": True}),

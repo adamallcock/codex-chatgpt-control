@@ -620,6 +620,13 @@
       "pythonTests": ["tests/test_primitives.py", "tests/test_parity_snapshots.py"],
       "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "references/python-parity.md"]
     },
+    "messages.stop": {
+      "surface": "workflows-primitives-diagnostics",
+      "fixtures": ["command-descriptors.json", "backend-capabilities.json"],
+      "nodeTests": ["tests/unit/messages.test.ts", "tests/unit/client.test.ts", "tests/unit/sequence.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py"],
+      "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "references/python-parity.md"]
+    },
     "messages.waitAndRead": {
       "surface": "workflows-primitives-diagnostics",
       "fixtures": ["command-descriptors.json", "workflow-ask-success.json"],

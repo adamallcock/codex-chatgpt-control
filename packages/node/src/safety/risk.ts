@@ -20,6 +20,7 @@ export const commandRisk = {
   "messages.wait": "low",
   "messages.readLatest": "medium",
   "messages.status": "medium",
+  "messages.stop": "medium",
   "messages.waitAndRead": "medium",
   "artifacts.listLatest": "medium",
   "artifacts.wait": "low",

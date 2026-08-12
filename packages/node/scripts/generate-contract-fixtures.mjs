@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const FIXED_ISO = "2026-06-06T00:00:00.000Z";
@@ -11,8 +12,8 @@ const contractRoot = join(root, "contracts", "v1");
 const fixturesDir = join(contractRoot, "fixtures");
 const manifestPath = join(contractRoot, "manifest.json");
 const reportFixtureDir = join(root, "reports", "contract-fixtures");
-const doctorScenarioReportDir = "/tmp/codex-chatgpt-control/reports/contract-fixtures/missing-doctor-reports";
-const filePreflightFixtureDir = "/tmp/codex-chatgpt-control/file-preflight-contract-fixtures";
+const doctorScenarioReportDir = join(tmpdir(), "codex-chatgpt-control", "reports", "contract-fixtures", "missing-doctor-reports");
+const filePreflightFixtureDir = join(tmpdir(), "codex-chatgpt-control", "file-preflight-contract-fixtures");
 
 const {
   createChatGPT,
@@ -760,6 +761,11 @@ function normalizeFixtureValue(value) {
 
 function normalizePrimitive(value) {
   if (typeof value !== "string") return value;
+  const normalizedPath = value.replaceAll("\\", "/");
+  const temporaryRoot = tmpdir().replaceAll("\\", "/").replace(/\/$/, "");
+  if (normalizedPath.startsWith(`${temporaryRoot}/codex-chatgpt-control/`)) {
+    return `/tmp/codex-chatgpt-control/${normalizedPath.slice(`${temporaryRoot}/codex-chatgpt-control/`.length)}`;
+  }
   const normalized = value.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, FIXED_ISO);
   if (normalized !== value) return normalizePrimitive(normalized);
   if (/^run_[a-z0-9]{8,}$/i.test(value)) return "run_fixed";

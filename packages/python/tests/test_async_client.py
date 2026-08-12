@@ -155,6 +155,7 @@ class AsyncClientTests(unittest.IsolatedAsyncioTestCase):
         work_status = await chatgpt.work.status(include_artifacts=False)
         work_artifact = await chatgpt.work.artifacts.list_latest(kind="image")
         status = await chatgpt.messages.status(max_preview_chars=120)
+        stopped = await chatgpt.messages.stop(confirm_stop=True)
         artifact = await chatgpt.artifacts.wait(kind="image", require_download=True)
         project_sources = await chatgpt.projects.sources.plan_add(
             project_url="https://chatgpt.com/g/g-p-example/project",
@@ -176,6 +177,7 @@ class AsyncClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(work_status.data["command"], "work.status")
         self.assertEqual(work_artifact.data["command"], "artifacts.listLatest")
         self.assertEqual(status.data["command"], "messages.status")
+        self.assertEqual(stopped.data["command"], "messages.stop")
         self.assertEqual(artifact.data["command"], "artifacts.wait")
         self.assertEqual(project_sources.data["command"], "projects.sources.planAdd")
         self.assertEqual(mode_set.data["command"], "modes.set")
@@ -194,6 +196,7 @@ class AsyncClientTests(unittest.IsolatedAsyncioTestCase):
             "work.status",
             "artifacts.listLatest",
             "messages.status",
+            "messages.stop",
             "artifacts.wait",
             "projects.sources.planAdd",
             "modes.set",

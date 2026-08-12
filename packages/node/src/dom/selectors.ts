@@ -66,6 +66,13 @@ export function sendButton(page: PageLike): LocatorLike {
   return page.getByRole("button", { name: anyLabelPattern(localeLabels.sendButton) });
 }
 
+export function stopGenerationButton(page: PageLike): LocatorLike {
+  if (typeof page.getByRole !== "function") {
+    return requiredLocator(page, "button[aria-label*='Stop'], button[title*='Stop']");
+  }
+  return page.getByRole("button", { name: anyLabelPattern(localeLabels.stopControl) });
+}
+
 export function searchChatsButton(page: PageLike): LocatorLike {
   if (typeof page.getByRole !== "function") {
     return requiredLocator(page, "button");

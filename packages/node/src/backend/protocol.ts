@@ -47,6 +47,7 @@ export const backendCommands = [
   "messages.wait",
   "messages.readLatest",
   "messages.status",
+  "messages.stop",
   "messages.waitAndRead",
   "artifacts.listLatest",
   "artifacts.wait",

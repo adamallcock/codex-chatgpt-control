@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { askMessage, isResponseComplete, messageStatus, readLatest, submittedUserTurnMatches, submitMessage, waitForMessage } from "../../src/commands/messages.js";
+import { askMessage, isResponseComplete, messageStatus, readLatest, stopGeneration, submittedUserTurnMatches, submitMessage, waitForMessage } from "../../src/commands/messages.js";
 import { waitTextMetadata } from "../../src/dom/wait-snapshot.js";
 import { copyResponse } from "../../src/commands/response-actions.js";
 import { EMPTY_GENERATION_STATE, readAssistantGenerationState } from "../../src/dom/generation-state.js";
@@ -16,6 +16,56 @@ import {
 import type { LocatorLike, PageLike } from "../../src/types.js";
 
 describe("extractMessagesFromHtml", () => {
+  it("requires explicit confirmation before stopping a visible response", async () => {
+    let clicked = false;
+    const locator: LocatorLike = {
+      count: async () => 1,
+      last: () => locator,
+      isVisible: async () => true,
+      click: async () => { clicked = true; }
+    };
+    const result = await stopGeneration({
+      page: {
+        url: () => "https://chatgpt.com/c/test",
+        content: async () => '<button aria-label="Stop answering">Stop answering</button>',
+        getByRole: () => locator
+      }
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: "needs_confirmation",
+      blocker: { code: "stop_generation_confirmation_required" }
+    });
+    expect(clicked).toBe(false);
+  });
+
+  it("clicks the visible Stop control once and verifies generation became inactive", async () => {
+    let generating = true;
+    let clicks = 0;
+    const locator: LocatorLike = {
+      count: async () => 1,
+      last: () => locator,
+      isVisible: async () => true,
+      click: async () => { clicks += 1; generating = false; }
+    };
+    const page: PageLike = {
+      url: () => "https://chatgpt.com/c/test",
+      content: async () => generating
+        ? '<button aria-label="Stop answering">Stop answering</button>'
+        : '<main>Partial answer preserved.</main>',
+      getByRole: () => locator,
+      waitForTimeout: async () => undefined
+    };
+    const result = await stopGeneration({ page }, { confirmStop: true, timeoutMs: 250 });
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: { wasGenerating: true, stopped: true }
+    });
+    expect(clicks).toBe(1);
+  });
+
   it("does not treat the empty generation-state fallback as completion evidence", () => {
     expect(isResponseComplete({
       latestText: "",

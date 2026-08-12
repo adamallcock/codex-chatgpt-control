@@ -4,7 +4,7 @@ import { applyConfiguration, inspectConfiguration } from "./configuration.js";
 import { detectExperience, openExperience } from "./experience.js";
 import { attachFiles, downloadLatestFile } from "./files.js";
 import { addProjectSources, buildProjectSourceAddPlan, listProjectSources } from "./project-sources.js";
-import { askMessage, composeMessage, messageStatus, readLatest, submitMessage, waitAndRead, waitForMessage } from "./messages.js";
+import { askMessage, composeMessage, messageStatus, readLatest, stopGeneration, submitMessage, waitAndRead, waitForMessage } from "./messages.js";
 import { copyResponse } from "./response-actions.js";
 import { bootstrap } from "./session.js";
 import { newThread, openThread, searchThreads } from "./threads.js";
@@ -108,6 +108,8 @@ export async function executeStep(
       return readLatest(env, step.args);
     case "messages.status":
       return messageStatus(env, step.args);
+    case "messages.stop":
+      return stopGeneration(env, step.args);
     case "messages.waitAndRead":
       return waitAndRead(env, step.args);
     case "artifacts.listLatest":

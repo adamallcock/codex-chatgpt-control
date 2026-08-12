@@ -324,6 +324,7 @@ class AsyncChatGPT:
             "wait": "messages.wait",
             "read_latest": "messages.readLatest",
             "status": "messages.status",
+            "stop": "messages.stop",
             "wait_and_read": "messages.waitAndRead",
         })
         self.files = AsyncPrimitiveGroup(transport, {"preflight": "files.preflight", "attach": "files.attach", "download_latest": "files.downloadLatest"})

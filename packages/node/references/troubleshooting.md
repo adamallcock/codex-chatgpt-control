@@ -151,6 +151,8 @@ const final = await chatgpt.messages.readLatest({ format: "markdown" });
 
 Active generation may appear as a visible or accessible-name control such as `Stop answering`, `Stop generating`, or `Stop streaming`. Stopped generation may appear as `Stopped thinking`. Treat all of those as incomplete states.
 
+If the caller explicitly supersedes a running request, use `messages.stop({ confirmStop: true })`. The command does nothing when generation is already inactive and fails closed when it cannot activate or verify the visible stop control. Do not use it as a timeout-recovery retry mechanism.
+
 When the outer host tool-call ceiling is short, poll in bounded chunks instead of issuing a single very long wait:
 
 ```ts
