@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { requireConfirmation } from "../../src/commands/confirmations.js";
 import { createMemoryLogger } from "../../src/logger.js";
 import { classifyVisibleText } from "../../src/safety/blockers.js";
+import { readPageState } from "../../src/browser/page-state.js";
 import { redactSensitiveText } from "../../src/safety/redaction.js";
 import { isHighRiskCommand, riskForCommand } from "../../src/safety/risk.js";
 
@@ -20,6 +21,40 @@ describe("classifyVisibleText", () => {
 
   it("returns undefined for ordinary chat text", () => {
     expect(classifyVisibleText("New chat Search chats Chat with ChatGPT")).toBeUndefined();
+  });
+});
+
+describe("readPageState blocker scoping", () => {
+  it("does not treat a fallback warning quoted in a user message as a system blocker", async () => {
+    let evaluations = 0;
+    const state = await readPageState({
+      url: () => "https://chatgpt.com/c/review",
+      title: async () => "Review",
+      evaluate: async <T>(): Promise<T> => {
+        evaluations += 1;
+        return (evaluations === 1
+          ? "New chat Search chats Responses will use a smaller model."
+          : { text: "", hasConversationMessages: true }) as T;
+      }
+    });
+
+    expect(state.blocker).toBeUndefined();
+  });
+
+  it("still detects the same warning in a system banner", async () => {
+    let evaluations = 0;
+    const state = await readPageState({
+      url: () => "https://chatgpt.com/c/review",
+      title: async () => "Review",
+      evaluate: async <T>(): Promise<T> => {
+        evaluations += 1;
+        return (evaluations === 1
+          ? "New chat Search chats Responses will use a smaller model."
+          : { text: "Responses will use a smaller model.", hasConversationMessages: true }) as T;
+      }
+    });
+
+    expect(state.blocker?.kind).toBe("model_fallback");
   });
 });
 

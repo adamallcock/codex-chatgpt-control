@@ -33,7 +33,11 @@ export async function readPageState(page: PageLike): Promise<PageState> {
   const rawTitle = typeof page.title === "function" ? await page.title().catch(() => undefined) : undefined;
   const title = typeof rawTitle === "string" ? rawTitle : undefined;
   const visibleText = await readVisibleText(page);
-  const classifiedBlocker = classifyVisibleText(visibleText);
+  const blockerSurface = await readBlockerSurface(page);
+  const fullPageBlocker = classifyVisibleText(visibleText);
+  const classifiedBlocker = blockerSurface.hasConversationMessages
+    ? classifyVisibleText(blockerSurface.text)
+    : (classifyVisibleText(blockerSurface.text) ?? fullPageBlocker);
   const loginWall = classifiedBlocker?.kind === "login_required" && isLikelyLoginWall(visibleText);
   const signedIn = isLikelySignedIn(visibleText) && !loginWall;
   const blocker = classifiedBlocker?.kind === "login_required" && signedIn
@@ -107,6 +111,47 @@ export function htmlToText(html: string): string {
 function isLikelySignedIn(visibleText: string): boolean {
   const markers = localeLabels.signedInMarkers.map(escapeRegExp).join("|");
   return new RegExp(`\\b(${markers})\\b`, "i").test(visibleText);
+}
+
+async function readBlockerSurface(page: PageLike): Promise<{ text: string; hasConversationMessages: boolean }> {
+  if (typeof page.evaluate === "function") {
+    try {
+      return await withTimeout(page.evaluate(() => {
+        const messageSelector = "[data-message-author-role], [data-testid^='conversation-turn']";
+        const systemSelector = [
+          "[role='alert']",
+          "[role='status']",
+          "[role='dialog']",
+          "[aria-live='assertive']",
+          "[data-testid*='toast' i]",
+          "[data-testid*='banner' i]",
+          "[class*='toast' i]",
+          "[class*='banner' i]"
+        ].join(", ");
+        const text = Array.from(document.querySelectorAll(systemSelector))
+          .filter(element => element.closest(messageSelector) === null)
+          .map(element => `${element.textContent ?? ""} ${element.getAttribute("aria-label") ?? ""}`)
+          .join(" ");
+        return {
+          text,
+          hasConversationMessages: document.querySelector(messageSelector) !== null
+        };
+      }), 1000, "Timed out while reading system blocker surfaces.");
+    } catch {
+      // Fall through to content parsing.
+    }
+  }
+  if (typeof page.content === "function") {
+    try {
+      const html = await withTimeout(page.content(), 1000, "Timed out while reading blocker surfaces.");
+      const hasConversationMessages = /data-message-author-role=|data-testid=["']conversation-turn/i.test(html);
+      const withoutMessages = html.replace(/<([a-z0-9-]+)\b[^>]*(?:data-message-author-role|data-testid=["']conversation-turn)[^>]*>[\s\S]*?<\/\1>/gi, " ");
+      return { text: htmlToText(withoutMessages), hasConversationMessages };
+    } catch {
+      // Return an empty scoped surface below.
+    }
+  }
+  return { text: "", hasConversationMessages: false };
 }
 
 function isLikelyLoginWall(visibleText: string): boolean {
