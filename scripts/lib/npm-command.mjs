@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { posix, win32 } from "node:path";
 import process from "node:process";
 
 /**
@@ -11,9 +11,10 @@ export function npmInvocation(args, options = {}) {
   const env = options.env ?? process.env;
   const execPath = options.execPath ?? process.execPath;
   const pathExists = options.existsSync ?? existsSync;
+  const pathApi = platform === "win32" ? win32 : posix;
   const candidates = [
     env.npm_execpath,
-    join(dirname(execPath), "node_modules", "npm", "bin", "npm-cli.js")
+    pathApi.join(pathApi.dirname(execPath), "node_modules", "npm", "bin", "npm-cli.js")
   ];
   const npmCli = candidates.find(candidate =>
     typeof candidate === "string" && candidate.length > 0 && pathExists(candidate)
