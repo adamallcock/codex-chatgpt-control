@@ -1,8 +1,12 @@
+import copy
+import json
 import unittest
+from pathlib import Path
 
 from codex_chatgpt_control import AsyncChatGPT, ChatGPT, CommandResult
 
 
+ROOT = Path(__file__).resolve().parents[2]
 OPERATION_ID = "123e4567-e89b-42d3-a456-426614174000"
 SECRET_ERROR = "/private/transport/socket failed with secret detail"
 
@@ -21,6 +25,34 @@ class RecordingBackend:
             "warnings": [],
             "context": {"timestamp": "2026-06-06T00:00:00.000Z"},
         }
+
+
+def journal_runtime_fixture() -> dict:
+    path = ROOT / "node" / "contracts" / "v1" / "fixtures" / "journal-runtime-unavailable.json"
+    return json.loads(path.read_text(encoding="utf-8"))["result"]
+
+
+def journal_rpc_fixture(name: str = "journal-rpc-indeterminate") -> dict:
+    path = ROOT / "node" / "contracts" / "v1" / "fixtures" / f"{name}.json"
+    return json.loads(path.read_text(encoding="utf-8"))["result"]
+
+
+class JournalRpcIndeterminateBackend(RecordingBackend):
+    def request(self, command: str, payload: dict | None = None) -> dict:
+        self.requests.append((command, payload or {}))
+        return copy.deepcopy(journal_rpc_fixture())
+
+
+class JournalRpcUnsupportedPlatformBackend(RecordingBackend):
+    def request(self, command: str, payload: dict | None = None) -> dict:
+        self.requests.append((command, payload or {}))
+        return copy.deepcopy(journal_rpc_fixture("journal-rpc-unsupported-platform"))
+
+
+class JournalRuntimeUnavailableBackend(RecordingBackend):
+    def request(self, command: str, payload: dict | None = None):
+        self.requests.append((command, payload or {}))
+        return copy.deepcopy(journal_runtime_fixture())
 
 
 class FailingBackend:
@@ -92,6 +124,50 @@ class WorkflowFacadeTests(unittest.TestCase):
         self.assertNotIn(SECRET_ERROR, str(result.to_wire()))
         self.assertEqual(backend.requests, [("ask", {"operationId": OPERATION_ID, "prompt": "private prompt"})])
 
+    def test_transactional_ask_preserves_backend_journal_runtime_blocker_without_retry(self) -> None:
+        backend = JournalRuntimeUnavailableBackend()
+        expected = journal_runtime_fixture()
+
+        result = ChatGPT(backend=backend).ask(operation_id=OPERATION_ID, prompt="private prompt")
+
+        self.assertEqual(result.to_wire(), expected)
+        self.assertEqual(result.status, "blocked")
+        assert result.blocker is not None
+        assert result.error is not None
+        self.assertEqual(result.blocker["code"], "journal_runtime_unavailable")
+        self.assertFalse(result.blocker["resumable"])
+        self.assertFalse(result.error["recoverable"])
+        self.assertIn("instruction", result.blocker["remediation"][0])
+        self.assertEqual(backend.requests, [("ask", {"operationId": OPERATION_ID, "prompt": "private prompt"})])
+        self.assertNotIn("private prompt", str(result.to_wire()))
+
+    def test_transactional_ask_preserves_indeterminate_journal_result_without_retry(self) -> None:
+        backend = JournalRpcIndeterminateBackend()
+        result = ChatGPT(backend=backend).ask(operation_id=OPERATION_ID, prompt="private prompt")
+
+        self.assertEqual(result.to_wire(), journal_rpc_fixture())
+        self.assertEqual(result.status, "partial")
+        self.assertEqual(result.data["operationId"], OPERATION_ID)
+        assert result.blocker is not None
+        assert result.error is not None
+        self.assertFalse(result.blocker["resumable"])
+        self.assertFalse(result.error["recoverable"])
+        self.assertEqual(backend.requests, [("ask", {"operationId": OPERATION_ID, "prompt": "private prompt"})])
+
+    def test_transactional_ask_preserves_unsupported_platform_without_retry(self) -> None:
+        backend = JournalRpcUnsupportedPlatformBackend()
+        result = ChatGPT(backend=backend).ask(operation_id=OPERATION_ID, prompt="private prompt")
+
+        self.assertEqual(result.to_wire(), journal_rpc_fixture("journal-rpc-unsupported-platform"))
+        self.assertEqual(result.status, "blocked")
+        self.assertEqual(result.data["operationId"], OPERATION_ID)
+        assert result.blocker is not None
+        assert result.error is not None
+        self.assertEqual(result.blocker["code"], "journal_rpc_unsupported_platform")
+        self.assertFalse(result.blocker["resumable"])
+        self.assertFalse(result.error["recoverable"])
+        self.assertEqual(len(backend.requests), 1)
+
     def test_legacy_workflow_transport_failure_preserves_exception_behavior(self) -> None:
         chatgpt = ChatGPT(backend=FailingBackend())
         with self.assertRaisesRegex(RuntimeError, "secret detail"):
@@ -126,6 +202,45 @@ class AsyncWorkflowFacadeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.blocker["causeCode"], "operation_transport_error")
         self.assertNotIn(SECRET_ERROR, str(result.to_wire()))
         self.assertEqual(backend.requests[0][0], "askWithFiles")
+
+    async def test_transactional_ask_preserves_journal_runtime_blocker_off_loop(self) -> None:
+        backend = JournalRuntimeUnavailableBackend()
+        chatgpt = AsyncChatGPT(backend)
+        try:
+            result = await chatgpt.ask(operation_id=OPERATION_ID, prompt="private prompt")
+        finally:
+            await chatgpt.aclose()
+
+        self.assertEqual(result.to_wire(), journal_runtime_fixture())
+        self.assertEqual(len(backend.requests), 1)
+        self.assertEqual(backend.requests[0][0], "ask")
+
+    async def test_transactional_ask_preserves_indeterminate_journal_result_off_loop(self) -> None:
+        backend = JournalRpcIndeterminateBackend()
+        chatgpt = AsyncChatGPT(backend)
+        try:
+            result = await chatgpt.ask(operation_id=OPERATION_ID, prompt="private prompt")
+        finally:
+            await chatgpt.aclose()
+
+        self.assertEqual(result.to_wire(), journal_rpc_fixture())
+        self.assertEqual(result.status, "partial")
+        self.assertEqual(result.data["operationId"], OPERATION_ID)
+        self.assertEqual(len(backend.requests), 1)
+        self.assertEqual(backend.requests[0][0], "ask")
+
+    async def test_transactional_ask_preserves_unsupported_platform_off_loop(self) -> None:
+        backend = JournalRpcUnsupportedPlatformBackend()
+        chatgpt = AsyncChatGPT(backend)
+        try:
+            result = await chatgpt.ask(operation_id=OPERATION_ID, prompt="private prompt")
+        finally:
+            await chatgpt.aclose()
+
+        self.assertEqual(result.to_wire(), journal_rpc_fixture("journal-rpc-unsupported-platform"))
+        self.assertEqual(result.status, "blocked")
+        self.assertEqual(result.data["operationId"], OPERATION_ID)
+        self.assertEqual(len(backend.requests), 1)
 
     async def test_transactional_work_transport_failure_is_mapped_off_loop(self) -> None:
         chatgpt = AsyncChatGPT(FailingBackend())

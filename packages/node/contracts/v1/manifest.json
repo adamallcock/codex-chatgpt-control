@@ -57,6 +57,21 @@
       "schema": "commandResult"
     },
     {
+      "case": "download_blocked_by_browser",
+      "file": "download-blocked-by-browser.json",
+      "schema": "commandResult"
+    },
+    {
+      "case": "download_receipt_failed",
+      "file": "download-receipt-failed.json",
+      "schema": "commandResult"
+    },
+    {
+      "case": "download_receipt_timeout",
+      "file": "download-receipt-timeout.json",
+      "schema": "commandResult"
+    },
+    {
       "case": "existing_tab_diagnostics_blocker",
       "file": "existing-tab-diagnostics-blocker.json",
       "schema": "commandResult"
@@ -75,6 +90,21 @@
       "case": "help_root",
       "file": "help-root.json",
       "schema": "backendResponse"
+    },
+    {
+      "case": "journal_rpc_indeterminate",
+      "file": "journal-rpc-indeterminate.json",
+      "schema": "commandResult"
+    },
+    {
+      "case": "journal_rpc_unsupported_platform",
+      "file": "journal-rpc-unsupported-platform.json",
+      "schema": "commandResult"
+    },
+    {
+      "case": "journal_runtime_unavailable",
+      "file": "journal-runtime-unavailable.json",
+      "schema": "commandResult"
     },
     {
       "case": "messages_stop_indeterminate",

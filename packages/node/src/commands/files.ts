@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { downloadLatestArtifact, locatorCountWithTimeout } from "./artifacts.js";
 import { ACTIVE_COMPOSER_FILE_INPUT_CLICK_EXPRESSION } from "../browser/active-composer-file-input.js";
-import { waitForDownloadFromClick } from "../browser/downloads.js";
+import { isTerminalDownloadCode, isTerminalDownloadError, waitForDownloadFromClick } from "../browser/downloads.js";
 import { nodeErrorCode, resultError, resultOk } from "../errors.js";
 import { addFilesButton, cssSelectors, requiredLocator } from "../dom/selectors.js";
 import { escapeRegExp, localeLabels } from "../dom/locale-labels.js";
@@ -1260,7 +1260,7 @@ export async function downloadLatestFile(
     }
     if (count === 0) {
       const artifactDownload = await downloadLatestArtifact(env, args);
-      if (artifactDownload.ok) {
+      if (artifactDownload.ok || isTerminalDownloadCode(artifactDownload.blocker?.code)) {
         return artifactDownload;
       }
       return {
@@ -1286,7 +1286,7 @@ export async function downloadLatestFile(
     );
     return resultOk(downloaded, await contextFromPage(page));
   } catch (error) {
-    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page, {}, { minimal: isTerminalDownloadError(error) }));
   }
 }
 
@@ -1345,10 +1345,14 @@ async function tryGeneratedFilePreviewDownload(
     await affordance.click({ timeoutMs: localGuardTimeout(timeoutMs, 10000) });
     const labelledPreview = requiredLocator(page, `section[aria-label="${escapeCssAttribute(selected.filename)}"]`);
     const workbookPreviews = requiredLocator(page, "section[data-testid^='popcorn-']");
-    const workbookPreview = workbookPreviews.filter?.({ hasText: selected.filename }) ?? workbookPreviews;
+    // A provider without locator filtering cannot tie a workbook preview to
+    // the selected filename. Keep the explicitly labelled preview usable.
+    const workbookPreview = typeof workbookPreviews.filter === "function"
+      ? workbookPreviews.filter({ hasText: selected.filename })
+      : undefined;
     const download = await waitForPreviewDownloadControl(
       page,
-      [labelledPreview, workbookPreview],
+      workbookPreview === undefined ? [labelledPreview] : [labelledPreview, workbookPreview],
       timeoutMs
     );
     if (download === undefined) {
@@ -1364,7 +1368,7 @@ async function tryGeneratedFilePreviewDownload(
     );
     return resultOk(downloaded, await contextFromPage(page));
   } catch (error) {
-    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page, {}, { minimal: isTerminalDownloadError(error) }));
   }
 }
 

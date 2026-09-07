@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import type {
   BrowserOperationOptions,
   FileChooserLike,
@@ -85,6 +86,15 @@ const rawValues = new WeakMap<ObjectLike, ObjectLike>();
 // long event lifetime outside the actor. Mutation flows need an explicit
 // fence for the former before they click.
 const eventRegistrationBarriers = new WeakMap<object, Promise<void>>();
+const mutationGuards = new AsyncLocalStorage<{ signal: AbortSignal; assertActive: () => void }>();
+
+/** Carry a short-lived activation guard into already queued locator mutations. */
+export function withCoordinatedMutationGuard<T>(signal: AbortSignal, assertActive: () => void, run: () => Promise<T>): Promise<T> {
+  return mutationGuards.run({ signal, assertActive }, () => {
+    assertActive();
+    return run();
+  });
+}
 
 /** Return the registration fence for a coordinated waitForEvent promise. */
 export function coordinatedEventRegistrationBarrier(value: unknown): Promise<void> | undefined {
@@ -519,16 +529,24 @@ function routeTransaction<T>(
   timeoutMs: number | undefined,
   callback: () => T | PromiseLike<T>
 ): Promise<T> {
+  const guard = priority === "mutation" ? mutationGuards.getStore() : undefined;
   const requestOptions = {
     owner: state.options.owner,
     priority,
     label,
-    ...(timeoutMs === undefined ? {} : { timeoutMs })
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+    ...(guard === undefined ? {} : { signal: guard.signal })
   } as const;
   const { coordinator, resource } = state.options;
+  const guardedCallback = () => {
+    // The guard must run inside the actor: a listener can fail while a
+    // different owner holds the tab and this mutation is waiting in its queue.
+    guard?.assertActive();
+    return callback();
+  };
   const pending = resource.kind === "tab"
-    ? coordinator.withTabTransaction(resource.key, requestOptions, () => callback())
-    : coordinator.withBrowserAcquisition(resource.key, requestOptions, () => callback());
+    ? coordinator.withTabTransaction(resource.key, requestOptions, guardedCallback)
+    : coordinator.withBrowserAcquisition(resource.key, requestOptions, guardedCallback);
   return absorbRejection(pending);
 }
 
@@ -554,9 +572,9 @@ function waitForEvent(state: WrapperState, rawPage: ObjectLike, event: string, o
   });
   const result = registration.then(async ({ promise }) => wrapResult(await promise, state, "page.waitForEvent.result"));
   const handled = absorbRejection(result);
-  // Readiness is total and path/data free. Provider success or failure remains
-  // observable only through the original event promise.
-  const barrier = registration.then(() => undefined, () => undefined);
+  // Registration failure must also reject the fence so mutation callers never
+  // activate after a listener failed to arm. Event data stays on its promise.
+  const barrier = registration.then(() => undefined);
   void barrier.catch(() => undefined);
   eventRegistrationBarriers.set(handled, barrier);
   return handled;

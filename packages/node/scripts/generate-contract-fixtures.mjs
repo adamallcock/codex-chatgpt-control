@@ -17,6 +17,8 @@ const filePreflightFixtureDir = join(tmpdir(), "codex-chatgpt-control", "file-pr
 
 const {
   createChatGPT,
+  OperationJournal,
+  OperationJournalError,
   BackendSession,
   BACKEND_REQUEST_SCHEMA_VERSION,
   BROWSER_BRIDGE_UNAVAILABLE_MESSAGE
@@ -508,6 +510,143 @@ await writeGeneratedNdjsonFixture(
   })
 );
 
+// Exercise the default public facade in a capability-missing test host. The
+// process descriptor is restored before generation continues; no identity is
+// substituted and the journal must fail before creating state or using a tab.
+{
+  const processDescriptor = Object.getOwnPropertyDescriptor(globalThis, "process");
+  const fixtureClient = createChatGPT({ now: () => FIXED_DATE });
+  let result;
+  try {
+    Object.defineProperty(globalThis, "process", { configurable: true, value: undefined });
+    result = await fixtureClient.ask({
+      operationId: "123e4567-e89b-42d3-a456-426614174000",
+      prompt: "Journal runtime capability fixture.",
+      thread: { type: "new" },
+      wait: false,
+      read: false
+    });
+  } finally {
+    if (processDescriptor === undefined) delete globalThis.process;
+    else Object.defineProperty(globalThis, "process", processDescriptor);
+  }
+  if (result?.status !== "blocked" || result.blocker?.code !== "journal_runtime_unavailable") {
+    throw new Error("Default transactional facade did not report the journal runtime capability blocker.");
+  }
+  await writeGeneratedFixture(
+    "journal-runtime-unavailable.json",
+    "commandResult",
+    "journal_runtime_unavailable",
+    commandResultFixture(result)
+  );
+}
+
+// Exercise public high-level typed authority failures. Transport uncertainty
+// and platform preflight have integration tests; fixtures lock the wire result.
+for (const [code, file, caseName, status] of [
+  ["journal_rpc_outcome_indeterminate", "journal-rpc-indeterminate.json", "journal_rpc_indeterminate", "partial"],
+  ["journal_rpc_unsupported_platform", "journal-rpc-unsupported-platform.json", "journal_rpc_unsupported_platform", "blocked"]
+]) {
+  const fixtureClient = createChatGPT({
+    now: () => FIXED_DATE,
+    operations: { stateRoot: join(filePreflightFixtureDir, caseName) }
+  });
+  const original = Object.getOwnPropertyDescriptor(OperationJournal.prototype, "submitRequestDigest");
+  let result;
+  try {
+    Object.defineProperty(OperationJournal.prototype, "submitRequestDigest", {
+      configurable: true, value: async () => {
+        throw new OperationJournalError(code, "Private transport details must be redacted.");
+      }
+    });
+    result = await fixtureClient.ask({
+      operationId: "123e4567-e89b-42d3-a456-426614174000",
+      prompt: "Journal authority acknowledgement fixture.", thread: { type: "new" }, wait: false, read: false
+    });
+  } finally {
+    Object.defineProperty(OperationJournal.prototype, "submitRequestDigest", original);
+  }
+  if (result.status !== status || result.blocker?.code !== code
+    || result.blocker.resumable !== false || result.error?.recoverable !== false) {
+    throw new Error("Transactional facade did not preserve the journal authority failure result.");
+  }
+  await writeGeneratedFixture(file, "commandResult", caseName, commandResultFixture(result));
+}
+
+// A browser may complete a download without returning its receipt. Preserve
+// the bounded no-retry outcome through the actual backend command envelope.
+{
+  let clicks = 0;
+  const control = { count: async () => 1, last: () => control, click: async () => { clicks += 1; } };
+  const result = await backendResult("artifacts.downloadLatest", {
+    destDir: join(filePreflightFixtureDir, "download-receipt"), timeoutMs: 50
+  }, { page: {
+    url: () => "https://chatgpt.com/c/synthetic-download",
+    content: async () => "<main></main>",
+    locator: () => control,
+    waitForEvent: () => new Promise(() => {})
+  } });
+  if (clicks !== 1 || result.blocker?.code !== "download_receipt_timeout"
+    || result.blocker.resumable !== false || result.error?.recoverable !== false) {
+    throw new Error("Download receipt fixture did not preserve the bounded no-retry result.");
+  }
+  await writeGeneratedFixture("download-receipt-timeout.json", "commandResult", "download_receipt_timeout", commandResultFixture(result));
+}
+
+// Preserve a browser error observed during download through the backend envelope.
+// A successful click is not a successful receipt and must not start a fallback.
+{
+  let clicks = 0;
+  const control = { count: async () => 1, last: () => control, click: async () => { clicks += 1; } };
+  const result = await backendResult("artifacts.downloadLatest", {
+    destDir: join(filePreflightFixtureDir, "download-browser-blocked"), timeoutMs: 100
+  }, { page: {
+    url: () => "https://chatgpt.com/c/synthetic-download",
+    content: async () => "<main></main>",
+    locator: () => control,
+    evaluate: async (fn) => fn.name === "inspectBrowserDownloadError"
+      ? (clicks === 0 ? "unavailable" : "blocked_by_client")
+      : undefined,
+    waitForEvent: () => new Promise(() => {})
+  } });
+  if (clicks !== 1 || result.ok !== false || result.status !== "blocked"
+    || result.data !== undefined || result.blocker?.kind !== "download_unavailable"
+    || result.blocker.code !== "download_blocked_by_browser"
+    || result.blocker.resumable !== false || result.error?.recoverable !== false
+    || result.error.name !== "DownloadBrowserBlockedError") {
+    throw new Error("Browser-blocked download fixture did not preserve the no-retry result without a receipt.");
+  }
+  await writeGeneratedFixture("download-blocked-by-browser.json", "commandResult", "download_blocked_by_browser", commandResultFixture(result));
+}
+
+// Native transport errors may contain sensitive download details. Preserve a
+// fixed terminal message and never fall back after an uncertain activation.
+{
+  let clicks = 0;
+  let rejectReceipt;
+  const control = { count: async () => 1, last: () => control, click: async () => {
+    clicks += 1;
+    rejectReceipt(new Error("Private transport details must be redacted."));
+  } };
+  const result = await backendResult("artifacts.downloadLatest", {
+    destDir: join(filePreflightFixtureDir, "download-receipt-failed"), timeoutMs: 100
+  }, { page: {
+    url: () => "https://chatgpt.com/c/synthetic-download",
+    content: async () => "<main></main>",
+    locator: () => control,
+    waitForEvent: () => new Promise((_resolve, reject) => { rejectReceipt = reject; })
+  } });
+  if (clicks !== 1 || result.ok !== false || result.status !== "blocked"
+    || result.data !== undefined || result.blocker?.kind !== "download_unavailable"
+    || result.blocker.code !== "download_receipt_failed"
+    || result.blocker.resumable !== false || result.error?.recoverable !== false
+    || result.error.name !== "DownloadReceiptFailedError"
+    || JSON.stringify(result).includes("Private transport")) {
+    throw new Error("Download failure fixture did not preserve the sanitized no-retry result.");
+  }
+  await writeGeneratedFixture("download-receipt-failed.json", "commandResult", "download_receipt_failed", commandResultFixture(result));
+}
+
 // Result envelopes are generated from the checked-in redacted examples until
 // the operation backend adapters own their fixture builders. Keeping them in
 // this generator still makes the manifest/fixture set deterministic and gives
@@ -542,6 +681,8 @@ async function loadBuiltSdk() {
 
   return {
     createChatGPT: indexModule.createChatGPT,
+    OperationJournal: indexModule.OperationJournal,
+    OperationJournalError: indexModule.OperationJournalError,
     BackendSession: sessionModule.BackendSession,
     BACKEND_REQUEST_SCHEMA_VERSION: protocolModule.BACKEND_REQUEST_SCHEMA_VERSION,
     BROWSER_BRIDGE_UNAVAILABLE_MESSAGE: indexModule.BROWSER_BRIDGE_UNAVAILABLE_MESSAGE

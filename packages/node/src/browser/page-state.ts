@@ -3,6 +3,7 @@ import { classifyVisibleText } from "../safety/blockers.js";
 import { compactVisibleText } from "../safety/redaction.js";
 import { escapeRegExp, localeLabels } from "../dom/locale-labels.js";
 import { withTimeout } from "../commands/timeouts.js";
+import { chatGPTAttachmentContextUrl } from "./chatgpt-url.js";
 
 export type PageState = {
   url: string;
@@ -30,6 +31,11 @@ export function parseConversationId(url: string): string | undefined {
 export async function readPageState(page: PageLike): Promise<PageState> {
   const rawUrl = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
   const url = typeof rawUrl === "string" ? rawUrl : "";
+  // This is a file transfer endpoint, not a conversation surface. Keep the
+  // internal URL for origin checks without inspecting error-page content.
+  if (chatGPTAttachmentContextUrl(url) !== undefined) {
+    return { url, visibleText: "", signedIn: false };
+  }
   const rawTitle = typeof page.title === "function" ? await page.title().catch(() => undefined) : undefined;
   const title = typeof rawTitle === "string" ? rawTitle : undefined;
   const surface = await readPageSurfaceSnapshot(page);

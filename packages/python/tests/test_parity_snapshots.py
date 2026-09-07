@@ -116,6 +116,101 @@ class PythonParitySnapshotTests(unittest.TestCase):
                 self.assertNotIn("final_output", wire)
                 self.assertNotIn("new_items", wire)
 
+    def test_journal_runtime_blocker_round_trips_without_losing_nonretryable_remediation(self) -> None:
+        payload = json.loads((CONTRACT / "fixtures" / "journal-runtime-unavailable.json").read_text(encoding="utf-8"))["result"]
+        model = CommandResult.from_wire(payload)
+
+        self.assertEqual(model.to_wire(), payload)
+        assert model.blocker is not None
+        assert model.error is not None
+        self.assertEqual(model.blocker["kind"], "unknown")
+        self.assertEqual(model.blocker["code"], "journal_runtime_unavailable")
+        self.assertFalse(model.blocker["resumable"])
+        self.assertFalse(model.error["recoverable"])
+        self.assertFalse(model.blocker["remediation"][0]["userActionRequired"])
+
+    def test_indeterminate_journal_authority_preserves_identity_and_nonretryable_status(self) -> None:
+        payload = json.loads((CONTRACT / "fixtures" / "journal-rpc-indeterminate.json").read_text(encoding="utf-8"))["result"]
+        model = CommandResult.from_wire(payload)
+
+        self.assertEqual(model.to_wire(), payload)
+        self.assertEqual(model.status, "partial")
+        self.assertEqual(model.data["operationId"], "123e4567-e89b-42d3-a456-426614174000")
+        assert model.blocker is not None
+        assert model.error is not None
+        self.assertEqual(model.blocker["code"], "journal_rpc_outcome_indeterminate")
+        self.assertFalse(model.blocker["resumable"])
+        self.assertFalse(model.error["recoverable"])
+        self.assertIn("same operation identity", model.blocker["remediation"][0]["instruction"])
+        self.assertNotIn("Private transport", str(model.to_wire()))
+
+    def test_unsupported_journal_transport_platform_preserves_nonretryable_guidance(self) -> None:
+        payload = json.loads((CONTRACT / "fixtures" / "journal-rpc-unsupported-platform.json").read_text(encoding="utf-8"))["result"]
+        model = CommandResult.from_wire(payload)
+
+        self.assertEqual(model.to_wire(), payload)
+        self.assertEqual(model.status, "blocked")
+        assert model.blocker is not None
+        assert model.error is not None
+        self.assertEqual(model.blocker["code"], "journal_rpc_unsupported_platform")
+        self.assertFalse(model.blocker["resumable"])
+        self.assertFalse(model.error["recoverable"])
+        self.assertIn("ordinary Node browser host", model.blocker["remediation"][0]["instruction"])
+        self.assertIn("POSIX", model.blocker["message"])
+        self.assertNotIn("Private transport", str(model.to_wire()))
+
+    def test_download_receipt_timeout_preserves_unverified_nonretryable_result(self) -> None:
+        payload = json.loads((CONTRACT / "fixtures" / "download-receipt-timeout.json").read_text(encoding="utf-8"))["result"]
+        model = CommandResult.from_wire(payload)
+
+        self.assertEqual(model.to_wire(), payload)
+        self.assertEqual(model.status, "blocked")
+        self.assertIsNone(model.data)
+        assert model.blocker is not None
+        assert model.error is not None
+        self.assertEqual(model.blocker["code"], "download_receipt_timeout")
+        self.assertFalse(model.blocker["resumable"])
+        self.assertFalse(model.error["recoverable"])
+        self.assertIn("Completion is unverified", model.blocker["message"])
+
+    def test_browser_blocked_download_preserves_nonretryable_result_without_receipt(self) -> None:
+        payload = json.loads((CONTRACT / "fixtures" / "download-blocked-by-browser.json").read_text(encoding="utf-8"))["result"]
+        model = CommandResult.from_wire(payload)
+
+        self.assertEqual(model.to_wire(), payload)
+        self.assertFalse(model.ok)
+        self.assertEqual(model.status, "blocked")
+        self.assertIsNone(model.data)
+        assert model.blocker is not None
+        assert model.error is not None
+        self.assertEqual(model.blocker["kind"], "download_unavailable")
+        self.assertEqual(model.blocker["code"], "download_blocked_by_browser")
+        self.assertFalse(model.blocker["resumable"])
+        self.assertEqual(model.error["name"], "DownloadBrowserBlockedError")
+        self.assertFalse(model.error["recoverable"])
+        self.assertEqual(model.error["message"], model.blocker["message"])
+        self.assertIn("Chrome displayed ERR_BLOCKED_BY_CLIENT", model.blocker["message"])
+        self.assertIn("completion is unverified", model.blocker["message"])
+
+    def test_native_download_failure_preserves_sanitized_nonretryable_result(self) -> None:
+        payload = json.loads((CONTRACT / "fixtures" / "download-receipt-failed.json").read_text(encoding="utf-8"))["result"]
+        model = CommandResult.from_wire(payload)
+
+        self.assertEqual(model.to_wire(), payload)
+        self.assertFalse(model.ok)
+        self.assertEqual(model.status, "blocked")
+        self.assertIsNone(model.data)
+        assert model.blocker is not None
+        assert model.error is not None
+        self.assertEqual(model.blocker["kind"], "download_unavailable")
+        self.assertEqual(model.blocker["code"], "download_receipt_failed")
+        self.assertFalse(model.blocker["resumable"])
+        self.assertEqual(model.error["name"], "DownloadReceiptFailedError")
+        self.assertFalse(model.error["recoverable"])
+        self.assertEqual(model.error["message"], model.blocker["message"])
+        self.assertIn("completion is unverified", model.blocker["message"])
+        self.assertNotIn("Private transport", str(model.to_wire()))
+
     def test_all_stream_fixtures_round_trip_to_wire(self) -> None:
         manifest = json.loads((CONTRACT / "manifest.json").read_text(encoding="utf-8"))
 

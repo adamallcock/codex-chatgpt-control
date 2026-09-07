@@ -186,6 +186,9 @@
         "blocker-explanation-profiles.json",
         "doctor-bridge-upload.json",
         "doctor-scenario-preflight.json",
+        "download-receipt-timeout.json",
+        "download-blocked-by-browser.json",
+        "download-receipt-failed.json",
         "existing-tab-diagnostics-blocker.json",
         "files-preflight-success.json",
         "project-sources-plan-add.json",
@@ -430,7 +433,7 @@
     },
     "ask": {
       "surface": "workflows-primitives-diagnostics",
-      "fixtures": ["workflow-ask-success.json", "command-descriptors.json"],
+      "fixtures": ["workflow-ask-success.json", "journal-runtime-unavailable.json", "journal-rpc-indeterminate.json", "journal-rpc-unsupported-platform.json", "command-descriptors.json"],
       "nodeTests": ["tests/unit/client.test.ts", "tests/unit/sequence.test.ts", "tests/unit/backend-conformance.test.ts"],
       "pythonTests": ["tests/test_workflows.py", "tests/test_async_client.py"],
       "docs": ["references/backend-protocol.md", "references/python-parity.md", "../../README.md"]
@@ -745,9 +748,9 @@
     },
     "artifacts.downloadLatest": {
       "surface": "workflows-primitives-diagnostics",
-      "fixtures": ["command-descriptors.json"],
-      "nodeTests": ["tests/unit/artifacts.test.ts", "tests/unit/files.test.ts"],
-      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py"],
+      "fixtures": ["command-descriptors.json", "download-receipt-timeout.json", "download-blocked-by-browser.json", "download-receipt-failed.json"],
+      "nodeTests": ["tests/unit/artifacts.test.ts", "tests/unit/files.test.ts", "tests/unit/browser-downloads.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_async_client.py", "tests/test_parity_snapshots.py"],
       "docs": ["references/backend-protocol.md", "references/python-parity.md"]
     },
     "files.preflight": {
@@ -766,9 +769,9 @@
     },
     "files.downloadLatest": {
       "surface": "workflows-primitives-diagnostics",
-      "fixtures": ["command-descriptors.json"],
-      "nodeTests": ["tests/unit/files.test.ts", "tests/unit/client.test.ts"],
-      "pythonTests": ["tests/test_primitives.py"],
+      "fixtures": ["command-descriptors.json", "download-receipt-timeout.json", "download-blocked-by-browser.json", "download-receipt-failed.json"],
+      "nodeTests": ["tests/unit/files.test.ts", "tests/unit/client.test.ts", "tests/unit/browser-downloads.test.ts"],
+      "pythonTests": ["tests/test_primitives.py", "tests/test_parity_snapshots.py"],
       "docs": ["references/backend-protocol.md", "references/troubleshooting.md", "references/python-parity.md"]
     },
     "projects.sources.list": {

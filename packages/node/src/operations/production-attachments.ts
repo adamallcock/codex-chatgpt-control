@@ -86,7 +86,7 @@ export type ProductionAttachmentPrimitiveOptions = Readonly<{
   /** Request-local immutable inputs. Paths remain inside this module closure. */
   files: readonly OperationFileIdentity[];
   /** Computes the operation identity digest for one immutable file manifest. */
-  identityDigest: (ordinal: number, manifest: OperationFileManifestEntryV1) => string;
+  identityDigest: (ordinal: number, manifest: OperationFileManifestEntryV1) => string | Promise<string>;
   /** Provider proof that a path still has its established identity. */
   revalidateFile: (identity: OperationFileIdentity) => Promise<void>;
   /** One bounded read of the provider's live attachment surface. Never polls. */
@@ -211,7 +211,26 @@ export function createProductionAttachmentPrimitive(
   options: ProductionAttachmentPrimitiveOptions
 ): ProductionAttachmentPrimitive {
   const normalized = normalizeOptions(options);
-  const snapshot = snapshotFiles(normalized.files, normalized.identityDigest);
+  return buildAttachmentPrimitive(normalized, snapshotFiles(normalized.files, normalized.identityDigest));
+}
+
+/** Snapshot caller input before awaiting a remote signing authority. */
+export async function createProductionAttachmentPrimitiveAsync(
+  options: ProductionAttachmentPrimitiveOptions
+): Promise<ProductionAttachmentPrimitive> {
+  const normalized = normalizeOptions(options);
+  let digests: readonly string[];
+  try {
+    digests = await Promise.all(normalized.files.map(async (file, ordinal) =>
+      await normalized.identityDigest(ordinal, file.manifest)));
+  } catch { throw new Error("attachment identity digest failed"); }
+  const snapshot = snapshotFiles(normalized.files, ordinal => digests[ordinal]!);
+  return buildAttachmentPrimitive(normalized, snapshot);
+}
+
+function buildAttachmentPrimitive(
+  normalized: ReturnType<typeof normalizeOptions>, snapshot: Snapshot
+): ProductionAttachmentPrimitive {
   let handoffConsumed = false;
 
   const observeAttachments = async (
@@ -525,12 +544,13 @@ function snapshotFiles(
   for (let ordinal = 0; ordinal < files.length; ordinal += 1) {
     const identity = files[ordinal];
     if (identity === undefined) throw new Error("attachment identity is missing");
-    let digest: string;
+    let digest: unknown;
     try {
       digest = identityDigest(ordinal, identity.manifest);
     } catch {
       throw new Error("attachment identity digest failed");
     }
+    if (isNativePromise(digest)) void digest.catch(() => undefined);
     if (!isDigest(digest) || identityDigests.includes(digest)) throw new Error("attachment identity digest is invalid");
     identityDigests.push(digest);
   }
@@ -624,11 +644,11 @@ function normalizeManifest(
   };
 }
 
-function normalizeSurfaceObservation(
+async function normalizeSurfaceObservation(
   request: NormalizedRequest,
   read: ProductionAttachmentSurfaceRead,
   evidenceDigest: BrowserObservationDigest
-): SubmissionAttachmentObservation {
+): Promise<SubmissionAttachmentObservation> {
   if (!isPlainDataRecord(read)) return { status: "unavailable" };
   const status = readData(read, "status");
   const source = readData(read, "source");
@@ -636,7 +656,7 @@ function normalizeSurfaceObservation(
   if (source !== "live_surface" || typeof status !== "string") return { status: "unavailable" };
   if (providerEvidenceDigest !== undefined && !isDigest(providerEvidenceDigest)) return { status: "unavailable" };
   if (status === "mismatch" || status === "delayed" || status === "ambiguous" || status === "unavailable") {
-    const evidence = safeEvidence(evidenceDigest, "attachment-surface", {
+    const evidence = await safeEvidence(evidenceDigest, "attachment-surface", {
       operationId: request.operationId,
       requestDigest: request.requestDigest,
       targetBindingDigest: request.targetBindingDigest,
@@ -664,7 +684,7 @@ function normalizeSurfaceObservation(
     // handoff; requiring the desired manifest itself to be empty would make
     // every real upload unreachable.
     if (count !== 0 || observed.length !== 0 || request.manifest.count === 0 || providerEvidenceDigest === undefined) return { status: "mismatch" };
-    const evidence = safeEvidence(evidenceDigest, "attachment-surface", {
+    const evidence = await safeEvidence(evidenceDigest, "attachment-surface", {
       operationId: request.operationId,
       requestDigest: request.requestDigest,
       targetBindingDigest: request.targetBindingDigest,
@@ -681,7 +701,7 @@ function normalizeSurfaceObservation(
   const exact = providerEvidenceDigest !== undefined
     && count === request.manifest.count
     && observed.every((identity, index) => identity === request.manifest.identities[index]?.identityDigest);
-  const evidence = safeEvidence(evidenceDigest, "attachment-surface", {
+  const evidence = await safeEvidence(evidenceDigest, "attachment-surface", {
     operationId: request.operationId,
     requestDigest: request.requestDigest,
     targetBindingDigest: request.targetBindingDigest,
@@ -751,7 +771,7 @@ async function setChooserFilesOnce(
   if (request.signal?.aborted || request.deadlineAt !== undefined && Date.now() >= request.deadlineAt) {
     return { status: "uncertain", quarantine: "caller" };
   }
-  const evidence = safeEvidence(options.evidenceDigest, "attachment-handoff", {
+  const evidence = await safeEvidence(options.evidenceDigest, "attachment-handoff", {
     operationId: request.operationId,
     requestDigest: request.requestDigest,
     actionId: request.actionId,
@@ -1071,13 +1091,13 @@ function cloneHandoffRequest(request: NormalizedHandoffRequest): SubmissionHando
   });
 }
 
-function safeEvidence(
+async function safeEvidence(
   evidenceDigest: BrowserObservationDigest,
   domain: string,
   material: unknown
-): string | undefined {
+): Promise<string | undefined> {
   try {
-    const result = evidenceDigest(domain, material);
+    const result = await evidenceDigest(domain, material);
     return isDigest(result) ? result : undefined;
   } catch {
     return undefined;

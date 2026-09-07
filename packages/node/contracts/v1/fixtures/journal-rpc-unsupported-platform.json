@@ -1,0 +1,32 @@
+{
+  "result": {
+    "blocker": {
+      "code": "journal_rpc_unsupported_platform",
+      "kind": "unknown",
+      "message": "The private-file journal service requires POSIX file ownership and permissions and is unavailable on Windows.",
+      "remediation": [
+        {
+          "instruction": "On Windows, use the local journal in an ordinary Node browser host without operations.journalService. The private-file journal service requires a POSIX host. Preserve any existing operation identity.",
+          "label": "Use a supported journal host",
+          "userActionRequired": false
+        }
+      ],
+      "resumable": false
+    },
+    "context": {
+      "timestamp": "2026-06-06T00:00:00.000Z"
+    },
+    "data": {
+      "operationId": "123e4567-e89b-42d3-a456-426614174000"
+    },
+    "error": {
+      "message": "The private-file journal service requires POSIX file ownership and permissions and is unavailable on Windows.",
+      "name": "OperationError",
+      "recoverable": false
+    },
+    "ok": false,
+    "status": "blocked",
+    "warnings": []
+  },
+  "schemaVersion": "chatgpt.browser_control.command_result.v1"
+}

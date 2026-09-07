@@ -1,4 +1,4 @@
-import { getProcessTabCoordinator, type CoordinatorOwner, type ProcessTabCoordinator } from "../runtime/tab-coordinator.js";
+import { createBrowserResourceKey, getProcessTabCoordinator, type CoordinatorOwner, type ProcessTabCoordinator } from "../runtime/tab-coordinator.js";
 import {
   OperationRuntimeContext,
   type OperationRuntimeCapabilities,
@@ -11,7 +11,7 @@ import {
   type BrowserObservationResult
 } from "./browser-observation.js";
 import {
-  bindBrowserTarget,
+  bindBrowserTargetAsync,
   type BrowserTargetBinding,
   type BrowserTargetBindingInput,
   type BrowserTargetCapabilities,
@@ -71,7 +71,8 @@ import type {
   OperationStagingAdapter,
   OperationSubmissionAdapter,
   OperationTargetResolution,
-  OperationTargetResolutionRequest
+  OperationTargetResolutionRequest,
+  AuthenticatedSendRecoveryRequest
 } from "./service.js";
 import {
   transferOperationArtifact,
@@ -84,7 +85,7 @@ import type {
   OperationTargetRequestV1,
   OperationSurface
 } from "./types.js";
-import type { OwnershipTargetEvidence } from "./turn-ownership.js";
+import { TURN_OWNERSHIP_SCHEMA_VERSION, type OwnershipTargetEvidence } from "./turn-ownership.js";
 import type {
   SubmissionAttachmentObservation,
   SubmissionAttachmentRequest,
@@ -314,7 +315,7 @@ export type OperationBrowserAdapterOptions = Readonly<{
   transactionTimeoutMs?: number;
   files?: readonly OperationFileIdentity[];
   /** The callback is a keyed manifest identity function; it receives no path. */
-  fileManifestDigest?: (ordinal: number, manifest: OperationFileIdentity["manifest"]) => string;
+  fileManifestDigest?: (ordinal: number, manifest: OperationFileIdentity["manifest"]) => string | Promise<string>;
   submission?: OperationBrowserSubmissionPrimitive;
   staging?: OperationBrowserStagingPrimitive;
   collector?: OperationBrowserCollectorPrimitive;
@@ -328,6 +329,83 @@ export type OperationBrowserAdapterOptions = Readonly<{
 }>;
 
 export type ComposedOperationBrowserAdapter = OperationBrowserAdapter;
+
+/** Validate the durable prefix before an authenticated restart can touch a browser. */
+export function assertAuthenticatedSendRecovery(request: AuthenticatedSendRecoveryRequest): void {
+  const { target, durableBaseline: baseline } = request;
+  if (!isPlainDataRecord(target) || !isSafeDataGraph(target) || !isPlainDataRecord(baseline)
+    || !isSafeDataGraph(baseline) || baseline.schemaVersion !== TURN_OWNERSHIP_SCHEMA_VERSION
+    || baseline.completeness !== "complete"
+    || !DIGEST_PATTERN.test(baseline.snapshotDigest) || !DIGEST_PATTERN.test(request.expected.targetBindingDigest)
+    || !OPAQUE_ID_PATTERN.test(request.operationId) || !OPAQUE_ID_PATTERN.test(request.actionId)
+    || !DIGEST_PATTERN.test(request.requestDigest)) throw new OperationBrowserAdapterError("target_binding_mismatch");
+  compareRecoveredIdentity(baseline.target.provider, target.providerId);
+  compareRecoveredIdentity(baseline.target.browser, target.browserId);
+  compareRecoveredIdentity(baseline.target.tab, target.tabId);
+  if (baseline.target.coordinationScope !== target.coordinationScope) throw new OperationBrowserAdapterError("target_binding_mismatch");
+  if (target.targetLifecycle === "new_pending" || target.targetLifecycle === "new_established") {
+    if (!DIGEST_PATTERN.test(target.newTargetAnchorDigest ?? "") || !DIGEST_PATTERN.test(target.blankTaskEvidenceDigest ?? "")
+      || (target.targetLifecycle === "new_pending" && (target.conversationId !== undefined || target.canonicalThreadUrl !== undefined))
+      || (target.targetLifecycle === "new_established" && (target.targetEstablishment?.causalSendActionId !== request.actionId
+        || target.targetEstablishment.anchorDigest !== target.newTargetAnchorDigest))
+      || baseline.userTurns.length !== 0 || baseline.assistantTurns.length !== 0
+      || [baseline.target.thread, baseline.target.conversation, baseline.target.canonicalThreadUrl].some(identity => identity.status === "available")) {
+      throw new OperationBrowserAdapterError("target_binding_mismatch");
+    }
+  } else {
+    compareRecoveredIdentity(baseline.target.conversation, target.conversationId);
+    compareRecoveredIdentity(baseline.target.canonicalThreadUrl, target.canonicalThreadUrl);
+  }
+}
+
+/** A separate observe-only path; no activation/staging/file/control ports are accepted. */
+export async function recoverAuthenticatedBrowserSend(
+  request: AuthenticatedSendRecoveryRequest,
+  options: Pick<OperationBrowserAdapterOptions, "page" | "owner" | "coordinator" | "evidenceDigest" | "capabilities" | "authoritativeClaim" | "observeCurrentTarget" | "transactionTimeoutMs"> & Readonly<{ sendObservers: SendOnceObservers }>
+): Promise<SubmissionFinalTransactionResult> {
+  try {
+    assertAuthenticatedSendRecovery(request);
+    if (options.observeCurrentTarget === undefined || request.signal?.aborted || (request.deadlineAt !== undefined && Date.now() >= request.deadlineAt)) {
+      return { status: "blocked", blockerCode: "target_evidence_unavailable" };
+    }
+    const coordinator = options.coordinator ?? getProcessTabCoordinator();
+    const observed = await coordinator.withBrowserAcquisition(createBrowserResourceKey(request.target.providerId, request.target.browserId), {
+      owner: { ...options.owner, operationId: request.operationId }, priority: "read",
+      ...(request.signal === undefined ? {} : { signal: request.signal }), timeoutMs: Math.max(1, Math.min(options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS,
+        (request.deadlineAt ?? Number.MAX_SAFE_INTEGER) - Date.now())), label: "operation-authenticated-send-recovery"
+    }, async acquisition => {
+      const current = normalizeCurrentTargetResult(await options.observeCurrentTarget!({
+        operationId: request.operationId, page: options.page, target: request.target,
+        signal: acquisition.signal,
+        ...(request.deadlineAt === undefined ? {} : { deadlineAt: request.deadlineAt })
+      }));
+      await assertRecoveredTargetIdentity(request.target, current, options, true);
+      return current;
+    });
+    // A pending binding is rebuilt only from its authenticated blank baseline,
+    // never from the conversation currently displayed after the uncertain Send.
+    const binding = await bindBrowserTargetAsync({
+      page: options.page, evidence: request.target.targetLifecycle === "new_established" ? observed.evidence : request.durableBaseline.target,
+      ...(request.target.targetLifecycle === "new_pending" ? {
+        targetLifecycle: "new_pending", newTargetAnchorDigest: request.target.newTargetAnchorDigest!,
+        blankTaskEvidenceDigest: request.target.blankTaskEvidenceDigest!
+      } : {}),
+      ...(options.authoritativeClaim === undefined ? {} : { authoritativeClaim: options.authoritativeClaim }),
+      ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
+      evidenceDigest: options.evidenceDigest, owner: { ...options.owner, operationId: request.operationId },
+      coordinator
+    });
+    binding.assertCurrent(observed.evidence, observed.authoritativeClaim, true);
+    const linked = createLinkedAbortController(request.signal);
+    try {
+      const send = createPhaseSendObservers(binding, request.operationId, options.sendObservers, linked.controller,
+        options.observeCurrentTarget, options.evidenceDigest, options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS);
+      return await recoverSendOnce({ ...request, page: options.page, observers: send.observers, signal: linked.controller.signal });
+    } finally { linked.cleanup(); }
+  } catch {
+    return { status: "blocked", blockerCode: "target_binding_mismatch" };
+  }
+}
 
 type Binding = BrowserTargetBinding<PageLike>;
 type CachedContext = OperationCollectorContext;
@@ -449,7 +527,7 @@ export function createOperationBrowserAdapter(
         owner,
         coordinator
       };
-      const binding = bindBrowserTarget(input);
+      const binding = await bindBrowserTargetAsync(input);
       const previous = bindings.get(request.operationId);
       if (previous !== undefined && canonicalJson(previous.target) !== canonicalJson(binding.target)) {
         throw new OperationBrowserAdapterError("target_binding_mismatch");
@@ -478,7 +556,7 @@ export function createOperationBrowserAdapter(
   const executeFileHandoffOnce = async (request: SubmissionHandoffRequest): Promise<SubmissionHandoffResult> => {
     const binding = bindingFor(bindings, request.operationId, request.targetBindingDigest);
     if (binding === undefined) return { status: "not_satisfied", blockerCode: "target_binding_mismatch" };
-    const files = matchFileManifest(options.files, options.fileManifestDigest, request.manifest);
+    const files = await matchFileManifest(options.files, options.fileManifestDigest, request.manifest);
     if (files === undefined || options.submission?.handoffFiles === undefined) {
       return { status: "not_satisfied", blockerCode: "attachment_manifest_mismatch" };
     }
@@ -1238,7 +1316,7 @@ export function createOperationBrowserAdapter(
           return await runReadTransaction(binding, callbackRequest.operationId, transaction =>
             options.staging!.readCurrent === undefined
               ? unavailableStagingObservation(callbackRequest)
-              : options.staging!.readCurrent({ ...callbackRequest, page: transaction.page, target: transaction.target })
+              : options.staging!.readCurrent({ ...callbackRequest, page: transaction.page, target: transaction.target, signal: transaction.acquisition.signal, deadlineAt: transaction.acquisition.timing.deadlineAt ?? callbackRequest.deadlineAt })
           , options.observeCurrentTarget, options.evidenceDigest, boundedRequest(callbackRequest.signal, callbackRequest.deadlineAt, transactionTimeoutMs, "operation-staging-read"));
         },
         observe: async (callbackRequest: OperationStagingCallbackRequest) => {
@@ -1247,7 +1325,7 @@ export function createOperationBrowserAdapter(
           return await runReadTransaction(binding, callbackRequest.operationId, transaction =>
             options.staging!.observe === undefined
               ? unavailableStagingObservation(callbackRequest)
-              : options.staging!.observe({ ...callbackRequest, page: transaction.page, target: transaction.target })
+              : options.staging!.observe({ ...callbackRequest, page: transaction.page, target: transaction.target, signal: transaction.acquisition.signal, deadlineAt: transaction.acquisition.timing.deadlineAt ?? callbackRequest.deadlineAt })
           , options.observeCurrentTarget, options.evidenceDigest, boundedRequest(callbackRequest.signal, callbackRequest.deadlineAt, transactionTimeoutMs, "operation-staging-observe"));
         },
         mutateOnce: async (callbackRequest: OperationStagingCallbackRequest) => {
@@ -1256,7 +1334,7 @@ export function createOperationBrowserAdapter(
           return await runMutationTransaction(binding, callbackRequest.operationId, transaction =>
             options.staging!.mutateOnce === undefined
               ? Promise.reject(new OperationBrowserAdapterError("unsupported_browser_primitive"))
-              : options.staging!.mutateOnce({ ...callbackRequest, page: transaction.page, target: transaction.target })
+              : options.staging!.mutateOnce({ ...callbackRequest, page: transaction.page, target: transaction.target, signal: transaction.acquisition.signal, deadlineAt: transaction.acquisition.timing.deadlineAt ?? callbackRequest.deadlineAt })
           , options.observeCurrentTarget, options.evidenceDigest, boundedRequest(callbackRequest.signal, callbackRequest.deadlineAt, transactionTimeoutMs, "operation-staging-mutate", "mutation"));
         }
       });
@@ -1554,11 +1632,11 @@ async function hydrateRecoveredTarget(
     if (error instanceof OperationBrowserAdapterError) throw error;
     throw new OperationBrowserAdapterError("target_evidence_unavailable");
   }
-  assertRecoveredTargetIdentity(recovery.target, observed, options);
+  await assertRecoveredTargetIdentity(recovery.target, observed, options);
   const lifecycle = recovery.target.targetLifecycle ?? "fixed";
   let bound: BrowserTargetBinding<PageLike>;
   try {
-    bound = bindBrowserTarget({
+    bound = await bindBrowserTargetAsync({
       page,
       evidence: observed.evidence,
       ...(lifecycle === "new_established" ? { targetLifecycle: "new_established" as const } : {}),
@@ -1580,17 +1658,20 @@ async function hydrateRecoveredTarget(
   return preserveRecoveredTarget(bound, recovery.target);
 }
 
-function assertRecoveredTargetIdentity(
+async function assertRecoveredTargetIdentity(
   target: OperationTargetBindingV1,
   observed: OperationBrowserCurrentTargetResult,
-  options: OperationBrowserAdapterOptions
-): void {
+  options: Pick<OperationBrowserAdapterOptions, "capabilities" | "evidenceDigest">,
+  pendingSubmitRecovery = false
+): Promise<void> {
   const evidence = observed.evidence;
   compareRecoveredIdentity(evidence.provider, target.providerId);
   compareRecoveredIdentity(evidence.browser, target.browserId);
   compareRecoveredIdentity(evidence.tab, target.tabId);
-  compareRecoveredIdentity(evidence.conversation, target.conversationId);
-  compareRecoveredIdentity(evidence.canonicalThreadUrl, target.canonicalThreadUrl);
+  if (!pendingSubmitRecovery || target.targetLifecycle !== "new_pending") {
+    compareRecoveredIdentity(evidence.conversation, target.conversationId);
+    compareRecoveredIdentity(evidence.canonicalThreadUrl, target.canonicalThreadUrl);
+  }
   if (target.coordinationScope !== "provider") return;
   const claim = observed.authoritativeClaim;
   if (
@@ -1606,7 +1687,7 @@ function assertRecoveredTargetIdentity(
   }
   let claimDigest: unknown;
   try {
-    claimDigest = options.evidenceDigest(CLAIM_EVIDENCE_DIGEST_DOMAIN, {
+    claimDigest = await options.evidenceDigest(CLAIM_EVIDENCE_DIGEST_DOMAIN, {
       token: claim.token,
       epoch: claim.epoch
     });
@@ -1941,11 +2022,11 @@ function unavailableStagingObservation(request: Pick<OperationStagingCallbackReq
   };
 }
 
-function matchFileManifest(
+async function matchFileManifest(
   identities: readonly OperationFileIdentity[] | undefined,
   manifestDigest: OperationBrowserAdapterOptions["fileManifestDigest"],
   manifest: SubmissionExpectedEnvelope["attachmentManifest"]
-): readonly OperationFileIdentity[] | undefined {
+): Promise<readonly OperationFileIdentity[] | undefined> {
   if (manifest.count === 0) return [];
   if (identities === undefined || identities.length !== manifest.count || manifestDigest === undefined) return undefined;
   const sorted = [...identities];
@@ -1955,7 +2036,7 @@ function matchFileManifest(
     if (identity === undefined || expected === undefined || expected.ordinal !== ordinal) return undefined;
     let digest: string;
     try {
-      digest = manifestDigest(ordinal, identity.manifest);
+      digest = await manifestDigest(ordinal, identity.manifest);
     } catch {
       return undefined;
     }

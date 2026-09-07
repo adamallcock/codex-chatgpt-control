@@ -20,7 +20,9 @@ import type {
   OperationStagingMutationResult,
   OperationStagingObservation
 } from "./staging.js";
+import { readTransactionalChatPower, transactionalPowerTrigger, transactionalPowerMenu, transactionalPowerSlider, preflightTransactionalPowerSlider, preflightTransactionalPowerTrigger, type TransactionalChatPower } from "./transactional-chat-power.js";
 import { isPlainDataRecord } from "../runtime/value-boundaries.js";
+import { configurationPowerValues } from "./configuration-routing.js";
 
 /**
  * Provider-specific staging for the reversible configuration surfaces.
@@ -38,6 +40,7 @@ const MAX_DOM_CONTROLS = 256;
 const MAX_CONTROL_LABEL_LENGTH = 512;
 const MAX_CACHED_ACTIONS = 32;
 const MAX_POWER_STEPS = 32;
+const MAX_CURRENT_LABEL_POWER_STEPS = 64;
 
 export type ProductionConfigurationSurface = "chat" | "work";
 
@@ -50,6 +53,8 @@ export type ProductionConfigurationPrimitiveOptions = Readonly<{
 }>;
 
 export type ProductionConfigurationBlockerCode =
+  | "operation_cancelled"
+  | "operation_timeout"
   | "staging_request_mismatch"
   | "staging_observation_required"
   | "staging_mutation_already_attempted"
@@ -143,12 +148,15 @@ type CachedObservation = Readonly<{
   snapshot?: Snapshot;
   power?: Extract<PowerDiscoveryResult, { ok: true }>;
   powerSignature?: string;
+  chatPower?: TransactionalChatPower;
+  chatExperience?: TransactionalChatPower;
   status: OperationStagingObservation["status"];
 }>;
 
 type PrimitiveState = {
   observations: Map<string, CachedObservation>;
   attempted: Set<string>;
+  restoredPower: Map<string, string>;
 };
 
 type StagingRequest = PrimitiveRequest["callback"];
@@ -200,7 +208,8 @@ export function createProductionConfigurationStaging(
   }
   const state: PrimitiveState = {
     observations: new Map(),
-    attempted: new Set()
+    attempted: new Set(),
+    restoredPower: new Map()
   };
 
   const primitive: OperationBrowserStagingPrimitive = Object.freeze({
@@ -227,7 +236,7 @@ async function readCurrent(
   } catch (error) {
     return unavailableObservation(request, errorCode(error, "staging_request_mismatch"));
   }
-  if (!matchesOperation(input.callback, options)) {
+  if (!await matchesOperation(input.callback, options)) {
     return unavailableObservation(input.callback, "staging_request_mismatch");
   }
 
@@ -251,10 +260,11 @@ async function mutateOnce(
   let input: PrimitiveRequest;
   try {
     input = normalizeRequest(request);
-    if (!matchesOperation(input.callback, options)) {
+    if (!await matchesOperation(input.callback, options)) {
       throw new ProductionConfigurationPrimitiveError("staging_request_mismatch");
     }
     const { callback, key } = input;
+    assertStagingActionActive(callback);
     const previous = state.observations.get(key);
     if (previous === undefined) {
       throw new ProductionConfigurationPrimitiveError("staging_observation_required");
@@ -287,7 +297,7 @@ async function observeMenuSurface(
 ): Promise<OperationStagingObservation> {
   const { callback, key } = input;
   const kind = callback.kind;
-  const needed = requestedValues(configuration, kind);
+  const needed = requestedValues(configuration, kind, options.surface);
   if (needed === undefined) {
     return rememberAndReturn(state, key, {
       kind,
@@ -295,12 +305,27 @@ async function observeMenuSurface(
     }, unavailableObservation(callback, kind === "tool_set" ? "tool_not_configured" : "configuration_not_configured"));
   }
 
+  if (kind === "configuration_set" && options.surface === "chat" && needed.length === 1
+    && needed[0]?.key === "experience" && needed[0].value === "chat") {
+    const chat = await readTransactionalChatPower(callback.page);
+    if (chat !== undefined) {
+      const signature = currentLabelPowerSignature(chat);
+      const current = await keyedStateDigest(options.evidenceDigest, callback, kind, signature);
+      const digest = await safeDigest(options.evidenceDigest, "configuration-staging-observation", {
+        operationId: callback.operationId, targetBindingDigest: callback.targetBindingDigest,
+        kind, stateFingerprint: signature, status: "satisfied"
+      });
+      const observation = satisfiedObservation(callback, current, digest);
+      return rememberAndReturn(state, key, { kind, chatExperience: chat, status: observation.status }, observation);
+    }
+  }
+
   const snapshot = await discoverMenuSnapshot(callback.page, options.surface);
   const stateResult = evaluateMenuState(snapshot, kind, needed, options.surface);
   const currentStateDigest = stateResult.currentStateDigest === undefined
     ? undefined
-    : keyedStateDigest(options.evidenceDigest, callback, kind, stateResult.currentStateDigest);
-  const digest = observationDigest(options.evidenceDigest, callback, snapshot, stateResult.status);
+    : await keyedStateDigest(options.evidenceDigest, callback, kind, stateResult.currentStateDigest);
+  const digest = await observationDigest(options.evidenceDigest, callback, snapshot, stateResult.status);
   const observation = stateResult.status === "satisfied"
     ? satisfiedObservation(callback, currentStateDigest, digest)
       : stateResult.status === "not_satisfied"
@@ -320,12 +345,19 @@ async function observePower(
   state: PrimitiveState
 ): Promise<OperationStagingObservation> {
   const { callback, key } = input;
-  const requested = requestedValues(configuration, callback.kind);
+  const requested = requestedValues(configuration, callback.kind, options.surface);
   if (requested === undefined || requested.length !== 1) {
     return rememberAndReturn(state, key, {
       kind: callback.kind,
       status: "unavailable"
     }, unavailableObservation(callback, "power_not_configured"));
+  }
+  if (options.surface === "chat") {
+    const chatPower = await readTransactionalChatPower(callback.page);
+    if (chatPower !== undefined) return observeCurrentLabelPower(input, options, requested[0]!.value, state, chatPower);
+    if (state.observations.get(key)?.chatPower !== undefined) {
+      return uncertainObservation(callback, "power_restoration_required");
+    }
   }
   const discovery = await discoverPowerSlider(callback.page, {
     powerLabels: localeLabels.configurationAxes.power,
@@ -364,8 +396,8 @@ async function observePower(
       status: "unavailable"
     }, unavailableObservation(callback, "power_mapping_incomplete"));
   }
-  const currentDigest = keyedStateDigest(options.evidenceDigest, callback, "power", powerSignature(discovery));
-  const evidence = safeDigest(options.evidenceDigest, "configuration-staging-observation", {
+  const currentDigest = await keyedStateDigest(options.evidenceDigest, callback, "power", powerSignature(discovery));
+  const evidence = await safeDigest(options.evidenceDigest, "configuration-staging-observation", {
     operationId: callback.operationId,
     targetBindingDigest: callback.targetBindingDigest,
     kind: callback.kind,
@@ -395,9 +427,14 @@ async function mutateMenuSurface(
   previous: CachedObservation
 ): Promise<OperationStagingMutationResult> {
   const { callback, key } = input;
-  const needed = requestedValues(configuration, callback.kind);
+  const needed = requestedValues(configuration, callback.kind, options.surface);
   if (needed === undefined) {
     throw new ProductionConfigurationPrimitiveError(callback.kind === "tool_set" ? "tool_not_configured" : "configuration_not_configured");
+  }
+  if (previous.chatExperience !== undefined) {
+    if (previous.status !== "satisfied") throw new ProductionConfigurationPrimitiveError("configuration_evidence_failed");
+    if (await readTransactionalChatPower(callback.page) === undefined) throw new ProductionConfigurationPrimitiveError("configuration_state_drift");
+    return { status: "started" };
   }
   const snapshot = await discoverMenuSnapshot(callback.page, options.surface);
   const evaluated = evaluateMenuState(snapshot, callback.kind, needed, options.surface);
@@ -449,14 +486,14 @@ async function mutateMenuSurface(
       throw new ProductionConfigurationPrimitiveError(callback.kind === "tool_set" ? "tool_selection_ambiguous" : "configuration_control_ambiguous");
     }
     if (target.status === "found") {
-      await clickControl(callback.page, target.control);
+      await clickControl(callback, target.control);
       continue;
     }
     const opener = findUniqueOpener(current, callback.kind, options.surface);
     if (opener === undefined) {
       throw new ProductionConfigurationPrimitiveError(callback.kind === "tool_set" ? "tool_option_unavailable" : "configuration_option_unavailable");
     }
-    await clickControl(callback.page, opener);
+    await clickControl(callback, opener);
     const afterOpen = await discoverMenuSnapshot(callback.page, options.surface);
     const targetAfterOpen = findTarget(afterOpen, aliases, callback.kind);
     if (targetAfterOpen.status === "ambiguous") {
@@ -465,7 +502,7 @@ async function mutateMenuSurface(
     if (targetAfterOpen.status !== "found") {
       throw new ProductionConfigurationPrimitiveError(callback.kind === "tool_set" ? "tool_option_unavailable" : "configuration_option_unavailable");
     }
-    await clickControl(callback.page, targetAfterOpen.control);
+    await clickControl(callback, targetAfterOpen.control);
   }
   return { status: "started" };
 }
@@ -478,9 +515,13 @@ async function mutatePower(
   previous: CachedObservation
 ): Promise<OperationStagingMutationResult> {
   const { callback, key } = input;
-  const requested = requestedValues(configuration, callback.kind);
+  const requested = requestedValues(configuration, callback.kind, options.surface);
   if (requested === undefined || requested.length !== 1) {
     throw new ProductionConfigurationPrimitiveError("power_not_configured");
+  }
+  if (previous.chatPower !== undefined) {
+    if (previous.status !== "satisfied" && previous.status !== "not_satisfied") throw new ProductionConfigurationPrimitiveError("configuration_evidence_failed");
+    return mutateCurrentLabelPower(input, requested[0]!.value, state, previous.chatPower);
   }
   const discovery = await discoverPowerSlider(callback.page, {
     powerLabels: localeLabels.configurationAxes.power,
@@ -527,8 +568,129 @@ async function mutatePower(
   const direction = target > discovery.range.current ? "ArrowRight" : "ArrowLeft";
   for (let index = 0; index < distance; index += 1) {
     // No wait/poll is permitted while the coordinated tab actor is held.
+    assertStagingActionActive(callback);
     await slider.press(direction);
   }
+  return { status: "started" };
+}
+
+function currentLabelPowerSignature(snapshot: TransactionalChatPower): string {
+  return opaqueFingerprint(JSON.stringify({
+    trigger: snapshot.triggerId, model: snapshot.modelMarker, label: snapshot.currentLabel,
+    presentation: snapshot.presentation,
+    range: snapshot.popover?.slider === undefined ? undefined : {
+      minimum: snapshot.popover.slider.minimum, maximum: snapshot.popover.slider.maximum, current: snapshot.popover.slider.current
+    }
+  }));
+}
+
+function exactPowerLabel(current: string, requested: string): boolean {
+  const desired = normalizeForLabelMatch(requested);
+  const actual = normalizeForLabelMatch(current);
+  if (desired === actual) return true;
+  // Substring alias expansion would turn High into Extra High. Only a proven
+  // exact member of one locale group can authorize its translated equivalent.
+  return [...Object.values(localeLabels.configurationOptions), ...Object.values(localeLabels.modeOptions)]
+    .some(aliases => aliases.some(label => normalizeForLabelMatch(label) === desired)
+      && aliases.some(label => normalizeForLabelMatch(label) === actual));
+}
+
+async function observeCurrentLabelPower(
+  input: PrimitiveRequest, options: CapturedOptions, requested: string, state: PrimitiveState, snapshot: TransactionalChatPower
+): Promise<OperationStagingObservation> {
+  const { callback, key } = input;
+  const satisfied = exactPowerLabel(snapshot.currentLabel, requested);
+  const signature = currentLabelPowerSignature(snapshot);
+  const current = await keyedStateDigest(options.evidenceDigest, callback, "power", signature);
+  const evidence = await safeDigest(options.evidenceDigest, "configuration-staging-observation", {
+    operationId: callback.operationId, targetBindingDigest: callback.targetBindingDigest,
+    kind: callback.kind, stateFingerprint: signature, status: satisfied ? "satisfied" : "not_satisfied"
+  });
+  const observation = satisfied ? satisfiedObservation(callback, current, evidence)
+    : state.attempted.has(key) && state.restoredPower.get(key) !== signature
+      ? uncertainObservation(callback, "power_restoration_required", current, evidence)
+      : notSatisfiedObservation(callback, current, evidence);
+  return rememberAndReturn(state, key, { kind: callback.kind, chatPower: snapshot, status: observation.status }, observation);
+}
+
+function assertStagingActionActive(callback: StagingRequest): void {
+  if (callback.signal?.aborted) throw new ProductionConfigurationPrimitiveError("operation_cancelled");
+  if (Date.now() >= callback.deadlineAt) throw new ProductionConfigurationPrimitiveError("operation_timeout");
+}
+
+async function mutateCurrentLabelPower(
+  input: PrimitiveRequest, requested: string, state: PrimitiveState, previous: TransactionalChatPower
+): Promise<OperationStagingMutationResult> {
+  const { callback, key } = input;
+  assertStagingActionActive(callback);
+  let current = await readTransactionalChatPower(callback.page);
+  if (current === undefined) throw new ProductionConfigurationPrimitiveError("power_surface_unavailable");
+  if (exactPowerLabel(current.currentLabel, requested)) return { status: "started" };
+  if (currentLabelPowerSignature(current) !== currentLabelPowerSignature(previous)) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+  const initial = current;
+  state.attempted.add(key);
+  state.restoredPower.delete(key);
+  trimState(state);
+  if (current.presentation === "closed") {
+    const trigger = transactionalPowerTrigger(callback.page, current);
+    if (trigger?.click === undefined || !await preflightTransactionalPowerTrigger(trigger, current)) throw new ProductionConfigurationPrimitiveError("power_control_unavailable");
+    assertStagingActionActive(callback);
+    await trigger.click();
+    assertStagingActionActive(callback);
+    current = await readTransactionalChatPower(callback.page);
+    if (current?.presentation !== "simple" || current.triggerId !== initial.triggerId || current.modelMarker !== initial.modelMarker || current.currentLabel !== initial.currentLabel) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+  }
+  const original = current;
+  const range = original.popover?.slider;
+  if (range === undefined || 2 * (range.maximum - range.minimum) > MAX_CURRENT_LABEL_POWER_STEPS) throw new ProductionConfigurationPrimitiveError("power_mapping_incomplete");
+  const observedLabels = new Map<number, string>([[range.current, original.currentLabel]]);
+  let remainingSteps = 2 * (range.maximum - range.minimum);
+  const read = async (): Promise<TransactionalChatPower> => {
+    const observed = await readTransactionalChatPower(callback.page);
+    if (observed?.presentation !== "simple" || observed.popover?.slider === undefined
+      || observed.triggerId !== original.triggerId || observed.modelMarker !== original.modelMarker
+      || observed.popover.slider.minimum !== range.minimum || observed.popover.slider.maximum !== range.maximum) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+    const known = observedLabels.get(observed.popover.slider.current);
+    if (known !== undefined && known !== observed.currentLabel) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+    return observed;
+  };
+  const move = async (target: number): Promise<TransactionalChatPower> => {
+    let observed = await read();
+    while (observed.popover!.slider!.current !== target) {
+      assertStagingActionActive(callback);
+      if (remainingSteps-- <= 0) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+      const slider = transactionalPowerSlider(callback.page, observed);
+      if (slider?.press === undefined || !await preflightTransactionalPowerSlider(slider, observed)) throw new ProductionConfigurationPrimitiveError("power_control_unavailable");
+      const before = observed.popover!.slider!.current;
+      const delta = target > before ? 1 : -1;
+      assertStagingActionActive(callback);
+      // One key, one exact observation. No sleep/poll while holding the tab actor.
+      await slider.press(delta > 0 ? "ArrowRight" : "ArrowLeft");
+      assertStagingActionActive(callback);
+      observed = await read();
+      if (observed.popover!.slider!.current !== before + delta) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+      observedLabels.set(observed.popover!.slider!.current, observed.currentLabel);
+    }
+    return observed;
+  };
+  let selected: TransactionalChatPower | undefined;
+  for (let value = range.minimum; value <= range.maximum; value += 1) {
+    const observed = await move(value);
+    if (exactPowerLabel(observed.currentLabel, requested)) { selected = observed; break; }
+  }
+  let final = selected ?? await move(range.current);
+  if (selected === undefined && (final.currentLabel !== original.currentLabel || final.popover!.slider!.current !== range.current)) throw new ProductionConfigurationPrimitiveError("power_restoration_required");
+  if (initial.presentation === "closed") {
+    const menu = transactionalPowerMenu(callback.page, final);
+    if (menu?.press === undefined || await menu.count?.() !== 1) throw new ProductionConfigurationPrimitiveError("power_control_unavailable");
+    assertStagingActionActive(callback);
+    await menu.press("Escape");
+    assertStagingActionActive(callback);
+    const closed = await readTransactionalChatPower(callback.page);
+    if (closed?.presentation !== "closed" || closed.triggerId !== final.triggerId || closed.modelMarker !== final.modelMarker || closed.currentLabel !== final.currentLabel) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+    final = closed;
+  }
+  if (selected === undefined) state.restoredPower.set(key, currentLabelPowerSignature(final));
   return { status: "started" };
 }
 
@@ -706,7 +868,8 @@ function axesForDesired(desired: string, explicitAxes: readonly string[], _kind:
 
 function requestedValues(
   configuration: Readonly<OperationConfigurationRequestV1> | undefined,
-  kind: OperationStagingKind
+  kind: OperationStagingKind,
+  surface: ProductionConfigurationSurface
 ): readonly RequestedValue[] | undefined {
   if (configuration === undefined) return undefined;
   if (kind === "tool_set") {
@@ -714,7 +877,10 @@ function requestedValues(
     return tools === undefined ? undefined : tools.map(value => ({ key: "tool", value, axes: [] }));
   }
   if (kind === "power_select") {
-    return configuration.reasoning === undefined ? undefined : [{ key: "reasoning", value: configuration.reasoning, axes: ["power"] }];
+    const values = configurationPowerValues(configuration, surface);
+    const value = values[0];
+    return typeof value !== "string" || values.some(candidate => typeof candidate !== "string" || !exactPowerLabel(candidate, value))
+      ? undefined : [{ key: "reasoning", value, axes: ["power"] }];
   }
   const values: RequestedValue[] = [];
   if (configuration.experience !== undefined) values.push({ key: "experience", value: configuration.experience, axes: ["surface"] });
@@ -725,6 +891,7 @@ function requestedValues(
     const additional = configuration.additional;
     for (const [key, value] of Object.entries(additional)) {
       if (!["intelligence", "effort", "speed"].includes(key) || typeof value !== "string") return undefined;
+      if (surface === "chat" && key === "effort") continue;
       values.push({ key, value, axes: [key] });
     }
   }
@@ -1126,11 +1293,12 @@ function normalizeSnapshot(value: unknown): Snapshot {
   };
 }
 
-async function clickControl(page: Readonly<PageLike>, control: Control): Promise<void> {
-  const locator = await resolveControlLocator(page, control);
+async function clickControl(callback: StagingRequest, control: Control): Promise<void> {
+  const locator = await resolveControlLocator(callback.page, control);
   if (locator === undefined || locator.click === undefined) {
     throw new ProductionConfigurationPrimitiveError("configuration_control_ambiguous");
   }
+  assertStagingActionActive(callback);
   await locator.click();
 }
 
@@ -1198,11 +1366,13 @@ function trimState(state: PrimitiveState): void {
     if (first === undefined) break;
     state.observations.delete(first);
     state.attempted.delete(first);
+    state.restoredPower.delete(first);
   }
   while (state.attempted.size > MAX_CACHED_ACTIONS) {
     const first = state.attempted.values().next().value as string | undefined;
     if (first === undefined) break;
     state.attempted.delete(first);
+    state.restoredPower.delete(first);
   }
 }
 
@@ -1276,12 +1446,12 @@ function uncertainObservation(
   };
 }
 
-function observationDigest(
+async function observationDigest(
   evidenceDigest: BrowserObservationDigest,
   request: StagingRequest,
   snapshot: Snapshot | Readonly<Record<string, unknown>>,
   status: string
-): string | undefined {
+): Promise<string | undefined> {
   const fingerprint = "opaqueSignature" in snapshot && typeof snapshot.opaqueSignature === "string"
     ? snapshot.opaqueSignature
     : opaqueFingerprint(JSON.stringify(snapshot));
@@ -1294,12 +1464,12 @@ function observationDigest(
   });
 }
 
-function keyedStateDigest(
+async function keyedStateDigest(
   evidenceDigest: BrowserObservationDigest,
   request: StagingRequest,
   kind: string,
   fingerprint: string
-): string | undefined {
+): Promise<string | undefined> {
   return safeDigest(evidenceDigest, "configuration-staging-state", {
     operationId: request.operationId,
     targetBindingDigest: request.targetBindingDigest,
@@ -1328,13 +1498,13 @@ function powerSignature(discovery: Extract<PowerDiscoveryResult, { ok: true }>):
   ].join("\u001d"));
 }
 
-function safeDigest(
+async function safeDigest(
   evidenceDigest: BrowserObservationDigest,
   domain: string,
   material: unknown
-): string | undefined {
+): Promise<string | undefined> {
   try {
-    const value = evidenceDigest(domain, material);
+    const value = await evidenceDigest(domain, material);
     return typeof value === "string" && DIGEST_PATTERN.test(value) ? value : undefined;
   } catch {
     return undefined;
@@ -1388,11 +1558,11 @@ function normalizeRequest(request: StagingRequest): PrimitiveRequest {
   };
 }
 
-function matchesOperation(
+async function matchesOperation(
   request: StagingRequest,
   options: ProductionConfigurationPrimitiveOptions
-): boolean {
-  const expected = safeDigest(options.evidenceDigest, "staging-desired", {
+): Promise<boolean> {
+  const expected = await safeDigest(options.evidenceDigest, "staging-desired", {
     requestDigest: request.requestDigest,
     kind: request.kind
   });
@@ -1424,6 +1594,7 @@ function errorCode(error: unknown, fallback: string): ProductionConfigurationBlo
 
 function isBlockerCode(value: string): value is ProductionConfigurationBlockerCode {
   return new Set<string>([
+    "operation_cancelled", "operation_timeout",
     "staging_request_mismatch", "staging_observation_required", "staging_mutation_already_attempted", "staging_mutation_unreconciled",
     "configuration_not_configured", "configuration_surface_unavailable", "configuration_surface_unsupported", "configuration_control_ambiguous",
     "configuration_option_unavailable", "configuration_state_drift", "configuration_observation_limit_exceeded", "tool_not_configured",

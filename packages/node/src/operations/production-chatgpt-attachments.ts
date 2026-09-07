@@ -32,7 +32,7 @@ import { isPlainDataRecord } from "../runtime/value-boundaries.js";
 export type ChatGPTAttachmentProviderOptions = Readonly<{
   evidenceDigest: BrowserObservationDigest;
   files: readonly OperationFileIdentity[];
-  identityDigest: (ordinal: number, manifest: OperationFileManifestEntryV1) => string;
+  identityDigest: (ordinal: number, manifest: OperationFileManifestEntryV1) => string | Promise<string>;
   revalidateFile: (identity: OperationFileIdentity) => Promise<void>;
   timeoutMs?: number;
   maxCandidates?: number;
@@ -56,6 +56,11 @@ const MAX_PROBE_ITEMS = 256;
 const MAX_PROBE_TEXT = 512;
 const MAX_TIMEOUT_MS = 30_000;
 const CAPABILITY_KEY = "chatgpt.attachments.active-composer";
+const ATTACHMENT_CONTROL_LABELS = Object.freeze([...new Set([
+  ...localeLabels.addFilesOpenerCandidates,
+  ...localeLabels.addPhotosFilesMenuItem,
+  ...localeLabels.projectSourcesUploadFiles
+].filter(label => typeof label === "string" && label.length > 0 && label.length <= MAX_PROBE_TEXT))]);
 
 type BoundCdpSend = (
   method: string,
@@ -149,7 +154,33 @@ type ExpectedBrowserFact = Readonly<{
 export function createChatGPTAttachmentProvider(
   options: ChatGPTAttachmentProviderOptions
 ): ChatGPTAttachmentProvider {
-  const normalized = normalizeOptions(options);
+  const captured = captureOptions(options);
+  // Sync callers retain synchronous construction and validation. Attach a
+  // rejection handler immediately if a caller supplies an async authority.
+  const values = captured.files.map((file, ordinal) => {
+    let value: unknown;
+    try { value = captured.identityDigest(ordinal, file.manifest); }
+    catch { throw new Error("invalid ChatGPT attachment provider options"); }
+    if (isNativePromise(value)) void value.catch(() => undefined);
+    return value;
+  });
+  return buildChatGPTAttachmentProvider(completeOptions(captured, values));
+}
+
+/** Resolve remote identity signatures before constructing browser capabilities. */
+export async function createChatGPTAttachmentProviderAsync(
+  options: ChatGPTAttachmentProviderOptions
+): Promise<ChatGPTAttachmentProvider> {
+  const captured = captureOptions(options);
+  let values: readonly string[];
+  try {
+    values = await Promise.all(captured.files.map(async (file, ordinal) =>
+      await captured.identityDigest(ordinal, file.manifest)));
+  } catch { throw new Error("invalid ChatGPT attachment provider options"); }
+  return buildChatGPTAttachmentProvider(completeOptions(captured, values));
+}
+
+function buildChatGPTAttachmentProvider(normalized: ReturnType<typeof completeOptions>): ChatGPTAttachmentProvider {
   let causalHandoff: CausalHandoff | undefined;
   let menuOpened = false;
   let hiddenInputActivation: ProductionAttachmentActivation["activate"] | undefined;
@@ -225,7 +256,7 @@ export function createChatGPTAttachmentProvider(
     const baseMaterial = surfaceEvidenceMaterial(request, target, current);
     if (current.facts.length === 0 && current.attachmentRegionCount === 0
       && current.inputFilesReadable && current.fileInputCount === 1) {
-      const evidence = safeEvidence(normalized.evidenceDigest, "chatgpt-attachment-surface", {
+      const evidence = await safeEvidence(normalized.evidenceDigest, "chatgpt-attachment-surface", {
         ...baseMaterial,
         status: "absent",
         count: 0
@@ -258,7 +289,7 @@ export function createChatGPTAttachmentProvider(
     const observedStatus = match.status === "exact" && sendReady !== true
       ? "delayed" as const
       : match.status;
-    const evidence = safeEvidence(normalized.evidenceDigest, "chatgpt-attachment-surface", {
+    const evidence = await safeEvidence(normalized.evidenceDigest, "chatgpt-attachment-surface", {
       ...baseMaterial,
       status: observedStatus,
       count: current.facts.length,
@@ -318,7 +349,7 @@ export function createChatGPTAttachmentProvider(
       activationCandidateCount: current.activationCandidateCount,
       menu: current.menuOpenerSelector !== undefined
     };
-    const evidence = safeEvidence(normalized.evidenceDigest, "chatgpt-attachment-precondition", material);
+    const evidence = await safeEvidence(normalized.evidenceDigest, "chatgpt-attachment-precondition", material);
     if (evidence === undefined) return { status: "uncertain", quarantine: "provider" };
 
     // Codex Chrome intentionally keeps ChatGPT's native file input hidden.
@@ -458,11 +489,10 @@ export function createChatGPTAttachmentProvider(
 export const createProductionChatGPTAttachments = createChatGPTAttachmentProvider;
 export const createChatGPTProductionAttachmentPrimitive = createChatGPTAttachmentProvider;
 
-function normalizeOptions(value: ChatGPTAttachmentProviderOptions): Readonly<{
+function captureOptions(value: ChatGPTAttachmentProviderOptions): Readonly<{
   evidenceDigest: BrowserObservationDigest;
   files: readonly OperationFileIdentity[];
   identityDigest: ChatGPTAttachmentProviderOptions["identityDigest"];
-  identityDigests: readonly string[];
   revalidateFile: ChatGPTAttachmentProviderOptions["revalidateFile"];
   timeoutMs: number;
   maxCandidates: number;
@@ -498,40 +528,15 @@ function normalizeOptions(value: ChatGPTAttachmentProviderOptions): Readonly<{
     throw new Error("invalid ChatGPT attachment provider options");
   }
   if (signal !== undefined && !isAbortSignal(signal)) throw new Error("invalid ChatGPT attachment provider options");
-  const labels = Object.freeze([...new Set([
-    ...localeLabels.addFilesOpenerCandidates,
-    ...localeLabels.addPhotosFilesMenuItem,
-    ...localeLabels.projectSourcesUploadFiles
-  ].filter(label => typeof label === "string" && label.length > 0 && label.length <= MAX_PROBE_TEXT))]);
+  const labels = ATTACHMENT_CONTROL_LABELS;
   const sendLabels = Object.freeze([...new Set(
     localeLabels.sendButton.filter(label => typeof label === "string" && label.length > 0 && label.length <= MAX_PROBE_TEXT)
   )]);
   const snapshot = snapshotFileIdentities(files);
-  const identityDigestSet = new Set<string>();
-  const identityDigests = Object.freeze(snapshot.map((file, ordinal) => {
-    let digest: string;
-    try {
-      digest = identityDigest(ordinal, file.manifest);
-    } catch {
-      throw new Error("invalid ChatGPT attachment provider options");
-    }
-    if (typeof digest !== "string" || !DIGEST_PATTERN.test(digest)) {
-      throw new Error("invalid ChatGPT attachment provider options");
-    }
-    if (identityDigestSet.has(digest)) throw new Error("invalid ChatGPT attachment provider options");
-    identityDigestSet.add(digest);
-    return digest;
-  }));
-  const stableIdentityDigest = (ordinal: number, _manifest: OperationFileManifestEntryV1): string => {
-    const digest = identityDigests[ordinal];
-    if (digest === undefined) throw new Error("invalid ChatGPT attachment provider options");
-    return digest;
-  };
   return Object.freeze({
     evidenceDigest,
     files: snapshot,
-    identityDigest: stableIdentityDigest,
-    identityDigests,
+    identityDigest,
     revalidateFile,
     timeoutMs,
     maxCandidates,
@@ -545,12 +550,25 @@ function normalizeOptions(value: ChatGPTAttachmentProviderOptions): Readonly<{
   });
 }
 
+function completeOptions(captured: ReturnType<typeof captureOptions>, values: readonly unknown[]) {
+  if (values.length !== captured.files.length || values.some(value => typeof value !== "string" || !DIGEST_PATTERN.test(value))
+    || new Set(values).size !== values.length) throw new Error("invalid ChatGPT attachment provider options");
+  const identityDigests = Object.freeze([...values] as string[]);
+  const identityDigest = (ordinal: number, _manifest: OperationFileManifestEntryV1): string => {
+    const value = identityDigests[ordinal];
+    if (value === undefined) throw new Error("invalid ChatGPT attachment provider options");
+    return value;
+  };
+  return Object.freeze({ ...captured, identityDigests, identityDigest });
+}
+
 async function readComposerProbe(
   page: Readonly<PageLike>,
   timeoutMs: number,
   labelCandidates: readonly string[],
   signal: AbortSignal | undefined,
-  expected: readonly ExpectedBrowserFact[] | undefined
+  expected: readonly ExpectedBrowserFact[] | undefined,
+  observationOnly = false
 ): Promise<ComposerProbe | undefined> {
   if (signal?.aborted) return undefined;
   const evaluate = safeMethod(page, "evaluate");
@@ -559,6 +577,7 @@ async function readComposerProbe(
   try {
     raw = evaluate.call(page, inspectChatGPTComposer, {
       labels: [...labelCandidates],
+      ...(observationOnly ? { observationOnly: true } : {}),
       ...(expected === undefined ? {} : {
         expected: expected.map(fact => ({
           ordinal: fact.ordinal,
@@ -572,6 +591,21 @@ async function readComposerProbe(
     return undefined;
   }
   return normalizeProbe(raw);
+}
+
+/** Share the provider's evidence rules with every empty-manifest checkpoint. */
+export async function readChatGPTEmptyAttachmentState(page: Readonly<PageLike>): Promise<Readonly<{
+  supported: boolean;
+  count: number;
+  visibleAttachmentCount: number;
+}> | undefined> {
+  const probe = await readComposerProbe(page, 10_000, ATTACHMENT_CONTROL_LABELS, undefined, undefined, true);
+  if (probe === undefined) return undefined;
+  return {
+    supported: probe.status === "ready" && probe.inputFilesReadable && probe.fileInputCount === 1,
+    count: probe.facts.length,
+    visibleAttachmentCount: probe.attachmentRegionCount
+  };
 }
 
 async function readComposerSendReadiness(
@@ -929,7 +963,12 @@ export function inspectChatGPTComposer(argument: unknown): RawComposerProbe {
       }
       return { readable: typeof value === "string" && value.length === 0, facts: [] };
     }
-    if (files.length > MAX_PROBE_ITEMS) throw new Error("probe limit exceeded");
+    if (!Number.isSafeInteger(files.length) || files.length < 0 || files.length > MAX_PROBE_ITEMS) {
+      throw new Error("probe limit exceeded");
+    }
+    if (files.length === 0 && typeof input.value === "string" && input.value.length > 0) {
+      return { readable: false, facts: [] };
+    }
     const facts: RawAttachmentFact[] = [];
     for (let index = 0; index < files.length; index += 1) {
       const file = files.item(index);
@@ -952,12 +991,36 @@ export function inspectChatGPTComposer(argument: unknown): RawComposerProbe {
       "[class*='attachment' i]", "[class*='upload' i]", "[class*='file' i]",
       "[role='listitem']", "[role='progressbar']"
     ].join(", ");
+    const explicitAttachment = (element: Element): boolean =>
+      element.hasAttribute("data-file-name") || element.hasAttribute("data-filename")
+      || element.hasAttribute("data-file-size") || element.hasAttribute("data-size")
+      || element.getAttribute("role") === "progressbar" || element.getAttribute("role") === "listitem"
+      || /(?:attachment|file)[-_]?(?:chip|tile|preview)/iu.test(boundedAttribute(element, "data-testid"));
+    const uploadControl = (element: Element): boolean => {
+      const control = element.tagName === "BUTTON" || element.tagName === "LABEL"
+        || element.getAttribute("role") === "button";
+      if (!control || explicitAttachment(element)) return false;
+      const label = boundedAttribute(element, "aria-label");
+      return element.tagName === "LABEL" || element.hasAttribute("aria-haspopup")
+        || element.getAttribute("id") === "composer-plus-btn"
+        || /^(?:add|upload|attach|choose|select|browse)\b/iu.test(label.trim())
+        || labels.some(candidate => label.toLocaleLowerCase() === candidate.toLocaleLowerCase());
+    };
     const raw = unique(boundedQuery<HTMLElement>(root, selector)
       .filter(visible)
-      .filter(element => element.tagName !== "INPUT" && element.tagName !== "TEXTAREA"
-        && element.tagName !== "BUTTON" && element.tagName !== "LABEL"
-        && element.getAttribute("role") !== "button"
-        && element.getAttribute("aria-haspopup") === null));
+      .filter(element => {
+        if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") return false;
+        if (explicitAttachment(element)) return true;
+        // Menu openers and their icons are controls, not staged files. Real
+        // tiles/removal controls and progress indicators remain evidence.
+        let ancestor: Node | null = element;
+        for (let depth = 0; ancestor !== null && ancestor !== root && depth < 4096; depth += 1) {
+          if (ancestor.nodeType === 1 && uploadControl(ancestor as Element)) return false;
+          ancestor = ancestor.parentNode;
+        }
+        if (ancestor !== null && ancestor !== root) throw new Error("probe limit exceeded");
+        return true;
+      }));
     const rawSet = new Set(raw);
     const nestedContainers = new Set<Element>();
     for (const other of raw) {
@@ -1024,11 +1087,11 @@ export function inspectChatGPTComposer(argument: unknown): RawComposerProbe {
     };
   }
   const root = roots[0]!;
-  const allInputs = boundedQuery<HTMLInputElement>(root, "input[type='file']")
-    .filter(input => !input.disabled && input.getAttribute("aria-disabled") !== "true");
+  const everyInput = boundedQuery<HTMLInputElement>(root, "input[type='file']");
+  const allInputs = everyInput.filter(input => !input.disabled && input.getAttribute("aria-disabled") !== "true");
   const preferred = allInputs.filter(input => input.getAttribute("id") === "upload-files");
   const nonImage = allInputs.filter(input => input.getAttribute("accept") !== "image/*");
-  const inputs = preferred.length === 1 ? preferred : allInputs.length === 1 ? allInputs : nonImage.length === 1 ? nonImage : [];
+  const inputs = preferred.length > 0 ? preferred : nonImage.length > 0 ? nonImage : allInputs;
   if (inputs.length !== 1) {
     return {
       status: "ambiguous",
@@ -1045,6 +1108,13 @@ export function inspectChatGPTComposer(argument: unknown): RawComposerProbe {
   }
   const input = inputs[0]!;
   const inputResult = inputFacts(input);
+  // ChatGPT may expose a general upload input alongside an image input. The
+  // selected input is unique, but absence also requires every alternate input
+  // to be readable and empty (including a disabled in-flight input).
+  const alternateInputsEmpty = everyInput.filter(candidate => candidate !== input).every(candidate => {
+    const result = inputFacts(candidate);
+    return result.readable && result.facts.length === 0;
+  });
   const metadataResult = metadataFacts(root);
   const inputPrimary = inputResult.readable && inputResult.facts.length > 0;
   const facts = inputPrimary ? inputResult.facts : metadataResult.facts;
@@ -1055,6 +1125,19 @@ export function inspectChatGPTComposer(argument: unknown): RawComposerProbe {
       : metadataResult.facts.length > 0 ? "metadata" : "none"
     : metadataResult.facts.length > 0 ? "metadata" : "none";
   const attachmentRegionCount = Math.max(metadataResult.regionCount, inputResult.facts.length);
+  const observation: RawComposerProbe = {
+    status: alternateInputsEmpty ? "ready" : "ambiguous",
+    composerCount: 1,
+    fileInputCount: inputs.length,
+    inputFilesReadable: inputResult.readable,
+    attachmentRegionCount,
+    facts,
+    secondaryFacts,
+    factSource,
+    orderDeterministic: inputResult.readable || metadataResult.orderDeterministic,
+    activationCandidateCount: 0
+  };
+  if (!alternateInputsEmpty || record.observationOnly === true) return observation;
   const controls = boundedQuery<HTMLElement>(root,
     "label, button, [role='button'], [role='menuitem']").filter(visible);
   const contains = (container: Node, candidate: Node): boolean => {
@@ -1100,15 +1183,7 @@ export function inspectChatGPTComposer(argument: unknown): RawComposerProbe {
     // Once a file is attached ChatGPT legitimately adds tile/remove controls,
     // so candidateCount can exceed one while the attachment surface remains
     // exact. Mutation paths validate activationCandidateCount independently.
-    status: "ready",
-    composerCount: 1,
-    fileInputCount: allInputs.length,
-    inputFilesReadable: inputResult.readable,
-    attachmentRegionCount,
-    facts,
-    secondaryFacts,
-    factSource,
-    orderDeterministic: inputResult.readable || metadataResult.orderDeterministic,
+    ...observation,
     ...(directActivationSelector === undefined ? {} : { directActivationSelector }),
     ...(menuOpenerSelector === undefined ? {} : { menuOpenerSelector }),
     ...(menuUploadSelector === undefined ? {} : { menuUploadSelector }),
@@ -1309,13 +1384,13 @@ function causalManifestFiles(
   return files as readonly OperationFileManifestEntryV1[];
 }
 
-function evidenceStatus(
+async function evidenceStatus(
   evidenceDigest: BrowserObservationDigest,
   baseMaterial: Record<string, unknown>,
   status: "ambiguous" | "mismatch" | "unavailable",
   count: number
-): ProductionAttachmentSurfaceRead {
-  const evidence = safeEvidence(evidenceDigest, "chatgpt-attachment-surface", {
+): Promise<ProductionAttachmentSurfaceRead> {
+  const evidence = await safeEvidence(evidenceDigest, "chatgpt-attachment-surface", {
     ...baseMaterial,
     status,
     count
@@ -1418,13 +1493,13 @@ function providerCallable(
   }
 }
 
-function safeEvidence(
+async function safeEvidence(
   evidenceDigest: BrowserObservationDigest,
   domain: string,
   material: unknown
-): string | undefined {
+): Promise<string | undefined> {
   try {
-    const value = evidenceDigest(domain, material);
+    const value = await evidenceDigest(domain, material);
     return typeof value === "string" && DIGEST_PATTERN.test(value) ? value : undefined;
   } catch {
     return undefined;

@@ -219,7 +219,7 @@ function downloadCheck(env: RuntimeEnv): CapabilityCheck {
   const page = env.page;
   if (page === undefined) return unknown("Download readiness requires a bootstrapped ChatGPT page.");
   return typeof page.waitForEvent === "function"
-    ? ok("Browser download events are available.")
+    ? ok("The browser exposes a download event API; a completed download receipt has not been verified.")
     : unsupported("The active browser page does not expose download events.");
 }
 

@@ -4,6 +4,7 @@ import {
   CoordinatedPageError,
   COORDINATED_PAGE_PRIORITIES,
   createCoordinatedPage,
+  withCoordinatedMutationGuard,
   unwrapCoordinatedPage
 } from "../../src/runtime/coordinated-page.js";
 import {
@@ -72,6 +73,34 @@ function wrap(page: PageLike, coordinator: ProcessTabCoordinator, tabId: string,
 }
 
 describe("coordinated PageLike facade", () => {
+  it("checks a queued mutation guard inside the actor without affecting unrelated calls", async () => {
+    const coordinator = new ProcessTabCoordinator();
+    const entered = deferred();
+    const release = deferred();
+    const events: string[] = [];
+    const page = wrap(pageFixture({ click: async () => { events.push("clicked"); } }), coordinator, "guarded-tab");
+    const occupied = coordinator.withTabTransaction(resource("guarded-tab").key, { owner: owner("other-session"), priority: "mutation" }, async () => {
+      entered.resolve();
+      await release.promise;
+    });
+    await entered.promise;
+    let active = true;
+    const failure = new Error("activation expired");
+    const controller = new AbortController();
+    const guarded = withCoordinatedMutationGuard(controller.signal, () => { if (!active) throw failure; }, () => page.locator!("button").click!());
+    const failed = expect(guarded).rejects.toBe(failure);
+    // Keep the signal un-aborted so this exercises the guard inside the actor,
+    // independently of the coordinator's cancellation of queued requests.
+    active = false;
+    const unrelated = page.locator!("button").click!();
+    release.resolve();
+    await occupied;
+    await failed;
+    await unrelated;
+    expect(events).toEqual(["clicked"]);
+    expect(controller.signal.aborted).toBe(false);
+  });
+
   it("keeps page and locator affinity stable while serializing same-tab calls", async () => {
     const coordinator = new ProcessTabCoordinator();
     const gate = deferred();

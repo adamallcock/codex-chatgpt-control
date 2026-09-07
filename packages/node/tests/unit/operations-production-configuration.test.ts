@@ -93,6 +93,9 @@ function fakePage(options: FakePageOptions): PageLike & { clicks: () => number; 
   let presses = 0;
   const page: PageLike = {
     evaluate: async <T, A>(callback: (arg: A) => T | Promise<T>, arg?: A) => {
+      // These independent scoped probes execute real callbacks in the new
+      // DOM fixture suite. This legacy menu/ARIA-map fixture has no popover.
+      if (typeof arg === "object" && arg !== null && (("powerLabels" in arg && !("maxSliders" in arg)) || "chatLabels" in arg)) return undefined as T;
       if (typeof arg === "object" && arg !== null && "maxControls" in arg) {
         expect(callback.toString()).not.toContain("querySelectorAll");
         expect(callback.toString()).not.toContain("Array.from");

@@ -9,7 +9,9 @@ import {
   optionalScenarios,
   requiredScenarios,
   restoreChatExperience,
-  restoreWorkEffort
+  restoreWorkEffort,
+  restoreWorkConfiguration,
+  workMutationCandidate
 } from "../../src/scripts/live-smoke/scenarios.js";
 import type { ConfigurationInspectionData } from "../../src/types.js";
 import type { LiveSmokeScenario } from "../../src/scripts/live-smoke/types.js";
@@ -155,6 +157,37 @@ describe("live smoke harness", () => {
       reportDir: "/tmp/reports",
       env: { CHATGPT_E2E_CONFIGURATION_MUTATION: "1" }
     })).toBe(true);
+  });
+
+  it("chooses an observed speed or model alternative when effort exposes only its current value", () => {
+    const inspection = workInspection("Light");
+    inspection.options = {
+      effort: [{ id: "light", label: "Light", selected: true }],
+      model: [{ id: "sol", label: "GPT-5.6 Sol", selected: true }, { id: "terra", label: "GPT-5.6 Terra", selected: false }],
+      speed: [{ id: "standard", label: "Standard", selected: true }, { id: "fast", label: "Fast", selected: false }]
+    };
+    expect(workMutationCandidate(inspection)).toEqual({ axis: "speed", original: "Standard", alternative: "Fast" });
+    delete inspection.options.speed;
+    expect(workMutationCandidate(inspection)).toEqual({ axis: "model", original: "GPT-5.6 Sol", alternative: "GPT-5.6 Terra" });
+    inspection.options.model![1]!.disabled = true;
+    expect(workMutationCandidate(inspection)).toBeUndefined();
+  });
+
+  it("restores every originally observed axis after a model or speed mutation", async () => {
+    const desired = { model: "GPT-5.6 Sol", effort: "Light", speed: "Standard" };
+    const applied: unknown[] = [];
+    let reads = 0;
+    const restored = await restoreWorkConfiguration({
+      apply: async args => { applied.push(args.desired); return {
+        ok: true, status: "ok", data: { requested: args.desired, selected: [], before: workInspection("High"), after: workInspection("Light"), verified: true },
+        warnings: [], context: { timestamp: "2026-09-06T00:00:00.000Z" }
+      }; },
+      inspect: async () => { reads++; const data = workInspection(reads === 1 ? "High" : "Light"); return {
+        ok: true, status: "ok", data, warnings: [], context: { timestamp: "2026-09-06T00:00:00.000Z" }
+      }; }
+    }, desired, { attempts: 2, sleep: async () => undefined });
+    expect(restored).toMatchObject({ verified: true, attempts: 2, observedSelection: desired });
+    expect(applied).toEqual([desired, desired]);
   });
 
   it("retries restoration until an independent Work inspection verifies the original effort", async () => {

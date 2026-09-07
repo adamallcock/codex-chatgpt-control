@@ -34,7 +34,7 @@ import {
   createProductionConfigurationStaging
 } from "./production-configuration.js";
 import { revalidateOperationFile } from "./file-identity.js";
-import { createChatGPTAttachmentProvider } from "./production-chatgpt-attachments.js";
+import { createChatGPTAttachmentProviderAsync } from "./production-chatgpt-attachments.js";
 import {
   createProductionOperationPrimitives,
   type ProductionOperationPrimitiveOptions
@@ -54,11 +54,14 @@ import {
   type ProductionWorkSteerResult,
   type ProductionWorkSteerObservationRequest
 } from "./production-work-steer.js";
-import type {
-  OperationBrowserCurrentTargetResult,
-  OperationBrowserCurrentTargetRequest,
-  OperationBrowserTargetProbe,
-  OperationBrowserTargetProbeRequest
+import {
+  assertAuthenticatedSendRecovery,
+  createOperationBrowserAdapter,
+  recoverAuthenticatedBrowserSend,
+  type OperationBrowserCurrentTargetResult,
+  type OperationBrowserCurrentTargetRequest,
+  type OperationBrowserTargetProbe,
+  type OperationBrowserTargetProbeRequest
 } from "./browser-adapter.js";
 import type { OperationBrowserAdapter } from "./service.js";
 import {
@@ -222,6 +225,83 @@ export function createChatGPTOperationAdapterFactory(
       ),
       exposeStaging: true,
       exposeControl: true,
+      recoverAuthenticatedSend: async recovery => {
+        try {
+          assertAuthenticatedSendRecovery(recovery);
+          if (recovery.operationId !== request.operationId || recovery.surface !== request.surface
+            || recovery.signal?.aborted || (recovery.deadlineAt !== undefined && Date.now() >= recovery.deadlineAt)) {
+            return { result: { status: "blocked", blockerCode: "target_binding_mismatch" } };
+          }
+          const expectedText = request.prompt.replace(/\s+/g, " ").trim().normalize("NFC");
+          const matchingTurns = new Set<string>();
+          let matchingProbe = false;
+          const digest: BrowserTargetEvidenceDigest = async (domain, material) => {
+            const result = await normalized.evidenceDigest(domain, material);
+            if (matchingProbe && domain === "browser-observation-turn" && material !== null && typeof material === "object"
+              && readDataProperty(material, "operationId") === request.operationId
+              && readDataProperty(material, "role") === "user" && readDataProperty(material, "text") === expectedText) {
+              matchingTurns.add(result);
+            }
+            return result;
+          };
+          const captured = await captureChatGPTRequest({
+            ...normalized, evidenceDigest: digest, request: undefined, files: Object.freeze([]),
+            captureRequest: { operationId: recovery.operationId, requestDigest: recovery.requestDigest, surface: recovery.surface,
+              target: { type: "tab_id", tabId: recovery.target.tabId }, signal: recovery.signal ?? new AbortController().signal },
+            recoveryTarget: recovery.target
+          });
+          const base = captured.primitives?.submission?.sendObservers;
+          if (base === undefined) return { result: { status: "blocked", blockerCode: "target_evidence_unavailable" } };
+          const result = await recoverAuthenticatedBrowserSend(recovery, {
+            page: captured.page, owner: normalized.owner, coordinator: normalized.coordinator,
+            evidenceDigest: digest,
+            ...(captured.capabilities === undefined ? {} : { capabilities: captured.capabilities }),
+            ...(captured.authoritativeClaim === undefined ? {} : { authoritativeClaim: captured.authoritativeClaim }),
+            ...(captured.observeCurrentTarget === undefined ? {} : { observeCurrentTarget: captured.observeCurrentTarget }),
+            ...(normalized.transactionTimeoutMs === undefined ? {} : { transactionTimeoutMs: normalized.transactionTimeoutMs }),
+            sendObservers: { ...base, observePostcondition: async probe => {
+              matchingTurns.clear();
+              matchingProbe = true;
+              try {
+                const observed = await base.observePostcondition(probe);
+                const result = "result" in observed ? observed.result : observed;
+                if ((result.status === "submitted" || result.status === "already_submitted")
+                  && !matchingTurns.has(result.userTurnEvidenceDigest)) {
+                  return { result: { status: "blocked", blockerCode: "ambiguous_submit" }, retryable: false };
+                }
+                return observed;
+              } finally {
+                matchingProbe = false;
+                matchingTurns.clear();
+              }
+            } }
+          });
+          if (result.status !== "submitted" && result.status !== "already_submitted") return { result };
+          const proof = result.targetEstablishment;
+          const target: OperationTargetBindingV1 = recovery.target.targetLifecycle === "new_pending" && proof !== undefined
+            ? { ...recovery.target, targetLifecycle: "new_established",
+              evidenceProfile: { ...recovery.target.evidenceProfile, stableConversationId: "required", stableUserTurnId: "required" },
+              conversationId: proof.conversationId,
+              canonicalThreadUrl: proof.canonicalThreadUrl,
+              targetEstablishment: { ...proof, observedAt: new Date().toISOString() } }
+            : recovery.target;
+          // The service calls collection only after durably accepting this
+          // proof. Retain only read ports, bound to the proved conversation.
+          const readAdapter = createOperationBrowserAdapter({
+            page: captured.page, owner: normalized.owner, evidenceDigest: normalized.evidenceDigest,
+            coordinator: normalized.coordinator,
+            ...(captured.observeCurrentTarget === undefined ? {} : { observeCurrentTarget: captured.observeCurrentTarget }),
+            ...(captured.capabilities === undefined ? {} : { capabilities: captured.capabilities }),
+            ...(captured.authoritativeClaim === undefined ? {} : { authoritativeClaim: captured.authoritativeClaim }),
+            ...(captured.primitives?.collector === undefined ? {} : { collector: captured.primitives.collector }),
+            recovery: { operationId: recovery.operationId, requestDigest: recovery.requestDigest,
+              surface: recovery.surface, target, signal: recovery.signal ?? new AbortController().signal }
+          });
+          return { result, collector: readAdapter.collector };
+        } catch {
+          return { result: { status: "blocked", blockerCode: "target_evidence_unavailable" } };
+        }
+      },
       ...(hasTransferDestination(request) ? { exposeArtifacts: true } : {}),
       capture: async captureRequest => {
         // `captureRequest` is reached only after OperationService has created
@@ -605,7 +685,7 @@ async function captureChatGPTRequest(options: CaptureRequestOptions): Promise<Op
     browserResource,
     {
       owner: acquisitionOwner,
-      priority: "mutation",
+      priority: options.recoveryTarget === undefined ? "mutation" : "read",
       signal: options.captureRequest.signal,
       ...(options.transactionTimeoutMs === undefined ? {} : { timeoutMs: options.transactionTimeoutMs }),
       label: "operation-target-prepare"
@@ -672,7 +752,7 @@ async function captureChatGPTRequest(options: CaptureRequestOptions): Promise<Op
   };
   const attachments = request === undefined || options.files.length === 0
     ? undefined
-    : createChatGPTAttachmentProvider({
+    : await createChatGPTAttachmentProviderAsync({
         evidenceDigest: options.evidenceDigest,
         files: options.files,
         identityDigest: (ordinal, manifest) => options.evidenceDigest(

@@ -1,4 +1,4 @@
-import { readdir, readFile, mkdtemp } from "node:fs/promises";
+import { readdir, readFile, mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -7,6 +7,9 @@ import {
   COLLECTOR_TERMINAL_SCHEMA_VERSION,
   type CollectorObservation
 } from "../../src/operations/collector.js";
+import { createJournalRpcClientFromDescriptor } from "../../src/operations/journal-rpc-client.js";
+import { startJournalRpcServer } from "../../src/operations/journal-rpc-server.js";
+import type { OperationJournalAuthority } from "../../src/operations/journal-authority.js";
 import { OperationJournal, OperationJournalError } from "../../src/operations/journal.js";
 import type {
   SubmissionAttachmentObservation,
@@ -2728,3 +2731,126 @@ function digest(letter: string): string {
   const nibble = /^[0-9a-f]$/.test(letter) ? letter : (letter.charCodeAt(0) % 16).toString(16);
   return `hmac-sha256:${nibble.repeat(64)}`;
 }
+
+
+function asynchronousJournal(journal: OperationJournal): OperationJournalAuthority {
+  return {
+    create: async (...args) => await journal.create(...args),
+    append: async (...args) => await journal.append(...args),
+    load: async (...args) => await journal.load(...args),
+    submitRequestDigest: async (...args) => journal.submitRequestDigest(...args),
+    controlRequestDigest: async (...args) => journal.controlRequestDigest(...args),
+    evidenceDigest: async (...args) => journal.evidenceDigest(...args),
+    handleFromState: async (...args) => journal.handleFromState(...args),
+    validateHandle: async (...args) => journal.validateHandle(...args)
+  };
+}
+
+describe("asynchronous journal authority service", () => {
+  it("awaits signing and authenticates returned handles and replay without Promise fields", async () => {
+    const journal = await openJournal("async-authority");
+    const authority = asynchronousJournal(journal);
+    let release!: () => void;
+    let entered!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    const started = new Promise<void>(resolve => { entered = resolve; });
+    authority.evidenceDigest = async (domain, material) => {
+      if (domain === "configuration-request") { entered(); await pending; }
+      return journal.evidenceDigest(domain, material);
+    };
+    const adapter = makeAdapter({ executeFinalTabTransaction: async request => ({
+      status: request.mode === "mutate_once" ? "submitted" : "already_submitted",
+      targetBindingDigest: request.expected.targetBindingDigest,
+      evidenceDigest: digest("s"), userTurnId: "user-1", userTurnEvidenceDigest: digest("u"), postSendDeltaDigest: digest("d")
+    }) });
+    const service = new OperationService(authority);
+    const first = service.submit(request(OPERATION_ID), [], adapter);
+    await started;
+    expect(adapter.submission.prepareSend).not.toHaveBeenCalled();
+    expect(adapter.submission.executePreparedSend).not.toHaveBeenCalled();
+    release();
+    const submitted = await first;
+    expect(submitted.submission.kind).toBe("submitted");
+    expect(typeof submitted.handle.targetBindingDigest).toBe("string");
+    const inspected = await service.inspect(submitted.handle);
+    expect(inspected.state.phase).toBe("submitted");
+    const replay = await service.submit(request(OPERATION_ID), [], adapter);
+    expect(replay.submission.kind).toBe("already_submitted");
+    expect(adapter.submission.executePreparedSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not prepare or send when async evidence signing rejects", async () => {
+    const journal = await openJournal("async-signing-rejection");
+    const authority = asynchronousJournal(journal);
+    authority.evidenceDigest = async () => { throw new OperationJournalError("journal_rpc_unavailable", "private transport failure"); };
+    const adapter = makeAdapter();
+    const result = await new OperationService(authority).submit(request(OPERATION_ID), [], adapter);
+    expect(result.submission).toMatchObject({ kind: "blocked", blocker: { mutationBoundary: "none" } });
+    expect(adapter.submission.prepareSend).not.toHaveBeenCalled();
+    expect(adapter.submission.executePreparedSend).not.toHaveBeenCalled();
+  });
+
+  it("redacts unavailable async request signing failures before browser access", async () => {
+    const journal = await openJournal("async-request-rejection");
+    const authority = asynchronousJournal(journal);
+    authority.submitRequestDigest = async () => { throw new OperationJournalError("journal_rpc_unavailable", "private transport failure"); };
+    const adapter = makeAdapter();
+    await expect(new OperationService(authority).submit(request(OPERATION_ID), [], adapter)).rejects.toMatchObject({ code: "journal_rpc_unavailable", message: "The operation journal authority is unavailable." });
+    expect(adapter.submission.executePreparedSend).not.toHaveBeenCalled();
+  });
+});
+
+
+it("keeps a remotely committed Send intent observation-only when its acknowledgement is lost", async () => {
+  const journal = await openJournal("async-indeterminate-intent");
+  const authority = asynchronousJournal(journal);
+  let lost = false;
+  authority.append = async (...args) => {
+    const value = await journal.append(...args);
+    if (args[2].type === "action_prepared" && args[2].action.kind === "send") {
+      lost = true;
+      throw new OperationJournalError("journal_rpc_outcome_indeterminate", "private transport failure");
+    }
+    return value;
+  };
+  const adapter = makeAdapter();
+  const service = new OperationService(authority);
+  const result = await service.submit(request(OPERATION_ID), [], adapter);
+  expect(lost).toBe(true);
+  expect(result.submission.kind).toBe("uncertain");
+  expect(adapter.submission.executePreparedSend).not.toHaveBeenCalled();
+  await service.submit(request(OPERATION_ID), [], adapter);
+  expect(adapter.submission.executePreparedSend).not.toHaveBeenCalled();
+  expect(Object.values((await service.inspect(result.handle)).state.actions).filter(action => action.kind === "send")).toHaveLength(1);
+});
+
+
+it.skipIf(process.platform === "win32")("submits and collects through the real POSIX remote authority and replays after sidecar restart without another Send", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "codex-operation-service-rpc-")));
+  const stateRoot = join(root, "state");
+  let server = await startJournalRpcServer({ stateRoot, directory: join(root, "session-one"), pollIntervalMs: 1 });
+  try {
+    const authority = await createJournalRpcClientFromDescriptor(server.descriptorPath, { timeoutMs: 5_000 });
+    const service = new OperationService(authority);
+    const adapter = makeAdapter();
+    const submitted = await service.submit(request(OPERATION_ID), [], adapter);
+    expect(submitted.submission.kind).toBe("submitted");
+    const before = await service.inspect(submitted.handle);
+    const sendActionId = Object.values(before.state.actions).find(action => action.kind === "send")!.actionId;
+    const collector = makeAdapter({ collector: exactTerminalCollector(OPERATION_ID, sendActionId, terminalObservation()) });
+    expect((await service.collect(submitted.handle, collector)).kind).toBe("completed");
+    const completed = await service.inspect(submitted.handle);
+    await server.close();
+    server = await startJournalRpcServer({ stateRoot, directory: join(root, "session-two"), pollIntervalMs: 1 });
+    const restarted = new OperationService(await createJournalRpcClientFromDescriptor(server.descriptorPath, { timeoutMs: 5_000 }));
+    const restartedAdapter = makeAdapter();
+    const replay = await restarted.submit(request(OPERATION_ID), [], restartedAdapter);
+    expect(replay.submission.kind).toBe("completed_receipt");
+    expect(replay.handle).toEqual(completed.handle);
+    expect((await restarted.collect(replay.handle, restartedAdapter)).kind).toBe("completed");
+    expect(adapter.submission.executePreparedSend).toHaveBeenCalledTimes(1);
+    expect(restartedAdapter.submission.prepareSend).not.toHaveBeenCalled();
+    expect(restartedAdapter.submission.executePreparedSend).not.toHaveBeenCalled();
+    expect(Object.values((await restarted.inspect(replay.handle)).state.actions).filter(action => action.kind === "send")).toHaveLength(1);
+  } finally { await server.close(); }
+}, 30_000);

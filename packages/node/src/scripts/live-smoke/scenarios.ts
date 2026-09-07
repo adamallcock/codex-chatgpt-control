@@ -40,6 +40,7 @@ import type {
 } from "../../types.js";
 import type { ChatGPTResponse } from "../../runner/types.js";
 import { contextEnvFlag, contextEnvText } from "./harness.js";
+import { transactionalSubmitOnceScenario } from "./transactional.js";
 import type { LiveSmokeContext, LiveSmokeScenario, LiveSmokeScenarioResult } from "./types.js";
 
 type ScenarioBody = (context: LiveSmokeContext, meta: ScenarioMeta) => Promise<LiveSmokeScenarioResult>;
@@ -53,6 +54,13 @@ type ScenarioMeta = {
 
 type WorkConfigurationCommands = Pick<ReturnType<typeof createChatGPT>["configuration"], "apply" | "inspect">;
 type ExperienceCommands = Pick<ReturnType<typeof createChatGPT>["experience"], "detect" | "open">;
+
+export type WorkConfigurationRestoreResult = {
+  command: CommandResult<unknown>;
+  verified: boolean;
+  attempts: number;
+  observedSelection?: ConfigurationSelection;
+};
 
 export type WorkEffortRestoreResult = {
   command: CommandResult<unknown>;
@@ -118,16 +126,16 @@ export async function restoreChatExperience(
   };
 }
 
-export async function restoreWorkEffort(
+export async function restoreWorkConfiguration(
   configuration: WorkConfigurationCommands,
-  effort: string,
+  desired: ConfigurationSelection,
   options: {
     attempts?: number;
     delayMs?: number;
     timeoutMs?: number;
     sleep?: (milliseconds: number) => Promise<void>;
   } = {}
-): Promise<WorkEffortRestoreResult> {
+): Promise<WorkConfigurationRestoreResult> {
   const attempts = Math.max(1, Math.min(5, options.attempts ?? 3));
   const delayMs = Math.max(0, Math.min(5000, options.delayMs ?? 750));
   const timeoutMs = Math.max(1000, Math.min(120000, options.timeoutMs ?? 60000));
@@ -135,12 +143,12 @@ export async function restoreWorkEffort(
     await new Promise<void>(resolve => setTimeout(resolve, milliseconds));
   });
   let terminal: CommandResult<unknown> | undefined;
-  let observedEffort: string | undefined;
+  let observedSelection: ConfigurationSelection | undefined;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const applied = await configuration.apply({
       experience: "work",
-      desired: { effort },
+      desired,
       strict: true,
       timeoutMs
     });
@@ -153,15 +161,15 @@ export async function restoreWorkEffort(
         timeoutMs
       });
       terminal = asCommand(inspected);
-      observedEffort = inspected.data?.active.effort;
+      observedSelection = inspected.data === undefined ? undefined : activeSelection(inspected.data, Object.keys(desired) as ConfigurationAxis[]);
       if (inspected.ok
         && inspected.data !== undefined
-        && configurationMatchesSelection(inspected.data, { effort })) {
+        && configurationMatchesSelection(inspected.data, desired)) {
         return {
           command: terminal,
           verified: true,
           attempts: attempt,
-          ...(observedEffort === undefined ? {} : { observedEffort })
+          ...(observedSelection === undefined ? {} : { observedSelection })
         };
       }
     }
@@ -175,9 +183,33 @@ export async function restoreWorkEffort(
     command: terminal!,
     verified: false,
     attempts,
-    ...(observedEffort === undefined ? {} : { observedEffort })
+    ...(observedSelection === undefined ? {} : { observedSelection })
   };
 }
+
+export async function restoreWorkEffort(
+  configuration: WorkConfigurationCommands,
+  effort: string,
+  options: Parameters<typeof restoreWorkConfiguration>[2] = {}
+): Promise<WorkEffortRestoreResult> {
+  const restored = await restoreWorkConfiguration(configuration, { effort }, options);
+  const observedEffort = restored.observedSelection?.effort;
+  return { command: restored.command, verified: restored.verified, attempts: restored.attempts,
+    ...(observedEffort === undefined ? {} : { observedEffort }) };
+}
+
+/** Prefer the smallest observed setting change; never invent an effort label. */
+export function workMutationCandidate(inspection: ConfigurationInspectionData): { axis: ConfigurationAxis; original: string; alternative: string } | undefined {
+  for (const axis of ["effort", "speed", "model"] as const) {
+    const original = inspection.active[axis];
+    if (original === undefined || !inspection.availableAxes.includes(axis)) continue;
+    const option = inspection.options[axis]?.find(option => option.selected !== true && option.disabled !== true
+      && !configurationMatchesSelection(inspection, { [axis]: option.label }));
+    if (option !== undefined) return { axis, original, alternative: option.label };
+  }
+  return undefined;
+}
+
 
 export const requiredScenarios: LiveSmokeScenario[] = [
   scenario("bootstrap-new-tab", true, () => true, async (context, meta) => {
@@ -345,10 +377,11 @@ export const requiredScenarios: LiveSmokeScenario[] = [
         workConfiguration.ok
         && workConfiguration.data?.experience === "work"
         && workConfiguration.data.verified === true
-        && hasAxes(workConfiguration.data, ["model", "effort", "speed"]));
-      const workDesired = activeSelection(workConfiguration.data!, ["model", "effort", "speed"]);
+        && hasAxes(workConfiguration.data, ["model", "effort"]));
+      const observedWorkAxes = (["model", "effort", "speed"] as ConfigurationAxis[]).filter(axis => workConfiguration.data!.availableAxes.includes(axis));
+      const workDesired = activeSelection(workConfiguration.data!, observedWorkAxes);
       requireLiveCommand("configuration.inspect.work.active", workConfiguration,
-        hasSelectionAxes(workDesired, ["model", "effort", "speed"]));
+        hasSelectionAxes(workDesired, observedWorkAxes));
 
       const verifiedWorkConfiguration = await chatgpt.configuration.apply({
         experience: "work",
@@ -782,12 +815,13 @@ export const requiredScenarios: LiveSmokeScenario[] = [
 ];
 
 export const optionalScenarios: LiveSmokeScenario[] = [
+  transactionalSubmitOnceScenario,
   scenario("configuration-mutate-restore", false, context => contextEnvFlag(context, "CHATGPT_E2E_CONFIGURATION_MUTATION"), async (context, meta) => {
     const chatgpt = createChatGPT(clientOptionsFor(context));
     const details: Record<string, unknown> = {};
     let booted = false;
     let restoreNeeded = false;
-    let originalEffort: string | undefined;
+    let originalSelection: ConfigurationSelection | undefined;
     let terminal: CommandResult<unknown> = syntheticCommand(meta.startedAt);
     let failure: LiveSmokeCommandFailure | undefined;
 
@@ -811,24 +845,28 @@ export const optionalScenarios: LiveSmokeScenario[] = [
       requireLiveCommand("configuration.inspect.work", inspected,
         inspected.ok && inspected.data?.verified === true);
 
-      originalEffort = inspected.data?.active.effort;
-      const alternative = inspected.data?.options.effort?.find(option => !option.selected && option.disabled !== true)?.label;
+      const candidate = inspected.data === undefined ? undefined : workMutationCandidate(inspected.data);
+      originalSelection = inspected.data === undefined ? undefined : activeSelection(inspected.data, ["model", "effort", "speed"]);
       requireLiveCommand("configuration.inspect.work.alternative", inspected,
-        originalEffort !== undefined && alternative !== undefined);
+        candidate !== undefined && originalSelection !== undefined);
 
       restoreNeeded = true;
       const changed = await chatgpt.configuration.apply({
         experience: "work",
-        desired: { effort: alternative! },
+        desired: { [candidate!.axis]: candidate!.alternative },
         strict: true,
         timeoutMs: 60000
       });
       terminal = asCommand(changed);
       requireLiveCommand("configuration.apply.work.mutate", changed,
         changed.ok && changed.data?.verified === true);
-      details.axis = "effort";
-      details.changedFrom = originalEffort;
-      details.changedTo = alternative;
+      const observedChange = await chatgpt.configuration.inspect({ experience: "work", includeOptions: false, timeoutMs: 60000 });
+      terminal = asCommand(observedChange);
+      requireLiveCommand("configuration.inspect.work.changed", observedChange,
+        observedChange.ok && observedChange.data !== undefined && configurationMatchesSelection(observedChange.data, { [candidate!.axis]: candidate!.alternative }));
+      details.axis = candidate!.axis;
+      details.changedFrom = candidate!.original;
+      details.changedTo = candidate!.alternative;
     } catch (error) {
       if (error instanceof LiveSmokeCommandFailure) {
         failure = error;
@@ -836,12 +874,12 @@ export const optionalScenarios: LiveSmokeScenario[] = [
         throw error;
       }
     } finally {
-      if (booted && restoreNeeded && originalEffort !== undefined) {
-        const restoredConfiguration = await restoreWorkEffort(chatgpt.configuration, originalEffort);
+      if (booted && restoreNeeded && originalSelection !== undefined) {
+        const restoredConfiguration = await restoreWorkConfiguration(chatgpt.configuration, originalSelection);
         terminal = restoredConfiguration.command;
         details.configurationRestoreAttempts = restoredConfiguration.attempts;
-        if (restoredConfiguration.observedEffort !== undefined) {
-          details.restoredEffort = restoredConfiguration.observedEffort;
+        if (restoredConfiguration.observedSelection !== undefined) {
+          details.restoredConfiguration = restoredConfiguration.observedSelection;
         }
         if (!restoredConfiguration.verified) {
           failure = new LiveSmokeCommandFailure("configuration.restore.work", restoredConfiguration.command);

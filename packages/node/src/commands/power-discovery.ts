@@ -287,25 +287,27 @@ export async function discoverPowerSlider(
           || normalized.includes(` ${wanted} `);
       });
     };
-    const isVisible = (element: Element): boolean => {
+    const isVisible = (element: Element, allowSliderAriaHidden = false): boolean => {
       let current: Node | null = element;
       let depth = 0;
-      while (current !== null && depth < 16) {
+      while (current !== null && depth < 64) {
         if (current.nodeType !== 1) break;
         const currentElement = current as Element;
         const html = currentElement as HTMLElement;
-        if (html.hidden
-          || currentElement.getAttribute("aria-hidden") === "true"
+        if (html.hidden || currentElement.hasAttribute("hidden")
+          || (currentElement.getAttribute("aria-hidden") === "true" && !(current === element && allowSliderAriaHidden))
+          || currentElement.getAttribute("data-active") === "false"
           || currentElement.hasAttribute("inert")) return false;
         const style = typeof window !== "undefined"
           ? window.getComputedStyle?.(html)
           : undefined;
-        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
+        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0" || style?.pointerEvents === "none") {
           return false;
         }
         current = current.parentNode;
         depth += 1;
       }
+      if (current !== null && current.nodeType === 1) return false;
       const rect = (element as HTMLElement).getBoundingClientRect?.();
       return rect === undefined || (rect.width > 0 && rect.height > 0);
     };
@@ -451,9 +453,42 @@ export async function discoverPowerSlider(
       }
       return null;
     };
+    const ownedChatSlider = (slider: Element, owner: Element | null, menu: Element | null): boolean => {
+      if (owner === null || menu === null || menu.getAttribute("data-state") !== "open" || !isVisible(menu)
+        || !isVisible(owner) || !matchesPowerLabel(owner.getAttribute("aria-label") ?? "")) return false;
+      let current: Node | null = slider;
+      let sliderOwner = false, activePanel = false, activeView = false, composerRoot = false;
+      for (let depth = 0; current !== null && current !== menu && depth < 32; depth += 1) {
+        if (current.nodeType !== 1) return false;
+        const node = current as Element;
+        if (node.getAttribute("aria-disabled") === "true" || node.getAttribute("data-locked") === "true") return false;
+        if (node.hasAttribute("data-model-reasoning-effort-slider")) sliderOwner = true;
+        if (node.getAttribute("data-testid") === "composer-model-picker-slider-simple-view"
+          && node.getAttribute("data-active") === "true" && isVisible(node)) activePanel = true;
+        if (node.getAttribute("data-view") === "simple" && node.getAttribute("data-has-slider") === "true"
+          && node.getAttribute("data-model-selection-view") === "true" && node.getAttribute("data-has-advanced-view") === "true") activeView = true;
+        if (node.getAttribute("data-testid") === "composer-intelligence-picker-content") composerRoot = true;
+        current = current.parentNode;
+      }
+      const rect = (slider as HTMLElement).getBoundingClientRect?.();
+      return current === menu && sliderOwner && activePanel && activeView && composerRoot
+        && rect !== undefined && rect.width > 0 && rect.height > 0;
+    };
     const sliders = sliderElements.map((slider, index): PowerSliderDomObservation => {
         const owner = nearestOwner(slider);
         const menu = nearestMenu(slider);
+        const renderedChatSlider = ownedChatSlider(slider, owner, menu);
+        let currentValueText = normalize(slider.getAttribute("aria-valuetext") ?? "");
+        if (renderedChatSlider && currentValueText.length === 0) {
+          const ids = (owner?.getAttribute("aria-describedby") ?? "").slice(0, 512).split(/\s+/).slice(0, 8);
+          for (const id of ids) {
+            const description = visibleTextOf(idIndex.get(id));
+            const ordinal = /^(.+?),\s*(\d+)\s+of\s+(\d+)\./u.exec(description);
+            if (ordinal !== null
+              && Number(ordinal[2]) === Number(slider.getAttribute("aria-valuenow")) - Number(slider.getAttribute("aria-valuemin")) + 1
+              && Number(ordinal[3]) === Number(slider.getAttribute("aria-valuemax")) - Number(slider.getAttribute("aria-valuemin")) + 1) currentValueText = ordinal[1]!;
+          }
+        }
         const listId = slider.getAttribute("list");
         const datalist = listId === null ? null : idIndex.get(listId) ?? null;
         // A whole menu is not an option map: it can contain model, speed, and
@@ -471,12 +506,10 @@ export async function discoverPowerSlider(
         const { options, truncated: optionsTruncated } = readOptions(optionRoot);
         return {
           index,
-          visible: isVisible(slider),
+          visible: isVisible(slider, renderedChatSlider),
           ...(textOf(slider).length === 0 ? {} : { ariaLabel: textOf(slider) }),
           ...(labelledByText(slider).length === 0 ? {} : { labelledByText: labelledByText(slider) }),
-          ...(slider.getAttribute("aria-valuetext") === null
-            ? {}
-            : { valueText: normalize(slider.getAttribute("aria-valuetext") ?? "") }),
+          ...(currentValueText.length === 0 ? {} : { valueText: currentValueText }),
           ...(slider.getAttribute("aria-valuemin") === null
             ? {}
             : { minimum: slider.getAttribute("aria-valuemin")! }),
@@ -505,7 +538,7 @@ export async function discoverPowerSlider(
               visible: isVisible(menu)
             }
           }),
-          surface: directSurfaceHint(slider),
+          surface: renderedChatSlider ? { experience: "chat", selectorProfile: "chat_simplified_v1" } : directSurfaceHint(slider),
           ...(options.length === 0 ? {} : { options }),
           ...(optionSource === undefined ? {} : { optionSource }),
           ...(optionsTruncated ? { optionsTruncated: true } : {})

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PageLike } from "../../src/types.js";
 import {
   bindBrowserTarget,
+  bindBrowserTargetAsync,
   BrowserTargetError,
   type BrowserTargetBindingInput,
   type BrowserTargetCapabilities,
@@ -399,5 +400,43 @@ describe("browser target binding adapter", () => {
     }));
     expect(browserFallback.resource.resourceKey).toBe("browser:provider-1:browser-1");
     expect(browserFallback.resource.resourceKind).toBe("browser");
+  });
+});
+
+
+describe("asynchronous target authority", () => {
+  it("awaits claim and target signatures without changing the synchronous binding", async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    const original = input();
+    const expected = bindBrowserTarget(original);
+    let returned = false;
+    const delayed = bindBrowserTargetAsync({ ...original, evidenceDigest: async (domain, material) => {
+      await pending;
+      return DIGEST(domain, material);
+    } }).then(value => { returned = true; return value; });
+    await Promise.resolve();
+    expect(returned).toBe(false);
+    release();
+    const bound = await delayed;
+    expect(bound.target).toEqual(expected.target);
+    expect(bound.targetEvidenceDigest).toEqual(expected.targetEvidenceDigest);
+    expect(bound.page).toBe(original.page);
+  });
+
+  it("captures caller capabilities before yielding and fails closed on rejected signing", async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    const originalPage = page("original");
+    const value = input({ page: originalPage, evidenceDigest: async (domain: string, material: unknown) => {
+      await pending;
+      return DIGEST(domain, material);
+    } });
+    const bound = bindBrowserTargetAsync(value);
+    (value as { page: PageLike }).page = page("replacement");
+    release();
+    expect((await bound).page).toBe(originalPage);
+    await expect(bindBrowserTargetAsync(input({ evidenceDigest: async () => { throw new Error("private authority failure"); } })))
+      .rejects.toMatchObject({ code: "invalid_digest", message: "Target evidence digest is invalid." });
   });
 });

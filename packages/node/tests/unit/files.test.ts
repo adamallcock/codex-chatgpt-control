@@ -1561,6 +1561,72 @@ describe("downloadLatestFile", () => {
     }
   });
 
+  it.each([false, true])("keeps preview downloads filename-scoped without locator filtering (labelled preview: %s)", async hasLabelledPreview => {
+    const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-scoped-preview-download-"));
+    const browserDownload = join(dir, "review.csv");
+    await writeFile(browserDownload, "finding,severity\nexample,low\n");
+    const dest = join(dir, "out");
+    let now = 0;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => now);
+    const missing: LocatorLike = { count: async () => 0 };
+    const artifactClick = vi.fn(async () => {});
+    const labelledDownloadClick = vi.fn(async () => {});
+    const unrelatedDownloadClick = vi.fn(async () => {});
+    const artifact: LocatorLike = { count: async () => 1, click: artifactClick };
+    const assistant: LocatorLike = {
+      getByRole: (_role, options) => options?.name === "review.csv" ? artifact : missing
+    };
+    const assistants: LocatorLike = { count: async () => 1, nth: () => assistant };
+    const labelledDownload: LocatorLike = { count: async () => 1, click: labelledDownloadClick };
+    const unrelatedDownload: LocatorLike = { count: async () => 1, click: unrelatedDownloadClick };
+    const labelledPreview: LocatorLike = {
+      getByRole: (_role, options) => options?.name === "Download" ? labelledDownload : missing
+    };
+    // This provider cannot filter workbook previews by filename. Its sole
+    // workbook belongs to another file, even though it has a Download button.
+    const unrelatedWorkbook: LocatorLike = {
+      count: async () => 1,
+      getByRole: (_role, options) => options?.name === "Download" ? unrelatedDownload : missing
+    };
+    const waitForEvent = vi.fn(async () => ({ path: async () => browserDownload }));
+    const page: PageLike = {
+      content: async () => "<main><div data-message-author-role='assistant'><button aria-label='review.csv'>review.csv</button></div></main>",
+      locator: selector => {
+        if (selector === "[data-message-author-role='assistant']") return assistants;
+        if (selector === "section[aria-label=\"review.csv\"]") return hasLabelledPreview ? labelledPreview : missing;
+        if (selector === "section[data-testid^='popcorn-']") return unrelatedWorkbook;
+        return missing;
+      },
+      waitForEvent,
+      waitForTimeout: async timeoutMs => { now += timeoutMs; },
+      title: async () => "ChatGPT",
+      url: () => "https://chatgpt.com/c/mock"
+    };
+
+    try {
+      const result = await downloadLatestFile({ page }, {
+        destDir: dest,
+        filenamePattern: "^review\\.csv$",
+        timeoutMs: 100
+      });
+
+      expect(artifactClick).toHaveBeenCalledOnce();
+      expect(unrelatedDownloadClick).not.toHaveBeenCalled();
+      expect(result.ok).toBe(hasLabelledPreview);
+      if (hasLabelledPreview) {
+        expect(labelledDownloadClick).toHaveBeenCalledOnce();
+        expect(waitForEvent).toHaveBeenCalledOnce();
+        await expect(readFile(join(dest, "review.csv"), "utf8")).resolves.toBe("finding,severity\nexample,low\n");
+      } else {
+        expect(labelledDownloadClick).not.toHaveBeenCalled();
+        expect(waitForEvent).not.toHaveBeenCalled();
+        expect(result.data).toBeUndefined();
+      }
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
   it("normalizes Chat's download-prefixed artifact control and uses the workbook preview", async () => {
     const dir = await mkdtemp(join(tmpdir(), "chatgpt-control-generated-workbook-download-"));
     const dest = join(dir, "out");

@@ -1,0 +1,22 @@
+{
+  "result": {
+    "blocker": {
+      "code": "download_blocked_by_browser",
+      "kind": "download_unavailable",
+      "message": "Chrome displayed ERR_BLOCKED_BY_CLIENT during the download. Inspect the existing download and Chrome restrictions before retrying; completion is unverified.",
+      "resumable": false
+    },
+    "context": {
+      "timestamp": "2026-06-06T00:00:00.000Z"
+    },
+    "error": {
+      "message": "Chrome displayed ERR_BLOCKED_BY_CLIENT during the download. Inspect the existing download and Chrome restrictions before retrying; completion is unverified.",
+      "name": "DownloadBrowserBlockedError",
+      "recoverable": false
+    },
+    "ok": false,
+    "status": "blocked",
+    "warnings": []
+  },
+  "schemaVersion": "chatgpt.browser_control.command_result.v1"
+}

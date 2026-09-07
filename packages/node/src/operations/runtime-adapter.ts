@@ -159,6 +159,12 @@ export type OperationRuntimeAdapterOptions = Readonly<{
   fileManifestDigest?: OperationBrowserAdapterOptions["fileManifestDigest"];
   /** Explicit lazy recovery path; submit adapters do not use this option. */
   recovery?: OperationRuntimeBrowserRecoveryContext;
+  /** Separate read-only restart callback; cannot initialize a target:new capture. */
+  recoverAuthenticatedSend?: (request: Parameters<NonNullable<OperationSubmissionAdapter["recoverAuthenticatedSend"]>>[0]) => Promise<Readonly<{
+    result: SubmissionFinalTransactionResult;
+    /** Only read ports may survive recovery; no target resolution or mutation. */
+    collector?: OperationCollectorAdapter;
+  }>>;
 }>;
 
 export type OperationRuntimeAdapterErrorCode =
@@ -400,7 +406,18 @@ export function createRuntimeOperationBrowserAdapter(
       .catch(() => fallback);
   };
 
+  let recoveredCollector: OperationCollectorAdapter | undefined;
   const submission: OperationSubmissionAdapter = Object.freeze({
+    ...(options.recoverAuthenticatedSend === undefined ? {} : { recoverAuthenticatedSend: async (request: Parameters<NonNullable<OperationSubmissionAdapter["recoverAuthenticatedSend"]>>[0]) => {
+      if (innerPromise !== undefined) {
+        return await (await innerPromise).submission.recoverSend(request);
+      }
+      const recovered = await options.recoverAuthenticatedSend!(request);
+      if (recovered.result.status === "submitted" || recovered.result.status === "already_submitted") {
+        recoveredCollector = recovered.collector;
+      }
+      return recovered.result;
+    } }),
     observeStaging: request => delegateSubmission(innerPromise, adapter => adapter.submission.observeStaging(request), unavailableStage()),
     executeFileHandoffOnce: request => delegateSubmission(innerPromise, adapter => adapter.submission.executeFileHandoffOnce(request), unavailableHandoff()),
     observeAttachments: request => delegateSubmission(innerPromise, adapter => adapter.submission.observeAttachments(request), { status: "unavailable" }),
@@ -456,19 +473,19 @@ export function createRuntimeOperationBrowserAdapter(
   };
 
   const collector: OperationCollectorAdapter = Object.freeze({
-    readContext: request => delegateRecovered(
+    readContext: request => recoveredCollector !== undefined ? recoveredCollector.readContext(request) : delegateRecovered(
       request.operationId,
       request.requestDigest,
       request.signal,
       adapter => adapter.collector.readContext(request)
     ),
-    observe: request => delegateRecovered(
+    observe: request => recoveredCollector !== undefined ? recoveredCollector.observe(request) : delegateRecovered(
       request.operationId,
       request.requestDigest,
       request.signal,
       adapter => adapter.collector.observe(request)
     ),
-    sleep: (milliseconds, signal) => requireDelegate(innerPromise, adapter => adapter.collector.sleep(milliseconds, signal))
+    sleep: (milliseconds, signal) => recoveredCollector !== undefined ? recoveredCollector.sleep(milliseconds, signal) : requireDelegate(innerPromise, adapter => adapter.collector.sleep(milliseconds, signal))
   });
 
   const staging: OperationStagingAdapter = Object.freeze({
@@ -578,6 +595,7 @@ function normalizeRuntimeAdapterOptions(value: unknown): OperationRuntimeAdapter
     const files = readOwnData(value, "files");
     const fileManifestDigest = readOwnData(value, "fileManifestDigest");
     const recovery = readOwnData(value, "recovery");
+    const recoverAuthenticatedSend = readOwnData(value, "recoverAuthenticatedSend");
     const normalizedRecovery = recovery === undefined
       ? undefined
       : (() => {
@@ -596,7 +614,8 @@ function normalizeRuntimeAdapterOptions(value: unknown): OperationRuntimeAdapter
       transactionTimeoutMs,
       files: files === undefined ? undefined : cloneFrozenData(files),
       fileManifestDigest,
-      recovery: normalizedRecovery
+      recovery: normalizedRecovery,
+      recoverAuthenticatedSend
     };
     const normalized = Object.freeze(snapshot) as OperationRuntimeAdapterOptions;
     validateOptions(normalized);
@@ -612,6 +631,9 @@ function validateOptions(options: OperationRuntimeAdapterOptions): void {
     throw new OperationRuntimeAdapterError("adapter_incomplete");
   }
   if (typeof options.capture !== "function" || typeof options.evidenceDigest !== "function") {
+    throw new OperationRuntimeAdapterError("adapter_incomplete");
+  }
+  if (options.recoverAuthenticatedSend !== undefined && typeof options.recoverAuthenticatedSend !== "function") {
     throw new OperationRuntimeAdapterError("adapter_incomplete");
   }
   if (options.owner === null || typeof options.owner !== "object" || typeof options.owner.backendSessionId !== "string") {

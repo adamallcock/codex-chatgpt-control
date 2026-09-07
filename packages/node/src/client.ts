@@ -110,7 +110,9 @@ import {
   type OperationHandleAdapterFactory,
   type OperationHandleAdapterFactoryContext
 } from "./operations/client.js";
-import { OperationJournal } from "./operations/journal.js";
+import { JOURNAL_RUNTIME_UNAVAILABLE_MESSAGE, OperationJournal, OperationJournalError } from "./operations/journal.js";
+import { createJournalRpcClientFromDescriptor } from "./operations/journal-rpc-client.js";
+import type { OperationJournalAuthority } from "./operations/journal-authority.js";
 import {
   OperationService,
   type OperationBrowserAdapter,
@@ -174,6 +176,8 @@ type TransactionalAskDefaults = ChatGPTClientOptions["defaults"] & Partial<ChatG
  */
 export type ChatGPTOperationsOptions = Readonly<{
   stateRoot?: string;
+  /** Explicit private-file connection to a normal Node journal authority. */
+  journalService?: Readonly<{ descriptorPath: string; timeoutMs?: number }>;
   adapter?: OperationBrowserAdapter;
   adapterFactory?: OperationAdapterFactory;
   handleAdapterFactory?: OperationHandleAdapterFactory;
@@ -1127,9 +1131,14 @@ async function createOperationClientForChatGPT(
   owner: CoordinatorOwner
 ): Promise<OperationClient> {
   const operationOptions = options.operations ?? {};
-  const journal = await OperationJournal.open(
-    operationOptions.stateRoot === undefined ? {} : { stateRoot: operationOptions.stateRoot }
-  );
+  if (operationOptions.journalService !== undefined && operationOptions.stateRoot !== undefined) {
+    throw new OperationJournalError("journal_service_configuration_conflict", "The journal service owns its state root; configure either journalService or stateRoot.");
+  }
+  const journal: OperationJournalAuthority = operationOptions.journalService === undefined
+    ? await OperationJournal.open(operationOptions.stateRoot === undefined ? {} : { stateRoot: operationOptions.stateRoot })
+    : await createJournalRpcClientFromDescriptor(operationOptions.journalService.descriptorPath, {
+        ...(operationOptions.journalService.timeoutMs === undefined ? {} : { timeoutMs: operationOptions.journalService.timeoutMs })
+      });
   const serviceOptions: OperationServiceOptions = {
     ...(operationOptions.maxCasRetries === undefined ? {} : { maxCasRetries: operationOptions.maxCasRetries }),
     ...(options.now === undefined ? {} : { now: () => options.now!().getTime() })
@@ -1144,7 +1153,7 @@ async function createOperationClientForChatGPT(
     || operationOptions.adapterFactory !== undefined
     || operationOptions.handleAdapterFactory !== undefined
     || operationOptions.controlAdapterFactory !== undefined;
-  const evidenceDigest = (domain: string, material: unknown): string => {
+  const evidenceDigest = (domain: string, material: unknown): string | Promise<string> => {
     // Provider primitives use both the journal's short labels and their own
     // versioned slash-separated domains. Preserve short labels verbatim so
     // service-side identities (notably file manifests) remain identical;
@@ -1805,11 +1814,15 @@ function transactionalWorkError(
   parentHandle?: OperationHandleV1
 ): CommandResult<StartWorkData> | CommandResult<SteerWorkData> {
   const code = safeOwnErrorCode(error) ?? "operation_error";
-  const message = `Transactional Work operation failed (${code.replaceAll("_", " ")}).`;
+  const runtimeUnavailable = code === "journal_runtime_unavailable";
+  const serviceUnavailable = JOURNAL_SERVICE_FAILURE_CODES.has(code);
+  const indeterminate = code === "journal_rpc_outcome_indeterminate";
+  const message = runtimeUnavailable ? JOURNAL_RUNTIME_UNAVAILABLE_MESSAGE : serviceUnavailable ? journalServiceFailureMessage(code) : `Transactional Work operation failed (${code.replaceAll("_", " ")}).`;
   const blocker = code === "adapter_unavailable"
     || code === "browser_bridge_unavailable"
     || code === "target_evidence_unavailable"
-    || code === "backend_unavailable";
+    || code === "backend_unavailable"
+    || runtimeUnavailable || serviceUnavailable;
   const data = parentHandle === undefined
     ? {
         operationId,
@@ -1824,11 +1837,21 @@ function transactionalWorkError(
       } as SteerWorkData;
   return {
     ok: false,
-    status: blocker ? "blocked" : "error",
+    status: indeterminate ? "partial" : blocker ? "blocked" : "error",
     data,
     warnings: [],
-    ...(blocker ? { blocker: { kind: transactionalBlockerKind(code), code, message, resumable: true } } : {}),
-    error: { name: "OperationError", message, recoverable: blocker },
+    ...(blocker ? { blocker: {
+      kind: transactionalBlockerKind(code), code, message, resumable: !runtimeUnavailable && !serviceUnavailable,
+      ...(runtimeUnavailable ? { remediation: [{
+        label: "Use a supported transactional host",
+        instruction: "Start the packaged journal service in a supported Node host and configure operations.journalService.descriptorPath in the browser client.",
+        userActionRequired: false
+      }] } : serviceUnavailable ? { remediation: [{
+        ...journalServiceRemediation(code),
+        userActionRequired: false
+      }] } : {})
+    } } : {}),
+    error: { name: "OperationError", message, recoverable: blocker && !runtimeUnavailable && !serviceUnavailable },
     context: { timestamp: new Date().toISOString(), experience: "work" }
   };
 }
@@ -2340,17 +2363,55 @@ function transactionalBlockerKind(code: string): import("./types.js").BlockerKin
   return "unknown";
 }
 
+const JOURNAL_SERVICE_FAILURE_CODES = new Set([
+  "journal_rpc_unavailable", "journal_rpc_authentication_failed", "journal_rpc_protocol_error",
+  "journal_rpc_limit_exceeded", "journal_rpc_outcome_indeterminate", "journal_rpc_request_rejected",
+  "journal_rpc_unsupported_platform"
+]);
+
+function journalServiceFailureMessage(code: string): string {
+  if (code === "journal_rpc_unsupported_platform") {
+    return "The private-file journal service requires POSIX file ownership and permissions and is unavailable on Windows.";
+  }
+  return code === "journal_rpc_outcome_indeterminate"
+    ? "The journal service connection ended without confirming a durable write. Preserve the operation identity and reconcile its state before any further browser action."
+    : "The configured journal service could not provide authenticated operation state. Restore its private connection before continuing.";
+}
+
+function journalServiceRemediation(code: string): { label: string; instruction: string } {
+  return code === "journal_rpc_unsupported_platform" ? {
+    label: "Use a supported journal host",
+    instruction: "On Windows, use the local journal in an ordinary Node browser host without operations.journalService. The private-file journal service requires a POSIX host. Preserve any existing operation identity."
+  } : {
+    label: "Reconnect the same journal",
+    instruction: "Restore the private journal-service connection, then inspect or reconcile the same operation identity. Never create a new operation ID to retry an uncertain Send."
+  };
+}
+
 function transactionalAskError(operationId: string, error: unknown): CommandResult<unknown> {
   const code = safeOwnErrorCode(error) ?? "operation_error";
-  const blocker = code === "adapter_unavailable" || code === "browser_bridge_unavailable" || code === "target_evidence_unavailable";
-  const message = `Transactional operation failed (${code.replaceAll("_", " ")}).`;
+  const runtimeUnavailable = code === "journal_runtime_unavailable";
+  const serviceUnavailable = JOURNAL_SERVICE_FAILURE_CODES.has(code);
+  const indeterminate = code === "journal_rpc_outcome_indeterminate";
+  const blocker = runtimeUnavailable || serviceUnavailable || code === "adapter_unavailable" || code === "browser_bridge_unavailable" || code === "target_evidence_unavailable";
+  const message = runtimeUnavailable ? JOURNAL_RUNTIME_UNAVAILABLE_MESSAGE : serviceUnavailable ? journalServiceFailureMessage(code) : `Transactional operation failed (${code.replaceAll("_", " ")}).`;
   return {
     ok: false,
-    status: blocker ? "blocked" : "error",
+    status: indeterminate ? "partial" : blocker ? "blocked" : "error",
     data: { operationId },
     warnings: [],
-    ...(blocker ? { blocker: { kind: transactionalBlockerKind(code), code, message, resumable: true } } : {}),
-    error: { name: "OperationError", message, recoverable: blocker },
+    ...(blocker ? { blocker: {
+      kind: transactionalBlockerKind(code), code, message, resumable: !runtimeUnavailable && !serviceUnavailable,
+      ...(runtimeUnavailable ? { remediation: [{
+        label: "Use a supported transactional host",
+        instruction: "Start the packaged journal service in a supported Node host and configure operations.journalService.descriptorPath in the browser client.",
+        userActionRequired: false
+      }] } : serviceUnavailable ? { remediation: [{
+        ...journalServiceRemediation(code),
+        userActionRequired: false
+      }] } : {})
+    } } : {}),
+    error: { name: "OperationError", message, recoverable: blocker && !runtimeUnavailable && !serviceUnavailable },
     context: { timestamp: new Date().toISOString() }
   };
 }

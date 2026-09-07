@@ -161,11 +161,18 @@ function pageFixture(options: Readonly<{
       expect(fn.toString()).not.toContain('structural.includes("composer")');
       expect(fn.toString()).not.toContain("Array.from");
       evaluateCount += 1;
-      if (arg === undefined) {
+      if (arg !== null && typeof arg === "object" && "observationOnly" in arg) {
         return {
-          supported: true,
-          count: 0,
-          visibleAttachmentCount: 0
+          status: "ready",
+          composerCount: 1,
+          fileInputCount: 1,
+          inputFilesReadable: true,
+          attachmentRegionCount: 0,
+          facts: [],
+          secondaryFacts: [],
+          factSource: "none",
+          orderDeterministic: true,
+          activationCandidateCount: 0
         } as never;
       }
       const next = options.observations[Math.min(observationIndex++, options.observations.length - 1)];
@@ -558,7 +565,7 @@ describe("provider-specific production operation primitives", () => {
     expect(page.evaluateCount()).toBe(1);
   });
 
-  it("derives an authenticated prior cursor so a later collect can capture the exact terminal turn", async () => {
+  it.each(["markdown", "text"] as const)("derives an authenticated prior cursor and preserves %s format for exact terminal capture", async responseFormat => {
     const actionId = "22222222-2222-4222-8222-222222222222";
     const terminalTurns = [
       turn("user", "user-1", 0),
@@ -644,6 +651,7 @@ describe("provider-specific production operation primitives", () => {
       requestDigest: REQUEST_DIGEST,
       targetBindingDigest: TARGET_DIGEST,
       responseContent: "metadata",
+      responseFormat,
       signal: new AbortController().signal,
       deadlineAt: Date.now() + 10_000
     }, page, target, context);
@@ -652,7 +660,8 @@ describe("provider-specific production operation primitives", () => {
       userTurnId: "user-1",
       assistantTurnId: "assistant-1",
       branchStableId: "branch-1",
-      finishReason: "stop"
+      finishReason: "stop",
+      responseFormat
     });
     expect(page.waitCount()).toBe(0);
     expect(PRODUCTION_OPERATION_PRIMITIVE_INVENTORY.wired).toContain("durable_baseline_projection");
@@ -779,5 +788,45 @@ describe("provider-specific production operation primitives", () => {
     const observed = await primitives.control!.observePostcondition!(request, page, target);
     expect(observed).toMatchObject({ status: "satisfied", assistantTurnId: "assistant-1" });
     expect(page.evaluateCount()).toBe(1);
+  });
+});
+
+
+describe("asynchronous composer signing", () => {
+  it.each(["resolve", "reject", "cancel"] as const)("holds composer mutation until signing settles: %s", async outcome => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    let fills = 0;
+    const controller = new AbortController();
+    const page = pageFixture({ observations: [], composer: composerLocator({ value: "", onFill: () => { fills += 1; } }) });
+    const primitives = createProductionOperationPrimitives({
+      evidenceDigest: async (domain, material) => {
+        await pending;
+        if (outcome === "reject") throw new Error("private signing failure");
+        return evidenceDigest(domain, material);
+      },
+      operationId: OPERATION_ID, requestDigest: REQUEST_DIGEST, desiredComposerText: SECRET_PROMPT
+    });
+    const mutation = primitives.staging!.mutateOnce!({ ...stagingRequest(), signal: controller.signal, page, target });
+    const assertion = outcome === "resolve"
+      ? expect(mutation).resolves.toEqual({ status: "started" })
+      : expect(mutation).rejects.toMatchObject({ code: outcome === "reject" ? "composer_request_mismatch" : "operation_cancelled" });
+    await Promise.resolve();
+    expect(fills).toBe(0);
+    if (outcome === "cancel") controller.abort();
+    release();
+    await assertion;
+    expect(fills).toBe(outcome === "resolve" ? 1 : 0);
+  });
+
+  it("returns concrete signed observation fields from an async authority", async () => {
+    const page = pageFixture({ observations: [], composer: composerLocator({ value: SECRET_PROMPT }) });
+    const primitives = createProductionOperationPrimitives({
+      evidenceDigest: async (domain, material) => evidenceDigest(domain, material),
+      operationId: OPERATION_ID, requestDigest: REQUEST_DIGEST, desiredComposerText: SECRET_PROMPT
+    });
+    const observed = await primitives.staging!.readCurrent!({ ...stagingRequest(), page, target });
+    expect(observed).toMatchObject({ status: "satisfied", currentStateDigest: expect.stringMatching(/^hmac-sha256:/), evidenceDigest: expect.stringMatching(/^hmac-sha256:/) });
+    expect(JSON.stringify(observed)).not.toContain(SECRET_PROMPT);
   });
 });
