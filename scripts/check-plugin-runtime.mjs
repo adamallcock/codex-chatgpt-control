@@ -104,6 +104,10 @@ async function main() {
       path.join(runtimeDir, "codex-chatgpt-control-backend.mjs")
     ],
     [
+      sourceBundle(distDir, `${PRIVATE_BUNDLE_PREFIX}-journal.mjs`, "codex-chatgpt-control-journal.mjs"),
+      path.join(runtimeDir, "codex-chatgpt-control-journal.mjs")
+    ],
+    [
       sourceBundle(distDir, `${PRIVATE_BUNDLE_PREFIX}-live-smoke.bundle.mjs`, "codex-chatgpt-control-live-smoke.bundle.mjs"),
       path.join(runtimeDir, "codex-chatgpt-control-live-smoke.bundle.mjs")
     ],

@@ -107,6 +107,7 @@ async function main() {
     path.join(pluginRoot, "runtime/import-chatgpt-control.mjs"),
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control.bundle.mjs"),
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control-backend.mjs"),
+    path.join(pluginRoot, "runtime/node/codex-chatgpt-control-journal.mjs"),
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control-live-smoke.bundle.mjs"),
     path.join(pluginRoot, "runtime/node/codex-chatgpt-control-release-canary.bundle.mjs"),
     path.join(pluginRoot, "skills/codex-chatgpt-control/SKILL.md"),
