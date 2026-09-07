@@ -148,8 +148,8 @@ the package upload itself reproducible and tokenless.
 5. Create and push a `v*` tag that matches the Node package version:
 
    ```bash
-   git tag v0.5.1-alpha.3
-   git push origin v0.5.1-alpha.3
+   git tag v0.5.1-alpha.4
+   git push origin v0.5.1-alpha.4
    ```
 
 6. Approve the `release` environment deployment in GitHub Actions. The workflow

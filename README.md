@@ -364,6 +364,18 @@ For real ChatGPT browser control:
 
 `globalThis.agent` is not created by this package. It must come from the host runtime, such as a Codex environment with a compatible browser bridge. The SDK refuses to fake this path: ordinary shell runs should return `browser_bridge_unavailable` for browser-required operations.
 
+For transactional operations in a browser host without process identity, use
+the explicit [journal service](packages/node/references/2026-09-06-journal-service.md).
+The packaged `codex-chatgpt-control-journal` command owns durable state and
+locks in ordinary Node while the browser client connects through a private,
+authenticated filesystem descriptor. Browser control remains in its active
+host. Preserve the operation identity after an uncertain write; a connected
+journal alone does not establish live transactional qualification.
+
+The private-file journal transport supports macOS/Linux and explicitly returns
+`journal_rpc_unsupported_platform` on Windows before filesystem access. The
+existing local Node journal path is unchanged.
+
 ### Local File Upload Requirements
 
 Attachment paths must be absolute on the machine running the Node backend. Use `/home/you/file.pdf` or `/mnt/c/work/file.pdf` for Linux/WSL backends. Use `C:\Users\you\file.pdf` or `\\server\share\file.pdf` for Windows backends. The backend rejects ambiguous Windows forms such as `C:Users\you\file.pdf` and rejects Windows-looking paths when the backend host is POSIX.

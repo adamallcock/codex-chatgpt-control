@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.5.1-alpha.4
+
+- Detects Chrome's explicit blocked-download error page, avoids alternate
+  download attempts, and keeps signed download URLs out of rejected-page results.
+- Requires filename-scoped workbook previews when browser filtering is absent.
+- Repairs Chat detection and configuration when current Power or Advanced
+  menus are open, preserving scoped Work evidence and verified effort changes.
+- Recognizes current Work model/Power menus and the independent Fast-mode
+  checkbox, with verified selection/restoration and legacy Advanced support.
+- Recovers an unconfirmed Send through a fresh client using the authenticated
+  saved tab, baseline, unique turn and matching prompt, without sending again.
+- Adds an explicit authenticated journal service and packaged CLI for browser
+  hosts without process identity. Journal files and locks remain owned by real
+  Node; browser capabilities remain in the active browser host.
+- Supports the new private-file journal transport on macOS/Linux; Windows
+  returns an explicit unsupported-platform error before filesystem access.
+- Preserves multiline composer text, recognizes zero-file composer state,
+  and forwards the requested response format during exact-turn collection.
+- Bounds native download completion receipt waits and reports unverified
+  completion without repeating the download or switching strategies.
+- Uses one journal-call deadline across queued admission and dispatch and
+  bounds concurrent turn evidence requests while preserving digest identities.
+- Adds transactional live qualification with durable Send inspection, guarded
+  same-ID recovery, owned receipts and duplicate-submission checks.
+- Preserves journal-unavailable and indeterminate-write results across Node
+  and Python through shared fixtures, with bounded transport and private reports.
+
 ## 0.5.1-alpha.3
 
 - Adds durable transactional Chat and Work operations with caller-owned IDs,

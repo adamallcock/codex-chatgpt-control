@@ -56,6 +56,22 @@ is unavailable. See
 for request schemas, concurrency, recovery, privacy, transport bounds, and the
 stricter transactional artifact-provider capability matrix.
 
+If the browser host lacks process identity, start `codex-chatgpt-control-journal`
+in an ordinary Node terminal with `--state-root /absolute/private/state` and
+`--directory /absolute/private/new-session`. Then configure
+`operations: { journalService: { descriptorPath: "/absolute/private/new-session/connection.json" } }`
+on the browser client. The explicit private-file connection keeps browser
+control in the active host and durable journal authority in the Node process.
+Keep the descriptor secret and reuse the same operation identity after any
+uncertain write. See [the journal service runbook](references/2026-09-06-journal-service.md)
+for startup, recovery and qualification. Without a configured service, an
+unsupported local journal returns `journal_runtime_unavailable` before browser
+work.
+
+The private-file journal service supports macOS/Linux. On Windows it returns
+`journal_rpc_unsupported_platform` before filesystem access; the existing local
+Node journal path is unchanged.
+
 Inspect the visible surface and apply verified configuration:
 
 ```ts
