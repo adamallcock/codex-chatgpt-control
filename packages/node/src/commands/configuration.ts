@@ -22,6 +22,7 @@ import type {
 import { contextFromPage } from "./context.js";
 import { detectExperience, openExperience } from "./experience.js";
 import { setMode } from "./modes.js";
+import { closeChatPopover, inspectChatPopover, readChatPopover, selectChatPopoverEffort, selectChatPopoverModel, selectChatPopoverSpeed, type ChatPopoverSnapshot } from "./chat-popover.js";
 import { ensurePage } from "./session.js";
 
 const WORK_AXES: ConfigurationAxis[] = ["model", "effort", "speed"];
@@ -30,15 +31,17 @@ const CONFIGURATION_CONTROL_POLL_MS = 250;
 const CONFIGURATION_SELECTION_MAX_ATTEMPTS = 6;
 const CONFIGURATION_SELECTION_RETRY_MS = 400;
 const CONFIGURATION_AXIS_ORDER: ConfigurationAxis[] = [
+  "modelVersion",
   "model",
   "intelligence",
   "effort",
   "speed",
-  "modelVersion",
 ];
 
 export type ConfigurationPanelSnapshot = {
   openerLabel?: string;
+  /** Visible selected value; the accessible opener name may only name the axis. */
+  openerValue?: string;
   axisRows: Array<{ axis: ConfigurationAxis; label: string; value?: string }>;
   advancedVisible: boolean;
 };
@@ -81,6 +84,7 @@ export async function inspectConfiguration(
     }
 
     const experience = detected.data.experience;
+    const initialChatPopover = experience !== "unknown" ? (await readChatPopover(page)).snapshot : undefined;
     const initialPanel = await readConfigurationPanel(page);
     const rootOpened = experience !== "unknown" && await waitForConfigurationRoot(
       page,
@@ -89,6 +93,18 @@ export async function inspectConfiguration(
     );
     if (rootOpened) {
       await page.waitForTimeout?.(150);
+    }
+
+    if (experience !== "unknown" && (await readChatPopover(page)).snapshot !== undefined) {
+      try {
+        const chat = await inspectChatPopover(page);
+        const data = configurationInspectionFromPopover(experience, detected.data.evidence, chat);
+        if (args.includeOptions === false) data.options = {};
+        return resultOk(data, await contextFromPage(page, { experience, selectorProfile: data.selectorProfile }),
+          data.verified ? [] : ["The owned configuration views did not provide unique active model and effort evidence."]);
+      } finally {
+        if (initialChatPopover === undefined) await closeConfigurationMenus(page);
+      }
     }
 
     const workAdvancedOpened = experience !== "work"
@@ -139,6 +155,36 @@ export async function inspectConfiguration(
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
+}
+
+/** Shared owned popover, with surface-specific model semantics and observed axes only. */
+export function configurationInspectionFromPopover(
+  experience: "chat" | "work",
+  evidence: ConfigurationInspectionData["evidence"],
+  popover: ChatPopoverSnapshot | undefined
+): ConfigurationInspectionData {
+  const data: ConfigurationInspectionData = { experience, selectorProfile: experience === "work" ? "work_basic_v1" : "chat_simplified_v1",
+    availableAxes: [], active: {}, options: {}, verified: false, evidence };
+  if (popover?.slider !== undefined) {
+    data.availableAxes.push("effort");
+    if (popover.effort !== undefined) {
+      data.active.effort = popover.effort;
+      data.options.effort = [{ id: normalizeConfigurationId(popover.effort), label: popover.effort, selected: true }];
+    }
+  }
+  if (popover !== undefined && popover.modelOptions.length > 0) {
+    const axis = experience === "work" ? "model" : "modelVersion";
+    data.availableAxes.push(axis);
+    if (popover.activeModel !== undefined) data.active[axis] = popover.activeModel;
+    data.options[axis] = popover.modelOptions.map(option => ({ id: normalizeConfigurationId(option.label), label: option.label, selected: option.checked }));
+  }
+  if (experience === "work" && popover?.speed !== undefined) {
+    data.availableAxes.push("speed");
+    data.active.speed = popover.speed;
+    data.options.speed = ["Standard", "Fast"].map(label => ({ id: normalizeConfigurationId(label), label, selected: label === popover.speed }));
+  }
+  data.verified = popover?.effort !== undefined && popover.activeModel !== undefined;
+  return data;
 }
 
 async function waitForConfigurationRoot(
@@ -214,7 +260,13 @@ export async function applyConfiguration(
 
     const selected: AppliedConfigurationSelection[] = [];
     for (const [axis, requested] of selectionEntries(desired)) {
-      const active = activeConfigurationValue(before, axis);
+      // A model change can reset effort and alter its available range.
+      // Re-observe between axes instead of trusting the initial snapshot.
+      const currentResult = selected.length === 0 ? beforeResult : await inspectConfiguration(env, { includeOptions: false });
+      if (!currentResult.ok || currentResult.data === undefined) return forwardFailure(currentResult);
+      const current = currentResult.data;
+      if (current.experience !== before.experience) return configurationFailure(page, before, desired, selected, "The composer experience changed during configuration selection.", "experience_mismatch");
+      const active = activeConfigurationValue(current, axis);
       if (active !== undefined && configurationValueMatches(active, requested)) {
         selected.push({ axis, requested, selected: active });
         continue;
@@ -303,22 +355,32 @@ export function configurationInspectionFromSurface(
     const simplified = chatMenuLooksSimplified(menuItems);
     selectorProfile = simplified ? "chat_simplified_v1" : detectedProfile;
     const axis: ConfigurationAxis = simplified ? "intelligence" : "effort";
-    if (menuItems.length > 0 || panel.openerLabel !== undefined) {
-      availableAxes.push(axis);
-    }
-    if (panel.openerLabel !== undefined) {
-      active[axis] = panel.openerLabel;
-    }
+    const modelRows = menuItems.filter(item => item.role === "menuitemradio"
+      && item.hasPopup !== true
+      && (/^(?:gpt[\s-]|o\d+(?:\b|$)|\d+(?:\.\d+)?$)/i.test(item.label)
+        || localeLabels.modeOptions.latest.some(label => visibleLabelMatches(item.label, label))));
     const chatOptions = menuItems
-      .filter(item => !isConfigurationAxisRow(item.label))
+      .filter(item => !isConfigurationAxisRow(item.label)
+        && !modelRows.includes(item)
+        && item.hasPopup !== true
+        && !/^gpt[\s-]/i.test(item.label)
+        && item.ariaLabel !== "Select model")
       .map(menuItemToOption);
-    if (chatOptions.length > 0) {
-      options[axis] = chatOptions;
-    }
-    const modelRows = menuItems.filter(item => /^gpt[\s-]/i.test(item.label) || item.hasPopup === true);
-    if (modelRows.length > 0) {
+    const selectedEffort = chatOptions.filter(option => option.selected === true);
+    const openerValue = panel.openerValue ?? panel.openerLabel;
+    if (chatOptions.length > 0 || openerValue !== undefined) availableAxes.push(axis);
+    if (selectedEffort.length === 1) active[axis] = selectedEffort[0]!.label;
+    else if (openerValue !== undefined
+      && !isConfigurationAxisRow(openerValue)
+      && !/^(?:thinking effort|select model|power)$/i.test(openerValue)) active[axis] = openerValue;
+    if (chatOptions.length > 0) options[axis] = chatOptions;
+    const modelOpeners = menuItems.filter(item => item.role !== "menuitemradio"
+      && /^gpt[\s-]/i.test(item.label));
+    if (modelRows.length > 0 || modelOpeners.length > 0) {
       availableAxes.push("modelVersion");
-      options.modelVersion = modelRows.map(menuItemToOption);
+      options.modelVersion = [...modelRows, ...modelOpeners].map(menuItemToOption);
+      const checked = modelRows.filter(item => item.checked === true);
+      if (checked.length === 1) active.modelVersion = checked[0]!.label;
     }
   }
 
@@ -350,6 +412,17 @@ async function selectWorkAxis(
   const page = env.page!;
   if (!WORK_AXES.includes(axis)) {
     return undefined;
+  }
+  const initialPopover = (await readChatPopover(page)).snapshot;
+  await openConfigurationRoot(page, "work");
+  if ((await readChatPopover(page)).snapshot !== undefined) {
+    try {
+      const labels = configurationSemanticLabels(requested);
+      if (axis === "model") return await selectChatPopoverModel(page, labels);
+      if (axis === "effort") return await selectChatPopoverEffort(page, labels);
+      if (axis === "speed") return await selectChatPopoverSpeed(page, labels);
+      return undefined;
+    } finally { if (initialPopover === undefined) await closeConfigurationMenus(page); }
   }
   const retryWindowMs = Math.min(
     timeoutMs ?? CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS,
@@ -527,6 +600,18 @@ async function selectChatAxis(
   requested: string,
   timeoutMs: number | undefined
 ): Promise<string | undefined> {
+  const page = env.page!;
+  const initialPopover = (await readChatPopover(page)).snapshot;
+  await openConfigurationRoot(page, "chat");
+  if ((await readChatPopover(page)).snapshot !== undefined) {
+    try {
+      if (axis === "modelVersion") return await selectChatPopoverModel(page, configurationSemanticLabels(requested));
+      if (axis === "effort" || axis === "intelligence" || axis === "model") return await selectChatPopoverEffort(page, configurationSemanticLabels(requested));
+      return undefined;
+    } finally {
+      if (initialPopover === undefined) await closeConfigurationMenus(page);
+    }
+  }
   const legacyArgs = axis === "modelVersion"
     ? { modelVersion: requested }
     : axis === "intelligence"
@@ -547,6 +632,7 @@ async function selectChatAxis(
 }
 
 async function openConfigurationRoot(page: PageLike, experience: ChatGPTExperience): Promise<boolean> {
+  if (experience !== "unknown" && (await readChatPopover(page)).snapshot !== undefined) return true;
   const existing = await readConfigurationPanel(page);
   if (existing.axisRows.length > 0) {
     return true;
@@ -773,6 +859,7 @@ async function readConfigurationPanel(page: PageLike): Promise<ConfigurationPane
         const html = control as HTMLElement;
         return {
           label: normalize(control.getAttribute("aria-label") ?? html.innerText ?? control.textContent ?? ""),
+          value: normalize(html.innerText ?? control.textContent ?? ""),
           testId: control.getAttribute("data-testid") ?? ""
         };
       })
@@ -785,6 +872,7 @@ async function readConfigurationPanel(page: PageLike): Promise<ConfigurationPane
     };
     if (openerCandidates.length === 1 && openerCandidates[0]?.label.length) {
       result.openerLabel = openerCandidates[0].label;
+      if (openerCandidates[0].value.length > 0) result.openerValue = openerCandidates[0].value;
     }
     return result;
   }, localeLabels.configurationAxes).catch(() => ({ axisRows: [], advancedVisible: false }));
@@ -972,6 +1060,7 @@ function normalizeConfigurationId(value: string): string {
 }
 
 async function closeConfigurationMenus(page: PageLike): Promise<void> {
+  if ((await readChatPopover(page)).snapshot !== undefined) { await closeChatPopover(page); return; }
   if (!await pressConfigurationEscape(page)) return;
   await page.waitForTimeout?.(50);
   await pressConfigurationEscape(page);

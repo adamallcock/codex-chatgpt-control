@@ -81,6 +81,28 @@ const NEW_PENDING_TARGET: OperationTargetBindingV1 = {
 };
 
 describe("operation journal", () => {
+  it.each([
+    undefined,
+    { pid: 0, env: {}, kill: () => true, getuid: (): number => 0 },
+    { pid: 1, env: {}, getuid: (): number => 0 },
+    { pid: 1, env: {}, kill: () => { throw new Error("host details"); }, getuid: (): number => 0 },
+    ...(process.platform === "win32" ? [] : [
+      { pid: 1, env: {}, kill: () => true },
+      { pid: 1, env: {}, kill: () => true, getuid: (): number => -1 }
+    ])
+  ])("blocks unsupported host capabilities before writing state (%#)", async runtime => {
+    const parent = await mkdtemp(join(tmpdir(), "journal-host-"));
+    const root = join(parent, "must-not-exist");
+    let opening: Promise<OperationJournal>;
+    vi.stubGlobal("process", runtime);
+    try { opening = OperationJournal.open({ stateRoot: root }); }
+    finally { vi.unstubAllGlobals(); }
+    try {
+      await expect(opening!).rejects.toMatchObject({ code: "journal_runtime_unavailable" });
+      await expect(lstat(root)).rejects.toMatchObject({ code: "ENOENT" });
+    } finally { await rm(parent, { recursive: true, force: true }); }
+  });
+
   it("creates restrictive keyed state with opaque paths and reloads the hash chain", async () => {
     const root = await testRoot("basic");
     const journal = await OperationJournal.open({ stateRoot: root });

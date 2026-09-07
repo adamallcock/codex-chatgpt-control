@@ -1,0 +1,32 @@
+{
+  "result": {
+    "blocker": {
+      "code": "journal_runtime_unavailable",
+      "kind": "unknown",
+      "message": "Transactional operations require a Node host with process identity, file ownership, and process liveness APIs. This host cannot safely open the operation journal.",
+      "remediation": [
+        {
+          "instruction": "Start the packaged journal service in a supported Node host and configure operations.journalService.descriptorPath in the browser client.",
+          "label": "Use a supported transactional host",
+          "userActionRequired": false
+        }
+      ],
+      "resumable": false
+    },
+    "context": {
+      "timestamp": "2026-06-06T00:00:00.000Z"
+    },
+    "data": {
+      "operationId": "123e4567-e89b-42d3-a456-426614174000"
+    },
+    "error": {
+      "message": "Transactional operations require a Node host with process identity, file ownership, and process liveness APIs. This host cannot safely open the operation journal.",
+      "name": "OperationError",
+      "recoverable": false
+    },
+    "ok": false,
+    "status": "blocked",
+    "warnings": []
+  },
+  "schemaVersion": "chatgpt.browser_control.command_result.v1"
+}

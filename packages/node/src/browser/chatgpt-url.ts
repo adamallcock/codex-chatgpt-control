@@ -27,3 +27,11 @@ export function requireChatGPTUrl(value: string, label: string): string {
   }
   return value;
 }
+
+/** Public context for ChatGPT's signed attachment endpoint, never its token. */
+export function chatGPTAttachmentContextUrl(value: string | undefined): string | undefined {
+  if (!isChatGPTUrl(value)) return undefined;
+  const url = new URL(value!);
+  if (url.pathname !== "/backend-api/estuary/content") return undefined;
+  return `${url.origin}${url.pathname}`;
+}

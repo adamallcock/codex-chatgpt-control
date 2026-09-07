@@ -1,6 +1,6 @@
 {
   "name": "codex-chatgpt-control",
-  "version": "0.5.1-alpha.3",
+  "version": "0.5.1-alpha.4",
   "description": "Unofficial SDK for controlling visible ChatGPT Chat and Work sessions.",
   "type": "module",
   "license": "MIT",
@@ -44,7 +44,8 @@
     "smoke:search": "tsx src/scripts/smoke-search-open-read.ts",
     "smoke:attach": "tsx src/scripts/smoke-attach-file.ts",
     "smoke:live": "tsx src/scripts/live-smoke.ts",
-    "smoke:release:build": "npm run bundle:release-canary"
+    "smoke:release:build": "npm run bundle:release-canary",
+    "bundle:journal": "esbuild src/scripts/journal-server.ts --bundle --platform=node --format=esm --outfile=dist/codex-chatgpt-control-journal.mjs"
   },
   "exports": {
     ".": {
@@ -59,13 +60,17 @@
   },
   "types": "./dist/src/index.d.ts",
   "bin": {
-    "codex-chatgpt-control-backend": "dist/src/scripts/backend-server.js"
+    "codex-chatgpt-control-backend": "dist/src/scripts/backend-server.js",
+    "codex-chatgpt-control-journal": "dist/src/scripts/journal-server.js"
   },
   "files": [
     "dist/src/**/*.js",
     "dist/src/**/*.d.ts",
     "dist/codex-chatgpt-control.bundle.mjs",
     "dist/codex-chatgpt-control-backend.mjs",
+    "dist/codex-chatgpt-control-journal.mjs",
+    "dist/codex-chatgpt-control-live-smoke.bundle.mjs",
+    "dist/codex-chatgpt-control-release-canary.bundle.mjs",
     "contracts/v1/**/*.json",
     "contracts/v1/**/*.ndjson",
     "references/**/*.md",

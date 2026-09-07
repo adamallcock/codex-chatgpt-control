@@ -346,17 +346,15 @@ export function parseArgs(argv: readonly string[]): CaptureOptions {
     assertNormalizedSlug(value, `--${field.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)}`);
   }
 
-  const defaultOut = resolve(
-    process.cwd(),
-    "..",
-    "..",
-    "outputs",
-    "surface-profiles",
-    `${new Date().toISOString().slice(0, 10)}-${id}.json`
-  );
+  if (out === undefined && typeof process === "undefined") {
+    throw new UsageError("--out is required in a browser host without a working directory.");
+  }
+  const outputPath = out === undefined
+    ? resolve(process.cwd(), "..", "..", "outputs", "surface-profiles", `${new Date().toISOString().slice(0, 10)}-${id}.json`)
+    : resolve(out);
   return {
     id,
-    out: resolve(out ?? defaultOut),
+    out: outputPath,
     ...(locale === undefined ? {} : { locale }),
     region,
     accountScope,

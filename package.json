@@ -1,13 +1,13 @@
 {
   "name": "codex-chatgpt-control-repo",
-  "version": "0.5.1-alpha.3",
+  "version": "0.5.1-alpha.4",
   "private": true,
   "description": "Public source repo for the unofficial visible ChatGPT Chat and Work control SDK.",
   "type": "module",
   "scripts": {
     "node:test": "node --test scripts/tests/*.test.mjs && npm --prefix packages/node test",
     "node:build": "npm --prefix packages/node run build",
-    "node:bundle": "npm --prefix packages/node run bundle && npm --prefix packages/node run bundle:backend && npm --prefix packages/node run bundle:live-smoke && npm --prefix packages/node run bundle:release-canary",
+    "node:bundle": "npm --prefix packages/node run bundle && npm --prefix packages/node run bundle:backend && npm --prefix packages/node run bundle:live-smoke && npm --prefix packages/node run bundle:release-canary && npm --prefix packages/node run bundle:journal",
     "node:contracts": "npm --prefix packages/node run contract:validate && npm --prefix packages/node run docs:drift && npm --prefix packages/node run parity:fixtures && npm --prefix packages/node run parity:suite",
     "python:test": "node scripts/run-python-gate.mjs test",
     "python:compile": "node scripts/run-python-gate.mjs compile",

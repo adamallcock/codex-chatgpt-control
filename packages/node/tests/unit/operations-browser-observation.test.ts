@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import type { PageLike } from "../../src/types.js";
 import {
@@ -885,5 +885,87 @@ describe("browser observation adapter", () => {
     expect(() => readSyntheticWithOptions(syntheticDocument(0), {
       href: "https://chatgpt.com/c/different-conversation"
     })).toThrow("conversation navigation mismatch");
+  });
+});
+
+
+describe("asynchronous observation authority", () => {
+  it("bounds delayed turn and artifact digests to four calls while preserving stable output order", async () => {
+    const turns = Array.from({ length: 8 }, (_, index) => turn(index % 2 === 0 ? "user" : "assistant", `turn-${index}`, Math.floor(index / 2), {
+      ...(index % 2 === 0 ? {} : { parentStableId: `turn-${index - 1}`, branchStableId: `branch-${index}`, state: "terminal" as const, finishReason: "stop" }),
+      artifacts: Array.from({ length: 3 }, (_, ordinal) => ({ kind: "file" as const, identity: `artifact-${index}-${ordinal}` }))
+    }));
+    const raw = observation(turns);
+    const expected = await observeBrowserPage(fakePage(raw), options());
+    let active = 0;
+    let maximum = 0;
+    const completed: string[] = [];
+    const observed = await observeBrowserPage(fakePage(raw), options({ evidenceDigest: async (domain, material) => {
+      active += 1; maximum = Math.max(maximum, active);
+      try {
+        const stableId = (material as { stableId?: string }).stableId;
+        await new Promise(resolve => setTimeout(resolve, stableId === "turn-0" ? 20 : 1));
+        if (domain === "browser-observation-turn") completed.push(stableId!);
+        return digest(domain, material);
+      } finally { active -= 1; }
+    } }));
+    expect(maximum).toBe(4);
+    expect(active).toBe(0);
+    expect(completed[0]).not.toBe("turn-0");
+    expect(observed).toEqual(expected);
+    expect(observed.snapshot.userTurns.map(value => value.stableId)).toEqual(["turn-0", "turn-2", "turn-4", "turn-6"]);
+    expect(observed.snapshot.assistantTurns.map(value => value.stableId)).toEqual(["turn-1", "turn-3", "turn-5", "turn-7"]);
+  });
+
+  it.each(["artifact", "turn", "structure"])("stops admission and drains active %s digests before returning a redacted failure", async stage => {
+    const raw = observation(Array.from({ length: 12 }, (_, index) => turn("user", `user-${index}`, index, {
+      artifacts: [{ kind: "file", identity: `artifact-${index}` }]
+    })));
+    let fail!: () => void;
+    let release!: () => void;
+    const failureGate = new Promise<void>(resolve => { fail = resolve; });
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let started = 0;
+    let active = 0;
+    let settled = false;
+    const pending = observeBrowserPage(fakePage(raw), options({ evidenceDigest: async (domain, material) => {
+      if (domain !== `browser-observation-${stage}`) return digest(domain, material);
+      started += 1; active += 1;
+      const ordinal = started;
+      try {
+        if (ordinal === 1) { await failureGate; throw new Error("private authority detail"); }
+        await held;
+        return digest(domain, material);
+      } finally { active -= 1; }
+    } })).then(() => { settled = true; return undefined; }, error => { settled = true; return error; });
+    try {
+      await vi.waitFor(() => expect(started).toBe(4));
+      fail();
+      await vi.waitFor(() => expect(active).toBe(3));
+      expect(settled).toBe(false);
+      expect(started).toBe(4);
+    } finally { fail(); release(); }
+    const error = await pending;
+    expect(error).toBeInstanceOf(BrowserObservationError);
+    expect(error.code).toBe("evidence_digest_failed");
+    expect(error.message).not.toContain("private authority detail");
+    expect(started).toBe(4);
+    expect(active).toBe(0);
+  });
+
+  it("preserves every turn, artifact, structure, terminal and snapshot digest", async () => {
+    const raw = observation([
+      turn("user", "user-1", 0),
+      turn("assistant", "assistant-1", 0, { parentStableId: "user-1", branchStableId: "branch-1", state: "terminal", finishReason: "stop", artifacts: [{ kind: "file", identity: "artifact-1" }] })
+    ]);
+    const base = options({ terminalAssistantTurnId: "assistant-1" });
+    const synchronous = await observeBrowserPage(fakePage(raw), base);
+    const asynchronous = await observeBrowserPage(fakePage(raw), { ...base, evidenceDigest: async (domain, material) => {
+      await Promise.resolve();
+      return digest(domain, material);
+    } });
+    expect(asynchronous).toEqual(synchronous);
+    await expect(observeBrowserPage(fakePage(raw), { ...base, evidenceDigest: async () => { throw new Error("private authority failure"); } }))
+      .rejects.toBeInstanceOf(BrowserObservationError);
   });
 });

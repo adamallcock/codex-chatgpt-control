@@ -136,6 +136,7 @@ function observation(snapshot: OwnershipSnapshot): BrowserObservationResult {
 }
 
 type FixtureOptions = {
+  evidenceDigest?: ProductionWorkSteerOptions["evidenceDigest"];
   states?: OwnershipSnapshot[];
   fill?: (value: string, options?: unknown) => Promise<void>;
   click?: (options?: unknown) => Promise<void>;
@@ -198,7 +199,7 @@ function makeFixture(options: FixtureOptions = {}): Fixture {
     return { locator: sendLocator, capabilityKey: "work.send", localeKey: "en-US", candidateCount: 1 };
   });
   const config: ProductionWorkSteerOptions = {
-    evidenceDigest: digest,
+    evidenceDigest: options.evidenceDigest ?? digest,
     operationId: OPERATION_ID,
     parentRequestDigest: REQUEST_DIGEST,
     targetBindingDigest: TARGET_DIGEST,
@@ -596,3 +597,40 @@ function makeConfigForValidation(): ProductionWorkSteerOptions {
     now: () => Date.now()
   };
 }
+
+
+describe("asynchronous Work steer signing", () => {
+  it.each(["resolve", "reject", "cancel"] as const)("settles prepared-record signing before any mutation: %s", async outcome => {
+    let delay = false;
+    let release!: () => void;
+    let entered!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    const started = new Promise<void>(resolve => { entered = resolve; });
+    const fixture = makeFixture({ evidenceDigest: async (domain, material) => {
+      if (delay) {
+        entered();
+        await pending;
+        if (outcome === "reject") throw new Error("private remote failure");
+      }
+      return digest(domain, material);
+    } });
+    const prepared = await prepareFixture(fixture);
+    delay = true;
+    const controller = new AbortController();
+    const execution = fixture.primitive.executePrepared({ ...call(), signal: controller.signal, prepared });
+    await started;
+    expect(fixture.fills).toEqual([]);
+    expect(fixture.clicks).toBe(0);
+    if (outcome === "cancel") controller.abort();
+    release();
+    const result = await execution;
+    expect(result.status).toBe(outcome === "resolve" ? "executed" : "blocked");
+    expect(fixture.clicks).toBe(outcome === "resolve" ? 1 : 0);
+    if (outcome === "resolve") {
+      const verified = await fixture.primitive.verify({ ...call(), prepared });
+      expect(verified.status).toBe("satisfied");
+      if (verified.status === "satisfied") expect(typeof verified.receipt.evidenceDigest).toBe("string");
+    }
+    expect(JSON.stringify(result)).not.toContain("private remote failure");
+  });
+});

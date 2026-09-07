@@ -13,6 +13,10 @@ const REQUIRED_FILES = [
   "dist/src/index.d.ts",
   "dist/codex-chatgpt-control.bundle.mjs",
   "dist/codex-chatgpt-control-backend.mjs",
+  "dist/codex-chatgpt-control-journal.mjs",
+  "dist/codex-chatgpt-control-live-smoke.bundle.mjs",
+  "dist/codex-chatgpt-control-release-canary.bundle.mjs",
+  "dist/src/scripts/journal-server.js",
   "contracts/v1/manifest.json"
 ];
 
@@ -24,7 +28,10 @@ const FORBIDDEN_PATTERNS = [
   /\.map$/,
   /\.env(?:\.|$)/,
   /live-smoke\/.*\.json$/,
-  /__pycache__/
+  /__pycache__/,
+  /(?:^|\/)connection\.json$/,
+  /\.(?:request|response)\.json$/,
+  /(?:^|\/)\.pending-/
 ];
 
 function main() {

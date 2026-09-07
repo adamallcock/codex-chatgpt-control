@@ -1,0 +1,32 @@
+{
+  "result": {
+    "blocker": {
+      "code": "journal_rpc_outcome_indeterminate",
+      "kind": "unknown",
+      "message": "The journal service connection ended without confirming a durable write. Preserve the operation identity and reconcile its state before any further browser action.",
+      "remediation": [
+        {
+          "instruction": "Restore the private journal-service connection, then inspect or reconcile the same operation identity. Never create a new operation ID to retry an uncertain Send.",
+          "label": "Reconnect the same journal",
+          "userActionRequired": false
+        }
+      ],
+      "resumable": false
+    },
+    "context": {
+      "timestamp": "2026-06-06T00:00:00.000Z"
+    },
+    "data": {
+      "operationId": "123e4567-e89b-42d3-a456-426614174000"
+    },
+    "error": {
+      "message": "The journal service connection ended without confirming a durable write. Preserve the operation identity and reconcile its state before any further browser action.",
+      "name": "OperationError",
+      "recoverable": false
+    },
+    "ok": false,
+    "status": "partial",
+    "warnings": []
+  },
+  "schemaVersion": "chatgpt.browser_control.command_result.v1"
+}

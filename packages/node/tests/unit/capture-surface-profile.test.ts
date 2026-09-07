@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { resolve } from "node:path";
+import { describe, expect, it, vi } from "vitest";
 import { detectExperienceFromSnapshot } from "../../src/commands/experience.js";
 import {
   buildSurfaceProfileDraft,
@@ -7,6 +8,14 @@ import {
 import type { ConfigurationInspectionData } from "../../src/types.js";
 
 describe("surface profile capture drafts", () => {
+  it("accepts an explicit output path without reading process identity in the browser host", () => {
+    const outputPath = resolve("release-chat.json");
+    vi.stubGlobal("process", undefined);
+    try {
+      expect(parseArgs(["--id", "release-chat", "--out", outputPath]).out).toBe(outputPath);
+      expect(() => parseArgs(["--id", "release-chat"])).toThrow("--out is required");
+    } finally { vi.unstubAllGlobals(); }
+  });
   it("defaults contribution metadata to unverified non-identifying values", () => {
     const options = parseArgs(["--id", "work-basic-en"]);
 

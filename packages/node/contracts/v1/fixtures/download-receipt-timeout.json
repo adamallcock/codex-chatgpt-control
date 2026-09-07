@@ -1,0 +1,22 @@
+{
+  "result": {
+    "blocker": {
+      "code": "download_receipt_timeout",
+      "kind": "download_unavailable",
+      "message": "Download event receipt did not complete before the deadline. Completion is unverified; inspect the existing download before retrying.",
+      "resumable": false
+    },
+    "context": {
+      "timestamp": "2026-06-06T00:00:00.000Z"
+    },
+    "error": {
+      "message": "Download event receipt did not complete before the deadline. Completion is unverified; inspect the existing download before retrying.",
+      "name": "DownloadReceiptTimeoutError",
+      "recoverable": false
+    },
+    "ok": false,
+    "status": "blocked",
+    "warnings": []
+  },
+  "schemaVersion": "chatgpt.browser_control.command_result.v1"
+}

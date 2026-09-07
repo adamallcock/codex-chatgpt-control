@@ -22,7 +22,7 @@ import { isPlainDataRecord } from "../runtime/value-boundaries.js";
  * legacy page helpers.  The page is passed by value to this boundary and is
  * never obtained from (or written back to) RuntimeEnv.
  */
-export type BrowserObservationDigest = (domain: string, material: unknown) => string;
+export type BrowserObservationDigest = (domain: string, material: unknown) => string | Promise<string>;
 
 export type BrowserObservationTarget = Readonly<{
   providerId: string;
@@ -205,12 +205,12 @@ export async function observeBrowserPage(
   }
 
   const parsed = parseRawObservation(raw, evaluateArgs);
-  const target = buildTarget(parsed, options);
-  const normalized = normalizeTurns(parsed.turns, options);
+  const target = await buildTarget(parsed, options);
+  const normalized = await normalizeTurns(parsed.turns, options);
   const postSendDelta = options.baseline === undefined
     ? undefined
-    : makePostSendDelta(options.baseline, normalized.userTurns, options.evidenceDigest);
-  const snapshotDigest = digest(options.evidenceDigest, "browser-observation-snapshot", {
+    : await makePostSendDelta(options.baseline, normalized.userTurns, options.evidenceDigest);
+  const snapshotDigest = await digest(options.evidenceDigest, "browser-observation-snapshot", {
     operationId: options.operationId,
     target: targetMaterial(target),
     userTurns: normalized.userTurns.map(turnMaterial),
@@ -221,7 +221,7 @@ export async function observeBrowserPage(
     // navigation evidence still makes the blank-task anchor sensitive to a
     // pre-Send navigation change without exposing the raw URL.
     ...(options.target.targetLifecycle === "new_pending"
-      ? { blankTaskNavigationDigest: digest(options.evidenceDigest, "browser-observation-blank-task-navigation", parsed.canonicalUrl) }
+      ? { blankTaskNavigationDigest: await digest(options.evidenceDigest, "browser-observation-blank-task-navigation", parsed.canonicalUrl) }
       : {}),
     ...(postSendDelta === undefined ? {} : { postSendDelta })
   });
@@ -239,15 +239,15 @@ export async function observeBrowserPage(
   const terminalTurn = resolveTerminalTurn(parsed.turns, normalized.assistantTurns, options);
   const terminal = terminalTurn === undefined
     ? undefined
-    : terminalObservation(terminalTurn.raw, terminalTurn.normalized, normalized.userTurns, options, target);
+    : await terminalObservation(terminalTurn.raw, terminalTurn.normalized, normalized.userTurns, options, target);
   const newTargetAnchor = options.target.targetLifecycle === "new_pending"
     && target.conversation.status === "unavailable"
     && target.canonicalThreadUrl.status === "unavailable"
     && normalized.userTurns.length === 0
     && normalized.assistantTurns.length === 0
-    ? (() => {
+    ? await (async () => {
         const blankTaskEvidenceDigest = snapshot.snapshotDigest;
-        const anchorDigest = digest(options.evidenceDigest, "browser-observation-new-target-anchor", {
+        const anchorDigest = await digest(options.evidenceDigest, "browser-observation-new-target-anchor", {
           operationId: options.operationId,
           target: targetMaterial(target),
           blankTaskEvidenceDigest
@@ -962,48 +962,64 @@ function parseRawObservation(value: unknown, args: RawEvaluateArguments): RawPag
   });
 }
 
-function normalizeTurns(turns: readonly RawTurn[], options: BrowserObservationOptions): { userTurns: OwnershipTurn[]; assistantTurns: OwnershipTurn[] } {
+async function normalizeTurns(turns: readonly RawTurn[], options: BrowserObservationOptions): Promise<{ userTurns: OwnershipTurn[]; assistantTurns: OwnershipTurn[] }> {
+  const artifacts = turns.map(raw => new Array<string>(raw.artifacts.length));
+  const evidence = new Array<string>(turns.length);
+  const structure = new Array<string>(turns.length);
+  // Artifact digests feed both later identities. Run each dependency stage
+  // through four workers, with lazy jobs and deterministic result positions.
+  await runTurnDigestJobs((function* () {
+    for (const [index, raw] of turns.entries()) {
+      for (const [ordinal, artifact] of raw.artifacts.entries()) {
+        yield async () => { artifacts[index]![ordinal] = await digest(options.evidenceDigest, "browser-observation-artifact", {
+          operationId: options.operationId,
+          turnId: raw.stableId,
+          ordinal,
+          kind: artifact.kind,
+          identity: artifact.identity,
+          ...(artifact.contentDigest === undefined ? {} : { contentDigest: artifact.contentDigest }),
+          ...(artifact.bytes === undefined ? {} : { bytes: artifact.bytes }),
+          ...(artifact.mimeType === undefined ? {} : { mimeType: artifact.mimeType })
+        }); };
+      }
+    }
+  })());
+  await runTurnDigestJobs((function* () {
+    for (const [index, raw] of turns.entries()) {
+      const artifactEvidenceDigests = artifacts[index]!;
+      yield async () => { evidence[index] = await digest(options.evidenceDigest, "browser-observation-turn", {
+        operationId: options.operationId,
+        role: raw.role,
+        stableId: raw.stableId,
+        ...(raw.parentStableId === undefined ? {} : { parentStableId: raw.parentStableId }),
+        ...(raw.branchStableId === undefined ? {} : { branchStableId: raw.branchStableId }),
+        ordinal: raw.ordinal,
+        text: raw.text,
+        artifacts: artifactEvidenceDigests
+      }); };
+      yield async () => { structure[index] = await digest(options.evidenceDigest, "browser-observation-structure", {
+        operationId: options.operationId,
+        role: raw.role,
+        stableId: raw.stableId,
+        ordinal: raw.ordinal,
+        structure: raw.structure,
+        artifacts: artifactEvidenceDigests
+      }); };
+    }
+  })());
   const users: OwnershipTurn[] = [];
   const assistants: OwnershipTurn[] = [];
   const assistantParents = new Map<string, Set<string>>();
-  for (const raw of turns) {
-    const artifactEvidenceDigests = raw.artifacts.map((artifact, ordinal) => digest(options.evidenceDigest, "browser-observation-artifact", {
-      operationId: options.operationId,
-      turnId: raw.stableId,
-      ordinal,
-      kind: artifact.kind,
-      identity: artifact.identity,
-      ...(artifact.contentDigest === undefined ? {} : { contentDigest: artifact.contentDigest }),
-      ...(artifact.bytes === undefined ? {} : { bytes: artifact.bytes }),
-      ...(artifact.mimeType === undefined ? {} : { mimeType: artifact.mimeType })
-    }));
-    const evidenceDigest = digest(options.evidenceDigest, "browser-observation-turn", {
-      operationId: options.operationId,
-      role: raw.role,
-      stableId: raw.stableId,
-      ...(raw.parentStableId === undefined ? {} : { parentStableId: raw.parentStableId }),
-      ...(raw.branchStableId === undefined ? {} : { branchStableId: raw.branchStableId }),
-      ordinal: raw.ordinal,
-      text: raw.text,
-      artifacts: artifactEvidenceDigests
-    });
-    const structureDigest = digest(options.evidenceDigest, "browser-observation-structure", {
-      operationId: options.operationId,
-      role: raw.role,
-      stableId: raw.stableId,
-      ordinal: raw.ordinal,
-      structure: raw.structure,
-      artifacts: artifactEvidenceDigests
-    });
+  for (const [index, raw] of turns.entries()) {
     const turn: OwnershipTurn = Object.freeze({
       stableId: raw.stableId,
-      evidenceDigest,
-      structureDigest,
+      evidenceDigest: evidence[index]!,
+      structureDigest: structure[index]!,
       ordinal: raw.ordinal,
       ...(raw.parentStableId === undefined ? {} : { parentStableId: raw.parentStableId }),
       ...(raw.branchStableId === undefined ? {} : { branchStableId: raw.branchStableId }),
       ...(raw.state === undefined ? {} : { state: raw.state }),
-      artifactEvidenceDigests: Object.freeze(artifactEvidenceDigests)
+      artifactEvidenceDigests: Object.freeze(artifacts[index]!)
     });
     if (raw.role === "user") users.push(turn);
     else {
@@ -1016,6 +1032,27 @@ function normalizeTurns(turns: readonly RawTurn[], options: BrowserObservationOp
     }
   }
   return { userTurns: users, assistantTurns: assistants };
+}
+
+async function runTurnDigestJobs(jobs: Iterable<() => Promise<void>>): Promise<void> {
+  const iterator = jobs[Symbol.iterator]();
+  let failed = false;
+  let failure: unknown;
+  const worker = async (): Promise<void> => {
+    while (!failed) {
+      try {
+        const next = iterator.next();
+        if (next.done) return;
+        await next.value();
+      } catch (error) {
+        if (!failed) { failed = true; failure = error; }
+      }
+    }
+  };
+  // Drain already-started digest calls before returning a failure. No queued
+  // jobs are admitted after the first failed digest and none outlive this pass.
+  await Promise.all(Array.from({ length: 4 }, worker));
+  if (failed) throw failure;
 }
 
 function resolveTerminalTurn(
@@ -1032,13 +1069,13 @@ function resolveTerminalTurn(
   return { raw, normalized };
 }
 
-function terminalObservation(
+async function terminalObservation(
   raw: RawTurn,
   normalized: OwnershipTurn,
   userTurns: readonly OwnershipTurn[],
   options: BrowserObservationOptions,
   _target: FrozenTarget
-): CollectorTerminalObservation {
+): Promise<CollectorTerminalObservation> {
   if (raw.parentStableId === undefined || raw.branchStableId === undefined || raw.state !== "terminal" || raw.finishReason === undefined) {
     throw new BrowserObservationError("provider_shape_drift");
   }
@@ -1062,7 +1099,7 @@ function terminalObservation(
   if (formatted.text.length > maxResponseChars || utf8Bytes(formatted.text) > MAX_RESPONSE_BYTES) {
     throw new BrowserObservationError("bounded_limit_exceeded");
   }
-  const textDigest = digest(options.evidenceDigest, "browser-observation-response", {
+  const textDigest = await digest(options.evidenceDigest, "browser-observation-response", {
     operationId: options.operationId,
     assistantTurnId: raw.stableId,
     responseFormat: requestedFormat,
@@ -1102,11 +1139,11 @@ function terminalObservation(
   });
 }
 
-function makePostSendDelta(
+async function makePostSendDelta(
   baseline: OwnershipBaseline,
   users: readonly OwnershipTurn[],
   evidenceDigest: BrowserObservationDigest
-): OwnershipSnapshot["postSendDelta"] {
+): Promise<OwnershipSnapshot["postSendDelta"]> {
   const baselineIds = new Set<string>();
   let baselineCursor = 0;
   for (const turn of baseline.userTurns) {
@@ -1118,7 +1155,7 @@ function makePostSendDelta(
   }
   const added = users.slice(baselineCursor);
   const addedUserEvidenceDigests = added.map(turn => turn.evidenceDigest);
-  const deltaDigest = digest(evidenceDigest, "browser-observation-post-send-delta", {
+  const deltaDigest = await digest(evidenceDigest, "browser-observation-post-send-delta", {
     baselineSnapshotDigest: baseline.snapshotDigest,
     addedUserEvidenceDigests
   });
@@ -1129,12 +1166,12 @@ function makePostSendDelta(
   });
 }
 
-function buildTarget(raw: RawPageObservation, options: BrowserObservationOptions): FrozenTarget {
+async function buildTarget(raw: RawPageObservation, options: BrowserObservationOptions): Promise<FrozenTarget> {
   if (options.target.expectedConversationId !== undefined && options.target.expectedConversationId !== raw.conversationId) throw new BrowserObservationError("navigation_ambiguous");
   if (options.target.expectedThreadId !== undefined && options.target.expectedThreadId !== raw.threadId) throw new BrowserObservationError("navigation_ambiguous");
   const hasConversationIdentity = raw.conversationId !== undefined && raw.threadId !== undefined;
   const canonicalDigest = hasConversationIdentity
-    ? digest(options.evidenceDigest, "browser-observation-url", raw.canonicalUrl)
+    ? await digest(options.evidenceDigest, "browser-observation-url", raw.canonicalUrl)
     : undefined;
   const target: FrozenTarget = {
     provider: availableIdentity(options.target.providerId),
@@ -1179,10 +1216,10 @@ function turnMaterial(turn: OwnershipTurn): unknown {
   };
 }
 
-function digest(fn: BrowserObservationDigest, domain: string, material: unknown): string {
+async function digest(fn: BrowserObservationDigest, domain: string, material: unknown): Promise<string> {
   let result: unknown;
   try {
-    result = fn(domain, material);
+    result = await fn(domain, material);
   } catch {
     throw new BrowserObservationError("evidence_digest_failed");
   }

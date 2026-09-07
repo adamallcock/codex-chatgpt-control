@@ -1,11 +1,11 @@
 import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
-import { waitForDownloadFromClick } from "../browser/downloads.js";
+import { isTerminalDownloadCode, isTerminalDownloadError, waitForDownloadFromClick } from "../browser/downloads.js";
 import { readPageState } from "../browser/page-state.js";
 import { countPageArtifacts, listPageArtifacts, readLatestImageDataUrl } from "../dom/artifacts.js";
 import { cssSelectors, requiredLocator } from "../dom/selectors.js";
 import { localeLabels } from "../dom/locale-labels.js";
-import { resultOk } from "../errors.js";
+import { resultError, resultOk } from "../errors.js";
 import type {
   ArtifactDownloadArgs,
   ArtifactListData,
@@ -147,7 +147,7 @@ export async function downloadLatestArtifact(
 
   if (args.prefer !== "visible_image_source") {
     const byDownload = await tryDownloadControl(page, args, timeoutMs);
-    if (byDownload.ok || args.prefer === "download_control") {
+    if (byDownload.ok || isTerminalDownloadCode(byDownload.blocker?.code) || args.prefer === "download_control") {
       return byDownload;
     }
   }
@@ -214,7 +214,7 @@ async function tryDownloadControl(
     );
     return resultOk(downloaded, await contextFromPage(page));
   } catch (error) {
-    return artifactDownloadBlocker(error, await contextFromPage(page));
+    return artifactDownloadBlocker(error, await contextFromPage(page, {}, { minimal: isTerminalDownloadError(error) }));
   }
 }
 
@@ -550,6 +550,7 @@ type PageAssetsCapability = {
 };
 
 function artifactDownloadBlocker<T>(error: unknown, context: CommandResult["context"]): CommandResult<T> {
+  if (isTerminalDownloadError(error)) return resultError(error, context);
   return {
     ok: false,
     status: "unsupported",

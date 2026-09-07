@@ -199,6 +199,32 @@ the bridge, authenticated target evidence, or required provider primitive is
 unavailable. A custom adapter configuration must supply the complete adapter
 factory set; neither path falls back to a legacy sequence.
 
+The default local journal requires real process identity, platform-appropriate
+file ownership, and process-liveness authority. It validates those host
+capabilities before creating journal directories or touching the browser. When
+they are unavailable and no explicit journal service is configured, an
+operation-aware high-level `ask` returns the normal command
+result shape with `status: "blocked"`, `blocker.kind: "unknown"`,
+`blocker.code: "journal_runtime_unavailable"`, `blocker.resumable: false`, and
+`error.recoverable: false`. The bounded remediation uses the established
+`label`, `instruction`, and `userActionRequired` fields. This is an unavailable
+runtime result, not evidence of composer drift or a successful submission.
+The shared `journal-runtime-unavailable.json` fixture is generated through the
+public facade and preserves that result across Python decoding.
+
+As verified on 2026-09-06, the restricted Codex JavaScript host used for issue
+41 exposes its browser bridge but does not expose the required process APIs.
+It can run compatibility workflows, but its default local journal is
+unavailable. An explicitly started normal Node journal service supplies durable
+storage and signing through the authenticated private-file connection while
+browser actions remain in the active bridge host. Configure
+`operations.journalService.descriptorPath` as described in the
+[journal service runbook](2026-09-06-journal-service.md). A plain Node subprocess
+still cannot inherit the browser bridge. Do not substitute PID or owner values,
+install a fake `process`, disable ownership checks, or infer that an unknown
+lock owner is dead. An automatic retry or a new operation ID cannot repair a
+missing host capability.
+
 `operations.collect` optionally accepts `pollIntervalMs`, an integer from `0`
 through `60000`. It controls only the interval between bounded observation
 attempts. Poll sleeps occur outside browser/tab transactions.
@@ -257,6 +283,29 @@ when no conventional ChatGPT file affordance is visible. Artifact failures are
 reported as structured blockers such as
 `artifact_unavailable`, `artifact_selector_drift`, or
 `artifact_download_unavailable`, not protocol errors.
+
+After a visible download activation, the runtime requires the browser bridge's
+native completion receipt within the operation deadline. An unverified
+completion returns `download_receipt_timeout` with kind `download_unavailable`,
+status `blocked`, and nonresumable/nonrecoverable flags. It does not retry the
+activation or switch download strategies, and preserves existing browser
+downloads. A bridge that cannot expose a native receipt remains unsupported
+for verified download completion.
+
+A structurally identified Chrome error page with the exact
+`ERR_BLOCKED_BY_CLIENT` code returns `download_blocked_by_browser` with the same
+`download_unavailable` kind, blocked status, and nonresumable/nonrecoverable
+flags. Text mentioning that code in a normal conversation is not browser-error
+evidence. The runtime does not retry the activation or bypass browser
+restrictions; the caller receives no successful download receipt and completion
+remains unverified. This browser-error observation is distinct from a native
+receipt timeout.
+
+Other native event or activation failures return `download_receipt_failed`
+with the same blocked and nonretryable semantics. A fixed message replaces
+native error details, which may include sensitive download URLs. The runtime
+supplies no successful receipt and does not switch to another strategy after
+an uncertain activation.
 
 `session.bootstrap` accepts `existingTab` for explicit reuse of a user-open Chrome tab before any read or prompt step. The wire shape is shared by TypeScript and Python:
 
@@ -333,6 +382,56 @@ python scripts/live_smoke.py --mode ordinary-shell
 ```
 
 In an ordinary shell without Codex browser bridge access, browser-required commands must return a structured `browser_bridge_unavailable` blocker. This is a successful smoke result when the backend process stays alive and protocol calls such as `backend.health` and `commands` succeed.
+
+## Transactional Live Qualification
+
+Compatibility live smokes and release canaries do not qualify submit-once
+behavior. The additive Node live scenario `transactional-submit-once` is
+explicitly enabled with `CHATGPT_E2E_TRANSACTIONAL=1`; select that scenario
+alone when using `CHATGPT_E2E_SCENARIOS` or the live-smoke module's scenario
+filter. In a supported host with an already initialized browser bridge:
+
+```javascript
+const selected = smoke.filterScenarios(smoke.optionalScenarios, "transactional-submit-once");
+const run = await smoke.runLiveSmoke({
+  agent,
+  browser,
+  reportDir: "/absolute/path/to/local/reports/live-smoke",
+  env: {
+    CHATGPT_E2E_TRANSACTIONAL: "1",
+    // Optional when the browser host requires the separate journal service.
+    CHATGPT_E2E_JOURNAL_DESCRIPTOR: "/absolute/private/session/connection.json"
+  }
+}, selected);
+const qualified = run.results.length === 1 && run.results[0].status === "pass";
+```
+
+Here `smoke` is the imported `codex-chatgpt-control-live-smoke.bundle.mjs`.
+The scenario creates one synthetic Chat conversation using the public `ask`
+facade and the default production runtime, with a fresh UUID, zero files, and a
+multiline prompt. It performs submit-only, bounded collect, owned-receipt
+verification, and a same-ID replay only after a completed receipt. It verifies
+one satisfied Send action, the same operation/request/target handle, and exactly
+one user/assistant exchange in the same established conversation before and
+after replay. For `ambiguous_submit` only, it may make one observation-only
+same-ID recovery after inspection proves the matching target and a durable
+`observe_only_after_intent` Send action at the `send_may_have_occurred` boundary.
+It then verifies the same action and intent survived recovery. Other blockers
+stop qualification; there is no blind resubmission or replacement operation ID.
+Reports contain only structural evidence, response length/hash, and fixed
+status codes.
+
+This scenario is optional, so inspect its own `status`; an empty
+`requiredFailures` list does not establish a pass. A missing host capability,
+pending collect, absent receipt, or changed turn count fails qualification.
+Without the explicit service, the restricted Codex host described above fails
+with `journal_runtime_unavailable`. Configuring the service makes that host
+eligible for this qualification; the scenario must still pass submit, collect,
+receipt and replay checks. A successful journal connection alone does not
+qualify browser behavior. Python fixture and facade checks validate result
+preservation; Python operation-aware relay qualification remains a separate
+gate requiring a live bridge-hosted Node backend and a permitted transport to
+that backend.
 
 ## Browser-Bridge Smoke
 
@@ -428,3 +527,7 @@ npm run test:backend-conformance
 ```
 
 Python must also load and round-trip the same fixtures through Pydantic models. Any future backend implementation should pass these fixtures before claiming compatibility.
+
+## Restricted-host journal authority
+
+The Node backend can use an explicit asynchronous journal service while keeping browser control in its active host. See [the journal service runbook](2026-09-06-journal-service.md) for startup, recovery, transport boundaries, and the intentional TypeScript host API asymmetry. Operation wire shapes and Python facades are unchanged. The private-file transport rejects Windows with `journal_rpc_unsupported_platform` before filesystem access; the existing local Node journal path is unchanged.

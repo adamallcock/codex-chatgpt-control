@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, open, readFile, readdir, readlink, rename, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, open, readFile, readdir, readlink, realpath, rename, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
-const { opendirMock, lstatPaths } = vi.hoisted(() => ({
+const { opendirMock, lstatPaths, openedPaths } = vi.hoisted(() => ({
   opendirMock: vi.fn(),
-  lstatPaths: [] as string[]
+  lstatPaths: [] as string[],
+  openedPaths: new WeakMap<object, string>()
 }));
 
 vi.mock("node:fs/promises", async importOriginal => {
@@ -14,6 +15,11 @@ vi.mock("node:fs/promises", async importOriginal => {
   opendirMock.mockImplementation((...args: Parameters<typeof actual.opendir>) => actual.opendir(...args));
   return {
     ...actual,
+    open: async (...args: Parameters<typeof actual.open>) => {
+      const handle = await actual.open(...args);
+      if (typeof args[0] === "string") openedPaths.set(handle, args[0]);
+      return handle;
+    },
     lstat: (...args: Parameters<typeof actual.lstat>) => {
       const path = args[0];
       if (typeof path === "string") lstatPaths.push(path);
@@ -640,6 +646,7 @@ describe("operation artifact output", () => {
   it("does not report committed when the final pathname is replaced during copying", async () => {
     if (process.platform === "win32") return;
     const root = await makeRoot("final-replacement-during-copy");
+    const canonicalRoot = await realpath(root);
     const artifactIdentity = "final-replacement-during-copy";
     const finalPath = join(root, deriveOperationOutputKey({
       operationId: "opaque-operation-id-7f0d",
@@ -655,6 +662,9 @@ describe("operation artifact output", () => {
     let sourceHandle: unknown;
     let replaced = false;
     prototype.write = async function(this: unknown, ...args: unknown[]): Promise<unknown> {
+      if (dirname(openedPaths.get(this as object) ?? "") !== canonicalRoot) {
+        return Reflect.apply(originalWrite as (...inner: unknown[]) => unknown, this, args);
+      }
       if (sourceHandle === undefined) {
         sourceHandle = this;
       } else if (this !== sourceHandle && !replaced) {
@@ -680,6 +690,14 @@ describe("operation artifact output", () => {
 
   it("marks a partial destination indeterminate and treats it as a collision on replay", async () => {
     const root = await makeRoot("partial-destination-copy");
+    const canonicalRoot = await realpath(root);
+    const finalPath = join(canonicalRoot, deriveOperationOutputKey({
+      operationId: "opaque-operation-id-7f0d",
+      artifactIdentity: "partial-destination-copy",
+      extensionHint: ".txt"
+    }));
+    const unrelatedPath = join(await makeRoot("unrelated-partial-copy-write"), "unrelated.txt");
+    const unrelatedHandle = await open(unrelatedPath, "w+");
     const probe = await open(join(root, "probe"), "w+");
     const prototype = Object.getPrototypeOf(probe) as {
       write: (...args: unknown[]) => Promise<unknown>;
@@ -688,13 +706,24 @@ describe("operation artifact output", () => {
     const originalWrite = prototype.write;
     let writeCalls = 0;
     prototype.write = async function(this: unknown, ...args: unknown[]): Promise<unknown> {
+      const path = openedPaths.get(this as object);
+      if (dirname(path ?? "") !== canonicalRoot) {
+        return Reflect.apply(originalWrite as (...inner: unknown[]) => unknown, this, args);
+      }
       writeCalls += 1;
-      // One source write and one destination write succeed; the next
-      // destination write leaves a visible partial final behind.
-      if (writeCalls >= 3) throw new Error("injected destination copy failure");
+      // Fault the destination after its first 64 KiB, independently of
+      // unrelated writes or short writes while populating the source.
+      if (path === finalPath && typeof args[3] === "number" && args[3] >= 64 * 1024) {
+        throw new Error("injected destination copy failure");
+      }
       return Reflect.apply(originalWrite as (...inner: unknown[]) => unknown, this, args);
     };
     try {
+      for (const chunk of ["unrelated-", "writes-", "stay-safe"]) {
+        await unrelatedHandle.write(Buffer.from(chunk));
+      }
+      expect(writeCalls).toBe(0);
+      expect(await readFile(unrelatedPath, "utf8")).toBe("unrelated-writes-stay-safe");
       const payload = Buffer.concat([Buffer.alloc(64 * 1024, 0x61), Buffer.alloc(64 * 1024, 0x62)]);
       const result = await commitOperationOutput(options(root, (async function*(): AsyncGenerator<Uint8Array> {
         yield payload;
@@ -711,6 +740,7 @@ describe("operation artifact output", () => {
       expect((await stat(join(root, result.outputKey))).size).toBe(64 * 1024);
     } finally {
       prototype.write = originalWrite;
+      await unrelatedHandle.close();
     }
   });
 
@@ -824,6 +854,9 @@ describe("operation artifact output", () => {
 
   it("does not return while a delayed filesystem write is still settling", async () => {
     const root = await makeRoot("write-settlement");
+    const canonicalRoot = await realpath(root);
+    const unrelatedPath = join(await makeRoot("unrelated-delayed-write"), "unrelated.txt");
+    const unrelatedHandle = await open(unrelatedPath, "w+");
     const probe = await open(join(root, "probe"), "w+");
     const prototype = Object.getPrototypeOf(probe) as {
       write: (...args: unknown[]) => Promise<unknown>;
@@ -833,10 +866,13 @@ describe("operation artifact output", () => {
     let now = 0;
     let writeSettled = false;
     let markWriteStarted!: () => void;
-    let releaseWrite!: () => void;
+    let releaseWrite: () => void = () => undefined;
     const writeStarted = new Promise<void>(resolve => { markWriteStarted = resolve; });
-    const writeRelease = new Promise<void>(resolve => { releaseWrite = resolve; });
+    let writeRelease = Promise.resolve();
     prototype.write = async function(this: unknown, ...args: unknown[]): Promise<unknown> {
+      if (dirname(openedPaths.get(this as object) ?? "") !== canonicalRoot) {
+        return Reflect.apply(originalWrite as (...inner: unknown[]) => unknown, this, args);
+      }
       markWriteStarted();
       await writeRelease;
       now = 10;
@@ -844,6 +880,11 @@ describe("operation artifact output", () => {
       return Reflect.apply(originalWrite as (...inner: unknown[]) => unknown, this, args);
     };
     try {
+      await unrelatedHandle.write(Buffer.from("unrelated"));
+      expect(now).toBe(0);
+      expect(writeSettled).toBe(false);
+      expect(await readFile(unrelatedPath, "utf8")).toBe("unrelated");
+      writeRelease = new Promise<void>(resolve => { releaseWrite = resolve; });
       const pending = commitOperationOutput(options(root, bytes("write"), {
         artifactIdentity: "write-settlement",
         timeoutMs: 5,
@@ -860,7 +901,9 @@ describe("operation artifact output", () => {
       expect(result).toMatchObject({ status: "blocked", reason: "commit_indeterminate" });
       expect((await readdir(root)).some(name => name === result.outputKey)).toBe(false);
     } finally {
+      releaseWrite();
       prototype.write = originalWrite;
+      await unrelatedHandle.close();
     }
   });
 

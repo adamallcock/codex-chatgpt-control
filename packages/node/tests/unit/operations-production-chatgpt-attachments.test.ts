@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { FileChooserLike, LocatorLike, PageLike } from "../../src/types.js";
 import {
   createChatGPTAttachmentProvider,
+  createChatGPTAttachmentProviderAsync,
   type ChatGPTAttachmentProviderOptions
 } from "../../src/operations/production-chatgpt-attachments.js";
 import type { OperationFileIdentity } from "../../src/operations/file-identity.js";
@@ -687,5 +688,42 @@ describe("ChatGPT production attachment provider", () => {
     expect(() => createChatGPTAttachmentProvider({ ...base, signal: {} } as never)).toThrow();
     const proxy = new Proxy({ ...base }, { getOwnPropertyDescriptor: () => { throw new Error("trap"); } });
     expect(() => createChatGPTAttachmentProvider(proxy as never)).toThrow();
+  });
+});
+
+
+describe("asynchronous attachment identity authority", () => {
+  it("awaits identity signing before handoff and returns only concrete signed receipts", async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    const page = makePage();
+    const providerPromise = createChatGPTAttachmentProviderAsync({
+      files: [fileA], evidenceDigest: async (domain, material) => digest(domain, material),
+      identityDigest: async () => { await pending; return IDENTITY_A; },
+      revalidateFile: async () => undefined
+    });
+    const handoff = providerPromise.then(provider => provider.handoffFiles(handoffRequest(), page, target));
+    await Promise.resolve();
+    expect(page.evaluateCalls).toBe(0);
+    expect(page.clickCalls).toBe(0);
+    expect(page.setFilesCalls).toBe(0);
+    release();
+    expect(await handoff).toMatchObject({ status: "satisfied", evidenceDigest: expect.stringMatching(/^hmac-sha256:/) });
+    const provider = await providerPromise;
+    expect(await provider.observeAttachments(attachmentRequest(), page, target)).toMatchObject({ status: "exact", evidenceDigest: expect.stringMatching(/^hmac-sha256:/), identityDigests: [IDENTITY_A] });
+    expect(page.clickCalls).toBe(1);
+    expect(page.setFilesCalls).toBe(1);
+  });
+
+  it("rejects asynchronous identity failure before any browser access", async () => {
+    const page = makePage();
+    const outcome = createChatGPTAttachmentProviderAsync({
+      files: [fileA], evidenceDigest: async (domain, material) => digest(domain, material),
+      identityDigest: async () => { throw new Error("private remote failure"); }, revalidateFile: async () => undefined
+    }).then(provider => provider.handoffFiles(handoffRequest(), page, target));
+    await expect(outcome).rejects.toThrow("invalid ChatGPT attachment provider options");
+    expect(page.evaluateCalls).toBe(0);
+    expect(page.clickCalls).toBe(0);
+    expect(page.setFilesCalls).toBe(0);
   });
 });

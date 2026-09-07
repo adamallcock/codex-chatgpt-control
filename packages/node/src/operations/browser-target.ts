@@ -1,3 +1,4 @@
+import { types as nodeTypes } from "node:util";
 import type { PageLike } from "../types.js";
 import {
   createBrowserResourceKey,
@@ -29,7 +30,7 @@ const TARGET_EVIDENCE_DIGEST_DOMAIN = "codex-chatgpt-control/operation-target-ev
 const CLAIM_EVIDENCE_DIGEST_DOMAIN = "codex-chatgpt-control/tab-claim-evidence/v1";
 
 /** A target HMAC implementation must be keyed by the journal/runtime secret. */
-export type BrowserTargetEvidenceDigest = (domain: string, material: unknown) => string;
+export type BrowserTargetEvidenceDigest = (domain: string, material: unknown) => string | Promise<string>;
 
 /**
  * Provider claims are intentionally separate from the browser-observation
@@ -343,17 +344,14 @@ function validateDigestFunction(fn: unknown): asserts fn is BrowserTargetEvidenc
   if (typeof fn !== "function") fail("invalid_digest", "Target evidence digest function is required.");
 }
 
-function safeDigest(
-  fn: BrowserTargetEvidenceDigest,
-  domain: string,
-  material: unknown
-): string {
-  try {
-    return digest(fn(domain, material));
-  } catch (error) {
-    if (error instanceof BrowserTargetError && error.code === "invalid_digest") throw error;
-    fail("invalid_digest", "Target evidence digest is invalid.");
-  }
+type TargetDigestRequest = Readonly<{ fn: BrowserTargetEvidenceDigest; domain: string; material: unknown }>;
+
+function* targetDigest(fn: BrowserTargetEvidenceDigest, domain: string, material: unknown): Generator<TargetDigestRequest, string, string> {
+  return yield { fn, domain, material };
+}
+
+function validateTargetDigest(value: unknown): string {
+  try { return digest(value); } catch { fail("invalid_digest", "Target evidence digest is invalid."); }
 }
 
 /**
@@ -483,12 +481,50 @@ function makeTransactionOptions(
 export function bindBrowserTarget<Page extends PageLike = PageLike>(
   input: BrowserTargetBindingInput<Page>
 ): BrowserTargetBinding<Page> {
+  const steps = bindBrowserTargetSteps(input);
+  let step = steps.next();
+  while (!step.done) {
+    let value: unknown;
+    try { value = step.value.fn(step.value.domain, step.value.material); }
+    catch { fail("invalid_digest", "Target evidence digest is invalid."); }
+    // Preserve this established synchronous API. Async authorities use the
+    // explicit variant below; absorb rejection before failing closed here.
+    if (nodeTypes.isPromise(value)) {
+      void value.catch(() => undefined);
+      fail("invalid_digest", "Use asynchronous target binding for an asynchronous authority.");
+    }
+    step = steps.next(validateTargetDigest(value));
+  }
+  return step.value;
+}
+
+/** Bind the same immutable target while its journal authority signs remotely. */
+export async function bindBrowserTargetAsync<Page extends PageLike = PageLike>(
+  input: BrowserTargetBindingInput<Page>
+): Promise<BrowserTargetBinding<Page>> {
+  const steps = bindBrowserTargetSteps(input);
+  let step = steps.next();
+  while (!step.done) {
+    let value: unknown;
+    try { value = await step.value.fn(step.value.domain, step.value.material); }
+    catch { fail("invalid_digest", "Target evidence digest is invalid."); }
+    step = steps.next(validateTargetDigest(value));
+  }
+  return step.value;
+}
+
+function* bindBrowserTargetSteps<Page extends PageLike = PageLike>(
+  input: BrowserTargetBindingInput<Page>
+): Generator<TargetDigestRequest, BrowserTargetBinding<Page>, string> {
   assertPlainRecord(input, "invalid_target_evidence", "Target binding input is invalid.");
   assertExactKeys(
     input,
     ["page", "evidence", "targetLifecycle", "newTargetAnchorDigest", "blankTaskEvidenceDigest", "authoritativeClaim", "capabilities", "evidenceDigest", "owner", "coordinator", "userTurnBaselineDigest", "assistantTurnBaselineDigest", "configurationReceiptDigest"],
     "invalid_target_evidence"
   );
+  // All later reads cross asynchronous signing boundaries in the async
+  // variant. Capture scalar fields and opaque capabilities before yielding.
+  input = Object.freeze({ ...input });
   assertPageLike(input.page);
   validateDigestFunction(input.evidenceDigest);
   if (
@@ -546,7 +582,7 @@ export function bindBrowserTarget<Page extends PageLike = PageLike>(
     tabId,
     coordinationScope: providerScope ? "provider" : "process",
     ...(claimValidated ? {
-      tabClaimEvidenceDigest: safeDigest(input.evidenceDigest, CLAIM_EVIDENCE_DIGEST_DOMAIN, {
+      tabClaimEvidenceDigest: yield* targetDigest(input.evidenceDigest, CLAIM_EVIDENCE_DIGEST_DOMAIN, {
         token: claim?.token,
         epoch: claim?.epoch
       })
@@ -572,7 +608,7 @@ export function bindBrowserTarget<Page extends PageLike = PageLike>(
       blankTaskEvidenceDigest: input.blankTaskEvidenceDigest
     } : {})
   });
-  const targetEvidenceDigest = safeDigest(input.evidenceDigest,
+  const targetEvidenceDigest = yield* targetDigest(input.evidenceDigest,
     TARGET_EVIDENCE_DIGEST_DOMAIN,
     targetMaterial(evidence, targetWithoutDigest, claim)
   );

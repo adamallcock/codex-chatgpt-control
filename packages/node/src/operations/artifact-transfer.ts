@@ -139,7 +139,7 @@ export type ArtifactTransferJournalPort = Readonly<{
   persistReceipt: (receipt: ArtifactTransferReceiptV1) => Promise<void>;
 }>;
 
-export type ArtifactTransferEvidenceDigest = (domain: string, material: unknown) => string;
+export type ArtifactTransferEvidenceDigest = (domain: string, material: unknown) => string | Promise<string>;
 
 export type ArtifactTransferOptions = Readonly<{
   operationId: string;
@@ -390,7 +390,7 @@ async function awaitProviderOperation<T>(
  * source/commit attempt.
  */
 export async function transferOperationArtifact(options: ArtifactTransferOptions): Promise<ArtifactTransferResult> {
-  const prepared = prepare(options);
+  const prepared = await prepare(options);
   const initialProgress = freshProgress();
   if (isCancelledOrExpired(prepared)) {
     if (prepared.clockFaulted()) return uncertainResult(initialProgress, "operation_state_corrupt");
@@ -893,7 +893,7 @@ function transferIdentity(prepared: PreparedTransfer): string {
   ].join("\0");
 }
 
-function prepare(options: ArtifactTransferOptions): PreparedTransfer {
+async function prepare(options: ArtifactTransferOptions): Promise<PreparedTransfer> {
   const record = snapshotRecord(options, "options");
   assertAllowedKeys(record, [
     "operationId", "requestDigest", "targetBindingDigest", "assistantTurnId", "sourceIdentityDigest",
@@ -931,7 +931,7 @@ function prepare(options: ArtifactTransferOptions): PreparedTransfer {
   const mimeTypeHint = readOptionalString(record, "mimeTypeHint", limits.maxStringBytes);
   let destinationIdentityDigest: string;
   try {
-    destinationIdentityDigest = evidenceDigest("artifact-destination", freezeRecord({
+    destinationIdentityDigest = await evidenceDigest("artifact-destination", freezeRecord({
       schemaVersion: SCHEMA_VERSION,
       operationId,
       requestDigest,

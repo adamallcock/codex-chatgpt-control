@@ -362,7 +362,7 @@ export function createProductionWorkSteerPrimitive(
     const observed = await observeBounded(call, captured, clock, "prepare");
     if (observed.kind === "cancelled") return blocked(base("prepare"), observed.code, false, "none");
     if (observed.kind === "error") return blocked(base("prepare"), "target_evidence_unavailable", true, "none");
-    const prepared = makePrepared(observed.value.snapshot, captured);
+    const prepared = await makePrepared(observed.value.snapshot, captured);
     if (prepared.kind === "failure") {
       return blocked(base("prepare"), prepared.blockerCode, prepared.observationRequired, "none", prepared.evidenceDigest);
     }
@@ -382,7 +382,7 @@ export function createProductionWorkSteerPrimitive(
     let prepared: ProductionWorkSteerPrepared;
     try {
       call = normalizeCall(request, captured, clock, "execute_prepared");
-      prepared = validatePrepared(request.prepared, captured);
+      prepared = await validatePrepared(request.prepared, captured);
     } catch (error) {
       return blocked(base("execute_prepared"), normalizeInputError(error), false, "none");
     }
@@ -395,16 +395,16 @@ export function createProductionWorkSteerPrimitive(
     const finalRead = await observeBounded(call, captured, clock, "final_recheck", prepared);
     if (finalRead.kind === "cancelled") return blocked(base("execute_prepared", prepared), finalRead.code, false, "none");
     if (finalRead.kind === "error") return blocked(base("execute_prepared", prepared), "target_evidence_unavailable", true, "none");
-    const finalBaseline = makeBaseline(finalRead.value.snapshot, captured);
+    const finalBaseline = await makeBaseline(finalRead.value.snapshot, captured);
     if (finalBaseline.kind === "failure") {
       return blocked(base("execute_prepared", prepared), finalBaseline.blockerCode, finalBaseline.observationRequired, "none", finalBaseline.evidenceDigest);
     }
-    const parentFailure = validateGeneratingParent(finalRead.value.snapshot, captured, prepared);
+    const parentFailure = await validateGeneratingParent(finalRead.value.snapshot, captured, prepared);
     if (parentFailure !== undefined) {
       return blocked(base("execute_prepared", prepared), parentFailure.blockerCode, parentFailure.observationRequired, "none", parentFailure.evidenceDigest);
     }
     if (canonicalJson(finalBaseline.value) !== canonicalJson(prepared.baseline)) {
-      return blocked(base("execute_prepared", prepared), "turn_ownership_ambiguous", true, "none", safeDigest(captured, "work-steer-final-baseline", {
+      return blocked(base("execute_prepared", prepared), "turn_ownership_ambiguous", true, "none", await safeDigest(captured, "work-steer-final-baseline", {
         baselineSnapshotDigest: prepared.baselineSnapshotDigest,
         observedSnapshotDigest: finalBaseline.value.snapshotDigest
       }));
@@ -490,7 +490,7 @@ export function createProductionWorkSteerPrimitive(
     let prepared: ProductionWorkSteerPrepared;
     try {
       call = normalizeCall(request, captured, clock, phase);
-      prepared = validatePrepared(request.prepared, captured);
+      prepared = await validatePrepared(request.prepared, captured);
       if (suppliedBaseline !== undefined) {
         validateBaselineInput(suppliedBaseline, captured, prepared.baselineSnapshotDigest);
         if (canonicalJson(suppliedBaseline) !== canonicalJson(prepared.baseline)) throw new ProductionWorkSteerPrimitiveError("invalid_baseline");
@@ -503,7 +503,7 @@ export function createProductionWorkSteerPrimitive(
     const observed = await observeBounded(call, captured, clock, phase, prepared, suppliedBaseline);
     if (observed.kind === "cancelled") return uncertain(base(phase, prepared), observed.code, "caller");
     if (observed.kind === "error") return uncertain(base(phase, prepared), "target_evidence_unavailable", "caller");
-    const exact = exactPostcondition(observed.value.snapshot, prepared, captured);
+    const exact = await exactPostcondition(observed.value.snapshot, prepared, captured);
     if (exact.kind === "failure") return uncertain(base(phase, prepared), exact.blockerCode, "caller", exact.evidenceDigest);
     return Object.freeze({
       ...base(phase, prepared),
@@ -839,25 +839,25 @@ function hasUnsafeCapabilityGraph(value: object, allowed: readonly string[]): bo
   } catch { return true; }
 }
 
-function makePrepared(
+async function makePrepared(
   snapshot: OwnershipSnapshot,
   options: CapturedOptions
-): Readonly<{ kind: "ok"; value: ProductionWorkSteerPrepared } | ({ kind: "failure" } & Failure)> {
-  const baselineResult = makeBaseline(snapshot, options);
+): Promise<Readonly<{ kind: "ok"; value: ProductionWorkSteerPrepared } | ({ kind: "failure" } & Failure)>> {
+  const baselineResult = await makeBaseline(snapshot, options);
   if (baselineResult.kind === "failure") return baselineResult;
   const assistant = findExpectedAssistant(snapshot, options.expectedAssistantTurnId);
   if (assistant === undefined || assistant.state !== "generating" || snapshot.terminalState !== "generating") {
-    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-parent", snapshot.snapshotDigest) };
+    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-parent", snapshot.snapshotDigest) };
   }
   if (assistant.parentStableId === undefined || assistant.branchStableId === undefined
     || !isSafeIdentifier(assistant.parentStableId) || !isSafeIdentifier(assistant.branchStableId)) {
-    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-parent", snapshot.snapshotDigest) };
+    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-parent", snapshot.snapshotDigest) };
   }
   if (!baselineResult.value.userTurns.some(turn => turn.stableId === assistant.parentStableId)) {
-    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-parent", snapshot.snapshotDigest) };
+    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-parent", snapshot.snapshotDigest) };
   }
   if (snapshot.assistantTurns.some(turn => turn !== assistant && turn.parentStableId === assistant.parentStableId && turn.branchStableId !== assistant.branchStableId)) {
-    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-branch", snapshot.snapshotDigest) };
+    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-branch", snapshot.snapshotDigest) };
   }
   const material = {
     schemaVersion: PRODUCTION_WORK_STEER_SCHEMA_VERSION,
@@ -872,7 +872,7 @@ function makePrepared(
     baselineSnapshotDigest: baselineResult.value.snapshotDigest,
     baseline: baselineResult.value
   };
-  const preparedDigest = safeDigest(options, "work-steer-prepared", material);
+  const preparedDigest = await safeDigest(options, "work-steer-prepared", material);
   if (preparedDigest === undefined) return { kind: "failure", blockerCode: "send_control_unavailable", observationRequired: true, evidenceDigest: undefined };
   return {
     kind: "ok",
@@ -883,7 +883,7 @@ function makePrepared(
   };
 }
 
-function validatePrepared(value: unknown, options: CapturedOptions): ProductionWorkSteerPrepared {
+async function validatePrepared(value: unknown, options: CapturedOptions): Promise<ProductionWorkSteerPrepared> {
   if (!isPlainRecord(value) || hasAccessorInGraph(value) || !exactKeys(value, [
     "schemaVersion", "operationId", "parentRequestDigest", "targetBindingDigest", "controlActionId", "action",
     "expectedAssistantTurnId", "assistantBranchId", "assistantParentTurnId", "baselineSnapshotDigest", "preparedDigest", "baseline"
@@ -920,7 +920,7 @@ function validatePrepared(value: unknown, options: CapturedOptions): ProductionW
     baselineSnapshotDigest: cloned.baselineSnapshotDigest,
     baseline: cloned.baseline
   };
-  const expectedDigest = safeDigest(options, "work-steer-prepared", material);
+  const expectedDigest = await safeDigest(options, "work-steer-prepared", material);
   if (expectedDigest === undefined || expectedDigest !== cloned.preparedDigest) throw new ProductionWorkSteerPrimitiveError("invalid_prepared");
   const baseline = cloned.baseline as OwnershipBaseline;
   const parent = baseline.assistantTurns.find(turn => turn.stableId === cloned.expectedAssistantTurnId);
@@ -950,12 +950,12 @@ function validateBaselineInput(value: unknown, options: CapturedOptions, expecte
   if (!matchesRedactedTarget(options.target, baseline.target)) throw new ProductionWorkSteerPrimitiveError("target_binding_mismatch");
 }
 
-function makeBaseline(
+async function makeBaseline(
   snapshot: OwnershipSnapshot,
   options: CapturedOptions
-): Readonly<{ kind: "ok"; value: OwnershipBaseline } | ({ kind: "failure" } & Failure)> {
+): Promise<Readonly<{ kind: "ok"; value: OwnershipBaseline } | ({ kind: "failure" } & Failure)>> {
   if (snapshot.completeness !== "complete" || snapshot.terminalState === "unknown") {
-    return { kind: "failure", blockerCode: "target_evidence_unavailable", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-snapshot", snapshot.snapshotDigest) };
+    return { kind: "failure", blockerCode: "target_evidence_unavailable", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-snapshot", snapshot.snapshotDigest) };
   }
   const target = redactTargetEvidence(snapshot.target);
   const baseline = deepFreeze({
@@ -978,58 +978,58 @@ function makeBaseline(
     };
     assertOwnershipBaselineShape(wrapper);
   } catch {
-    return { kind: "failure", blockerCode: "target_evidence_unavailable", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-snapshot", snapshot.snapshotDigest) };
+    return { kind: "failure", blockerCode: "target_evidence_unavailable", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-snapshot", snapshot.snapshotDigest) };
   }
   return { kind: "ok", value: baseline };
 }
 
-function validateGeneratingParent(
+async function validateGeneratingParent(
   snapshot: OwnershipSnapshot,
   options: CapturedOptions,
   prepared: ProductionWorkSteerPrepared
-): Failure | undefined {
+): Promise<Failure | undefined> {
   const assistant = findExpectedAssistant(snapshot, options.expectedAssistantTurnId);
   if (assistant === undefined || assistant.state !== "generating" || snapshot.terminalState !== "generating"
     || assistant.parentStableId !== prepared.assistantParentTurnId
     || assistant.branchStableId !== prepared.assistantBranchId) {
-    return { blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-parent", snapshot.snapshotDigest) };
+    return { blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-parent", snapshot.snapshotDigest) };
   }
   if (snapshot.assistantTurns.some(turn => turn !== assistant && turn.parentStableId === prepared.assistantParentTurnId && turn.branchStableId !== prepared.assistantBranchId)) {
-    return { blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-branch", snapshot.snapshotDigest) };
+    return { blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-branch", snapshot.snapshotDigest) };
   }
   return undefined;
 }
 
-function exactPostcondition(
+async function exactPostcondition(
   snapshot: OwnershipSnapshot,
   prepared: ProductionWorkSteerPrepared,
   options: CapturedOptions
-): Readonly<{ kind: "ok"; value: ExactPostcondition } | ({ kind: "failure" } & Failure)> {
-  if (snapshot.completeness !== "complete" || snapshot.terminalState === "unknown") return { kind: "failure", blockerCode: "target_evidence_unavailable", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-postcondition", snapshot.snapshotDigest) };
+): Promise<Readonly<{ kind: "ok"; value: ExactPostcondition } | ({ kind: "failure" } & Failure)>> {
+  if (snapshot.completeness !== "complete" || snapshot.terminalState === "unknown") return { kind: "failure", blockerCode: "target_evidence_unavailable", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-postcondition", snapshot.snapshotDigest) };
   const baseline = prepared.baseline;
-  if (!preserveUsers(baseline.userTurns, snapshot.userTurns)) return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-delta", snapshot.snapshotDigest) };
+  if (!preserveUsers(baseline.userTurns, snapshot.userTurns)) return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-delta", snapshot.snapshotDigest) };
   if (snapshot.userTurns.length !== baseline.userTurns.length + 1) {
-    return { kind: "failure", blockerCode: snapshot.userTurns.length > baseline.userTurns.length + 1 ? "concurrent_user_turn" : "ambiguous_submit", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-delta", snapshot.snapshotDigest) };
+    return { kind: "failure", blockerCode: snapshot.userTurns.length > baseline.userTurns.length + 1 ? "concurrent_user_turn" : "ambiguous_submit", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-delta", snapshot.snapshotDigest) };
   }
   const addedUser = snapshot.userTurns[baseline.userTurns.length];
   if (addedUser === undefined || addedUser.stableId === undefined || addedUser.ordinal !== baseline.userTurns.length) {
-    return { kind: "failure", blockerCode: "ambiguous_submit", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-delta", snapshot.snapshotDigest) };
+    return { kind: "failure", blockerCode: "ambiguous_submit", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-delta", snapshot.snapshotDigest) };
   }
   const delta = snapshot.postSendDelta;
   if (delta === undefined || delta.baselineSnapshotDigest !== prepared.baselineSnapshotDigest || delta.addedUserEvidenceDigests.length !== 1 || delta.addedUserEvidenceDigests[0] !== addedUser.evidenceDigest) {
-    return { kind: "failure", blockerCode: "ambiguous_submit", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-delta", snapshot.snapshotDigest) };
+    return { kind: "failure", blockerCode: "ambiguous_submit", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-delta", snapshot.snapshotDigest) };
   }
-  const expectedDelta = safeDigest(options, "browser-observation-post-send-delta", {
+  const expectedDelta = await safeDigest(options, "browser-observation-post-send-delta", {
     baselineSnapshotDigest: prepared.baselineSnapshotDigest,
     addedUserEvidenceDigests: delta.addedUserEvidenceDigests
   });
   if (expectedDelta === undefined || expectedDelta !== delta.deltaDigest) {
-    return { kind: "failure", blockerCode: "ambiguous_submit", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-delta", snapshot.snapshotDigest) };
+    return { kind: "failure", blockerCode: "ambiguous_submit", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-delta", snapshot.snapshotDigest) };
   }
-  if (!preserveAssistants(baseline.assistantTurns, snapshot.assistantTurns, prepared)) return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-branch", snapshot.snapshotDigest) };
+  if (!preserveAssistants(baseline.assistantTurns, snapshot.assistantTurns, prepared)) return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-branch", snapshot.snapshotDigest) };
   const addedAssistants = snapshot.assistantTurns.slice(baseline.assistantTurns.length);
-  if (addedAssistants.length > 1 || addedAssistants.some(turn => turn.parentStableId !== addedUser!.stableId || turn.branchStableId !== prepared.assistantBranchId || turn.ordinal !== baseline.assistantTurns.length)) return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest(options, "work-steer-branch", snapshot.snapshotDigest) };
-  const evidenceDigest = safeDigest(options, "work-steer-postcondition", {
+  if (addedAssistants.length > 1 || addedAssistants.some(turn => turn.parentStableId !== addedUser!.stableId || turn.branchStableId !== prepared.assistantBranchId || turn.ordinal !== baseline.assistantTurns.length)) return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest(options, "work-steer-branch", snapshot.snapshotDigest) };
+  const evidenceDigest = await safeDigest(options, "work-steer-postcondition", {
     operationId: options.operationId,
     targetBindingDigest: options.targetBindingDigest,
     controlActionId: options.controlActionId,
@@ -1430,10 +1430,10 @@ function uncertain(
   });
 }
 
-function safeDigest(options: CapturedOptions, domain: string, material: unknown): string | undefined {
+async function safeDigest(options: CapturedOptions, domain: string, material: unknown): Promise<string | undefined> {
   try {
     const safeMaterial = deepFreeze(cloneData(material, 0, { count: 0, active: new Set<object>() }));
-    const result = options.evidenceDigest(domain, safeMaterial);
+    const result = await options.evidenceDigest(domain, safeMaterial);
     return typeof result === "string" && DIGEST_PATTERN.test(result) ? result : undefined;
   } catch { return undefined; }
 }

@@ -4,11 +4,11 @@
 import { TextDecoder } from "node:util";
 
 // src/backend/session.ts
-import { randomUUID as randomUUID6 } from "node:crypto";
+import { randomUUID as randomUUID7 } from "node:crypto";
 
 // src/client.ts
-import { randomUUID as randomUUID5 } from "node:crypto";
-import { AsyncLocalStorage as AsyncLocalStorage2 } from "node:async_hooks";
+import { randomUUID as randomUUID6 } from "node:crypto";
+import { AsyncLocalStorage as AsyncLocalStorage3 } from "node:async_hooks";
 
 // src/commands/artifacts.ts
 import { copyFile as copyFile2, mkdir as mkdir2, stat as stat2, writeFile } from "node:fs/promises";
@@ -17,6 +17,128 @@ import { basename as basename2, join as join2, resolve as resolve2 } from "node:
 // src/browser/downloads.ts
 import { copyFile, mkdir, stat } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
+
+// src/errors.ts
+var BROWSER_BRIDGE_UNAVAILABLE_MESSAGE = "Codex cannot access the ChatGPT browser bridge from this backend process. In an ordinary shell this is expected; for a live Codex Chrome run, assign the Chrome plugin runtime returned by setupBrowserRuntime() to globalThis.agent before using it.";
+var BROWSER_BRIDGE_REMEDIATION = [
+  {
+    label: "Ordinary shell",
+    instruction: "Treat browser_bridge_unavailable from a plain shell as an expected protocol/blocker-path result, not proof that Chrome, ChatGPT, or the Codex extension is broken.",
+    userActionRequired: false
+  },
+  {
+    label: "Codex Chrome bootstrap",
+    instruction: 'For a live run, initialize the Chrome plugin runtime in node_repl with globalThis.agent = await setupBrowserRuntime(), then set globalThis.browser = await agent.browsers.get("extension") before calling createChatGPT({ agent: globalThis.agent }).',
+    userActionRequired: false
+  },
+  {
+    label: "Python live bridge",
+    instruction: "For Python browser-bridge smokes, keep the bridge-hosted Node backend JS execution alive and run scripts/http_stdio_relay.mjs with CHATGPT_BROWSER_BACKEND_HTTP_URL; a plain Python-spawned Node subprocess cannot inherit globalThis.agent.",
+    userActionRequired: false
+  },
+  {
+    label: "Extension availability",
+    instruction: "If this command was already running inside a bootstrapped bridge host, verify the Codex Chrome extension is installed and enabled, then restart Chrome or Codex before retrying.",
+    userActionRequired: true
+  }
+];
+function nodeErrorCode(error) {
+  if (error === null || typeof error !== "object" && typeof error !== "function") return void 0;
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(error, "code");
+    if (descriptor === void 0 || !("value" in descriptor) || typeof descriptor.value !== "string") {
+      return void 0;
+    }
+    return descriptor.value;
+  } catch {
+    return void 0;
+  }
+}
+var ChatGPTControlError = class extends Error {
+  constructor(message, kind, recoverable, visibleText, blockerDetails = {}) {
+    super(message);
+    this.kind = kind;
+    this.recoverable = recoverable;
+    this.visibleText = visibleText;
+    this.blockerDetails = blockerDetails;
+    this.name = new.target.name;
+  }
+  kind;
+  recoverable;
+  visibleText;
+  blockerDetails;
+};
+var BrowserBridgeUnavailableError = class extends ChatGPTControlError {
+  constructor(message = BROWSER_BRIDGE_UNAVAILABLE_MESSAGE) {
+    super(message, "browser_bridge_unavailable", true, void 0, {
+      code: "codex_chrome_bridge_unavailable",
+      remediation: BROWSER_BRIDGE_REMEDIATION
+    });
+  }
+};
+var LoginRequiredError = class extends ChatGPTControlError {
+  constructor(visibleText) {
+    super("ChatGPT login is required before this command can continue.", "login_required", true, visibleText);
+  }
+};
+function contextNow(partial = {}) {
+  return {
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    ...partial
+  };
+}
+function resultOk(data, context = {}, warnings = []) {
+  return {
+    ok: true,
+    status: "ok",
+    data,
+    warnings,
+    context: contextNow(context)
+  };
+}
+function resultError(error, context = {}, recoverable = error instanceof ChatGPTControlError ? error.recoverable : false) {
+  const blocker3 = error instanceof ChatGPTControlError ? error.visibleText === void 0 ? {
+    kind: error.kind,
+    message: error.message,
+    ...error.blockerDetails
+  } : {
+    kind: error.kind,
+    message: error.message,
+    visibleText: error.visibleText,
+    ...error.blockerDetails
+  } : void 0;
+  const result3 = {
+    ok: false,
+    status: blocker3 ? "blocked" : "error",
+    warnings: [],
+    error: {
+      name: error.name,
+      message: error.message,
+      recoverable
+    },
+    context: contextNow(context)
+  };
+  if (blocker3 !== void 0) {
+    result3.blocker = blocker3;
+  }
+  return result3;
+}
+
+// src/commands/deadline.ts
+function createDeadline(timeoutMs, startedAtMs = Date.now()) {
+  const safeTimeoutMs = Math.max(0, timeoutMs);
+  return {
+    startedAtMs,
+    timeoutMs: safeTimeoutMs,
+    expiresAtMs: startedAtMs + safeTimeoutMs
+  };
+}
+function remainingMs(deadline, nowMs = Date.now()) {
+  return Math.max(0, deadline.expiresAtMs - nowMs);
+}
+function childTimeoutMs(deadline, capMs, nowMs = Date.now()) {
+  return Math.max(0, Math.min(Math.max(0, capMs), remainingMs(deadline, nowMs)));
+}
 
 // src/commands/timeouts.ts
 async function withTimeout(promise, timeoutMs, message) {
@@ -36,41 +158,803 @@ function localGuardTimeout(timeoutMs, capMs) {
   return Math.max(1, Math.min(timeoutMs ?? capMs, capMs));
 }
 
+// src/runtime/coordinated-page.ts
+import { AsyncLocalStorage } from "node:async_hooks";
+var COORDINATED_PAGE_PRIORITIES = Object.freeze({
+  read: "read",
+  mutation: "mutation",
+  control: "control"
+});
+var MAX_PROTO_DEPTH = 12;
+var MAX_CAPABILITY_DEPTH = 8;
+var MAX_ARGUMENTS = 16;
+var MAX_CACHED_PAGE_AFFINITIES = 256;
+var CoordinatedPageError = class extends Error {
+  code = "coordinated_page_invalid";
+  constructor(message, options) {
+    super(message, options);
+    this.name = "CoordinatedPageError";
+  }
+};
+var pageWrappers = /* @__PURE__ */ new WeakMap();
+var rawValues = /* @__PURE__ */ new WeakMap();
+var eventRegistrationBarriers = /* @__PURE__ */ new WeakMap();
+var mutationGuards = new AsyncLocalStorage();
+function withCoordinatedMutationGuard(signal, assertActive, run) {
+  return mutationGuards.run({ signal, assertActive }, () => {
+    assertActive();
+    return run();
+  });
+}
+function coordinatedEventRegistrationBarrier(value) {
+  return isObjectLike(value) ? eventRegistrationBarriers.get(value) : void 0;
+}
+function isObjectLike(value) {
+  return typeof value === "object" && value !== null || typeof value === "function";
+}
+function labelForKey(key) {
+  try {
+    return typeof key === "symbol" ? key.toString() : String(key);
+  } catch {
+    return "unknown";
+  }
+}
+function invalid(message, cause) {
+  throw new CoordinatedPageError(message, cause === void 0 ? void 0 : { cause });
+}
+function readDataMember(value, key, label) {
+  let current = value;
+  for (let depth = 0; current !== null && depth < MAX_PROTO_DEPTH; depth += 1) {
+    let descriptor;
+    try {
+      descriptor = Object.getOwnPropertyDescriptor(current, key);
+    } catch (error) {
+      return invalid(`Cannot inspect ${label}: the provider object rejected a bounded descriptor read`, error);
+    }
+    if (descriptor !== void 0) {
+      if (!("value" in descriptor)) {
+        return invalid(`Cannot use ${label}: accessor-backed provider members are not supported`);
+      }
+      if (current !== value && typeof descriptor.value === "function") {
+        try {
+          const receiverSafe = Reflect.get(value, key, value);
+          if (typeof receiverSafe === "function") return receiverSafe;
+        } catch (error) {
+          return invalid(`Cannot use ${label}: provider method binding failed`, error);
+        }
+      }
+      return descriptor.value;
+    }
+    try {
+      const prototype = Object.getPrototypeOf(current);
+      current = isObjectLike(prototype) ? prototype : null;
+    } catch (error) {
+      return invalid(`Cannot inspect ${label}: the provider prototype chain is not readable`, error);
+    }
+  }
+  if (current !== null) return invalid(`Cannot inspect ${label}: provider prototype depth exceeded`);
+  return void 0;
+}
+function requiredCallable(value, key, label) {
+  const member = readDataMember(value, key, label);
+  if (typeof member !== "function") return invalid(`${label} is not available as a callable provider method`);
+  return member;
+}
+function optionalCallable(value, key, label) {
+  const member = readDataMember(value, key, label);
+  if (member === void 0) return void 0;
+  if (typeof member !== "function") return invalid(`${label} is not callable`);
+  return member;
+}
+function requiredRecord(value, label) {
+  if (!isObjectLike(value)) return invalid(`${label} must be an object`);
+  return value;
+}
+function validateStableOwnerId(value, label) {
+  if (typeof value !== "string") return invalid(`${label} must be a stable string`);
+  const normalized = value.trim();
+  if (normalized.length === 0 || normalized.length > 512 || /[\u0000-\u001f\u007f]/u.test(normalized)) {
+    return invalid(`${label} must be a non-empty stable string`);
+  }
+  return normalized;
+}
+function normalizeOwner(value) {
+  const owner = requiredRecord(value, "owner");
+  const backendSessionId = validateStableOwnerId(
+    readDataMember(owner, "backendSessionId", "owner.backendSessionId"),
+    "owner.backendSessionId"
+  );
+  const ownerIdValue = readDataMember(owner, "ownerId", "owner.ownerId");
+  const operationIdValue = readDataMember(owner, "operationId", "owner.operationId");
+  const ownerId = ownerIdValue === void 0 ? void 0 : validateStableOwnerId(ownerIdValue, "owner.ownerId");
+  const operationId2 = operationIdValue === void 0 ? void 0 : validateStableOwnerId(operationIdValue, "owner.operationId");
+  return Object.freeze({
+    backendSessionId,
+    ...ownerId === void 0 ? {} : { ownerId },
+    ...operationId2 === void 0 ? {} : { operationId: operationId2 }
+  });
+}
+function normalizeResource(value) {
+  const resource = requiredRecord(value, "resource");
+  const kind = readDataMember(resource, "kind", "resource.kind");
+  const key = readDataMember(resource, "key", "resource.key");
+  if (kind !== "tab" && kind !== "browser") return invalid("resource.kind must be tab or browser");
+  if (typeof key !== "string" || key.length === 0) return invalid("resource.key must be a canonical coordinator key");
+  const parts = key.split(":");
+  const expectedParts = kind === "tab" ? 4 : 3;
+  if (parts.length !== expectedParts || parts[0] !== kind) return invalid("resource.key must be a canonical coordinator key");
+  for (let index = 1; index < parts.length; index += 1) {
+    const encoded = parts[index];
+    if (encoded === void 0 || encoded.length === 0) return invalid("resource.key must be a canonical coordinator key");
+    let decoded;
+    try {
+      decoded = decodeURIComponent(encoded);
+    } catch (error) {
+      return invalid("resource.key must be a canonical coordinator key", error);
+    }
+    if (encodeURIComponent(decoded) !== encoded) return invalid("resource.key must be a canonical coordinator key");
+    validateStableOwnerId(decoded, `resource.key part ${index}`);
+    if (["unknown", "undefined", "null", "n/a", "na"].includes(decoded.toLowerCase())) {
+      return invalid("resource.key must be a canonical coordinator key");
+    }
+  }
+  return Object.freeze({ kind, key });
+}
+function normalizeOptions(value) {
+  const options = requiredRecord(value, "coordinated page options");
+  const coordinator = readDataMember(options, "coordinator", "options.coordinator");
+  if (!isObjectLike(coordinator)) return invalid("options.coordinator must be a ProcessTabCoordinator");
+  if (typeof readDataMember(coordinator, "withTabTransaction", "coordinator.withTabTransaction") !== "function" || typeof readDataMember(coordinator, "withBrowserAcquisition", "coordinator.withBrowserAcquisition") !== "function") {
+    return invalid("options.coordinator must expose both coordinator transaction methods");
+  }
+  const resource = normalizeResource(readDataMember(options, "resource", "options.resource"));
+  const owner = normalizeOwner(readDataMember(options, "owner", "options.owner"));
+  const timeoutValue = readDataMember(options, "defaultTimeoutMs", "options.defaultTimeoutMs");
+  if (timeoutValue !== void 0 && (!Number.isSafeInteger(timeoutValue) || timeoutValue < 0)) {
+    return invalid("options.defaultTimeoutMs must be a non-negative safe integer");
+  }
+  const defaultTimeoutMs = timeoutValue === void 0 ? void 0 : timeoutValue;
+  return Object.freeze({
+    coordinator,
+    resource,
+    owner,
+    ...defaultTimeoutMs === void 0 ? {} : { defaultTimeoutMs }
+  });
+}
+function safeInvocation(fn, receiver, args) {
+  if (args.length > MAX_ARGUMENTS) return invalid("Provider invocation argument count exceeded the bounded facade limit");
+  try {
+    return Reflect.apply(fn, receiver, args);
+  } catch (error) {
+    throw error;
+  }
+}
+function absorbRejection(promise) {
+  void promise.catch(() => void 0);
+  return promise;
+}
+function timeoutFromArg(value, label) {
+  if (!isObjectLike(value)) return void 0;
+  const timeout = readDataMember(value, "timeoutMs", `${label}.timeoutMs`);
+  if (timeout === void 0) return void 0;
+  if (typeof timeout !== "number" || !Number.isFinite(timeout) || timeout < 0) {
+    return invalid(`${label}.timeoutMs must be a non-negative finite number`);
+  }
+  return timeout;
+}
+function timeoutFromEventOptions(value) {
+  if (!isObjectLike(value)) return void 0;
+  const timeoutMs = readDataMember(value, "timeoutMs", "waitForEvent.options.timeoutMs");
+  if (timeoutMs !== void 0 && (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs < 0)) {
+    return invalid("waitForEvent.options.timeoutMs must be a non-negative finite number");
+  }
+  const timeout = readDataMember(value, "timeout", "waitForEvent.options.timeout");
+  if (timeout !== void 0 && (typeof timeout !== "number" || !Number.isFinite(timeout) || timeout < 0)) {
+    return invalid("waitForEvent.options.timeout must be a non-negative finite number");
+  }
+  if (timeoutMs === void 0) return timeout;
+  if (timeout === void 0) return timeoutMs;
+  return Math.min(timeoutMs, timeout);
+}
+function makeCacheKey(options) {
+  const owner = options.owner;
+  return [
+    options.resource.kind,
+    options.resource.key,
+    owner.backendSessionId,
+    owner.ownerId ?? "",
+    owner.operationId ?? "",
+    options.defaultTimeoutMs === void 0 ? "" : String(options.defaultTimeoutMs)
+  ].map((part) => encodeURIComponent(part)).join(":");
+}
+function getPageCache(rawPage, coordinator) {
+  let byCoordinator = pageWrappers.get(rawPage);
+  if (byCoordinator === void 0) {
+    byCoordinator = /* @__PURE__ */ new WeakMap();
+    pageWrappers.set(rawPage, byCoordinator);
+  }
+  let byAffinity = byCoordinator.get(coordinator);
+  if (byAffinity === void 0) {
+    byAffinity = /* @__PURE__ */ new Map();
+    byCoordinator.set(coordinator, byAffinity);
+  }
+  return byAffinity;
+}
+function cachePage(cache, affinity, page) {
+  cache.delete(affinity);
+  cache.set(affinity, new WeakRef(page));
+  for (const [key, reference] of cache) {
+    if (reference.deref() === void 0) cache.delete(key);
+  }
+  while (cache.size > MAX_CACHED_PAGE_AFFINITIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest === void 0) break;
+    cache.delete(oldest);
+  }
+}
+function wrapResult(value, state, label, depth = 0) {
+  if (depth > MAX_CAPABILITY_DEPTH || !isObjectLike(value)) return value;
+  if (isFileChooserCandidate(value)) return wrapFileChooser(value, state, label);
+  return value;
+}
+function isFileChooserCandidate(value) {
+  return typeof readDataMember(value, "setFiles", "file chooser.setFiles") === "function";
+}
+function assertProxyInterceptable(target, key, label) {
+  let descriptor;
+  try {
+    descriptor = Object.getOwnPropertyDescriptor(target, key);
+  } catch (error) {
+    invalid(`Cannot wrap ${label}: provider object rejected a descriptor read`, error);
+  }
+  if (descriptor !== void 0 && descriptor.configurable === false && "value" in descriptor && descriptor.writable === false) {
+    return invalid(`Cannot wrap ${label}: provider method is a non-configurable immutable property`);
+  }
+}
+function wrapFileChooser(rawChooser, state, label) {
+  const existing = state.fileChooserWrappers.get(rawChooser);
+  if (existing !== void 0) return existing;
+  assertProxyInterceptable(rawChooser, "setFiles", `${label}.setFiles`);
+  const wrapper = new Proxy(rawChooser, {
+    get(target, property) {
+      const propertyLabel = `${label}.${labelForKey(property)}`;
+      if (property === "setFiles") {
+        const setFiles = requiredCallable(target, property, propertyLabel);
+        return (paths, options) => {
+          return routeTransaction(
+            state,
+            "mutation",
+            propertyLabel,
+            timeoutFromArg(options, propertyLabel),
+            () => safeInvocation(setFiles, target, [paths, options])
+          );
+        };
+      }
+      if (property === "element") {
+        assertProxyInterceptable(target, property, propertyLabel);
+        const element = optionalCallable(target, property, propertyLabel);
+        if (element === void 0) return void 0;
+        return () => routeTransaction(state, "read", propertyLabel, void 0, async () => {
+          const result3 = await safeInvocation(element, target, []);
+          return wrapLocator(await result3, state, propertyLabel);
+        });
+      }
+      if (property === "isMultiple") {
+        assertProxyInterceptable(target, property, propertyLabel);
+        const isMultiple = optionalCallable(target, property, propertyLabel);
+        if (isMultiple === void 0) return void 0;
+        return () => routeTransaction(
+          state,
+          "read",
+          propertyLabel,
+          void 0,
+          () => safeInvocation(isMultiple, target, [])
+        );
+      }
+      const member = readDataMember(target, property, propertyLabel);
+      if (typeof member === "function") return member.bind(target);
+      return member;
+    }
+  });
+  state.fileChooserWrappers.set(rawChooser, wrapper);
+  rawValues.set(wrapper, rawChooser);
+  return wrapper;
+}
+function capabilityPriority(name) {
+  const lower = name.toLowerCase();
+  if (/^(get|list|read|inspect|status|count|query|fetch|metadata|inventory)/u.test(lower)) return "read";
+  if (/^(stop|cancel)/u.test(lower)) return "control";
+  return "mutation";
+}
+function wrapCapability(value, state, label, depth) {
+  const existing = state.capabilityWrappers.get(value);
+  if (existing !== void 0) return existing;
+  const wrapper = new Proxy(value, {
+    get(target, property) {
+      if (property === "then") return void 0;
+      const propertyLabel = `${label}.${labelForKey(property)}`;
+      const member = readDataMember(target, property, propertyLabel);
+      if (typeof member !== "function") return member;
+      if (typeof property === "symbol") return member;
+      assertProxyInterceptable(target, property, propertyLabel);
+      return (...args) => routeTransaction(
+        state,
+        capabilityPriority(labelForKey(property)),
+        propertyLabel,
+        timeoutFromArg(args.at(-1), propertyLabel),
+        async () => wrapResult(await safeInvocation(member, target, args), state, propertyLabel, depth + 1)
+      );
+    }
+  });
+  state.capabilityWrappers.set(value, wrapper);
+  rawValues.set(wrapper, value);
+  return wrapper;
+}
+function wrapLocator(rawLocator, state, label) {
+  if (!isObjectLike(rawLocator)) return invalid(`${label} did not return a locator object`);
+  const existing = state.locatorWrappers.get(rawLocator);
+  if (existing !== void 0) return existing;
+  const wrapper = {};
+  const locator = rawLocator;
+  state.locatorWrappers.set(locator, wrapper);
+  rawValues.set(wrapper, locator);
+  const sync = (name) => {
+    const member = optionalCallable(locator, name, `${label}.${name}`);
+    if (member === void 0) return;
+    wrapper[name] = (...args) => {
+      const child = safeInvocation(member, locator, args);
+      return wrapLocator(child, state, `${label}.${name}`);
+    };
+  };
+  sync("nth");
+  sync("first");
+  sync("last");
+  sync("locator");
+  sync("filter");
+  sync("getByRole");
+  sync("getByText");
+  const transaction = (name, priority, argumentTimeoutIndex) => {
+    const member = optionalCallable(locator, name, `${label}.${name}`);
+    if (member === void 0) return;
+    wrapper[name] = (...args) => routeTransaction(
+      state,
+      priority,
+      `${label}.${name}`,
+      argumentTimeoutIndex === void 0 ? state.options.defaultTimeoutMs : timeoutFromArg(args[argumentTimeoutIndex], `${label}.${name}`) ?? state.options.defaultTimeoutMs,
+      () => safeInvocation(member, locator, args)
+    );
+  };
+  transaction("click", "mutation", 0);
+  transaction("press", "mutation", 1);
+  transaction("fill", "mutation", 1);
+  transaction("textContent", "read", 0);
+  transaction("innerText", "read", 0);
+  transaction("innerHTML", "read", 0);
+  transaction("count", "read", void 0);
+  transaction("allTextContents", "read", 0);
+  transaction("isVisible", "read", 0);
+  transaction("evaluate", "mutation", 2);
+  transaction("setInputFiles", "mutation", 1);
+  return wrapper;
+}
+function wrapPlaywright(value, state, label) {
+  const existing = state.playwrightWrappers.get(value);
+  if (existing !== void 0) return existing;
+  const wrapper = new Proxy(value, {
+    get(target, property) {
+      const propertyLabel = `${label}.${labelForKey(property)}`;
+      const member = readDataMember(target, property, propertyLabel);
+      if (typeof member !== "function") return member;
+      if (typeof property === "symbol") return member;
+      if (property === "waitForTimeout") {
+        assertProxyInterceptable(target, property, propertyLabel);
+        return (milliseconds) => {
+          const result3 = safeInvocation(member, target, [milliseconds]);
+          return absorbRejection(Promise.resolve(result3));
+        };
+      }
+      assertProxyInterceptable(target, property, propertyLabel);
+      return (...args) => routeTransaction(
+        state,
+        "read",
+        propertyLabel,
+        timeoutFromArg(args.at(-1), propertyLabel) ?? state.options.defaultTimeoutMs,
+        async () => wrapResult(await safeInvocation(member, target, args), state, propertyLabel)
+      );
+    }
+  });
+  state.playwrightWrappers.set(value, wrapper);
+  rawValues.set(wrapper, value);
+  return wrapper;
+}
+function routeTransaction(state, priority, label, timeoutMs, callback) {
+  const guard = priority === "mutation" ? mutationGuards.getStore() : void 0;
+  const requestOptions = {
+    owner: state.options.owner,
+    priority,
+    label,
+    ...timeoutMs === void 0 ? {} : { timeoutMs },
+    ...guard === void 0 ? {} : { signal: guard.signal }
+  };
+  const { coordinator, resource } = state.options;
+  const guardedCallback = () => {
+    guard?.assertActive();
+    return callback();
+  };
+  const pending2 = resource.kind === "tab" ? coordinator.withTabTransaction(resource.key, requestOptions, guardedCallback) : coordinator.withBrowserAcquisition(resource.key, requestOptions, guardedCallback);
+  return absorbRejection(pending2);
+}
+function waitForEvent(state, rawPage, event, optionsOrCallback) {
+  const wait = requiredCallable(rawPage, "waitForEvent", "page.waitForEvent");
+  const eventTimeoutMs = timeoutFromEventOptions(optionsOrCallback);
+  const registrationTimeoutMs = eventTimeoutMs === void 0 ? state.options.defaultTimeoutMs : state.options.defaultTimeoutMs === void 0 ? eventTimeoutMs : Math.min(eventTimeoutMs, state.options.defaultTimeoutMs);
+  const registration = routeTransaction(state, "read", "page.waitForEvent.register", registrationTimeoutMs, () => {
+    let candidate;
+    try {
+      candidate = safeInvocation(wait, rawPage, [event, optionsOrCallback]);
+    } catch (error) {
+      throw error;
+    }
+    const providerPromise = Promise.resolve(candidate);
+    const settled = providerPromise.then((value) => value, (error) => {
+      throw error;
+    });
+    void settled.catch(() => void 0);
+    return { promise: settled };
+  });
+  const result3 = registration.then(async ({ promise }) => wrapResult(await promise, state, "page.waitForEvent.result"));
+  const handled = absorbRejection(result3);
+  const barrier = registration.then(() => void 0);
+  void barrier.catch(() => void 0);
+  eventRegistrationBarriers.set(handled, barrier);
+  return handled;
+}
+function makeKeyboard(rawKeyboard, state) {
+  const press = optionalCallable(rawKeyboard, "press", "page.keyboard.press");
+  if (press === void 0) return {};
+  return {
+    press: (key) => routeTransaction(
+      state,
+      "mutation",
+      "page.keyboard.press",
+      state.options.defaultTimeoutMs,
+      () => safeInvocation(press, rawKeyboard, [key])
+    )
+  };
+}
+function makeMouse(rawMouse, state) {
+  const move = optionalCallable(rawMouse, "move", "page.mouse.move");
+  const click = optionalCallable(rawMouse, "click", "page.mouse.click");
+  return {
+    ...move === void 0 ? {} : {
+      move: (x, y) => routeTransaction(
+        state,
+        "mutation",
+        "page.mouse.move",
+        state.options.defaultTimeoutMs,
+        () => safeInvocation(move, rawMouse, [x, y])
+      )
+    },
+    ...click === void 0 ? {} : {
+      click: (x, y) => routeTransaction(
+        state,
+        "mutation",
+        "page.mouse.click",
+        state.options.defaultTimeoutMs,
+        () => safeInvocation(click, rawMouse, [x, y])
+      )
+    }
+  };
+}
+function makeCua(rawCua, state) {
+  const move = optionalCallable(rawCua, "move", "page.cua.move");
+  const click = optionalCallable(rawCua, "click", "page.cua.click");
+  const keypress = optionalCallable(rawCua, "keypress", "page.cua.keypress");
+  return {
+    ...move === void 0 ? {} : {
+      move: (options) => routeTransaction(
+        state,
+        "mutation",
+        "page.cua.move",
+        state.options.defaultTimeoutMs,
+        () => safeInvocation(move, rawCua, [options])
+      )
+    },
+    ...click === void 0 ? {} : {
+      click: (options) => routeTransaction(
+        state,
+        "mutation",
+        "page.cua.click",
+        state.options.defaultTimeoutMs,
+        () => safeInvocation(click, rawCua, [options])
+      )
+    },
+    ...keypress === void 0 ? {} : {
+      keypress: (options) => routeTransaction(
+        state,
+        "mutation",
+        "page.cua.keypress",
+        state.options.defaultTimeoutMs,
+        () => safeInvocation(keypress, rawCua, [options])
+      )
+    }
+  };
+}
+function makeCapabilities(rawCapabilities, state) {
+  const get = optionalCallable(rawCapabilities, "get", "page.capabilities.get");
+  if (get === void 0) return {};
+  return {
+    get: (id2) => routeTransaction(state, "read", "page.capabilities.get", state.options.defaultTimeoutMs, async () => {
+      const value = await safeInvocation(get, rawCapabilities, [id2]);
+      return isObjectLike(value) ? wrapCapability(value, state, "page.capabilities.result", 0) : value;
+    })
+  };
+}
+function buildPage(state) {
+  const rawPage = state.rawPage;
+  const wrapper = {};
+  rawValues.set(wrapper, rawPage);
+  for (const property of ["id", "tabId"]) {
+    const value = readDataMember(rawPage, property, `page.${property}`);
+    if (value !== void 0) wrapper[property] = value;
+  }
+  const locator = optionalCallable(rawPage, "locator", "page.locator");
+  if (locator !== void 0) wrapper.locator = (selector) => wrapLocator(
+    safeInvocation(locator, rawPage, [selector]),
+    state,
+    "page.locator"
+  );
+  const getByRole = optionalCallable(rawPage, "getByRole", "page.getByRole");
+  if (getByRole !== void 0) wrapper.getByRole = (role, options) => wrapLocator(
+    safeInvocation(getByRole, rawPage, [role, options]),
+    state,
+    "page.getByRole"
+  );
+  const getByPlaceholder = optionalCallable(rawPage, "getByPlaceholder", "page.getByPlaceholder");
+  if (getByPlaceholder !== void 0) wrapper.getByPlaceholder = (text, options) => wrapLocator(
+    safeInvocation(getByPlaceholder, rawPage, [text, options]),
+    state,
+    "page.getByPlaceholder"
+  );
+  const getByText = optionalCallable(rawPage, "getByText", "page.getByText");
+  if (getByText !== void 0) wrapper.getByText = (text, options) => wrapLocator(
+    safeInvocation(getByText, rawPage, [text, options]),
+    state,
+    "page.getByText"
+  );
+  const url = optionalCallable(rawPage, "url", "page.url");
+  if (url !== void 0) wrapper.url = () => routeTransaction(
+    state,
+    "read",
+    "page.url",
+    state.options.defaultTimeoutMs,
+    () => safeInvocation(url, rawPage, [])
+  );
+  const title = optionalCallable(rawPage, "title", "page.title");
+  if (title !== void 0) wrapper.title = () => routeTransaction(
+    state,
+    "read",
+    "page.title",
+    state.options.defaultTimeoutMs,
+    () => safeInvocation(title, rawPage, [])
+  );
+  const goto = optionalCallable(rawPage, "goto", "page.goto");
+  if (goto !== void 0) wrapper.goto = (urlValue, options) => routeTransaction(
+    state,
+    "mutation",
+    "page.goto",
+    timeoutFromArg(options, "page.goto") ?? state.options.defaultTimeoutMs,
+    () => safeInvocation(goto, rawPage, [urlValue, options])
+  );
+  const evaluate = optionalCallable(rawPage, "evaluate", "page.evaluate");
+  if (evaluate !== void 0) wrapper.evaluate = (fn, arg, options) => routeTransaction(
+    state,
+    "mutation",
+    "page.evaluate",
+    timeoutFromArg(options, "page.evaluate") ?? state.options.defaultTimeoutMs,
+    () => safeInvocation(evaluate, rawPage, [fn, arg, options])
+  );
+  const content = optionalCallable(rawPage, "content", "page.content");
+  if (content !== void 0) wrapper.content = (options) => routeTransaction(
+    state,
+    "read",
+    "page.content",
+    timeoutFromArg(options, "page.content") ?? state.options.defaultTimeoutMs,
+    () => safeInvocation(content, rawPage, [options])
+  );
+  const close = optionalCallable(rawPage, "close", "page.close");
+  if (close !== void 0) wrapper.close = () => routeTransaction(
+    state,
+    "mutation",
+    "page.close",
+    state.options.defaultTimeoutMs,
+    () => safeInvocation(close, rawPage, [])
+  );
+  const waitForTimeout = optionalCallable(rawPage, "waitForTimeout", "page.waitForTimeout");
+  if (waitForTimeout !== void 0) wrapper.waitForTimeout = (milliseconds) => {
+    const result3 = safeInvocation(waitForTimeout, rawPage, [milliseconds]);
+    return absorbRejection(Promise.resolve(result3));
+  };
+  const waitForEventMethod = optionalCallable(rawPage, "waitForEvent", "page.waitForEvent");
+  if (waitForEventMethod !== void 0) wrapper.waitForEvent = (event, optionsOrCallback) => waitForEvent(state, rawPage, event, optionsOrCallback);
+  const keyboard = readDataMember(rawPage, "keyboard", "page.keyboard");
+  if (keyboard !== void 0) wrapper.keyboard = makeKeyboard(requiredRecord(keyboard, "page.keyboard"), state);
+  const mouse = readDataMember(rawPage, "mouse", "page.mouse");
+  if (mouse !== void 0) wrapper.mouse = makeMouse(requiredRecord(mouse, "page.mouse"), state);
+  const cua = readDataMember(rawPage, "cua", "page.cua");
+  if (cua !== void 0) wrapper.cua = makeCua(requiredRecord(cua, "page.cua"), state);
+  const capabilities = readDataMember(rawPage, "capabilities", "page.capabilities");
+  if (capabilities !== void 0) wrapper.capabilities = makeCapabilities(requiredRecord(capabilities, "page.capabilities"), state);
+  const playwright = readDataMember(rawPage, "playwright", "page.playwright");
+  if (playwright !== void 0) wrapper.playwright = wrapPlaywright(requiredRecord(playwright, "page.playwright"), state, "page.playwright");
+  return wrapper;
+}
+function createCoordinatedPage(page, options) {
+  if (!isObjectLike(page)) return invalid("page must be a provider PageLike object");
+  const normalized = normalizeOptions(options);
+  const cache = getPageCache(page, normalized.coordinator);
+  const affinity = makeCacheKey(normalized);
+  const existing = cache.get(affinity)?.deref();
+  if (existing !== void 0) {
+    cachePage(cache, affinity, existing);
+    return existing;
+  }
+  cache.delete(affinity);
+  const state = {
+    rawPage: page,
+    options: normalized,
+    locatorWrappers: /* @__PURE__ */ new WeakMap(),
+    capabilityWrappers: /* @__PURE__ */ new WeakMap(),
+    fileChooserWrappers: /* @__PURE__ */ new WeakMap(),
+    playwrightWrappers: /* @__PURE__ */ new WeakMap()
+  };
+  const wrapper = buildPage(state);
+  cachePage(cache, affinity, wrapper);
+  rawValues.set(wrapper, page);
+  return wrapper;
+}
+function unwrapCoordinatedPage(page) {
+  if (!isObjectLike(page)) return page;
+  return rawValues.get(page) ?? page;
+}
+
 // src/browser/downloads.ts
+var DownloadReceiptTimeoutError = class extends ChatGPTControlError {
+  constructor(stage) {
+    super(
+      `Download ${stage} did not complete before the deadline. Completion is unverified; inspect the existing download before retrying.`,
+      "download_unavailable",
+      false,
+      void 0,
+      { code: "download_receipt_timeout", resumable: false }
+    );
+  }
+};
+var DownloadBrowserBlockedError = class extends ChatGPTControlError {
+  constructor() {
+    super(
+      "Chrome displayed ERR_BLOCKED_BY_CLIENT during the download. Inspect the existing download and Chrome restrictions before retrying; completion is unverified.",
+      "download_unavailable",
+      false,
+      void 0,
+      { code: "download_blocked_by_browser", resumable: false }
+    );
+  }
+};
+var DownloadReceiptFailedError = class extends ChatGPTControlError {
+  constructor() {
+    super(
+      "The browser did not provide a verified download receipt. Inspect the existing download before retrying; completion is unverified.",
+      "download_unavailable",
+      false,
+      void 0,
+      { code: "download_receipt_failed", resumable: false }
+    );
+  }
+};
+function isTerminalDownloadError(error) {
+  return error instanceof DownloadReceiptTimeoutError || error instanceof DownloadBrowserBlockedError || error instanceof DownloadReceiptFailedError;
+}
+function isTerminalDownloadCode(code) {
+  return code === "download_receipt_timeout" || code === "download_blocked_by_browser" || code === "download_receipt_failed";
+}
+async function checkBrowserDownloadError(page, deadline) {
+  if (typeof page.evaluate !== "function") return;
+  const timeoutMs = Math.min(1e3, Math.floor(remainingMs(deadline) / 4));
+  if (timeoutMs <= 0) return;
+  let state;
+  try {
+    state = await withTimeout(page.evaluate(function inspectBrowserDownloadError() {
+      if (!document.body?.getAttribute("class")?.split(/\s+/).includes("neterror")) return "unavailable";
+      const frames = document.querySelectorAll("#main-frame-error");
+      if (frames.length !== 1) return "unavailable";
+      const codes = frames[0].querySelectorAll(".error-code");
+      return codes.length === 1 && codes[0].textContent?.trim() === "ERR_BLOCKED_BY_CLIENT" ? "blocked_by_client" : "unavailable";
+    }, void 0, { timeoutMs }), timeoutMs, "Browser download diagnostic timed out.");
+  } catch {
+    return;
+  }
+  if (state === "blocked_by_client") throw new DownloadBrowserBlockedError();
+}
+async function downloadStep(deadline, stage, run, capMs) {
+  const timeoutMs = Math.min(remainingMs(deadline), capMs ?? Number.MAX_SAFE_INTEGER);
+  const timeoutError = new DownloadReceiptTimeoutError(stage);
+  if (timeoutMs <= 0) throw timeoutError;
+  try {
+    return await withTimeout(run(), timeoutMs, timeoutError.message);
+  } catch (error) {
+    if (error instanceof Error && error.message === timeoutError.message) throw timeoutError;
+    throw error;
+  }
+}
 async function waitForDownloadFromClick(page, click, destDir, timeoutMs, filenameHint) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2147483647) {
+    throw new Error("Download timeout must be positive and within the supported timer range.");
+  }
+  const deadline = createDeadline(timeoutMs);
+  await checkBrowserDownloadError(page, deadline);
   const absoluteDest = resolve(destDir);
-  await mkdir(absoluteDest, { recursive: true });
-  const downloadPromise = page.waitForEvent?.("download", { timeout: timeoutMs, timeoutMs });
-  if (downloadPromise === void 0) {
+  await downloadStep(deadline, "destination preparation", () => mkdir(absoluteDest, { recursive: true }));
+  if (typeof page.waitForEvent !== "function") {
     throw new Error("The active browser page does not expose download events.");
   }
-  await withTimeout(
-    click(),
-    localGuardTimeout(timeoutMs, 1e4),
-    "Download control click did not complete before the local guard timeout."
-  );
-  const download = await downloadPromise;
-  const sourcePath = typeof download.path === "function" ? await download.path() : null;
-  const suggestedFilename = filenameHint ?? download.suggestedFilename?.() ?? (sourcePath === null ? void 0 : basename(sourcePath)) ?? `chatgpt-download-${Date.now()}`;
-  const targetPath = join(absoluteDest, basename(suggestedFilename));
-  if (typeof download.saveAs === "function") {
-    await download.saveAs(targetPath);
-  } else if (sourcePath !== null) {
-    if (resolve(sourcePath) !== resolve(targetPath)) {
-      await copyFile(sourcePath, targetPath);
-    }
-  } else {
-    throw new Error("The browser download object exposes neither saveAs() nor a completed local path().");
-  }
-  const saved = await stat(targetPath);
-  if (saved.size <= 0) {
-    throw new Error(`Downloaded file is empty: ${targetPath}`);
-  }
-  return {
-    path: targetPath,
-    suggestedFilename,
-    bytes: saved.size
+  const nativeTimeoutMs = remainingMs(deadline);
+  if (nativeTimeoutMs <= 0) throw new DownloadReceiptTimeoutError("event registration");
+  const activation = new AbortController();
+  let failure;
+  const assertActive = () => {
+    if (failure !== void 0) throw failure;
+    if (activation.signal.aborted || remainingMs(deadline) <= 0) throw new DownloadReceiptTimeoutError("control click");
   };
+  try {
+    const rawWait = page.waitForEvent("download", { timeout: nativeTimeoutMs, timeoutMs: nativeTimeoutMs });
+    const registration = coordinatedEventRegistrationBarrier(rawWait);
+    let receiptFailed = false;
+    const downloadPromise = downloadStep(deadline, "event receipt", () => rawWait).catch((error) => {
+      receiptFailed = true;
+      failure = isTerminalDownloadError(error) ? error : new DownloadReceiptFailedError();
+      activation.abort(failure);
+      throw failure;
+    });
+    const [download] = await Promise.all([
+      downloadPromise,
+      (async () => {
+        if (registration !== void 0) await downloadStep(deadline, "event registration", () => registration);
+        try {
+          await downloadStep(deadline, "control click", () => withCoordinatedMutationGuard(activation.signal, assertActive, click), 1e4);
+        } catch (error) {
+          if (!receiptFailed) await checkBrowserDownloadError(page, deadline);
+          throw error;
+        }
+        if (!receiptFailed) await checkBrowserDownloadError(page, deadline);
+      })()
+    ]);
+    const sourcePath = typeof download.saveAs !== "function" && typeof download.path === "function" ? await downloadStep(deadline, "source path", () => download.path({ timeoutMs: remainingMs(deadline) })) : null;
+    const suggestedFilename = filenameHint ?? download.suggestedFilename?.() ?? (sourcePath === null ? void 0 : basename(sourcePath)) ?? `chatgpt-download-${Date.now()}`;
+    const targetPath = join(absoluteDest, basename(suggestedFilename));
+    if (typeof download.saveAs === "function") {
+      await downloadStep(deadline, "file save", () => download.saveAs(targetPath));
+    } else if (sourcePath !== null) {
+      if (resolve(sourcePath) !== resolve(targetPath)) {
+        await downloadStep(deadline, "file copy", () => copyFile(sourcePath, targetPath));
+      }
+    } else {
+      throw new Error("The browser download object exposes neither saveAs() nor a completed local path().");
+    }
+    const saved = await downloadStep(deadline, "file verification", () => stat(targetPath));
+    if (saved.size <= 0) {
+      throw new Error(`Downloaded file is empty: ${targetPath}`);
+    }
+    return {
+      path: targetPath,
+      suggestedFilename,
+      bytes: saved.size
+    };
+  } catch (error) {
+    throw failure ?? (isTerminalDownloadError(error) ? error : new DownloadReceiptFailedError());
+  } finally {
+    activation.abort();
+  }
 }
 
 // src/safety/redaction.ts
@@ -136,7 +1020,8 @@ function classifyVisibleText(text) {
   const visibleText = compactVisibleText(text);
   const lowerable = visibleText.length > 0 ? visibleText : text;
   for (const rule of RULES) {
-    if (rule.patterns.some((pattern) => pattern.test(lowerable))) {
+    const candidate = rule.kind === "rate_limit" ? text.replace(/\bConsumes\s+usage\s+limits\s+faster\b/gi, "") : lowerable;
+    if (rule.patterns.some((pattern) => pattern.test(candidate))) {
       return { kind: rule.kind, message: rule.message, visibleText };
     }
   }
@@ -3462,6 +4347,31 @@ function anyLabelPattern(candidates) {
   return new RegExp(candidates.map(escapeRegExp).join("|"), "i");
 }
 
+// src/browser/chatgpt-url.ts
+var CHATGPT_HOME = "https://chatgpt.com/";
+var CHATGPT_HOSTS = /* @__PURE__ */ new Set(["chatgpt.com", "www.chatgpt.com", "chat.openai.com"]);
+function isChatGPTUrl(value) {
+  if (value === void 0) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.port === "" && url.username === "" && url.password === "" && CHATGPT_HOSTS.has(url.hostname);
+  } catch {
+    return false;
+  }
+}
+function requireChatGPTUrl(value, label) {
+  if (!isChatGPTUrl(value)) {
+    throw new Error(`${label} must use HTTPS on an allowlisted ChatGPT origin with the default port.`);
+  }
+  return value;
+}
+function chatGPTAttachmentContextUrl(value) {
+  if (!isChatGPTUrl(value)) return void 0;
+  const url = new URL(value);
+  if (url.pathname !== "/backend-api/estuary/content") return void 0;
+  return `${url.origin}${url.pathname}`;
+}
+
 // src/browser/page-state.ts
 function parseConversationId(url) {
   let parsed;
@@ -3479,6 +4389,9 @@ function parseConversationId(url) {
 async function readPageState(page) {
   const rawUrl = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => "") : "";
   const url = typeof rawUrl === "string" ? rawUrl : "";
+  if (chatGPTAttachmentContextUrl(url) !== void 0) {
+    return { url, visibleText: "", signedIn: false };
+  }
   const rawTitle = typeof page.title === "function" ? await page.title().catch(() => void 0) : void 0;
   const title = typeof rawTitle === "string" ? rawTitle : void 0;
   const surface = await readPageSurfaceSnapshot(page);
@@ -3773,9 +4686,9 @@ async function readLatestImageDataUrl(page, timeoutMs) {
         if (/^(blob:|https?:)/i.test(src)) {
           const response = await fetch(src);
           const blob = await response.blob();
-          const dataUrl = await new Promise((resolve8, reject) => {
+          const dataUrl = await new Promise((resolve9, reject) => {
             const reader = new FileReader();
-            reader.onload = () => resolve8(String(reader.result));
+            reader.onload = () => resolve9(String(reader.result));
             reader.onerror = () => reject(reader.error ?? new Error("FileReader failed."));
             reader.readAsDataURL(blob);
           });
@@ -3958,112 +4871,6 @@ function requiredLocator(page, selector) {
     throw new Error(`Page does not support locator("${selector}")`);
   }
   return page.locator(selector);
-}
-
-// src/errors.ts
-var BROWSER_BRIDGE_UNAVAILABLE_MESSAGE = "Codex cannot access the ChatGPT browser bridge from this backend process. In an ordinary shell this is expected; for a live Codex Chrome run, assign the Chrome plugin runtime returned by setupBrowserRuntime() to globalThis.agent before using it.";
-var BROWSER_BRIDGE_REMEDIATION = [
-  {
-    label: "Ordinary shell",
-    instruction: "Treat browser_bridge_unavailable from a plain shell as an expected protocol/blocker-path result, not proof that Chrome, ChatGPT, or the Codex extension is broken.",
-    userActionRequired: false
-  },
-  {
-    label: "Codex Chrome bootstrap",
-    instruction: 'For a live run, initialize the Chrome plugin runtime in node_repl with globalThis.agent = await setupBrowserRuntime(), then set globalThis.browser = await agent.browsers.get("extension") before calling createChatGPT({ agent: globalThis.agent }).',
-    userActionRequired: false
-  },
-  {
-    label: "Python live bridge",
-    instruction: "For Python browser-bridge smokes, keep the bridge-hosted Node backend JS execution alive and run scripts/http_stdio_relay.mjs with CHATGPT_BROWSER_BACKEND_HTTP_URL; a plain Python-spawned Node subprocess cannot inherit globalThis.agent.",
-    userActionRequired: false
-  },
-  {
-    label: "Extension availability",
-    instruction: "If this command was already running inside a bootstrapped bridge host, verify the Codex Chrome extension is installed and enabled, then restart Chrome or Codex before retrying.",
-    userActionRequired: true
-  }
-];
-function nodeErrorCode(error) {
-  if (error === null || typeof error !== "object" && typeof error !== "function") return void 0;
-  try {
-    const descriptor = Object.getOwnPropertyDescriptor(error, "code");
-    if (descriptor === void 0 || !("value" in descriptor) || typeof descriptor.value !== "string") {
-      return void 0;
-    }
-    return descriptor.value;
-  } catch {
-    return void 0;
-  }
-}
-var ChatGPTControlError = class extends Error {
-  constructor(message, kind, recoverable, visibleText, blockerDetails = {}) {
-    super(message);
-    this.kind = kind;
-    this.recoverable = recoverable;
-    this.visibleText = visibleText;
-    this.blockerDetails = blockerDetails;
-    this.name = new.target.name;
-  }
-  kind;
-  recoverable;
-  visibleText;
-  blockerDetails;
-};
-var BrowserBridgeUnavailableError = class extends ChatGPTControlError {
-  constructor(message = BROWSER_BRIDGE_UNAVAILABLE_MESSAGE) {
-    super(message, "browser_bridge_unavailable", true, void 0, {
-      code: "codex_chrome_bridge_unavailable",
-      remediation: BROWSER_BRIDGE_REMEDIATION
-    });
-  }
-};
-var LoginRequiredError = class extends ChatGPTControlError {
-  constructor(visibleText) {
-    super("ChatGPT login is required before this command can continue.", "login_required", true, visibleText);
-  }
-};
-function contextNow(partial = {}) {
-  return {
-    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    ...partial
-  };
-}
-function resultOk(data, context = {}, warnings = []) {
-  return {
-    ok: true,
-    status: "ok",
-    data,
-    warnings,
-    context: contextNow(context)
-  };
-}
-function resultError(error, context = {}, recoverable = error instanceof ChatGPTControlError ? error.recoverable : false) {
-  const blocker3 = error instanceof ChatGPTControlError ? error.visibleText === void 0 ? {
-    kind: error.kind,
-    message: error.message,
-    ...error.blockerDetails
-  } : {
-    kind: error.kind,
-    message: error.message,
-    visibleText: error.visibleText,
-    ...error.blockerDetails
-  } : void 0;
-  const result3 = {
-    ok: false,
-    status: blocker3 ? "blocked" : "error",
-    warnings: [],
-    error: {
-      name: error.name,
-      message: error.message,
-      recoverable
-    },
-    context: contextNow(context)
-  };
-  if (blocker3 !== void 0) {
-    result3.blocker = blocker3;
-  }
-  return result3;
 }
 
 // src/dom/visible-text.ts
@@ -4759,10 +5566,16 @@ function normalizeExtractedMessage(message, args = {}) {
 
 // src/commands/context.ts
 async function contextFromPage(page, partial = {}, options = {}) {
+  const partialAttachmentUrl = chatGPTAttachmentContextUrl(partial.url);
+  const safePartial = partialAttachmentUrl === void 0 ? partial : { ...partial, url: partialAttachmentUrl };
   if (page === void 0 || options.minimal === true) {
-    return { timestamp: (/* @__PURE__ */ new Date()).toISOString(), ...partial };
+    return { timestamp: (/* @__PURE__ */ new Date()).toISOString(), ...safePartial };
   }
-  const url = typeof page.url === "function" ? await Promise.resolve(page.url()).catch(() => partial.url) : partial.url;
+  const url = typeof page.url === "function" ? await Promise.resolve().then(() => page.url()).catch(() => safePartial.url) : safePartial.url;
+  const attachmentUrl = chatGPTAttachmentContextUrl(url);
+  if (attachmentUrl !== void 0) {
+    return { timestamp: (/* @__PURE__ */ new Date()).toISOString(), ...safePartial, url: attachmentUrl };
+  }
   const title = typeof page.title === "function" ? await withTimeout(page.title(), 1e3, "Timed out while reading page title.").catch(() => partial.title) : partial.title;
   const [turnCount, assistantTurnCount] = await Promise.all([
     withTimeout(countPageMessages(page), 1e3, "Timed out while counting page messages.").catch(() => partial.turnCount),
@@ -4771,7 +5584,7 @@ async function contextFromPage(page, partial = {}, options = {}) {
   const conversationId = url !== void 0 ? parseConversationId(url) : partial.conversationId;
   const context = {
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    ...partial
+    ...safePartial
   };
   if (url !== void 0) {
     context.url = url;
@@ -4791,27 +5604,8 @@ async function contextFromPage(page, partial = {}, options = {}) {
   return context;
 }
 
-// src/browser/chatgpt-url.ts
-var CHATGPT_HOME = "https://chatgpt.com/";
-var CHATGPT_HOSTS = /* @__PURE__ */ new Set(["chatgpt.com", "www.chatgpt.com", "chat.openai.com"]);
-function isChatGPTUrl(value) {
-  if (value === void 0) return false;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" && url.port === "" && url.username === "" && url.password === "" && CHATGPT_HOSTS.has(url.hostname);
-  } catch {
-    return false;
-  }
-}
-function requireChatGPTUrl(value, label) {
-  if (!isChatGPTUrl(value)) {
-    throw new Error(`${label} must use HTTPS on an allowlisted ChatGPT origin with the default port.`);
-  }
-  return value;
-}
-
 // src/runtime/tab-coordinator.ts
-import { AsyncLocalStorage } from "node:async_hooks";
+import { AsyncLocalStorage as AsyncLocalStorage2 } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 var INVALID_ID_VALUES = /* @__PURE__ */ new Set(["unknown", "undefined", "null", "n/a", "na"]);
 var MAX_TIMER_DELAY_MS = 2147483647;
@@ -4925,7 +5719,7 @@ var ReentrantAcquisitionError = class extends CoordinatorError {
     this.resourceKey = context.resourceKey;
   }
 };
-var acquisitionContexts = new AsyncLocalStorage();
+var acquisitionContexts = new AsyncLocalStorage2();
 var activeAcquisitionTokens = /* @__PURE__ */ new Set();
 function cloneTiming(timing) {
   return {
@@ -5207,8 +6001,8 @@ var BrowserGate = class {
     waiter.context = context;
     if (waiter.kind === "exclusive") this.pushStartedExclusive(waiter);
     else this.startedShared.add(waiter);
-    waiter.promise = new Promise((resolve8, reject) => {
-      waiter.resolve = resolve8;
+    waiter.promise = new Promise((resolve9, reject) => {
+      waiter.resolve = resolve9;
       waiter.reject = reject;
     });
     const onAbort = () => {
@@ -5407,12 +6201,12 @@ var ResourceActor = class {
       this.notifyIfIdle();
       return Promise.reject(new CoordinatorQueueFullError(this.snapshot()));
     }
-    return new Promise((resolve8, reject) => {
+    return new Promise((resolve9, reject) => {
       const pending2 = {
         ...request,
         ...externalSignal === void 0 ? {} : { externalSignal },
         sequence: ++this.sequence,
-        resolve: (value) => resolve8(value),
+        resolve: (value) => resolve9(value),
         reject,
         started: false,
         settled: false,
@@ -5869,652 +6663,6 @@ var defaultProcessCoordinator;
 function getProcessTabCoordinator() {
   defaultProcessCoordinator ??= new ProcessTabCoordinator();
   return defaultProcessCoordinator;
-}
-
-// src/runtime/coordinated-page.ts
-var COORDINATED_PAGE_PRIORITIES = Object.freeze({
-  read: "read",
-  mutation: "mutation",
-  control: "control"
-});
-var MAX_PROTO_DEPTH = 12;
-var MAX_CAPABILITY_DEPTH = 8;
-var MAX_ARGUMENTS = 16;
-var MAX_CACHED_PAGE_AFFINITIES = 256;
-var CoordinatedPageError = class extends Error {
-  code = "coordinated_page_invalid";
-  constructor(message, options) {
-    super(message, options);
-    this.name = "CoordinatedPageError";
-  }
-};
-var pageWrappers = /* @__PURE__ */ new WeakMap();
-var rawValues = /* @__PURE__ */ new WeakMap();
-var eventRegistrationBarriers = /* @__PURE__ */ new WeakMap();
-function coordinatedEventRegistrationBarrier(value) {
-  return isObjectLike(value) ? eventRegistrationBarriers.get(value) : void 0;
-}
-function isObjectLike(value) {
-  return typeof value === "object" && value !== null || typeof value === "function";
-}
-function labelForKey(key) {
-  try {
-    return typeof key === "symbol" ? key.toString() : String(key);
-  } catch {
-    return "unknown";
-  }
-}
-function invalid(message, cause) {
-  throw new CoordinatedPageError(message, cause === void 0 ? void 0 : { cause });
-}
-function readDataMember(value, key, label) {
-  let current = value;
-  for (let depth = 0; current !== null && depth < MAX_PROTO_DEPTH; depth += 1) {
-    let descriptor;
-    try {
-      descriptor = Object.getOwnPropertyDescriptor(current, key);
-    } catch (error) {
-      return invalid(`Cannot inspect ${label}: the provider object rejected a bounded descriptor read`, error);
-    }
-    if (descriptor !== void 0) {
-      if (!("value" in descriptor)) {
-        return invalid(`Cannot use ${label}: accessor-backed provider members are not supported`);
-      }
-      if (current !== value && typeof descriptor.value === "function") {
-        try {
-          const receiverSafe = Reflect.get(value, key, value);
-          if (typeof receiverSafe === "function") return receiverSafe;
-        } catch (error) {
-          return invalid(`Cannot use ${label}: provider method binding failed`, error);
-        }
-      }
-      return descriptor.value;
-    }
-    try {
-      const prototype = Object.getPrototypeOf(current);
-      current = isObjectLike(prototype) ? prototype : null;
-    } catch (error) {
-      return invalid(`Cannot inspect ${label}: the provider prototype chain is not readable`, error);
-    }
-  }
-  if (current !== null) return invalid(`Cannot inspect ${label}: provider prototype depth exceeded`);
-  return void 0;
-}
-function requiredCallable(value, key, label) {
-  const member = readDataMember(value, key, label);
-  if (typeof member !== "function") return invalid(`${label} is not available as a callable provider method`);
-  return member;
-}
-function optionalCallable(value, key, label) {
-  const member = readDataMember(value, key, label);
-  if (member === void 0) return void 0;
-  if (typeof member !== "function") return invalid(`${label} is not callable`);
-  return member;
-}
-function requiredRecord(value, label) {
-  if (!isObjectLike(value)) return invalid(`${label} must be an object`);
-  return value;
-}
-function validateStableOwnerId(value, label) {
-  if (typeof value !== "string") return invalid(`${label} must be a stable string`);
-  const normalized = value.trim();
-  if (normalized.length === 0 || normalized.length > 512 || /[\u0000-\u001f\u007f]/u.test(normalized)) {
-    return invalid(`${label} must be a non-empty stable string`);
-  }
-  return normalized;
-}
-function normalizeOwner(value) {
-  const owner = requiredRecord(value, "owner");
-  const backendSessionId = validateStableOwnerId(
-    readDataMember(owner, "backendSessionId", "owner.backendSessionId"),
-    "owner.backendSessionId"
-  );
-  const ownerIdValue = readDataMember(owner, "ownerId", "owner.ownerId");
-  const operationIdValue = readDataMember(owner, "operationId", "owner.operationId");
-  const ownerId = ownerIdValue === void 0 ? void 0 : validateStableOwnerId(ownerIdValue, "owner.ownerId");
-  const operationId2 = operationIdValue === void 0 ? void 0 : validateStableOwnerId(operationIdValue, "owner.operationId");
-  return Object.freeze({
-    backendSessionId,
-    ...ownerId === void 0 ? {} : { ownerId },
-    ...operationId2 === void 0 ? {} : { operationId: operationId2 }
-  });
-}
-function normalizeResource(value) {
-  const resource = requiredRecord(value, "resource");
-  const kind = readDataMember(resource, "kind", "resource.kind");
-  const key = readDataMember(resource, "key", "resource.key");
-  if (kind !== "tab" && kind !== "browser") return invalid("resource.kind must be tab or browser");
-  if (typeof key !== "string" || key.length === 0) return invalid("resource.key must be a canonical coordinator key");
-  const parts = key.split(":");
-  const expectedParts = kind === "tab" ? 4 : 3;
-  if (parts.length !== expectedParts || parts[0] !== kind) return invalid("resource.key must be a canonical coordinator key");
-  for (let index = 1; index < parts.length; index += 1) {
-    const encoded = parts[index];
-    if (encoded === void 0 || encoded.length === 0) return invalid("resource.key must be a canonical coordinator key");
-    let decoded;
-    try {
-      decoded = decodeURIComponent(encoded);
-    } catch (error) {
-      return invalid("resource.key must be a canonical coordinator key", error);
-    }
-    if (encodeURIComponent(decoded) !== encoded) return invalid("resource.key must be a canonical coordinator key");
-    validateStableOwnerId(decoded, `resource.key part ${index}`);
-    if (["unknown", "undefined", "null", "n/a", "na"].includes(decoded.toLowerCase())) {
-      return invalid("resource.key must be a canonical coordinator key");
-    }
-  }
-  return Object.freeze({ kind, key });
-}
-function normalizeOptions(value) {
-  const options = requiredRecord(value, "coordinated page options");
-  const coordinator = readDataMember(options, "coordinator", "options.coordinator");
-  if (!isObjectLike(coordinator)) return invalid("options.coordinator must be a ProcessTabCoordinator");
-  if (typeof readDataMember(coordinator, "withTabTransaction", "coordinator.withTabTransaction") !== "function" || typeof readDataMember(coordinator, "withBrowserAcquisition", "coordinator.withBrowserAcquisition") !== "function") {
-    return invalid("options.coordinator must expose both coordinator transaction methods");
-  }
-  const resource = normalizeResource(readDataMember(options, "resource", "options.resource"));
-  const owner = normalizeOwner(readDataMember(options, "owner", "options.owner"));
-  const timeoutValue = readDataMember(options, "defaultTimeoutMs", "options.defaultTimeoutMs");
-  if (timeoutValue !== void 0 && (!Number.isSafeInteger(timeoutValue) || timeoutValue < 0)) {
-    return invalid("options.defaultTimeoutMs must be a non-negative safe integer");
-  }
-  const defaultTimeoutMs = timeoutValue === void 0 ? void 0 : timeoutValue;
-  return Object.freeze({
-    coordinator,
-    resource,
-    owner,
-    ...defaultTimeoutMs === void 0 ? {} : { defaultTimeoutMs }
-  });
-}
-function safeInvocation(fn, receiver, args) {
-  if (args.length > MAX_ARGUMENTS) return invalid("Provider invocation argument count exceeded the bounded facade limit");
-  try {
-    return Reflect.apply(fn, receiver, args);
-  } catch (error) {
-    throw error;
-  }
-}
-function absorbRejection(promise) {
-  void promise.catch(() => void 0);
-  return promise;
-}
-function timeoutFromArg(value, label) {
-  if (!isObjectLike(value)) return void 0;
-  const timeout = readDataMember(value, "timeoutMs", `${label}.timeoutMs`);
-  if (timeout === void 0) return void 0;
-  if (typeof timeout !== "number" || !Number.isFinite(timeout) || timeout < 0) {
-    return invalid(`${label}.timeoutMs must be a non-negative finite number`);
-  }
-  return timeout;
-}
-function timeoutFromEventOptions(value) {
-  if (!isObjectLike(value)) return void 0;
-  const timeoutMs = readDataMember(value, "timeoutMs", "waitForEvent.options.timeoutMs");
-  if (timeoutMs !== void 0 && (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs < 0)) {
-    return invalid("waitForEvent.options.timeoutMs must be a non-negative finite number");
-  }
-  const timeout = readDataMember(value, "timeout", "waitForEvent.options.timeout");
-  if (timeout !== void 0 && (typeof timeout !== "number" || !Number.isFinite(timeout) || timeout < 0)) {
-    return invalid("waitForEvent.options.timeout must be a non-negative finite number");
-  }
-  if (timeoutMs === void 0) return timeout;
-  if (timeout === void 0) return timeoutMs;
-  return Math.min(timeoutMs, timeout);
-}
-function makeCacheKey(options) {
-  const owner = options.owner;
-  return [
-    options.resource.kind,
-    options.resource.key,
-    owner.backendSessionId,
-    owner.ownerId ?? "",
-    owner.operationId ?? "",
-    options.defaultTimeoutMs === void 0 ? "" : String(options.defaultTimeoutMs)
-  ].map((part) => encodeURIComponent(part)).join(":");
-}
-function getPageCache(rawPage, coordinator) {
-  let byCoordinator = pageWrappers.get(rawPage);
-  if (byCoordinator === void 0) {
-    byCoordinator = /* @__PURE__ */ new WeakMap();
-    pageWrappers.set(rawPage, byCoordinator);
-  }
-  let byAffinity = byCoordinator.get(coordinator);
-  if (byAffinity === void 0) {
-    byAffinity = /* @__PURE__ */ new Map();
-    byCoordinator.set(coordinator, byAffinity);
-  }
-  return byAffinity;
-}
-function cachePage(cache, affinity, page) {
-  cache.delete(affinity);
-  cache.set(affinity, new WeakRef(page));
-  for (const [key, reference] of cache) {
-    if (reference.deref() === void 0) cache.delete(key);
-  }
-  while (cache.size > MAX_CACHED_PAGE_AFFINITIES) {
-    const oldest = cache.keys().next().value;
-    if (oldest === void 0) break;
-    cache.delete(oldest);
-  }
-}
-function wrapResult(value, state, label, depth = 0) {
-  if (depth > MAX_CAPABILITY_DEPTH || !isObjectLike(value)) return value;
-  if (isFileChooserCandidate(value)) return wrapFileChooser(value, state, label);
-  return value;
-}
-function isFileChooserCandidate(value) {
-  return typeof readDataMember(value, "setFiles", "file chooser.setFiles") === "function";
-}
-function assertProxyInterceptable(target, key, label) {
-  let descriptor;
-  try {
-    descriptor = Object.getOwnPropertyDescriptor(target, key);
-  } catch (error) {
-    invalid(`Cannot wrap ${label}: provider object rejected a descriptor read`, error);
-  }
-  if (descriptor !== void 0 && descriptor.configurable === false && "value" in descriptor && descriptor.writable === false) {
-    return invalid(`Cannot wrap ${label}: provider method is a non-configurable immutable property`);
-  }
-}
-function wrapFileChooser(rawChooser, state, label) {
-  const existing = state.fileChooserWrappers.get(rawChooser);
-  if (existing !== void 0) return existing;
-  assertProxyInterceptable(rawChooser, "setFiles", `${label}.setFiles`);
-  const wrapper = new Proxy(rawChooser, {
-    get(target, property) {
-      const propertyLabel = `${label}.${labelForKey(property)}`;
-      if (property === "setFiles") {
-        const setFiles = requiredCallable(target, property, propertyLabel);
-        return (paths, options) => {
-          return routeTransaction(
-            state,
-            "mutation",
-            propertyLabel,
-            timeoutFromArg(options, propertyLabel),
-            () => safeInvocation(setFiles, target, [paths, options])
-          );
-        };
-      }
-      if (property === "element") {
-        assertProxyInterceptable(target, property, propertyLabel);
-        const element = optionalCallable(target, property, propertyLabel);
-        if (element === void 0) return void 0;
-        return () => routeTransaction(state, "read", propertyLabel, void 0, async () => {
-          const result3 = await safeInvocation(element, target, []);
-          return wrapLocator(await result3, state, propertyLabel);
-        });
-      }
-      if (property === "isMultiple") {
-        assertProxyInterceptable(target, property, propertyLabel);
-        const isMultiple = optionalCallable(target, property, propertyLabel);
-        if (isMultiple === void 0) return void 0;
-        return () => routeTransaction(
-          state,
-          "read",
-          propertyLabel,
-          void 0,
-          () => safeInvocation(isMultiple, target, [])
-        );
-      }
-      const member = readDataMember(target, property, propertyLabel);
-      if (typeof member === "function") return member.bind(target);
-      return member;
-    }
-  });
-  state.fileChooserWrappers.set(rawChooser, wrapper);
-  rawValues.set(wrapper, rawChooser);
-  return wrapper;
-}
-function capabilityPriority(name) {
-  const lower = name.toLowerCase();
-  if (/^(get|list|read|inspect|status|count|query|fetch|metadata|inventory)/u.test(lower)) return "read";
-  if (/^(stop|cancel)/u.test(lower)) return "control";
-  return "mutation";
-}
-function wrapCapability(value, state, label, depth) {
-  const existing = state.capabilityWrappers.get(value);
-  if (existing !== void 0) return existing;
-  const wrapper = new Proxy(value, {
-    get(target, property) {
-      if (property === "then") return void 0;
-      const propertyLabel = `${label}.${labelForKey(property)}`;
-      const member = readDataMember(target, property, propertyLabel);
-      if (typeof member !== "function") return member;
-      if (typeof property === "symbol") return member;
-      assertProxyInterceptable(target, property, propertyLabel);
-      return (...args) => routeTransaction(
-        state,
-        capabilityPriority(labelForKey(property)),
-        propertyLabel,
-        timeoutFromArg(args.at(-1), propertyLabel),
-        async () => wrapResult(await safeInvocation(member, target, args), state, propertyLabel, depth + 1)
-      );
-    }
-  });
-  state.capabilityWrappers.set(value, wrapper);
-  rawValues.set(wrapper, value);
-  return wrapper;
-}
-function wrapLocator(rawLocator, state, label) {
-  if (!isObjectLike(rawLocator)) return invalid(`${label} did not return a locator object`);
-  const existing = state.locatorWrappers.get(rawLocator);
-  if (existing !== void 0) return existing;
-  const wrapper = {};
-  const locator = rawLocator;
-  state.locatorWrappers.set(locator, wrapper);
-  rawValues.set(wrapper, locator);
-  const sync = (name) => {
-    const member = optionalCallable(locator, name, `${label}.${name}`);
-    if (member === void 0) return;
-    wrapper[name] = (...args) => {
-      const child = safeInvocation(member, locator, args);
-      return wrapLocator(child, state, `${label}.${name}`);
-    };
-  };
-  sync("nth");
-  sync("first");
-  sync("last");
-  sync("locator");
-  sync("filter");
-  sync("getByRole");
-  sync("getByText");
-  const transaction = (name, priority, argumentTimeoutIndex) => {
-    const member = optionalCallable(locator, name, `${label}.${name}`);
-    if (member === void 0) return;
-    wrapper[name] = (...args) => routeTransaction(
-      state,
-      priority,
-      `${label}.${name}`,
-      argumentTimeoutIndex === void 0 ? state.options.defaultTimeoutMs : timeoutFromArg(args[argumentTimeoutIndex], `${label}.${name}`) ?? state.options.defaultTimeoutMs,
-      () => safeInvocation(member, locator, args)
-    );
-  };
-  transaction("click", "mutation", 0);
-  transaction("press", "mutation", 1);
-  transaction("fill", "mutation", 1);
-  transaction("textContent", "read", 0);
-  transaction("innerText", "read", 0);
-  transaction("innerHTML", "read", 0);
-  transaction("count", "read", void 0);
-  transaction("allTextContents", "read", 0);
-  transaction("isVisible", "read", 0);
-  transaction("evaluate", "mutation", 2);
-  transaction("setInputFiles", "mutation", 1);
-  return wrapper;
-}
-function wrapPlaywright(value, state, label) {
-  const existing = state.playwrightWrappers.get(value);
-  if (existing !== void 0) return existing;
-  const wrapper = new Proxy(value, {
-    get(target, property) {
-      const propertyLabel = `${label}.${labelForKey(property)}`;
-      const member = readDataMember(target, property, propertyLabel);
-      if (typeof member !== "function") return member;
-      if (typeof property === "symbol") return member;
-      if (property === "waitForTimeout") {
-        assertProxyInterceptable(target, property, propertyLabel);
-        return (milliseconds) => {
-          const result3 = safeInvocation(member, target, [milliseconds]);
-          return absorbRejection(Promise.resolve(result3));
-        };
-      }
-      assertProxyInterceptable(target, property, propertyLabel);
-      return (...args) => routeTransaction(
-        state,
-        "read",
-        propertyLabel,
-        timeoutFromArg(args.at(-1), propertyLabel) ?? state.options.defaultTimeoutMs,
-        async () => wrapResult(await safeInvocation(member, target, args), state, propertyLabel)
-      );
-    }
-  });
-  state.playwrightWrappers.set(value, wrapper);
-  rawValues.set(wrapper, value);
-  return wrapper;
-}
-function routeTransaction(state, priority, label, timeoutMs, callback) {
-  const requestOptions = {
-    owner: state.options.owner,
-    priority,
-    label,
-    ...timeoutMs === void 0 ? {} : { timeoutMs }
-  };
-  const { coordinator, resource } = state.options;
-  const pending2 = resource.kind === "tab" ? coordinator.withTabTransaction(resource.key, requestOptions, () => callback()) : coordinator.withBrowserAcquisition(resource.key, requestOptions, () => callback());
-  return absorbRejection(pending2);
-}
-function waitForEvent(state, rawPage, event, optionsOrCallback) {
-  const wait = requiredCallable(rawPage, "waitForEvent", "page.waitForEvent");
-  const eventTimeoutMs = timeoutFromEventOptions(optionsOrCallback);
-  const registrationTimeoutMs = eventTimeoutMs === void 0 ? state.options.defaultTimeoutMs : state.options.defaultTimeoutMs === void 0 ? eventTimeoutMs : Math.min(eventTimeoutMs, state.options.defaultTimeoutMs);
-  const registration = routeTransaction(state, "read", "page.waitForEvent.register", registrationTimeoutMs, () => {
-    let candidate;
-    try {
-      candidate = safeInvocation(wait, rawPage, [event, optionsOrCallback]);
-    } catch (error) {
-      throw error;
-    }
-    const providerPromise = Promise.resolve(candidate);
-    const settled = providerPromise.then((value) => value, (error) => {
-      throw error;
-    });
-    void settled.catch(() => void 0);
-    return { promise: settled };
-  });
-  const result3 = registration.then(async ({ promise }) => wrapResult(await promise, state, "page.waitForEvent.result"));
-  const handled = absorbRejection(result3);
-  const barrier = registration.then(() => void 0, () => void 0);
-  void barrier.catch(() => void 0);
-  eventRegistrationBarriers.set(handled, barrier);
-  return handled;
-}
-function makeKeyboard(rawKeyboard, state) {
-  const press = optionalCallable(rawKeyboard, "press", "page.keyboard.press");
-  if (press === void 0) return {};
-  return {
-    press: (key) => routeTransaction(
-      state,
-      "mutation",
-      "page.keyboard.press",
-      state.options.defaultTimeoutMs,
-      () => safeInvocation(press, rawKeyboard, [key])
-    )
-  };
-}
-function makeMouse(rawMouse, state) {
-  const move = optionalCallable(rawMouse, "move", "page.mouse.move");
-  const click = optionalCallable(rawMouse, "click", "page.mouse.click");
-  return {
-    ...move === void 0 ? {} : {
-      move: (x, y) => routeTransaction(
-        state,
-        "mutation",
-        "page.mouse.move",
-        state.options.defaultTimeoutMs,
-        () => safeInvocation(move, rawMouse, [x, y])
-      )
-    },
-    ...click === void 0 ? {} : {
-      click: (x, y) => routeTransaction(
-        state,
-        "mutation",
-        "page.mouse.click",
-        state.options.defaultTimeoutMs,
-        () => safeInvocation(click, rawMouse, [x, y])
-      )
-    }
-  };
-}
-function makeCua(rawCua, state) {
-  const move = optionalCallable(rawCua, "move", "page.cua.move");
-  const click = optionalCallable(rawCua, "click", "page.cua.click");
-  const keypress = optionalCallable(rawCua, "keypress", "page.cua.keypress");
-  return {
-    ...move === void 0 ? {} : {
-      move: (options) => routeTransaction(
-        state,
-        "mutation",
-        "page.cua.move",
-        state.options.defaultTimeoutMs,
-        () => safeInvocation(move, rawCua, [options])
-      )
-    },
-    ...click === void 0 ? {} : {
-      click: (options) => routeTransaction(
-        state,
-        "mutation",
-        "page.cua.click",
-        state.options.defaultTimeoutMs,
-        () => safeInvocation(click, rawCua, [options])
-      )
-    },
-    ...keypress === void 0 ? {} : {
-      keypress: (options) => routeTransaction(
-        state,
-        "mutation",
-        "page.cua.keypress",
-        state.options.defaultTimeoutMs,
-        () => safeInvocation(keypress, rawCua, [options])
-      )
-    }
-  };
-}
-function makeCapabilities(rawCapabilities, state) {
-  const get = optionalCallable(rawCapabilities, "get", "page.capabilities.get");
-  if (get === void 0) return {};
-  return {
-    get: (id2) => routeTransaction(state, "read", "page.capabilities.get", state.options.defaultTimeoutMs, async () => {
-      const value = await safeInvocation(get, rawCapabilities, [id2]);
-      return isObjectLike(value) ? wrapCapability(value, state, "page.capabilities.result", 0) : value;
-    })
-  };
-}
-function buildPage(state) {
-  const rawPage = state.rawPage;
-  const wrapper = {};
-  rawValues.set(wrapper, rawPage);
-  for (const property of ["id", "tabId"]) {
-    const value = readDataMember(rawPage, property, `page.${property}`);
-    if (value !== void 0) wrapper[property] = value;
-  }
-  const locator = optionalCallable(rawPage, "locator", "page.locator");
-  if (locator !== void 0) wrapper.locator = (selector) => wrapLocator(
-    safeInvocation(locator, rawPage, [selector]),
-    state,
-    "page.locator"
-  );
-  const getByRole = optionalCallable(rawPage, "getByRole", "page.getByRole");
-  if (getByRole !== void 0) wrapper.getByRole = (role, options) => wrapLocator(
-    safeInvocation(getByRole, rawPage, [role, options]),
-    state,
-    "page.getByRole"
-  );
-  const getByPlaceholder = optionalCallable(rawPage, "getByPlaceholder", "page.getByPlaceholder");
-  if (getByPlaceholder !== void 0) wrapper.getByPlaceholder = (text, options) => wrapLocator(
-    safeInvocation(getByPlaceholder, rawPage, [text, options]),
-    state,
-    "page.getByPlaceholder"
-  );
-  const getByText = optionalCallable(rawPage, "getByText", "page.getByText");
-  if (getByText !== void 0) wrapper.getByText = (text, options) => wrapLocator(
-    safeInvocation(getByText, rawPage, [text, options]),
-    state,
-    "page.getByText"
-  );
-  const url = optionalCallable(rawPage, "url", "page.url");
-  if (url !== void 0) wrapper.url = () => routeTransaction(
-    state,
-    "read",
-    "page.url",
-    state.options.defaultTimeoutMs,
-    () => safeInvocation(url, rawPage, [])
-  );
-  const title = optionalCallable(rawPage, "title", "page.title");
-  if (title !== void 0) wrapper.title = () => routeTransaction(
-    state,
-    "read",
-    "page.title",
-    state.options.defaultTimeoutMs,
-    () => safeInvocation(title, rawPage, [])
-  );
-  const goto = optionalCallable(rawPage, "goto", "page.goto");
-  if (goto !== void 0) wrapper.goto = (urlValue, options) => routeTransaction(
-    state,
-    "mutation",
-    "page.goto",
-    timeoutFromArg(options, "page.goto") ?? state.options.defaultTimeoutMs,
-    () => safeInvocation(goto, rawPage, [urlValue, options])
-  );
-  const evaluate = optionalCallable(rawPage, "evaluate", "page.evaluate");
-  if (evaluate !== void 0) wrapper.evaluate = (fn, arg, options) => routeTransaction(
-    state,
-    "mutation",
-    "page.evaluate",
-    timeoutFromArg(options, "page.evaluate") ?? state.options.defaultTimeoutMs,
-    () => safeInvocation(evaluate, rawPage, [fn, arg, options])
-  );
-  const content = optionalCallable(rawPage, "content", "page.content");
-  if (content !== void 0) wrapper.content = (options) => routeTransaction(
-    state,
-    "read",
-    "page.content",
-    timeoutFromArg(options, "page.content") ?? state.options.defaultTimeoutMs,
-    () => safeInvocation(content, rawPage, [options])
-  );
-  const close = optionalCallable(rawPage, "close", "page.close");
-  if (close !== void 0) wrapper.close = () => routeTransaction(
-    state,
-    "mutation",
-    "page.close",
-    state.options.defaultTimeoutMs,
-    () => safeInvocation(close, rawPage, [])
-  );
-  const waitForTimeout = optionalCallable(rawPage, "waitForTimeout", "page.waitForTimeout");
-  if (waitForTimeout !== void 0) wrapper.waitForTimeout = (milliseconds) => {
-    const result3 = safeInvocation(waitForTimeout, rawPage, [milliseconds]);
-    return absorbRejection(Promise.resolve(result3));
-  };
-  const waitForEventMethod = optionalCallable(rawPage, "waitForEvent", "page.waitForEvent");
-  if (waitForEventMethod !== void 0) wrapper.waitForEvent = (event, optionsOrCallback) => waitForEvent(state, rawPage, event, optionsOrCallback);
-  const keyboard = readDataMember(rawPage, "keyboard", "page.keyboard");
-  if (keyboard !== void 0) wrapper.keyboard = makeKeyboard(requiredRecord(keyboard, "page.keyboard"), state);
-  const mouse = readDataMember(rawPage, "mouse", "page.mouse");
-  if (mouse !== void 0) wrapper.mouse = makeMouse(requiredRecord(mouse, "page.mouse"), state);
-  const cua = readDataMember(rawPage, "cua", "page.cua");
-  if (cua !== void 0) wrapper.cua = makeCua(requiredRecord(cua, "page.cua"), state);
-  const capabilities = readDataMember(rawPage, "capabilities", "page.capabilities");
-  if (capabilities !== void 0) wrapper.capabilities = makeCapabilities(requiredRecord(capabilities, "page.capabilities"), state);
-  const playwright = readDataMember(rawPage, "playwright", "page.playwright");
-  if (playwright !== void 0) wrapper.playwright = wrapPlaywright(requiredRecord(playwright, "page.playwright"), state, "page.playwright");
-  return wrapper;
-}
-function createCoordinatedPage(page, options) {
-  if (!isObjectLike(page)) return invalid("page must be a provider PageLike object");
-  const normalized = normalizeOptions(options);
-  const cache = getPageCache(page, normalized.coordinator);
-  const affinity = makeCacheKey(normalized);
-  const existing = cache.get(affinity)?.deref();
-  if (existing !== void 0) {
-    cachePage(cache, affinity, existing);
-    return existing;
-  }
-  cache.delete(affinity);
-  const state = {
-    rawPage: page,
-    options: normalized,
-    locatorWrappers: /* @__PURE__ */ new WeakMap(),
-    capabilityWrappers: /* @__PURE__ */ new WeakMap(),
-    fileChooserWrappers: /* @__PURE__ */ new WeakMap(),
-    playwrightWrappers: /* @__PURE__ */ new WeakMap()
-  };
-  const wrapper = buildPage(state);
-  cachePage(cache, affinity, wrapper);
-  rawValues.set(wrapper, page);
-  return wrapper;
-}
-function unwrapCoordinatedPage(page) {
-  if (!isObjectLike(page)) return page;
-  return rawValues.get(page) ?? page;
 }
 
 // src/runtime/coordinated-browser.ts
@@ -7489,7 +7637,7 @@ async function bootstrap(env, args = {}) {
     const data = {
       browserName: attached.browserName,
       tabId: attached.tabId ?? "unknown",
-      url: state.url,
+      url: chatGPTAttachmentContextUrl(state.url) ?? state.url,
       loggedIn: state.signedIn
     };
     const context = attached.tabId === void 0 ? { browserName: attached.browserName } : { browserName: attached.browserName, tabId: attached.tabId };
@@ -7518,7 +7666,8 @@ async function ensurePage(env, options = {}) {
 }
 async function verifyChatGPTOrigin(env) {
   if (env.page === void 0) return void 0;
-  const actualUrl = await Promise.resolve(env.page.url?.()).catch(() => void 0);
+  const page = env.page;
+  const actualUrl = await Promise.resolve().then(() => page.url?.()).catch(() => void 0);
   if (isChatGPTUrl(actualUrl)) return void 0;
   return {
     ok: false,
@@ -7528,7 +7677,9 @@ async function verifyChatGPTOrigin(env) {
       kind: "selector_drift",
       code: "unsafe_chatgpt_origin",
       message: "ChatGPT command refused to operate because the controlled tab is not on an allowlisted ChatGPT origin.",
-      visibleText: actualUrl ?? "The current tab URL could not be verified.",
+      // Rejected navigations may contain signed attachment URLs, credentials,
+      // or private path segments. Keep the URL only for the local origin test.
+      visibleText: actualUrl === void 0 ? "The current tab URL could not be verified." : "The current tab is outside the supported ChatGPT origins.",
       remediation: [
         {
           label: "Reopen ChatGPT",
@@ -7538,7 +7689,7 @@ async function verifyChatGPTOrigin(env) {
       ],
       resumable: false
     },
-    context: await contextFromPage(env.page, tabContext(env))
+    context: await contextFromPage(env.page, tabContext(env), { minimal: true })
   };
 }
 async function verifyTabAffinity(env) {
@@ -7676,7 +7827,7 @@ async function downloadLatestArtifact(env, args) {
   const timeoutMs = args.timeoutMs ?? 12e4;
   if (args.prefer !== "visible_image_source") {
     const byDownload = await tryDownloadControl(page, args, timeoutMs);
-    if (byDownload.ok || args.prefer === "download_control") {
+    if (byDownload.ok || isTerminalDownloadCode(byDownload.blocker?.code) || args.prefer === "download_control") {
       return byDownload;
     }
   }
@@ -7729,7 +7880,7 @@ async function tryDownloadControl(page, args, timeoutMs) {
     );
     return resultOk(downloaded, await contextFromPage(page));
   } catch (error) {
-    return artifactDownloadBlocker(error, await contextFromPage(page));
+    return artifactDownloadBlocker(error, await contextFromPage(page, {}, { minimal: isTerminalDownloadError(error) }));
   }
 }
 async function saveLatestVisibleImageSource(page, destDir, timeoutMs) {
@@ -7946,6 +8097,7 @@ function artifactSelectorBlocker(error, context) {
   };
 }
 function artifactDownloadBlocker(error, context) {
+  if (isTerminalDownloadError(error)) return resultError(error, context);
   return {
     ok: false,
     status: "unsupported",
@@ -7976,7 +8128,7 @@ async function sleep(page, ms2) {
     await page.waitForTimeout(ms2);
     return;
   }
-  await new Promise((resolve8) => setTimeout(resolve8, ms2));
+  await new Promise((resolve9) => setTimeout(resolve9, ms2));
 }
 
 // src/commands/files.ts
@@ -8018,38 +8170,22 @@ import { platform as readHostPlatform } from "node:os";
 function currentHostPathPlatform() {
   return readHostPlatform();
 }
-function isHostAbsolutePath(value, platform2 = currentHostPathPlatform()) {
+function isHostAbsolutePath(value, platform3 = currentHostPathPlatform()) {
   if (value.length === 0) return false;
-  if (platform2 === "win32") return isFullyQualifiedWindowsPath(value);
+  if (platform3 === "win32") return isFullyQualifiedWindowsPath(value);
   return path.posix.isAbsolute(value);
 }
-function resolveForHostPath(value, platform2 = currentHostPathPlatform()) {
-  if (!isHostAbsolutePath(value, platform2)) {
+function resolveForHostPath(value, platform3 = currentHostPathPlatform()) {
+  if (!isHostAbsolutePath(value, platform3)) {
     throw new Error(`File attachment path must be absolute for the backend host: ${value}`);
   }
-  return platform2 === "win32" ? path.win32.resolve(value) : path.posix.resolve(value);
+  return platform3 === "win32" ? path.win32.resolve(value) : path.posix.resolve(value);
 }
-function basenameForHostPath(value, platform2 = currentHostPathPlatform()) {
-  return platform2 === "win32" ? path.win32.basename(value) : path.posix.basename(value);
+function basenameForHostPath(value, platform3 = currentHostPathPlatform()) {
+  return platform3 === "win32" ? path.win32.basename(value) : path.posix.basename(value);
 }
 function isFullyQualifiedWindowsPath(value) {
   return /^[A-Za-z]:[\\/]/.test(value) || /^\\\\[^\\]+\\[^\\]+[\\/]/.test(value);
-}
-
-// src/commands/deadline.ts
-function createDeadline(timeoutMs, startedAtMs = Date.now()) {
-  const safeTimeoutMs = Math.max(0, timeoutMs);
-  return {
-    startedAtMs,
-    timeoutMs: safeTimeoutMs,
-    expiresAtMs: startedAtMs + safeTimeoutMs
-  };
-}
-function remainingMs(deadline, nowMs = Date.now()) {
-  return Math.max(0, deadline.expiresAtMs - nowMs);
-}
-function childTimeoutMs(deadline, capMs, nowMs = Date.now()) {
-  return Math.max(0, Math.min(Math.max(0, capMs), remainingMs(deadline, nowMs)));
 }
 
 // src/commands/files.ts
@@ -8970,7 +9106,7 @@ async function attachmentDelay(_page, deadline, requestedMs) {
     if (requestedMs > 0) throw new AttachmentDeadlineError("Attachment settling delay");
     return;
   }
-  await new Promise((resolve8) => setTimeout(resolve8, delayMs));
+  await new Promise((resolve9) => setTimeout(resolve9, delayMs));
 }
 async function attachmentContext(page, _deadline) {
   return contextFromPage(page, {}, { minimal: true });
@@ -9020,7 +9156,7 @@ async function downloadLatestFile(env, args) {
     }
     if (count === 0) {
       const artifactDownload = await downloadLatestArtifact(env, args);
-      if (artifactDownload.ok) {
+      if (artifactDownload.ok || isTerminalDownloadCode(artifactDownload.blocker?.code)) {
         return artifactDownload;
       }
       return {
@@ -9045,7 +9181,7 @@ async function downloadLatestFile(env, args) {
     );
     return resultOk(downloaded, await contextFromPage(page));
   } catch (error) {
-    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page, {}, { minimal: isTerminalDownloadError(error) }));
   }
 }
 async function tryGeneratedFilePreviewDownload(page, args) {
@@ -9088,10 +9224,10 @@ async function tryGeneratedFilePreviewDownload(page, args) {
     await affordance.click({ timeoutMs: localGuardTimeout(timeoutMs, 1e4) });
     const labelledPreview = requiredLocator(page, `section[aria-label="${escapeCssAttribute(selected.filename)}"]`);
     const workbookPreviews = requiredLocator(page, "section[data-testid^='popcorn-']");
-    const workbookPreview = workbookPreviews.filter?.({ hasText: selected.filename }) ?? workbookPreviews;
+    const workbookPreview = typeof workbookPreviews.filter === "function" ? workbookPreviews.filter({ hasText: selected.filename }) : void 0;
     const download = await waitForPreviewDownloadControl(
       page,
-      [labelledPreview, workbookPreview],
+      workbookPreview === void 0 ? [labelledPreview] : [labelledPreview, workbookPreview],
       timeoutMs
     );
     if (download === void 0) {
@@ -9106,7 +9242,7 @@ async function tryGeneratedFilePreviewDownload(page, args) {
     );
     return resultOk(downloaded, await contextFromPage(page));
   } catch (error) {
-    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
+    return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page, {}, { minimal: isTerminalDownloadError(error) }));
   }
 }
 async function inspectGeneratedFileAffordances(page, timeoutMs) {
@@ -9226,7 +9362,7 @@ async function waitForPreviewDownloadControl(page, previews, timeoutMs) {
     if (typeof page.waitForTimeout === "function") {
       await page.waitForTimeout(100);
     } else {
-      await new Promise((resolve8) => setTimeout(resolve8, 100));
+      await new Promise((resolve9) => setTimeout(resolve9, 100));
     }
   }
   return void 0;
@@ -9420,14 +9556,14 @@ function normalizeProjectSourcesUrl(value) {
   }
   const segments = parsed.pathname.split("/").filter(Boolean);
   const gIndex = segments.indexOf("g");
-  const handle = gIndex >= 0 ? segments[gIndex + 1] : void 0;
-  if (handle === void 0 || !handle.startsWith("g-p-")) {
+  const handle2 = gIndex >= 0 ? segments[gIndex + 1] : void 0;
+  if (handle2 === void 0 || !handle2.startsWith("g-p-")) {
     throw new Error("ChatGPT Project URL must include a Project path such as /g/g-p-.../project.");
   }
-  const { projectId, projectSlug } = splitProjectHandle(handle);
+  const { projectId, projectSlug } = splitProjectHandle(handle2);
   const normalized = {
     projectId,
-    url: `${CHATGPT_ORIGIN}/g/${handle}/project`
+    url: `${CHATGPT_ORIGIN}/g/${handle2}/project`
   };
   if (projectSlug !== void 0) {
     normalized.projectSlug = projectSlug;
@@ -9941,8 +10077,8 @@ async function settleChooserBeforeMutation(chooserWait, deadline) {
     let timer;
     const registered = await Promise.race([
       chooserWait.registration.then(() => true),
-      new Promise((resolve8) => {
-        timer = setTimeout(() => resolve8(false), remainingMs3);
+      new Promise((resolve9) => {
+        timer = setTimeout(() => resolve9(false), remainingMs3);
       })
     ]).finally(() => {
       if (timer !== void 0) clearTimeout(timer);
@@ -9951,7 +10087,7 @@ async function settleChooserBeforeMutation(chooserWait, deadline) {
   }
   if (chooserWait.outcome !== void 0) return chooserWait.outcome;
   if (deadline <= Date.now()) return { kind: "timeout" };
-  await new Promise((resolve8) => setTimeout(resolve8, 0));
+  await new Promise((resolve9) => setTimeout(resolve9, 0));
   if (chooserWait.outcome !== void 0) return chooserWait.outcome;
   return deadline <= Date.now() ? { kind: "timeout" } : void 0;
 }
@@ -9963,13 +10099,13 @@ async function awaitFileChooserOutcome(chooserWait, deadline) {
   if (remainingMs3 === 0) {
     return { kind: "timeout" };
   }
-  return new Promise((resolve8) => {
+  return new Promise((resolve9) => {
     let finished = false;
     const finish = (outcome) => {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
-      resolve8(outcome);
+      resolve9(outcome);
     };
     const timer = setTimeout(() => finish({ kind: "timeout" }), remainingMs3);
     void chooserWait.promise.then((outcome) => finish(outcome));
@@ -10064,7 +10200,7 @@ async function waitForProjectSourceTransitionTick(page, waitMs) {
     await page.waitForTimeout(waitMs);
     return;
   }
-  await new Promise((resolve8) => setTimeout(resolve8, waitMs));
+  await new Promise((resolve9) => setTimeout(resolve9, waitMs));
 }
 async function clickProjectSourceControlLocator(page, locator, deadline) {
   if (typeof locator.click !== "function") {
@@ -10103,10 +10239,10 @@ function normalizedBatchSize(value) {
   }
   return Number.isInteger(value) && value > 0 ? value : DEFAULT_PROJECT_SOURCE_BATCH_SIZE;
 }
-function splitProjectHandle(handle) {
-  const match = /^(g-p-[0-9a-f]{16,})(?:-(.+))?$/i.exec(handle);
+function splitProjectHandle(handle2) {
+  const match = /^(g-p-[0-9a-f]{16,})(?:-(.+))?$/i.exec(handle2);
   if (match === null) {
-    return { projectId: handle };
+    return { projectId: handle2 };
   }
   const result3 = { projectId: match[1] };
   if (match[2] !== void 0 && match[2].length > 0) {
@@ -10236,14 +10372,14 @@ import { access as access2, stat as stat4 } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 var execFileAsync = promisify(execFile);
-function clipboardReadCommandsForPlatform(platform2, env = {}) {
-  if (platform2 === "darwin") {
+function clipboardReadCommandsForPlatform(platform3, env = {}) {
+  if (platform3 === "darwin") {
     return [{ command: "pbpaste", args: [] }];
   }
-  if (platform2 === "win32") {
+  if (platform3 === "win32") {
     return [{ command: "powershell.exe", args: ["-NoProfile", "-Command", "Get-Clipboard -Raw"] }];
   }
-  if (platform2 === "linux") {
+  if (platform3 === "linux") {
     const waylandCommand = { command: "wl-paste", args: ["--no-newline"] };
     const x11Commands = [
       { command: "xclip", args: ["-selection", "clipboard", "-o"] },
@@ -10274,7 +10410,7 @@ async function waitForClipboardChange(before, timeoutMs, pollMs = 150) {
     if (current !== void 0 && current.length > 0 && current !== before) {
       return current;
     }
-    await new Promise((resolve8) => setTimeout(resolve8, pollMs));
+    await new Promise((resolve9) => setTimeout(resolve9, pollMs));
   }
   return void 0;
 }
@@ -10718,7 +10854,7 @@ function uploadCheck(env) {
 function downloadCheck(env) {
   const page = env.page;
   if (page === void 0) return unknown("Download readiness requires a bootstrapped ChatGPT page.");
-  return typeof page.waitForEvent === "function" ? ok("Browser download events are available.") : unsupported("The active browser page does not expose download events.");
+  return typeof page.waitForEvent === "function" ? ok("The browser exposes a download event API; a completed download receipt has not been verified.") : unsupported("The active browser page does not expose download events.");
 }
 async function clipboardCheck() {
   const value = await readSystemClipboard();
@@ -11783,7 +11919,7 @@ function isNativeBrowserTimeout(error) {
 async function sleepWithinDeadline(_page, deadline, requestedMs) {
   const waitMs = Math.min(requestedMs, Math.max(0, remainingMs(deadline) - 1));
   if (waitMs <= 0) return;
-  await new Promise((resolve8) => setTimeout(resolve8, waitMs));
+  await new Promise((resolve9) => setTimeout(resolve9, waitMs));
 }
 async function stopContext(page, _deadline) {
   return contextFromPage(page, {}, { minimal: true });
@@ -12469,7 +12605,7 @@ async function sleep2(page, ms2) {
     await page.waitForTimeout(ms2);
     return;
   }
-  await new Promise((resolve8) => setTimeout(resolve8, ms2));
+  await new Promise((resolve9) => setTimeout(resolve9, ms2));
 }
 function submitData(userTurnText, turnCount, submissionState, generation) {
   const data = { submitted: true };
@@ -12799,21 +12935,22 @@ async function discoverPowerSlider(page, options = {}) {
         return normalized === wanted || normalized.startsWith(`${wanted} `) || normalized.endsWith(` ${wanted}`) || normalized.includes(` ${wanted} `);
       });
     };
-    const isVisible = (element) => {
+    const isVisible = (element, allowSliderAriaHidden = false) => {
       let current = element;
       let depth = 0;
-      while (current !== null && depth < 16) {
+      while (current !== null && depth < 64) {
         if (current.nodeType !== 1) break;
         const currentElement = current;
         const html = currentElement;
-        if (html.hidden || currentElement.getAttribute("aria-hidden") === "true" || currentElement.hasAttribute("inert")) return false;
+        if (html.hidden || currentElement.hasAttribute("hidden") || currentElement.getAttribute("aria-hidden") === "true" && !(current === element && allowSliderAriaHidden) || currentElement.getAttribute("data-active") === "false" || currentElement.hasAttribute("inert")) return false;
         const style = typeof window !== "undefined" ? window.getComputedStyle?.(html) : void 0;
-        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0") {
+        if (style?.display === "none" || style?.visibility === "hidden" || style?.opacity === "0" || style?.pointerEvents === "none") {
           return false;
         }
         current = current.parentNode;
         depth += 1;
       }
+      if (current !== null && current.nodeType === 1) return false;
       const rect = element.getBoundingClientRect?.();
       return rect === void 0 || rect.width > 0 && rect.height > 0;
     };
@@ -12925,9 +13062,36 @@ async function discoverPowerSlider(page, options = {}) {
       }
       return null;
     };
+    const ownedChatSlider = (slider, owner, menu) => {
+      if (owner === null || menu === null || menu.getAttribute("data-state") !== "open" || !isVisible(menu) || !isVisible(owner) || !matchesPowerLabel(owner.getAttribute("aria-label") ?? "")) return false;
+      let current = slider;
+      let sliderOwner = false, activePanel = false, activeView = false, composerRoot = false;
+      for (let depth = 0; current !== null && current !== menu && depth < 32; depth += 1) {
+        if (current.nodeType !== 1) return false;
+        const node = current;
+        if (node.getAttribute("aria-disabled") === "true" || node.getAttribute("data-locked") === "true") return false;
+        if (node.hasAttribute("data-model-reasoning-effort-slider")) sliderOwner = true;
+        if (node.getAttribute("data-testid") === "composer-model-picker-slider-simple-view" && node.getAttribute("data-active") === "true" && isVisible(node)) activePanel = true;
+        if (node.getAttribute("data-view") === "simple" && node.getAttribute("data-has-slider") === "true" && node.getAttribute("data-model-selection-view") === "true" && node.getAttribute("data-has-advanced-view") === "true") activeView = true;
+        if (node.getAttribute("data-testid") === "composer-intelligence-picker-content") composerRoot = true;
+        current = current.parentNode;
+      }
+      const rect = slider.getBoundingClientRect?.();
+      return current === menu && sliderOwner && activePanel && activeView && composerRoot && rect !== void 0 && rect.width > 0 && rect.height > 0;
+    };
     const sliders = sliderElements.map((slider, index) => {
       const owner = nearestOwner(slider);
       const menu = nearestMenu(slider);
+      const renderedChatSlider = ownedChatSlider(slider, owner, menu);
+      let currentValueText = normalize(slider.getAttribute("aria-valuetext") ?? "");
+      if (renderedChatSlider && currentValueText.length === 0) {
+        const ids = (owner?.getAttribute("aria-describedby") ?? "").slice(0, 512).split(/\s+/).slice(0, 8);
+        for (const id2 of ids) {
+          const description = visibleTextOf(idIndex.get(id2));
+          const ordinal = /^(.+?),\s*(\d+)\s+of\s+(\d+)\./u.exec(description);
+          if (ordinal !== null && Number(ordinal[2]) === Number(slider.getAttribute("aria-valuenow")) - Number(slider.getAttribute("aria-valuemin")) + 1 && Number(ordinal[3]) === Number(slider.getAttribute("aria-valuemax")) - Number(slider.getAttribute("aria-valuemin")) + 1) currentValueText = ordinal[1];
+        }
+      }
       const listId = slider.getAttribute("list");
       const datalist = listId === null ? null : idIndex.get(listId) ?? null;
       const menuLabel = menu?.getAttribute("aria-label") ?? "";
@@ -12937,10 +13101,10 @@ async function discoverPowerSlider(page, options = {}) {
       const { options: options2, truncated: optionsTruncated } = readOptions(optionRoot);
       return {
         index,
-        visible: isVisible(slider),
+        visible: isVisible(slider, renderedChatSlider),
         ...textOf(slider).length === 0 ? {} : { ariaLabel: textOf(slider) },
         ...labelledByText(slider).length === 0 ? {} : { labelledByText: labelledByText(slider) },
-        ...slider.getAttribute("aria-valuetext") === null ? {} : { valueText: normalize(slider.getAttribute("aria-valuetext") ?? "") },
+        ...currentValueText.length === 0 ? {} : { valueText: currentValueText },
         ...slider.getAttribute("aria-valuemin") === null ? {} : { minimum: slider.getAttribute("aria-valuemin") },
         ...slider.getAttribute("aria-valuemax") === null ? {} : { maximum: slider.getAttribute("aria-valuemax") },
         ...slider.getAttribute("aria-valuenow") === null ? {} : { current: slider.getAttribute("aria-valuenow") },
@@ -12961,7 +13125,7 @@ async function discoverPowerSlider(page, options = {}) {
             visible: isVisible(menu)
           }
         },
-        surface: directSurfaceHint(slider),
+        surface: renderedChatSlider ? { experience: "chat", selectorProfile: "chat_simplified_v1" } : directSurfaceHint(slider),
         ...options2.length === 0 ? {} : { options: options2 },
         ...optionSource === void 0 ? {} : { optionSource },
         ...optionsTruncated ? { optionsTruncated: true } : {}
@@ -13143,6 +13307,419 @@ function escapeRegExp3(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// src/commands/chat-popover.ts
+async function readChatPopover(page) {
+  if (page.evaluate === void 0) return { acted: false };
+  const observation = await page.evaluate((config) => {
+    const visible = (element, allowSliderAriaHidden = false) => {
+      let current2 = element;
+      for (let depth = 0; current2 !== null && depth < 64; depth += 1) {
+        if (current2.nodeType !== 1) return true;
+        const node = current2;
+        if (node.hidden || node.hasAttribute("hidden") || node.hasAttribute("inert") || node.getAttribute("data-active") === "false" || node.getAttribute("aria-hidden") === "true" && !(current2 === element && allowSliderAriaHidden) || node.getAttribute("aria-disabled") === "true" || node.getAttribute("data-locked") === "true") return false;
+        const style = window.getComputedStyle(node);
+        if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || style.pointerEvents === "none") return false;
+        const rect = node.getBoundingClientRect();
+        if (current2 === element && (rect.width <= 0 || rect.height <= 0)) return false;
+        current2 = current2.parentNode;
+      }
+      return current2 === null;
+    };
+    const normalize = (value) => value.replace(/\s+/g, " ").trim();
+    const roots = document.querySelectorAll('[data-testid="composer-intelligence-picker-content"]');
+    if (roots.length > 8) return { acted: false };
+    const activeRoots = Array.from(roots).filter((node) => visible(node));
+    if (activeRoots.length !== 1) return { acted: false };
+    const root = activeRoots[0];
+    let menu = null;
+    let ancestor = root.parentNode;
+    for (let depth = 0; ancestor?.nodeType === 1 && depth < 16; depth += 1) {
+      const element = ancestor;
+      if (element.getAttribute("role") === "menu") {
+        menu = element;
+        break;
+      }
+      ancestor = ancestor.parentNode;
+    }
+    if (menu?.getAttribute("data-state") !== "open" || !visible(menu)) return { acted: false };
+    const nodes = [];
+    const text = /* @__PURE__ */ new Map();
+    let current = root.firstChild;
+    let count = 0;
+    let chars = 0;
+    while (current !== null) {
+      if (++count > 4096) return { acted: false };
+      if (current.nodeType === 1) nodes.push(current);
+      if (current.nodeType === 3) {
+        const value = current.nodeValue ?? "";
+        chars += value.length;
+        if (chars > 32768) return { acted: false };
+        let parent = current.parentNode;
+        for (let depth = 0; parent !== null && parent !== root && depth < 64; depth += 1) {
+          if (parent.nodeType === 1) text.set(parent, ((text.get(parent) ?? "") + value).slice(0, 240));
+          parent = parent.parentNode;
+        }
+      }
+      if (current.firstChild !== null) {
+        current = current.firstChild;
+        continue;
+      }
+      while (current !== null && current !== root && current.nextSibling === null) current = current.parentNode;
+      if (current === root || current === null) break;
+      current = current.nextSibling;
+    }
+    const within = (node, owner2) => {
+      let current2 = node;
+      for (let depth = 0; current2 !== null && depth < 64; depth += 1) {
+        if (current2 === owner2) return true;
+        current2 = current2.parentNode;
+      }
+      return false;
+    };
+    const owners = nodes.filter((node) => node.getAttribute("data-has-slider") === "true" && node.getAttribute("data-has-advanced-view") === "true" && node.getAttribute("data-model-selection-view") === "true" && visible(node));
+    if (owners.length !== 1) return { acted: false };
+    const owner = owners[0];
+    const view = owner.getAttribute("data-view");
+    if (view !== "simple" && view !== "advanced") return { acted: false };
+    const panels = nodes.filter((node) => node.getAttribute("data-testid") === `composer-model-picker-slider-${view}-view` && within(node, owner) && node.getAttribute("data-active") === "true" && visible(node));
+    if (panels.length !== 1) return { acted: false };
+    const panel = panels[0];
+    const toggles = nodes.filter((node) => node.getAttribute("role") === "menuitem" && node.getAttribute("data-interactive") === "true" && node.getAttribute("aria-expanded") === String(view === "advanced") && within(node, owner) && visible(node));
+    if (toggles.length > 1 || view === "simple" && toggles.length !== 1) return { acted: false };
+    const modelNodes = view === "advanced" ? nodes.filter((node) => within(node, panel) && node.getAttribute("role") === "menuitemradio" && visible(node)) : [];
+    if (modelNodes.length > 32) return { acted: false };
+    const modelLabel = (node) => {
+      const primary = nodes.filter((child) => within(child, node) && (child.getAttribute("class") ?? "").split(/\s+/).includes("truncate"));
+      return normalize(primary.length === 1 ? text.get(primary[0]) ?? "" : text.get(node) ?? "");
+    };
+    const snapshot2 = {
+      view,
+      rootIndex: Array.from(roots).indexOf(root),
+      toggleIndex: nodes.filter((node) => node.getAttribute("role") === "menuitem" && node.getAttribute("data-interactive") === "true").indexOf(toggles[0]),
+      modelOptions: modelNodes.map((node) => ({
+        label: modelLabel(node),
+        checked: node.getAttribute("aria-checked") === "true",
+        index: nodes.filter((row) => within(row, panel) && row.getAttribute("role") === "menuitemradio").indexOf(node)
+      })).filter((option) => option.label.length > 0)
+    };
+    const triggerId = menu.getAttribute("aria-labelledby");
+    if (triggerId !== null && triggerId.length > 0 && triggerId.length < 240 && !/\s/.test(triggerId)) snapshot2.triggerId = triggerId;
+    const checked = snapshot2.modelOptions.filter((option) => option.checked);
+    if (checked.length === 1) snapshot2.activeModel = checked[0].label;
+    if (view === "simple") {
+      const speedControls = nodes.filter((node) => node.getAttribute("role") === "menuitemcheckbox" && node.hasAttribute("data-fast-mode-enabled") && within(node, owner) && visible(node));
+      if (speedControls.length === 1) {
+        const speed = speedControls[0];
+        const checked2 = speed.getAttribute("aria-checked");
+        if ((checked2 === "true" || checked2 === "false") && speed.getAttribute("data-fast-mode-enabled") === checked2 && speed.getAttribute("data-visible") === "true") {
+          snapshot2.speed = checked2 === "true" ? "Fast" : "Standard";
+          snapshot2.speedIndex = nodes.filter((node) => node.getAttribute("role") === "menuitemcheckbox" && node.hasAttribute("data-fast-mode-enabled")).indexOf(speed);
+        }
+      }
+      const sliders = nodes.filter((node) => node.getAttribute("role") === "slider" && within(node, panel) && visible(node, true));
+      if (sliders.length === 1) {
+        const slider = sliders[0];
+        const powers = nodes.filter((node) => within(slider, node) && within(node, panel) && node.getAttribute("role") === "menuitem" && visible(node) && config.powerLabels.some((label) => normalize(node.getAttribute("aria-label") ?? "").toLocaleLowerCase() === label.toLocaleLowerCase()));
+        const sliderOwners = nodes.filter((node) => within(slider, node) && within(node, panel) && node.hasAttribute("data-model-reasoning-effort-slider"));
+        const integer = (name) => {
+          const raw = slider.getAttribute(name);
+          return raw !== null && /^-?\d+$/.test(raw) && Number.isSafeInteger(Number(raw)) ? Number(raw) : void 0;
+        };
+        const minimum = integer("aria-valuemin"), maximum = integer("aria-valuemax"), now = integer("aria-valuenow");
+        if (powers.length === 1 && sliderOwners.length === 1 && minimum !== void 0 && maximum !== void 0 && now !== void 0 && maximum > minimum && maximum - minimum < 32 && now >= minimum && now <= maximum) {
+          snapshot2.slider = { index: nodes.filter((node) => node.getAttribute("role") === "slider" && within(node, panel)).indexOf(slider), minimum, maximum, current: now };
+          const valueText = normalize(slider.getAttribute("aria-valuetext") ?? "");
+          if (valueText.length > 0) snapshot2.slider.valueText = valueText;
+          else {
+            const descriptionIds = (powers[0].getAttribute("aria-describedby") ?? "").split(/\s+/).slice(0, 8);
+            for (const id2 of descriptionIds) {
+              const descriptions = nodes.filter((node) => node.getAttribute("id") === id2);
+              if (descriptions.length !== 1) continue;
+              const description = normalize(text.get(descriptions[0]) ?? "");
+              const ordinal = /^(.+?),\s*(\d+)\s+of\s+(\d+)\./u.exec(description);
+              if (ordinal !== null && Number(ordinal[2]) === now - minimum + 1 && Number(ordinal[3]) === maximum - minimum + 1) snapshot2.slider.valueText = ordinal[1];
+            }
+          }
+          if (snapshot2.slider.valueText !== void 0) snapshot2.effort = snapshot2.slider.valueText;
+        }
+      }
+    }
+    return { snapshot: snapshot2, acted: false };
+  }, { powerLabels: localeLabels.configurationAxes.power }).catch(() => ({ acted: false }));
+  return observation !== void 0 && observation !== null && typeof observation.acted === "boolean" ? observation : { acted: false };
+}
+function observedRoot(page, snapshot2) {
+  const roots = page.locator?.('[data-testid="composer-intelligence-picker-content"]');
+  return roots?.nth?.(snapshot2.rootIndex) ?? (snapshot2.rootIndex === 0 ? roots : void 0);
+}
+async function clickObservedControl(page, snapshot2, modelIndex) {
+  const selector = modelIndex === void 0 ? '[role="menuitem"][data-interactive="true"]' : '[data-testid="composer-model-picker-slider-advanced-view"][data-active="true"] [role="menuitemradio"]';
+  const candidates = observedRoot(page, snapshot2)?.locator?.(selector);
+  const index = modelIndex ?? snapshot2.toggleIndex;
+  const target = candidates?.nth?.(index) ?? (index === 0 ? candidates : void 0);
+  if (target?.click === void 0 || target.evaluate === void 0 || await target.count?.() !== 1) return false;
+  const state = await target.evaluate((element) => {
+    let current = element;
+    let owned = false;
+    for (let depth = 0; current !== null && depth < 64; depth += 1) {
+      if (current.nodeType !== 1) break;
+      const node = current;
+      if (node.hidden || node.hasAttribute("hidden") || node.hasAttribute("inert") || node.getAttribute("aria-hidden") === "true" || node.getAttribute("aria-disabled") === "true" || node.getAttribute("data-active") === "false") return void 0;
+      const style = window.getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || style.pointerEvents === "none") return void 0;
+      if (node.getAttribute("data-testid") === "composer-intelligence-picker-content") owned = true;
+      current = current.parentNode;
+    }
+    const rect = element.getBoundingClientRect();
+    if (!owned || rect.width <= 0 || rect.height <= 0) return void 0;
+    let label = "";
+    const primary = /* @__PURE__ */ new Map();
+    let child = element.firstChild;
+    let count = 0;
+    while (child !== null) {
+      if (++count > 512) return void 0;
+      if (child.nodeType === 3) {
+        label += child.nodeValue ?? "";
+        if (label.length > 512) return void 0;
+        let parent = child.parentNode;
+        for (let depth = 0; parent !== null && parent !== element && depth < 64; depth += 1) {
+          if (parent.nodeType === 1 && (parent.getAttribute("class") ?? "").split(/\s+/).includes("truncate")) {
+            primary.set(parent, (primary.get(parent) ?? "") + (child.nodeValue ?? ""));
+          }
+          parent = parent.parentNode;
+        }
+      }
+      if (child.firstChild !== null) {
+        child = child.firstChild;
+        continue;
+      }
+      while (child !== null && child !== element && child.nextSibling === null) child = child.parentNode;
+      if (child === element || child === null) break;
+      child = child.nextSibling;
+    }
+    return { role: element.getAttribute("role"), expanded: element.getAttribute("aria-expanded"), label: (primary.size === 1 ? [...primary.values()][0] : label).replace(/\s+/g, " ").trim() };
+  }).catch(() => void 0);
+  if (state === void 0 || state.role !== (modelIndex === void 0 ? "menuitem" : "menuitemradio") || modelIndex === void 0 && state.expanded !== String(snapshot2.view === "advanced")) return false;
+  const expectedModel = snapshot2.modelOptions.find((option) => option.index === modelIndex);
+  if (modelIndex !== void 0 && (expectedModel === void 0 || state.label !== expectedModel.label)) return false;
+  await target.click();
+  return true;
+}
+async function closeChatPopover(page, before) {
+  const snapshot2 = before ?? (await readChatPopover(page)).snapshot;
+  if (snapshot2 === void 0) return false;
+  const escapedId = snapshot2.triggerId?.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const menu = escapedId === void 0 ? void 0 : page.locator?.(`[role="menu"][aria-labelledby="${escapedId}"]`);
+  if (menu?.press !== void 0 && await menu.count?.() === 1) await menu.press("Escape");
+  else if (page.keyboard?.press !== void 0) await page.keyboard.press("Escape");
+  else if (page.cua?.keypress !== void 0) await page.cua.keypress({ keys: ["ESC"] });
+  else return false;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await waitForPopoverTransition(page, 100);
+    if ((await readChatPopover(page)).snapshot === void 0) return true;
+  }
+  return false;
+}
+async function waitForPopoverTransition(page, milliseconds) {
+  if (page.waitForTimeout !== void 0) await page.waitForTimeout(milliseconds);
+  else await new Promise((resolve9) => setTimeout(resolve9, milliseconds));
+}
+async function reopenChatPopover(page, before) {
+  if (before.triggerId === void 0) return void 0;
+  if (!await closeChatPopover(page, before)) return void 0;
+  const trigger = page.locator?.(`[id="${before.triggerId.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"]`);
+  if (trigger?.click === void 0 || trigger.evaluate === void 0 || await trigger.count?.() !== 1) return void 0;
+  const isVisible = () => trigger.evaluate((element) => {
+    let current = element;
+    for (let depth = 0; current !== null && depth < 64; depth += 1) {
+      if (current.nodeType !== 1) break;
+      const node = current;
+      if (node.hidden || node.hasAttribute("hidden") || node.hasAttribute("inert") || node.getAttribute("aria-hidden") === "true" || node.getAttribute("aria-disabled") === "true") return false;
+      const style = window.getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || current === element && style.pointerEvents === "none") return false;
+      current = current.parentNode;
+    }
+    if (current?.nodeType === 1) return false;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && (element.tagName.toLowerCase() === "button" || element.getAttribute("role") === "button");
+  }).catch(() => false);
+  let visible = false;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (await isVisible()) {
+      visible = true;
+      break;
+    }
+    if (attempt + 1 < 5) await waitForPopoverTransition(page, 100);
+  }
+  if (!visible) return void 0;
+  await trigger.click();
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await waitForPopoverTransition(page, 100);
+    const reopened = (await readChatPopover(page)).snapshot;
+    if (reopened?.view === "simple" && reopened.triggerId === before.triggerId) return reopened;
+  }
+  return void 0;
+}
+async function setChatPopoverView(page, view) {
+  const before = (await readChatPopover(page)).snapshot;
+  if (before === void 0 || before.view === view) return before;
+  if (view === "simple" && before.triggerId !== void 0) return reopenChatPopover(page, before);
+  if (!await clickObservedControl(page, before)) return void 0;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await waitForPopoverTransition(page, 100);
+    const after = (await readChatPopover(page)).snapshot;
+    if (after?.view === view) return after;
+  }
+  return void 0;
+}
+async function inspectChatPopover(page) {
+  const initial = (await readChatPopover(page)).snapshot;
+  if (initial === void 0) return void 0;
+  let inspected;
+  try {
+    const simple = await setChatPopoverView(page, "simple");
+    const advanced = await setChatPopoverView(page, "advanced");
+    if (simple !== void 0 && advanced !== void 0) {
+      inspected = {
+        ...advanced,
+        view: initial.view,
+        ...simple.effort === void 0 ? {} : { effort: simple.effort },
+        ...simple.slider === void 0 ? {} : { slider: simple.slider },
+        ...simple.speed === void 0 ? {} : { speed: simple.speed, speedIndex: simple.speedIndex }
+      };
+    }
+  } finally {
+    if (await setChatPopoverView(page, initial.view) === void 0) inspected = void 0;
+  }
+  return inspected;
+}
+async function selectChatPopoverModel(page, labels) {
+  const initial = (await readChatPopover(page)).snapshot;
+  if (initial === void 0) return void 0;
+  try {
+    const advanced = await setChatPopoverView(page, "advanced");
+    if (advanced === void 0) return void 0;
+    const matches = advanced.modelOptions.filter((option) => labels.some((label) => normalizeForLabelMatch(label) === normalizeForLabelMatch(option.label)));
+    if (matches.length !== 1 || !await clickObservedControl(page, advanced, matches[0].index)) return void 0;
+    await waitForPopoverTransition(page, 150);
+    const after = await setChatPopoverView(page, "advanced");
+    return after?.activeModel !== void 0 && labels.some((label) => normalizeForLabelMatch(label) === normalizeForLabelMatch(after.activeModel)) ? after.activeModel : void 0;
+  } finally {
+    await setChatPopoverView(page, initial.view);
+  }
+}
+async function selectChatPopoverEffort(page, labels) {
+  const initial = (await readChatPopover(page)).snapshot;
+  if (initial === void 0) return void 0;
+  let original;
+  let found = false;
+  let mayRestore = true;
+  const read = async () => (await readChatPopover(page)).snapshot;
+  const move = async (target) => {
+    for (let attempt = 0; attempt < 32; attempt += 1) {
+      const before = await read();
+      if (original === void 0 || before?.slider === void 0 || before.slider.minimum !== original.minimum || before.slider.maximum !== original.maximum) {
+        mayRestore = false;
+        return void 0;
+      }
+      if (before.slider.current === target) return before;
+      const candidates = observedRoot(page, before)?.locator?.('[data-testid="composer-model-picker-slider-simple-view"][data-active="true"] [role="slider"]');
+      const locator = candidates?.nth?.(before.slider.index) ?? (before.slider.index === 0 ? candidates : void 0);
+      if (locator?.press === void 0 || locator.evaluate === void 0 || await locator.count?.() !== 1) return void 0;
+      const locatorState = await locator.evaluate((element) => {
+        let current = element;
+        let panel = false, owned = false;
+        for (let depth = 0; current !== null && depth < 64; depth += 1) {
+          if (current.nodeType !== 1) break;
+          const node = current;
+          if (node.hidden || node.hasAttribute("hidden") || node.hasAttribute("inert") || node.getAttribute("data-active") === "false" || node.getAttribute("aria-disabled") === "true" || node.getAttribute("data-locked") === "true" || current !== element && node.getAttribute("aria-hidden") === "true") return void 0;
+          const style = window.getComputedStyle(node);
+          if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || style.pointerEvents === "none") return void 0;
+          if (node.getAttribute("data-testid") === "composer-model-picker-slider-simple-view" && node.getAttribute("data-active") === "true") panel = true;
+          if (node.getAttribute("data-testid") === "composer-intelligence-picker-content") owned = true;
+          current = current.parentNode;
+        }
+        const rect = element.getBoundingClientRect();
+        if (!panel || !owned || rect.width <= 0 || rect.height <= 0 || element.getAttribute("role") !== "slider") return void 0;
+        return { minimum: element.getAttribute("aria-valuemin"), maximum: element.getAttribute("aria-valuemax"), current: element.getAttribute("aria-valuenow") };
+      }).catch(() => void 0);
+      if (locatorState === void 0 || locatorState.minimum !== String(before.slider.minimum) || locatorState.maximum !== String(before.slider.maximum) || locatorState.current !== String(before.slider.current)) return void 0;
+      const delta = target > before.slider.current ? 1 : -1;
+      mayRestore = false;
+      await locator.press(delta > 0 ? "ArrowRight" : "ArrowLeft");
+      await waitForPopoverTransition(page, 100);
+      const after = await read();
+      if (after?.slider === void 0 || after.slider.minimum !== original.minimum || after.slider.maximum !== original.maximum || after.slider.current !== before.slider.current + delta) return void 0;
+      mayRestore = true;
+    }
+    return void 0;
+  };
+  try {
+    const simple = await setChatPopoverView(page, "simple");
+    original = simple?.slider;
+    if (original === void 0 || simple?.effort === void 0) return void 0;
+    const matches = (snapshot2) => snapshot2?.effort !== void 0 && labels.some((label) => normalizeForLabelMatch(label) === normalizeForLabelMatch(snapshot2.effort)) ? snapshot2.effort : void 0;
+    const noop = matches(simple);
+    if (noop !== void 0) {
+      found = true;
+      return noop;
+    }
+    for (let value = original.minimum; value <= original.maximum; value += 1) {
+      const observed = await move(value);
+      if (observed === void 0 || observed.effort === void 0) return void 0;
+      const matched = matches(observed);
+      if (matched !== void 0) {
+        found = true;
+        return matched;
+      }
+    }
+    return void 0;
+  } finally {
+    if (!found && original !== void 0 && mayRestore) await move(original.current);
+    await setChatPopoverView(page, initial.view);
+  }
+}
+async function selectChatPopoverSpeed(page, labels) {
+  const initial = (await readChatPopover(page)).snapshot;
+  if (initial === void 0) return void 0;
+  try {
+    const simple = await setChatPopoverView(page, "simple");
+    if (simple?.speed === void 0 || simple.speedIndex === void 0) return void 0;
+    const desired = ["Standard", "Fast"].filter((value) => labels.some((label) => normalizeForLabelMatch(label) === normalizeForLabelMatch(value)));
+    if (desired.length !== 1) return void 0;
+    if (simple.speed === desired[0]) return simple.speed;
+    const candidates = observedRoot(page, simple)?.locator?.('[role="menuitemcheckbox"][data-fast-mode-enabled]');
+    const locator = candidates?.nth?.(simple.speedIndex) ?? (simple.speedIndex === 0 ? candidates : void 0);
+    if (locator?.click === void 0 || locator.evaluate === void 0 || await locator.count?.() !== 1) return void 0;
+    const state = await locator.evaluate((element) => {
+      let current = element;
+      let owned = false, simple2 = false, open7 = false;
+      for (let depth = 0; current !== null && depth < 64; depth += 1) {
+        if (current.nodeType !== 1) break;
+        const node = current;
+        if (node.hidden || node.hasAttribute("hidden") || node.hasAttribute("inert") || node.getAttribute("aria-hidden") === "true" || node.getAttribute("aria-disabled") === "true" || node.getAttribute("data-active") === "false" || node.getAttribute("data-locked") === "true") return void 0;
+        const style = window.getComputedStyle(node);
+        if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || style.pointerEvents === "none") return void 0;
+        if (node.getAttribute("role") === "menu" && node.getAttribute("data-state") === "open") open7 = true;
+        if (node.getAttribute("data-testid") === "composer-intelligence-picker-content") owned = true;
+        if (node.getAttribute("data-view") === "simple" && node.getAttribute("data-model-selection-view") === "true") simple2 = true;
+        current = current.parentNode;
+      }
+      const rect = element.getBoundingClientRect();
+      if (current?.nodeType === 1 || !owned || !simple2 || !open7 || rect.width <= 0 || rect.height <= 0 || element.getAttribute("role") !== "menuitemcheckbox" || element.getAttribute("data-visible") !== "true") return void 0;
+      const checked = element.getAttribute("aria-checked");
+      return element.getAttribute("data-fast-mode-enabled") === checked ? checked : void 0;
+    }).catch(() => void 0);
+    if (state !== String(simple.speed === "Fast")) return void 0;
+    await locator.click();
+    await waitForPopoverTransition(page, 150);
+    const after = (await readChatPopover(page)).snapshot;
+    return after !== void 0 && after.speed === desired[0] ? after.speed : void 0;
+  } finally {
+    await setChatPopoverView(page, initial.view);
+  }
+}
+
 // src/commands/modes.ts
 var DEFAULT_MODE_EFFORT = "Thinking";
 var CURRENT_MODE_LABELS = dedupeLabels([
@@ -13152,7 +13729,7 @@ var CURRENT_MODE_LABELS = dedupeLabels([
 ]);
 var MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter((label) => label !== "Pro"), ...localeLabels.modeOpenerExtra];
 var MODEL_VERSION_FAMILY_PATTERN = /^gpt[\s-]/i;
-var MODEL_VERSION_LABEL_PATTERN = /^(?:o\d+|\d+(?:\.\d+)?)$/i;
+var MODEL_VERSION_LABEL_PATTERN = /^(?:gpt[\s-].+|o\d+|\d+(?:\.\d+)?|latest)$/i;
 var CANONICAL_INTELLIGENCE_ORDER = /* @__PURE__ */ new Map([
   ["instant", 0],
   ["medium", 1],
@@ -13189,6 +13766,7 @@ async function setMode(env, args) {
   }
   const page = env.page;
   try {
+    const initialPopover = (await readChatPopover(page)).snapshot;
     const requested = requestedModeSelections(args);
     const requestedVersion = requestedModelVersion(args);
     const requestedForOpening = requestedVersion === void 0 ? requested : [...requested, requestedModeSelection(requestedVersion)];
@@ -13200,6 +13778,29 @@ async function setMode(env, args) {
       return selectorDrift(page, "No unique ChatGPT mode menu opener was found.");
     }
     await page.waitForTimeout?.(250);
+    const scopedPopover = (await readChatPopover(page)).snapshot;
+    if (scopedPopover !== void 0) {
+      try {
+        const selected2 = [];
+        const candidates2 = [];
+        if (requestedVersion !== void 0) {
+          const model = await selectChatPopoverModel(page, [requestedVersion]);
+          if (model === void 0) return selectorDrift(page, `Model version "${requestedVersion}" did not verify in the owned Chat model view.`);
+          selected2.push(model);
+          candidates2.push(model);
+        }
+        for (const request of requested) {
+          const effort = await selectChatPopoverEffort(page, request.labels);
+          if (effort === void 0) return selectorDrift(page, `Mode option "${request.requested}" did not verify in the owned Chat effort control.`);
+          selected2.push(effort);
+          candidates2.push(effort);
+        }
+        return resultOk({ selected: selected2, candidates: candidates2 }, await contextFromPage(page));
+      } finally {
+        if (initialPopover !== void 0) await setChatPopoverView(page, initialPopover.view);
+        else await closeChatPopover(page);
+      }
+    }
     let candidates = await enumerateVisibleMenuItems(page);
     const observedCandidates = [...candidates];
     const selected = [];
@@ -13372,6 +13973,7 @@ async function waitForModeMenu(page, requested, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   let modeButtons = [];
   do {
+    if ((await readChatPopover(page)).snapshot !== void 0) return { opened: true, alreadySelected: [], modeButtons };
     modeButtons = await visibleModeButtonLabelList(page);
     const alreadySelected = findAlreadySelectedModes(modeButtons, requested);
     if (alreadySelected.length === requested.length) {
@@ -13708,7 +14310,7 @@ async function selectModelVersion(page, requestedVersion, currentCandidates, tim
   return await clickResolvedMenuItem(page, exact) ? { selected: exact.label, candidates: candidates.map((candidate) => candidate.label) } : { candidates: candidates.map((candidate) => candidate.label) };
 }
 function isModelVersionSubmenuOpener(item) {
-  return item.hasPopup === true || item.role !== "menuitemradio" && MODEL_VERSION_FAMILY_PATTERN.test(item.label);
+  return item.role !== "menuitemradio" && (MODEL_VERSION_FAMILY_PATTERN.test(item.label) || item.ariaLabel === "Select model");
 }
 async function clickResolvedMenuItem(page, item) {
   if (item.testId !== void 0 && await clickIfUniqueMenuControl(
@@ -13726,7 +14328,7 @@ async function clickResolvedMenuItem(page, item) {
   return clickMenuItem(page, item);
 }
 async function openModelVersionSubmenu(page, candidates) {
-  const submenuOpeners = candidates.filter((item) => item.hasPopup === true || MODEL_VERSION_FAMILY_PATTERN.test(item.label));
+  const submenuOpeners = candidates.filter(isModelVersionSubmenuOpener);
   if (submenuOpeners.length === 0) {
     return false;
   }
@@ -13896,15 +14498,27 @@ async function visibleModeButtonLabelList(page) {
 var CHATGPT_HOME2 = "https://chatgpt.com/";
 var EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS = 15e3;
 var EXPERIENCE_POLL_MS = 250;
+var EXPERIENCE_READINESS_TIMEOUT_MS = 1500;
 async function detectExperience(env, args = {}) {
-  void args;
   const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot;
   }
   const page = env.page;
   try {
-    const data = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+    const readinessMs = Math.max(0, Math.min(
+      args.timeoutMs ?? EXPERIENCE_READINESS_TIMEOUT_MS,
+      EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS
+    ));
+    const readinessDeadline = Date.now() + readinessMs;
+    let data = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+    for (let attempt = 1; data.experience === "unknown" && data.evidence.length === 0 && Date.now() < readinessDeadline && attempt < pollAttempts(readinessMs, EXPERIENCE_POLL_MS); attempt += 1) {
+      const blocker3 = await experiencePageBlocker(page, data);
+      if (blocker3 !== void 0) return blocker3;
+      if (page.waitForTimeout === void 0 || Date.now() >= readinessDeadline) break;
+      await page.waitForTimeout(Math.min(EXPERIENCE_POLL_MS, readinessDeadline - Date.now()));
+      data = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+    }
     return resultOk(data, await contextFromPage(page, {
       experience: data.experience,
       selectorProfile: data.selectorProfile
@@ -14059,9 +14673,16 @@ async function navigateConversationToSurfaceHome(page, timeoutMs) {
   return true;
 }
 function detectExperienceFromSnapshot(snapshot2) {
+  if (snapshot2.rootBudgetExceeded === true) {
+    return {
+      experience: "unknown",
+      selectorProfile: "unknown",
+      confidence: "low",
+      evidence: [{ source: "control", label: "Experience surface root budget exceeded" }]
+    };
+  }
   const evidence = [];
   const composerLabels = snapshot2.composerLabels.map(normalizeForLabelMatch);
-  const controls = snapshot2.mainControls.map(normalizeForLabelMatch);
   const mainText = normalizeForLabelMatch(snapshot2.mainText);
   const selectedSurfaceLabels = (snapshot2.selectedSurfaceLabels ?? []).map(normalizeForLabelMatch);
   const url = snapshot2.url.toLowerCase();
@@ -14082,11 +14703,15 @@ function detectExperienceFromSnapshot(snapshot2) {
   for (const label of chatComposer) {
     evidence.push({ source: "composer", label });
   }
-  const workAxisCount = ["model", "effort", "speed"].filter((axis) => hasAnyLabel(controls, localeLabels.configurationAxes[axis])).length;
-  if (workAxisCount >= 2) {
-    evidence.push({ source: "control", label: `Work configuration axes (${workAxisCount}/3)` });
+  const workAxes = (snapshot2.controlGroups ?? [snapshot2.mainControls]).some((group) => {
+    const groupLabels = group.map(normalizeForLabelMatch);
+    return ["model", "effort", "speed"].every((axis) => hasAnyLabel(groupLabels, localeLabels.configurationAxes[axis]));
+  });
+  if (workAxes) {
+    evidence.push({ source: "control", label: "Work configuration axes (3/3)" });
   }
-  const workConfigurationOpener = controls.some(
+  const composerControls = (snapshot2.composerControls ?? snapshot2.mainControls).map(normalizeForLabelMatch);
+  const workConfigurationOpener = composerControls.some(
     (label) => /\b(?:gpt[\s-]?\d|\d+(?:\.\d+)+|sol|luna|terra)\b/i.test(label) && hasAnyLabel([label], [
       ...localeLabels.configurationOptions.light,
       ...localeLabels.configurationOptions.medium,
@@ -14105,7 +14730,7 @@ function detectExperienceFromSnapshot(snapshot2) {
   if (containsAny(mainText, ["work on something else", "work on anything"])) {
     evidence.push({ source: "heading", label: "Work composer copy" });
   }
-  const workScore = workComposer.length * 4 + (workSurfaceSelected ? 10 : 0) + (workAxisCount >= 2 ? 4 : 0) + (workConfigurationOpener ? 6 : 0) + (/\/work(?:\/|$|\?)/.test(url) ? 3 : 0) + (containsAny(mainText, ["work on something else", "work on anything"]) ? 2 : 0);
+  const workScore = workComposer.length * 4 + (workSurfaceSelected ? 10 : 0) + (workAxes ? 6 : 0) + (workConfigurationOpener ? 6 : 0) + (/\/work(?:\/|$|\?)/.test(url) ? 3 : 0) + (containsAny(mainText, ["work on something else", "work on anything"]) ? 2 : 0);
   const chatScore = chatComposer.length * 4 + (chatSurfaceSelected ? 10 : 0);
   let experience = "unknown";
   let confidence = "low";
@@ -14151,21 +14776,47 @@ async function readSurfaceSnapshot(page) {
     const wantedSurfaceLabels = new Set(surfaceOptionLabels.map(normalizeComparable));
     const composerRoots = Array.from(document.querySelectorAll(
       "main form, main [data-testid*='composer' i], main [class*='composer' i]"
-    ));
+    )).filter(visible);
+    const main = document.querySelector("main");
+    const overlayRoots = Array.from(document.querySelectorAll(
+      "[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
+    )).filter(visible);
+    const composerControlRoots = composerRoots.length > 0 ? composerRoots : main === null ? [] : [main];
+    const effectiveControlRoots = Array.from(/* @__PURE__ */ new Set([...composerControlRoots, ...overlayRoots]));
+    if (effectiveControlRoots.length > 32) {
+      return {
+        composerLabels: [],
+        mainControls: [],
+        composerControls: [],
+        controlGroups: [],
+        mainText: "",
+        selectedSurfaceLabels: [],
+        rootBudgetExceeded: true
+      };
+    }
     const composerNodes = composerRoots.flatMap((root) => [
       root,
       ...Array.from(root.querySelectorAll("textarea, [contenteditable='true'], [role='textbox'], input"))
     ]);
     const composerLabels = Array.from(new Set(composerNodes.filter(visible).map(labelFor).map(normalize).filter(Boolean))).slice(0, 16);
-    const main = document.querySelector("main");
-    const overlayRoots = Array.from(document.querySelectorAll(
-      "[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
-    )).filter(visible);
-    const controlRoots = Array.from(/* @__PURE__ */ new Set([...composerRoots, ...overlayRoots]));
-    const effectiveControlRoots = controlRoots.length > 0 ? controlRoots : main === null ? [] : [main];
-    const mainControls = Array.from(new Set(effectiveControlRoots.flatMap((root) => Array.from(root.querySelectorAll(
-      "button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option']"
-    ))).filter(visible).map(labelFor).map(normalize).filter(Boolean))).slice(0, 120);
+    const overlayRootSet = new Set(overlayRoots);
+    const owningOverlay = (node) => {
+      let current = node;
+      while (current !== null) {
+        if (overlayRootSet.has(current)) return current;
+        current = current.parentElement;
+      }
+      return void 0;
+    };
+    const controlsFor = (root) => Array.from(new Set(
+      Array.from(root.querySelectorAll(
+        "button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option']"
+      )).filter(visible).filter((node) => owningOverlay(node) === (overlayRootSet.has(root) ? root : void 0)).map(labelFor).map(normalize).filter(Boolean)
+    )).slice(0, 120);
+    const rootGroups = new Map(effectiveControlRoots.map((root) => [root, controlsFor(root)]));
+    const controlGroups = [...rootGroups.values()];
+    const mainControls = Array.from(new Set(controlGroups.flat())).slice(0, 120);
+    const composerControls = Array.from(new Set(composerControlRoots.flatMap((root) => rootGroups.get(root) ?? []))).slice(0, 120);
     const surfaceTextNodes = main === null ? [] : Array.from(main.querySelectorAll(
       "h1, h2, h3, form, [data-testid*='composer' i], [class*='composer' i]"
     )).filter(visible).slice(0, 32);
@@ -14173,7 +14824,7 @@ async function readSurfaceSnapshot(page) {
     const selectedSurfaceLabels = Array.from(new Set(Array.from(document.querySelectorAll(
       "[role='radio'][aria-checked='true'], [role='radio'][data-state='checked'], input[type='radio']:checked"
     )).filter(visible).map(labelFor).map(normalize).filter((label) => wantedSurfaceLabels.has(normalizeComparable(label))))).slice(0, 4);
-    return { composerLabels, mainControls, mainText, selectedSurfaceLabels };
+    return { composerLabels, mainControls, composerControls, controlGroups, mainText, selectedSurfaceLabels };
   }, [
     ...localeLabels.experienceOptions.chat,
     ...localeLabels.experienceOptions.work
@@ -14305,11 +14956,11 @@ var CONFIGURATION_CONTROL_POLL_MS = 250;
 var CONFIGURATION_SELECTION_MAX_ATTEMPTS = 6;
 var CONFIGURATION_SELECTION_RETRY_MS = 400;
 var CONFIGURATION_AXIS_ORDER = [
+  "modelVersion",
   "model",
   "intelligence",
   "effort",
-  "speed",
-  "modelVersion"
+  "speed"
 ];
 async function inspectConfiguration(env, args = {}) {
   const boot = await ensurePage(env);
@@ -14344,6 +14995,7 @@ async function inspectConfiguration(env, args = {}) {
       };
     }
     const experience = detected.data.experience;
+    const initialChatPopover = experience !== "unknown" ? (await readChatPopover(page)).snapshot : void 0;
     const initialPanel = await readConfigurationPanel(page);
     const rootOpened = experience !== "unknown" && await waitForConfigurationRoot(
       page,
@@ -14352,6 +15004,20 @@ async function inspectConfiguration(env, args = {}) {
     );
     if (rootOpened) {
       await page.waitForTimeout?.(150);
+    }
+    if (experience !== "unknown" && (await readChatPopover(page)).snapshot !== void 0) {
+      try {
+        const chat = await inspectChatPopover(page);
+        const data2 = configurationInspectionFromPopover(experience, detected.data.evidence, chat);
+        if (args.includeOptions === false) data2.options = {};
+        return resultOk(
+          data2,
+          await contextFromPage(page, { experience, selectorProfile: data2.selectorProfile }),
+          data2.verified ? [] : ["The owned configuration views did not provide unique active model and effort evidence."]
+        );
+      } finally {
+        if (initialChatPopover === void 0) await closeConfigurationMenus(page);
+      }
     }
     const workAdvancedOpened = experience !== "work" || rootOpened && await ensureWorkAdvancedPanel(page);
     if (experience === "work" && workAdvancedOpened) {
@@ -14396,6 +15062,37 @@ async function inspectConfiguration(env, args = {}) {
   } catch (error) {
     return resultError(error instanceof Error ? error : new Error(String(error)), await contextFromPage(page));
   }
+}
+function configurationInspectionFromPopover(experience, evidence, popover) {
+  const data = {
+    experience,
+    selectorProfile: experience === "work" ? "work_basic_v1" : "chat_simplified_v1",
+    availableAxes: [],
+    active: {},
+    options: {},
+    verified: false,
+    evidence
+  };
+  if (popover?.slider !== void 0) {
+    data.availableAxes.push("effort");
+    if (popover.effort !== void 0) {
+      data.active.effort = popover.effort;
+      data.options.effort = [{ id: normalizeConfigurationId(popover.effort), label: popover.effort, selected: true }];
+    }
+  }
+  if (popover !== void 0 && popover.modelOptions.length > 0) {
+    const axis = experience === "work" ? "model" : "modelVersion";
+    data.availableAxes.push(axis);
+    if (popover.activeModel !== void 0) data.active[axis] = popover.activeModel;
+    data.options[axis] = popover.modelOptions.map((option) => ({ id: normalizeConfigurationId(option.label), label: option.label, selected: option.checked }));
+  }
+  if (experience === "work" && popover?.speed !== void 0) {
+    data.availableAxes.push("speed");
+    data.active.speed = popover.speed;
+    data.options.speed = ["Standard", "Fast"].map((label) => ({ id: normalizeConfigurationId(label), label, selected: label === popover.speed }));
+  }
+  data.verified = popover?.effort !== void 0 && popover.activeModel !== void 0;
+  return data;
 }
 async function waitForConfigurationRoot(page, experience, timeoutMs) {
   const discoveryMs = Math.min(
@@ -14458,7 +15155,11 @@ async function applyConfiguration(env, args) {
     }
     const selected = [];
     for (const [axis, requested] of selectionEntries(desired)) {
-      const active = activeConfigurationValue(before, axis);
+      const currentResult = selected.length === 0 ? beforeResult : await inspectConfiguration(env, { includeOptions: false });
+      if (!currentResult.ok || currentResult.data === void 0) return forwardFailure2(currentResult);
+      const current = currentResult.data;
+      if (current.experience !== before.experience) return configurationFailure(page, before, desired, selected, "The composer experience changed during configuration selection.", "experience_mismatch");
+      const active = activeConfigurationValue(current, axis);
       if (active !== void 0 && configurationValueMatches(active, requested)) {
         selected.push({ axis, requested, selected: active });
         continue;
@@ -14532,20 +15233,20 @@ function configurationInspectionFromSurface(experience, detectedProfile, evidenc
     const simplified = chatMenuLooksSimplified(menuItems);
     selectorProfile = simplified ? "chat_simplified_v1" : detectedProfile;
     const axis = simplified ? "intelligence" : "effort";
-    if (menuItems.length > 0 || panel.openerLabel !== void 0) {
-      availableAxes.push(axis);
-    }
-    if (panel.openerLabel !== void 0) {
-      active[axis] = panel.openerLabel;
-    }
-    const chatOptions = menuItems.filter((item) => !isConfigurationAxisRow(item.label)).map(menuItemToOption);
-    if (chatOptions.length > 0) {
-      options[axis] = chatOptions;
-    }
-    const modelRows = menuItems.filter((item) => /^gpt[\s-]/i.test(item.label) || item.hasPopup === true);
-    if (modelRows.length > 0) {
+    const modelRows = menuItems.filter((item) => item.role === "menuitemradio" && item.hasPopup !== true && (/^(?:gpt[\s-]|o\d+(?:\b|$)|\d+(?:\.\d+)?$)/i.test(item.label) || localeLabels.modeOptions.latest.some((label) => visibleLabelMatches(item.label, label))));
+    const chatOptions = menuItems.filter((item) => !isConfigurationAxisRow(item.label) && !modelRows.includes(item) && item.hasPopup !== true && !/^gpt[\s-]/i.test(item.label) && item.ariaLabel !== "Select model").map(menuItemToOption);
+    const selectedEffort = chatOptions.filter((option) => option.selected === true);
+    const openerValue = panel.openerValue ?? panel.openerLabel;
+    if (chatOptions.length > 0 || openerValue !== void 0) availableAxes.push(axis);
+    if (selectedEffort.length === 1) active[axis] = selectedEffort[0].label;
+    else if (openerValue !== void 0 && !isConfigurationAxisRow(openerValue) && !/^(?:thinking effort|select model|power)$/i.test(openerValue)) active[axis] = openerValue;
+    if (chatOptions.length > 0) options[axis] = chatOptions;
+    const modelOpeners = menuItems.filter((item) => item.role !== "menuitemradio" && /^gpt[\s-]/i.test(item.label));
+    if (modelRows.length > 0 || modelOpeners.length > 0) {
       availableAxes.push("modelVersion");
-      options.modelVersion = modelRows.map(menuItemToOption);
+      options.modelVersion = [...modelRows, ...modelOpeners].map(menuItemToOption);
+      const checked = modelRows.filter((item) => item.checked === true);
+      if (checked.length === 1) active.modelVersion = checked[0].label;
     }
   }
   return {
@@ -14568,6 +15269,19 @@ async function selectWorkAxis(env, axis, requested, timeoutMs) {
   const page = env.page;
   if (!WORK_AXES.includes(axis)) {
     return void 0;
+  }
+  const initialPopover = (await readChatPopover(page)).snapshot;
+  await openConfigurationRoot(page, "work");
+  if ((await readChatPopover(page)).snapshot !== void 0) {
+    try {
+      const labels = configurationSemanticLabels(requested);
+      if (axis === "model") return await selectChatPopoverModel(page, labels);
+      if (axis === "effort") return await selectChatPopoverEffort(page, labels);
+      if (axis === "speed") return await selectChatPopoverSpeed(page, labels);
+      return void 0;
+    } finally {
+      if (initialPopover === void 0) await closeConfigurationMenus(page);
+    }
   }
   const retryWindowMs = Math.min(
     timeoutMs ?? CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS,
@@ -14693,6 +15407,18 @@ function workAxisOptionLabelMatches(axis, label) {
   return candidates.some((candidate) => visibleLabelMatches(label, candidate));
 }
 async function selectChatAxis(env, axis, requested, timeoutMs) {
+  const page = env.page;
+  const initialPopover = (await readChatPopover(page)).snapshot;
+  await openConfigurationRoot(page, "chat");
+  if ((await readChatPopover(page)).snapshot !== void 0) {
+    try {
+      if (axis === "modelVersion") return await selectChatPopoverModel(page, configurationSemanticLabels(requested));
+      if (axis === "effort" || axis === "intelligence" || axis === "model") return await selectChatPopoverEffort(page, configurationSemanticLabels(requested));
+      return void 0;
+    } finally {
+      if (initialPopover === void 0) await closeConfigurationMenus(page);
+    }
+  }
   const legacyArgs = axis === "modelVersion" ? { modelVersion: requested } : axis === "intelligence" ? { intelligence: requested } : axis === "effort" ? { effort: requested } : axis === "model" ? { model: requested } : void 0;
   if (legacyArgs === void 0) {
     return void 0;
@@ -14704,6 +15430,7 @@ async function selectChatAxis(env, axis, requested, timeoutMs) {
   return result3.ok ? result3.data?.selected.at(-1) : void 0;
 }
 async function openConfigurationRoot(page, experience) {
+  if (experience !== "unknown" && (await readChatPopover(page)).snapshot !== void 0) return true;
   const existing = await readConfigurationPanel(page);
   if (existing.axisRows.length > 0) {
     return true;
@@ -14888,6 +15615,7 @@ async function readConfigurationPanel(page) {
       const html = control;
       return {
         label: normalize(control.getAttribute("aria-label") ?? html.innerText ?? control.textContent ?? ""),
+        value: normalize(html.innerText ?? control.textContent ?? ""),
         testId: control.getAttribute("data-testid") ?? ""
       };
     }).filter((item) => !/send|voice|microphone|attach|upload|add files|plus/i.test(`${item.label} ${item.testId}`)).filter((item) => /model-switcher|model-selector|mode-selector/i.test(item.testId) || /\b(?:gpt|sol|luna|terra|instant|medium|high|extra high|pro|thinking|extended|light|standard|fast)\b/i.test(item.label));
@@ -14897,6 +15625,7 @@ async function readConfigurationPanel(page) {
     };
     if (openerCandidates.length === 1 && openerCandidates[0]?.label.length) {
       result3.openerLabel = openerCandidates[0].label;
+      if (openerCandidates[0].value.length > 0) result3.openerValue = openerCandidates[0].value;
     }
     return result3;
   }, localeLabels.configurationAxes).catch(() => ({ axisRows: [], advancedVisible: false }));
@@ -15049,6 +15778,10 @@ function normalizeConfigurationId(value) {
   return normalizeForLabelMatch(value).replace(/^gpt[\s-]*/i, "gpt ").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
 }
 async function closeConfigurationMenus(page) {
+  if ((await readChatPopover(page)).snapshot !== void 0) {
+    await closeChatPopover(page);
+    return;
+  }
   if (!await pressConfigurationEscape(page)) return;
   await page.waitForTimeout?.(50);
   await pressConfigurationEscape(page);
@@ -15287,14 +16020,14 @@ function sha256Text(text) {
 async function sha256File(path3) {
   const hash = createHash3("sha256");
   let bytes = 0;
-  await new Promise((resolve8, reject) => {
+  await new Promise((resolve9, reject) => {
     const stream = createReadStream(path3);
     stream.on("data", (chunk) => {
       bytes += typeof chunk === "string" ? Buffer.byteLength(chunk) : chunk.byteLength;
       hash.update(chunk);
     });
     stream.on("error", reject);
-    stream.on("end", resolve8);
+    stream.on("end", resolve9);
   });
   return {
     path: path3,
@@ -17348,10 +18081,10 @@ function toRunResult(agent, result3) {
   const state = runStateFromResult(result3, interruptions);
   const data = { outputText };
   const operationId2 = readOperationId(result3.data);
-  const handle = readOperationHandle(result3.data);
+  const handle2 = readOperationHandle(result3.data);
   const requestDigest = readRequestDigest(result3.data);
   if (operationId2 !== void 0) data.operationId = operationId2;
-  if (handle !== void 0) data.handle = handle;
+  if (handle2 !== void 0) data.handle = handle2;
   if (requestDigest !== void 0) data.requestDigest = requestDigest;
   const submissionState = readSubmissionState(result3.data);
   const completionState = readCompletionState(result3.data);
@@ -17510,12 +18243,12 @@ function runStateFromResult(result3, interruptions) {
     resumable
   };
   const operationId2 = readOperationId(result3.data);
-  const handle = readOperationHandle(result3.data);
+  const handle2 = readOperationHandle(result3.data);
   if (operationId2 !== void 0) {
     state.operationId = operationId2;
     state.id = operationId2;
   }
-  if (handle !== void 0) state.handle = handle;
+  if (handle2 !== void 0) state.handle = handle2;
   const thread = threadRefFromContext(result3.context);
   if (thread !== void 0) state.thread = thread;
   const submissionState = readSubmissionState(result3.data);
@@ -17827,8 +18560,8 @@ function responseFromRunResult(result3, now = /* @__PURE__ */ new Date()) {
   if (generationActive !== void 0) browserControl.generationActive = generationActive;
   const operationId2 = result3.data?.operationId;
   if (operationId2 !== void 0) browserControl.operationId = operationId2;
-  const handle = result3.data?.handle;
-  if (handle !== void 0) browserControl.handle = handle;
+  const handle2 = result3.data?.handle;
+  if (handle2 !== void 0) browserControl.handle = handle2;
   if (result3.output_text.length > 0) {
     const envelopeArgs = {
       outputText: result3.output_text,
@@ -17906,8 +18639,8 @@ function createMilestoneStream(run) {
           yield next;
           continue;
         }
-        await new Promise((resolve8) => {
-          resolveNext = resolve8;
+        await new Promise((resolve9) => {
+          resolveNext = resolve9;
         });
       }
     }
@@ -18012,19 +18745,19 @@ async function hashRegularFile(sourcePath, options) {
   if (pathMetadata.isSymbolicLink() || !pathMetadata.isFile()) {
     throw new OperationFileIdentityError("operation_file_not_regular", "Operation input must be a regular, non-symlinked file.");
   }
-  let handle;
+  let handle2;
   try {
-    handle = await open(sourcePath, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0));
+    handle2 = await open(sourcePath, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0));
   } catch (error) {
     throw localFileError(error, "operation_file_unavailable", "The operation input file could not be opened safely.");
   }
   try {
-    const before = await handle.stat({ bigint: true });
+    const before = await handle2.stat({ bigint: true });
     if (!before.isFile() || before.dev !== pathMetadata.dev || before.ino !== pathMetadata.ino) {
       throw new OperationFileIdentityError("operation_file_changed", "The operation input file changed while it was being opened.");
     }
-    const digest4 = createHash4("sha256");
-    const stream = handle.createReadStream({
+    const digest5 = createHash4("sha256");
+    const stream = handle2.createReadStream({
       autoClose: false,
       highWaterMark: chunkBytes,
       signal: options.signal
@@ -18032,7 +18765,7 @@ async function hashRegularFile(sourcePath, options) {
     try {
       for await (const chunk of stream) {
         const bytes = chunk;
-        digest4.update(bytes);
+        digest5.update(bytes);
         options.onChunk?.(bytes.byteLength);
       }
     } catch (error) {
@@ -18041,13 +18774,13 @@ async function hashRegularFile(sourcePath, options) {
       }
       throw localFileError(error, "operation_file_read_failed", "The operation input file could not be read completely.");
     }
-    const after = await handle.stat({ bigint: true });
+    const after = await handle2.stat({ bigint: true });
     if (!sameOpenFileSnapshot(before, after)) {
       throw new OperationFileIdentityError("operation_file_changed", "The operation input file changed while it was being hashed.");
     }
-    return { sha256: digest4.digest("hex"), stats: after };
+    return { sha256: digest5.digest("hex"), stats: after };
   } finally {
-    await handle.close();
+    await handle2.close();
   }
 }
 function validateDisplayName(displayName) {
@@ -19851,12 +20584,12 @@ function validateTargetValues(target) {
     assertStableIdentifier(value, label);
   }
   if (target.conversationId !== void 0) assertStableIdentifier(target.conversationId, "conversationId");
-  for (const [label, digest4] of [
+  for (const [label, digest5] of [
     ["userTurnBaselineDigest", target.userTurnBaselineDigest],
     ["assistantTurnBaselineDigest", target.assistantTurnBaselineDigest],
     ["configurationReceiptDigest", target.configurationReceiptDigest]
   ]) {
-    if (digest4 !== void 0) assertDigest(digest4, `target.${label}`);
+    if (digest5 !== void 0) assertDigest(digest5, `target.${label}`);
   }
   const profile = target.evidenceProfile;
   if (!profile || profile.providerIdentity !== "required" && profile.providerIdentity !== "unavailable" || profile.stableTabId !== "required" && profile.stableTabId !== "unavailable" || profile.stableConversationId !== "required" && profile.stableConversationId !== "unavailable" || profile.stableUserTurnId !== "required" && profile.stableUserTurnId !== "unavailable" || profile.authoritativeTabClaim !== "required" && profile.authoritativeTabClaim !== "unavailable" || typeof profile.replacementTabRecovery !== "boolean") {
@@ -20586,16 +21319,16 @@ var OperationClient = class {
     return freshResult(result3);
   }
   /** Collect only the exact operation-owned turn; never composes or submits. */
-  async collect(handle, options = {}) {
-    const snapshot2 = cloneFrozen(handle, "invalid_operation_handle");
+  async collect(handle2, options = {}) {
+    const snapshot2 = cloneFrozen(handle2, "invalid_operation_handle");
     const adapter = await this.adapterForHandle(snapshot2, options.signal);
     const result3 = await this.service.collect(snapshot2, adapter, forwardCollectorOptions(options));
     if (result3.kind === "completed") this.forgetAdapter(snapshot2);
     return freshResult(result3);
   }
   /** Inspect durable state without touching the browser. */
-  async inspect(handle) {
-    const snapshot2 = cloneFrozen(handle, "invalid_operation_handle");
+  async inspect(handle2) {
+    const snapshot2 = cloneFrozen(handle2, "invalid_operation_handle");
     return freshResult(await this.service.inspect(snapshot2));
   }
   /** Apply one operation-bound Stop or Work steer. */
@@ -20680,6 +21413,7 @@ var OperationClient = class {
     const executePreparedSend = requiredMethod(submissionInput, "executePreparedSend");
     const verifyPreparedSend = requiredMethod(submissionInput, "verifyPreparedSend");
     const recoverSend = requiredMethod(submissionInput, "recoverSend");
+    const recoverAuthenticatedSend = optionalMethod(submissionInput, "recoverAuthenticatedSend");
     const executeFinalTabTransaction = requiredMethod(submissionInput, "executeFinalTabTransaction");
     const collectorInput = requiredAdapterObject(adapter, "collector");
     const readContext = requiredMethod(collectorInput, "readContext");
@@ -20702,6 +21436,7 @@ var OperationClient = class {
       executePreparedSend: (request) => executePreparedSend(request),
       verifyPreparedSend: (request) => verifyPreparedSend(request),
       recoverSend: (request) => recoverSend(request),
+      ...recoverAuthenticatedSend === void 0 ? {} : { recoverAuthenticatedSend },
       executeFinalTabTransaction: (request) => executeFinalTabTransaction(request)
     });
     const collector = Object.freeze({
@@ -20784,9 +21519,9 @@ var OperationClient = class {
     };
     return Object.freeze(guarded);
   }
-  async adapterForHandle(handle, requestedSignal) {
-    const reconstruction = await this.reconstructionForHandle(handle);
-    return await this.adapterForAuthenticatedHandle(handle, requestedSignal, reconstruction);
+  async adapterForHandle(handle2, requestedSignal) {
+    const reconstruction = await this.reconstructionForHandle(handle2);
+    return await this.adapterForAuthenticatedHandle(handle2, requestedSignal, reconstruction);
   }
   /**
    * Authenticate a handle and project only the immutable target context
@@ -20794,10 +21529,10 @@ var OperationClient = class {
    * consumed once and passed to adapter selection; callers that need a
    * prompt-bearing control closure must not repeat this read.
    */
-  async reconstructionForHandle(handle) {
-    const inspected = await this.service.inspect(handle);
+  async reconstructionForHandle(handle2) {
+    const inspected = await this.service.inspect(handle2);
     try {
-      return reconstructionContext(inspected, handle);
+      return reconstructionContext(inspected, handle2);
     } catch (error) {
       if (error instanceof OperationClientError && error.code === "target_binding_missing") {
         return void 0;
@@ -20805,7 +21540,7 @@ var OperationClient = class {
       throw error;
     }
   }
-  async adapterForAuthenticatedHandle(handle, requestedSignal, reconstruction) {
+  async adapterForAuthenticatedHandle(handle2, requestedSignal, reconstruction) {
     if (reconstruction === void 0) return this.adapter;
     if (reconstruction.target.targetLifecycle === "new_pending") {
       throw new OperationClientError(
@@ -20817,7 +21552,7 @@ var OperationClient = class {
       return this.adapter;
     }
     const factoryContext = reconstruction.context;
-    const key = adapterKey(handle.operationId, handle.requestDigest);
+    const key = adapterKey(handle2.operationId, handle2.requestDigest);
     const cached = this.requestAdapters.get(key);
     if (cached !== void 0) {
       this.requestAdapters.delete(key);
@@ -20866,8 +21601,8 @@ var OperationClient = class {
       throw new OperationClientError("adapter_unavailable", "The operation control browser adapter is incomplete.");
     }
   }
-  rememberAdapter(handle, adapter) {
-    const key = adapterKey(handle.operationId, handle.requestDigest);
+  rememberAdapter(handle2, adapter) {
+    const key = adapterKey(handle2.operationId, handle2.requestDigest);
     this.requestAdapters.delete(key);
     this.requestAdapters.set(key, adapter);
     while (this.requestAdapters.size > this.maxCachedAdapters) {
@@ -20891,8 +21626,8 @@ var OperationClient = class {
     this.requestAdapters.set(matchedKey, matchedAdapter);
     return matchedAdapter;
   }
-  forgetAdapter(handle) {
-    this.requestAdapters.delete(adapterKey(handle.operationId, handle.requestDigest));
+  forgetAdapter(handle2) {
+    this.requestAdapters.delete(adapterKey(handle2.operationId, handle2.requestDigest));
   }
 };
 function reconstructionContext(inspected, requestedHandle) {
@@ -20929,7 +21664,7 @@ function normalizeHandle(value, requested) {
     ...targetBindingDigest === void 0 ? {} : { targetBindingDigest }
   });
 }
-function normalizeDurableState(value, handle) {
+function normalizeDurableState(value, handle2) {
   const schemaVersion = requiredString(value, "schemaVersion");
   const operationId2 = requiredString(value, "operationId");
   const requestDigest = requiredString(value, "requestDigest");
@@ -20944,7 +21679,7 @@ function normalizeDurableState(value, handle) {
     throw new OperationClientError("target_binding_missing", "The durable operation has no target binding.");
   }
   const target = normalizeTarget(targetValue);
-  if (schemaVersion !== "chatgpt.browser_control.operation.v1" || operationId2 !== handle.operationId || requestDigest !== handle.requestDigest || surface !== handle.surface || revision !== handle.revision || phase !== handle.phase || mutationBoundary !== handle.mutationBoundary || handle.targetBindingDigest === void 0 || target.targetEstablishment !== void 0 && target.targetEstablishment.targetBindingDigest !== handle.targetBindingDigest || !isOperationSurface(surface) || !isOperationPhase(phase) || !isMutationBoundary(mutationBoundary)) {
+  if (schemaVersion !== "chatgpt.browser_control.operation.v1" || operationId2 !== handle2.operationId || requestDigest !== handle2.requestDigest || surface !== handle2.surface || revision !== handle2.revision || phase !== handle2.phase || mutationBoundary !== handle2.mutationBoundary || handle2.targetBindingDigest === void 0 || target.targetEstablishment !== void 0 && target.targetEstablishment.targetBindingDigest !== handle2.targetBindingDigest || !isOperationSurface(surface) || !isOperationPhase(phase) || !isMutationBoundary(mutationBoundary)) {
     throw new OperationClientError("invalid_operation_state", "The authenticated operation state is inconsistent.");
   }
   return Object.freeze({
@@ -21076,10 +21811,10 @@ function normalizeTargetEstablishment(value) {
     observedAt
   });
 }
-function makeFactoryContext(handle, state, target) {
-  const context = { ...handle };
+function makeFactoryContext(handle2, state, target) {
+  const context = { ...handle2 };
   Object.defineProperties(context, {
-    handle: { value: handle, enumerable: false, writable: false, configurable: false },
+    handle: { value: handle2, enumerable: false, writable: false, configurable: false },
     state: { value: state, enumerable: false, writable: false, configurable: false },
     target: { value: target, enumerable: false, writable: false, configurable: false }
   });
@@ -21752,7 +22487,7 @@ function operationHandleFromStateImpl(key, state) {
   const phase = readData(stateRecord, "phase");
   const mutationBoundary = readData(stateRecord, "mutationBoundary");
   const target = readData(stateRecord, "target");
-  const handle = {
+  const handle2 = {
     schemaVersion: OPERATION_HANDLE_SCHEMA_VERSION,
     operationId: operationId2,
     requestDigest,
@@ -21762,13 +22497,13 @@ function operationHandleFromStateImpl(key, state) {
     mutationBoundary
   };
   if (target !== void 0) {
-    handle.targetBindingDigest = hmacDigest(
+    handle2.targetBindingDigest = hmacDigest(
       key,
       "codex-chatgpt-control/operation-target-binding/v1",
       operationTargetBindingProjectionImpl(target)
     );
   }
-  return handle;
+  return handle2;
 }
 function operationTargetBindingProjectionImpl(target) {
   const targetRecord = target;
@@ -21808,10 +22543,10 @@ function operationTargetBindingProjectionImpl(target) {
     }
   };
 }
-function validateOperationHandle(key, handle, state) {
-  return withSnapshotContext(() => validateOperationHandleImpl(key, handle, state));
+function validateOperationHandle(key, handle2, state) {
+  return withSnapshotContext(() => validateOperationHandleImpl(key, handle2, state));
 }
-function validateOperationHandleImpl(key, handle, state) {
+function validateOperationHandleImpl(key, handle2, state) {
   const stateRecord = state;
   snapshotRecord(stateRecord, "operation state", "invalid_operation_handle");
   const stateOperationId = readData(stateRecord, "operationId");
@@ -21820,14 +22555,14 @@ function validateOperationHandleImpl(key, handle, state) {
   const stateRevision = readData(stateRecord, "revision");
   const statePhase = readData(stateRecord, "phase");
   const stateMutationBoundary = readData(stateRecord, "mutationBoundary");
-  validateHandleShape(handle);
-  const handleOperationId = readData(handle, "operationId");
-  const handleRequestDigest = readData(handle, "requestDigest");
-  const handleSurface = readData(handle, "surface");
-  const handleRevision = readData(handle, "revision");
-  const handleBoundary = readData(handle, "mutationBoundary");
-  const handlePhase = readData(handle, "phase");
-  const handleTargetBindingDigest = readData(handle, "targetBindingDigest");
+  validateHandleShape(handle2);
+  const handleOperationId = readData(handle2, "operationId");
+  const handleRequestDigest = readData(handle2, "requestDigest");
+  const handleSurface = readData(handle2, "surface");
+  const handleRevision = readData(handle2, "revision");
+  const handleBoundary = readData(handle2, "mutationBoundary");
+  const handlePhase = readData(handle2, "phase");
+  const handleTargetBindingDigest = readData(handle2, "targetBindingDigest");
   if (handleOperationId !== stateOperationId || handleRequestDigest !== stateRequestDigest || handleSurface !== stateSurface) {
     throw new OperationHandleError("operation_handle_mismatch", "Operation handle does not match the durable operation binding.");
   }
@@ -21880,11 +22615,11 @@ var PHASE_EDGES = {
   completed: [],
   uncertain: ["ready", "submitted", "generating", "capturing", "completed"]
 };
-function validateHandleShape(handle) {
-  if (!handle || typeof handle !== "object") {
+function validateHandleShape(handle2) {
+  if (!handle2 || typeof handle2 !== "object") {
     throw new OperationHandleError("invalid_operation_handle", "Operation handle must be an object.");
   }
-  assertExactKeys(handle, "operation handle", [
+  assertExactKeys(handle2, "operation handle", [
     "schemaVersion",
     "operationId",
     "requestDigest",
@@ -21894,14 +22629,14 @@ function validateHandleShape(handle) {
     "mutationBoundary",
     "targetBindingDigest"
   ]);
-  const schemaVersion = readData(handle, "schemaVersion");
-  const operationId2 = readData(handle, "operationId");
-  const requestDigest = readData(handle, "requestDigest");
-  const surface = readData(handle, "surface");
-  const revision = readData(handle, "revision");
-  const phase = readData(handle, "phase");
-  const mutationBoundary = readData(handle, "mutationBoundary");
-  const targetBindingDigest = readData(handle, "targetBindingDigest");
+  const schemaVersion = readData(handle2, "schemaVersion");
+  const operationId2 = readData(handle2, "operationId");
+  const requestDigest = readData(handle2, "requestDigest");
+  const surface = readData(handle2, "surface");
+  const revision = readData(handle2, "revision");
+  const phase = readData(handle2, "phase");
+  const mutationBoundary = readData(handle2, "mutationBoundary");
+  const targetBindingDigest = readData(handle2, "targetBindingDigest");
   if (schemaVersion !== OPERATION_HANDLE_SCHEMA_VERSION) {
     throw new OperationHandleError("unsupported_operation_handle", "Operation handle schemaVersion is unsupported.");
   }
@@ -22340,12 +23075,13 @@ var OperationJournal = class _OperationJournal {
     return operationHandleFromState(this.key, state);
   }
   /** Reconcile a caller locator with freshly loaded durable state. */
-  validateHandle(handle, state) {
-    return validateOperationHandle(this.key, handle, state);
+  validateHandle(handle2, state) {
+    return validateOperationHandle(this.key, handle2, state);
   }
   static async open(options = {}) {
     validatePositiveInteger2(options.maxStateBytes, "maxStateBytes");
     validatePositiveInteger2(options.lockTimeoutMs, "lockTimeoutMs");
+    requireJournalRuntime(true);
     const clock = resolveClock(options.clock);
     const entropy = resolveEntropy(options.entropy);
     const requestedRoot = options.stateRoot ?? defaultOperationStateRoot();
@@ -22482,15 +23218,15 @@ var OperationJournal = class _OperationJournal {
     return serializeInProcess(lockPath, async () => {
       const lock = await acquireLock(lockPath, this.lockTimeoutMs, this.clock, this.entropy);
       try {
-        const loaded = await this.loadLocked(operationId2);
-        const lastEventDigest = loaded.lastEventDigest ?? loaded.envelopes.at(-1)?.eventDigest;
+        const loaded2 = await this.loadLocked(operationId2);
+        const lastEventDigest = loaded2.lastEventDigest ?? loaded2.envelopes.at(-1)?.eventDigest;
         if (lastEventDigest === void 0) {
           throw corrupt("Authoritative operation state has no final event digest.");
         }
         const snapshot2 = {
           schemaVersion: OPERATION_SCHEMA_VERSION,
           lastEventDigest,
-          state: jsonRoundTrip(loaded.state)
+          state: jsonRoundTrip(loaded2.state)
         };
         const snapshotPath = this.snapshotPath(operationId2);
         await this.mutateQuotaTrackedState(async () => {
@@ -23011,6 +23747,23 @@ var OperationJournal = class _OperationJournal {
     await this.faultInjector?.(point);
   }
 };
+var JOURNAL_RUNTIME_UNAVAILABLE_MESSAGE = "Transactional operations require a Node host with process identity, file ownership, and process liveness APIs. This host cannot safely open the operation journal.";
+function requireJournalRuntime(probeLiveness = false) {
+  try {
+    if (typeof process === "undefined" || !Number.isSafeInteger(process.pid) || process.pid <= 0 || typeof process.kill !== "function" || typeof process.env !== "object" || process.env === null) {
+      throw new Error("unavailable");
+    }
+    if (platform() !== "win32") {
+      if (typeof process.getuid !== "function") throw new Error("unavailable");
+      const uid = process.getuid();
+      if (!Number.isSafeInteger(uid) || uid < 0) throw new Error("unavailable");
+    }
+    if (probeLiveness) process.kill(process.pid, 0);
+    return process;
+  } catch {
+    throw new OperationJournalError("journal_runtime_unavailable", JOURNAL_RUNTIME_UNAVAILABLE_MESSAGE);
+  }
+}
 function defaultOperationStateRoot() {
   if (platform() === "darwin") {
     return join4(homedir(), "Library", "Application Support", "codex-chatgpt-control", "operations-v1");
@@ -23173,7 +23926,7 @@ function terminalOwnershipEvidenceDigests(state) {
       baseline.targetBindingDigest,
       baseline.baseline.snapshotDigest
     ]),
-    ...Object.values(state.actions).map((action) => action.evidenceDigest).filter((digest4) => digest4 !== void 0)
+    ...Object.values(state.actions).map((action) => action.evidenceDigest).filter((digest5) => digest5 !== void 0)
   ])).sort();
 }
 async function readTombstone(path3, key) {
@@ -23198,9 +23951,9 @@ async function writeAuthenticatedAtomic(path3, value, key, domain, digestField, 
   await writeAtomicJson(path3, withDigest, entropy, inject2, replaceExisting);
 }
 async function readAuthenticatedFile(path3, key, domain, digestField, errorCode4) {
-  let handle;
+  let handle2;
   try {
-    handle = await open2(path3, fsConstants2.O_RDONLY | (fsConstants2.O_NOFOLLOW ?? 0));
+    handle2 = await open2(path3, fsConstants2.O_RDONLY | (fsConstants2.O_NOFOLLOW ?? 0));
   } catch (error) {
     if (isNodeError4(error, "ENOENT")) {
       throw new OperationJournalError("operation_not_found", "No durable operation record exists.");
@@ -23210,13 +23963,13 @@ async function readAuthenticatedFile(path3, key, domain, digestField, errorCode4
   }
   let raw;
   try {
-    const metadata = await assertSecureFileHandle(handle, path3);
+    const metadata = await assertSecureFileHandle(handle2, path3);
     if (!Number.isSafeInteger(metadata.size) || metadata.size > MAX_SINGLE_RECORD_FILE_BYTES) {
       throw new OperationJournalError(errorCode4, "Authenticated operation record exceeds its hard safety limit.");
     }
-    raw = await handle.readFile({ encoding: "utf8" });
+    raw = await handle2.readFile({ encoding: "utf8" });
   } finally {
-    await handle.close();
+    await handle2.close();
   }
   let value;
   try {
@@ -23321,11 +24074,11 @@ function withoutField(value, field) {
 async function writeAtomicJson(path3, value, entropy, inject2, replaceExisting) {
   const directory = dirname2(path3);
   const temporaryPath = join4(directory, `.${path3.split(sep).at(-1) ?? "operation"}-${entropyUuid(entropy)}.tmp`);
-  let handle;
+  let handle2;
   let createdTemporary = false;
   try {
     try {
-      handle = await open2(
+      handle2 = await open2(
         temporaryPath,
         fsConstants2.O_WRONLY | fsConstants2.O_CREAT | fsConstants2.O_EXCL | (fsConstants2.O_NOFOLLOW ?? 0),
         POSIX_FILE_MODE
@@ -23337,11 +24090,11 @@ async function writeAtomicJson(path3, value, entropy, inject2, replaceExisting) 
       throw error;
     }
     createdTemporary = true;
-    await handle.writeFile(`${canonicalJson(value)}
+    await handle2.writeFile(`${canonicalJson(value)}
 `, "utf8");
-    await handle.sync();
-    await handle.close();
-    handle = void 0;
+    await handle2.sync();
+    await handle2.close();
+    handle2 = void 0;
     if (replaceExisting) {
       await assertReplaceableRegularFile(path3);
       await rename(temporaryPath, path3);
@@ -23359,7 +24112,7 @@ async function writeAtomicJson(path3, value, entropy, inject2, replaceExisting) 
     await syncDirectory(directory);
     await inject2(injectPointForPath(path3));
   } finally {
-    await handle?.close();
+    await handle2?.close();
     if (createdTemporary) {
       await unlink2(temporaryPath).catch((error) => {
         if (!isNodeError4(error, "ENOENT")) throw error;
@@ -23414,15 +24167,15 @@ async function hasDurableState(stateRoot) {
   let scannedEntries = 0;
   for (const directoryName of TRACKED_STATE_DIRECTORIES) {
     const directory = childPath(stateRoot, directoryName);
-    const handle = await opendir(directory);
+    const handle2 = await opendir(directory);
     try {
-      for await (const entry of handle) {
+      for await (const entry of handle2) {
         scannedEntries += 1;
         assertQuotaScanEntryLimit(scannedEntries);
         if (entry.name !== ".DS_Store") return true;
       }
     } finally {
-      await closeDirectory(handle);
+      await closeDirectory(handle2);
     }
   }
   return false;
@@ -23440,9 +24193,9 @@ async function scanStateUsage(stateRoot) {
   const temporaryPattern = /^\.[a-z0-9][a-z0-9.-]*-[0-9a-f-]+\.tmp$/;
   for (const [directoryName, canonicalPattern] of directories) {
     const directory = childPath(stateRoot, directoryName);
-    const handle = await opendir(directory);
+    const handle2 = await opendir(directory);
     try {
-      for await (const entry of handle) {
+      for await (const entry of handle2) {
         scannedEntries += 1;
         assertQuotaScanEntryLimit(scannedEntries);
         if (entry.name === ".DS_Store") continue;
@@ -23462,7 +24215,7 @@ async function scanStateUsage(stateRoot) {
         total += metadata.size;
       }
     } finally {
-      await closeDirectory(handle);
+      await closeDirectory(handle2);
     }
   }
   return { totalBytes: total, entryCount };
@@ -23472,9 +24225,9 @@ function assertQuotaScanEntryLimit(scannedEntries) {
     throw new OperationJournalError("journal_scan_limit", "Operation journal quota scan exceeded its hard entry limit.");
   }
 }
-async function closeDirectory(handle) {
+async function closeDirectory(handle2) {
   try {
-    await handle.close();
+    await handle2.close();
   } catch (error) {
     if (isNodeError4(error, "ERR_DIR_CLOSED")) return;
     throw error;
@@ -23485,9 +24238,9 @@ async function appendRecord(args) {
   const createFlags = fsConstants2.O_WRONLY | fsConstants2.O_CREAT | fsConstants2.O_EXCL | noFollow;
   const appendFlags = fsConstants2.O_WRONLY | fsConstants2.O_APPEND | noFollow;
   const repairFlags = fsConstants2.O_WRONLY | noFollow;
-  let handle;
+  let handle2;
   try {
-    handle = await open2(
+    handle2 = await open2(
       args.logPath,
       args.createExclusive ? createFlags : args.partialTailBytes > 0 ? repairFlags : appendFlags,
       POSIX_FILE_MODE
@@ -23499,7 +24252,7 @@ async function appendRecord(args) {
     throw error;
   }
   try {
-    const metadata = await assertSecureFileHandle(handle, args.logPath);
+    const metadata = await assertSecureFileHandle(handle2, args.logPath);
     if (metadata.size !== args.committedBytes + args.partialTailBytes) {
       throw new OperationJournalError(
         "revision_conflict",
@@ -23513,24 +24266,24 @@ async function appendRecord(args) {
       );
     }
     if (args.partialTailBytes > 0) {
-      await handle.truncate(args.committedBytes);
+      await handle2.truncate(args.committedBytes);
       await args.inject("after_partial_tail_truncated");
-      await writeBufferAt(handle, args.encoded, args.committedBytes);
+      await writeBufferAt(handle2, args.encoded, args.committedBytes);
     } else {
-      await handle.writeFile(args.encoded);
+      await handle2.writeFile(args.encoded);
     }
     await args.inject("after_record_written");
-    await handle.sync();
+    await handle2.sync();
     await args.inject("after_record_synced");
   } finally {
-    await handle.close();
+    await handle2.close();
   }
   if (args.syncParent) await syncDirectory(dirname2(args.logPath));
 }
-async function writeBufferAt(handle, bytes, position) {
+async function writeBufferAt(handle2, bytes, position) {
   let offset = 0;
   while (offset < bytes.byteLength) {
-    const { bytesWritten } = await handle.write(
+    const { bytesWritten } = await handle2.write(
       bytes,
       offset,
       bytes.byteLength - offset,
@@ -23543,9 +24296,9 @@ async function writeBufferAt(handle, bytes, position) {
   }
 }
 async function readLog(logPath, key, allowMissing) {
-  let handle;
+  let handle2;
   try {
-    handle = await open2(logPath, fsConstants2.O_RDONLY | (fsConstants2.O_NOFOLLOW ?? 0));
+    handle2 = await open2(logPath, fsConstants2.O_RDONLY | (fsConstants2.O_NOFOLLOW ?? 0));
   } catch (error) {
     if (isNodeError4(error, "ENOENT") && allowMissing) {
       return { exists: false, envelopes: [], committedBytes: 0, partialTailBytes: 0 };
@@ -23560,13 +24313,13 @@ async function readLog(logPath, key, allowMissing) {
   }
   let bytes;
   try {
-    const metadata = await assertSecureFileHandle(handle, logPath);
+    const metadata = await assertSecureFileHandle(handle2, logPath);
     if (!Number.isSafeInteger(metadata.size) || metadata.size > MAX_SINGLE_RECORD_FILE_BYTES) {
       throw new OperationJournalError("journal_log_too_large", "The operation log exceeds its hard safety limit.");
     }
-    bytes = await handle.readFile();
+    bytes = await handle2.readFile();
   } finally {
-    await handle.close();
+    await handle2.close();
   }
   const lastNewline = bytes.lastIndexOf(10);
   const committedBytes = lastNewline < 0 ? 0 : lastNewline + 1;
@@ -23599,9 +24352,9 @@ async function readLog(logPath, key, allowMissing) {
   return { exists: true, envelopes, committedBytes, partialTailBytes };
 }
 async function ensureLogDurable(logPath) {
-  let handle;
+  let handle2;
   try {
-    handle = await open2(logPath, fsConstants2.O_RDWR | (fsConstants2.O_NOFOLLOW ?? 0));
+    handle2 = await open2(logPath, fsConstants2.O_RDWR | (fsConstants2.O_NOFOLLOW ?? 0));
   } catch (error) {
     if (isNodeError4(error, "ELOOP")) {
       throw new OperationJournalError("unsafe_journal_entry", "Refusing to follow a symlinked operation log.");
@@ -23609,10 +24362,10 @@ async function ensureLogDurable(logPath) {
     throw error;
   }
   try {
-    await assertSecureFileHandle(handle, logPath);
-    await handle.sync();
+    await assertSecureFileHandle(handle2, logPath);
+    await handle2.sync();
   } finally {
-    await handle.close();
+    await handle2.close();
   }
   await syncDirectory(dirname2(logPath));
 }
@@ -23648,17 +24401,17 @@ async function loadOrCreateKey(stateRoot, entropy) {
   }
   const key = entropyBytes(entropy, KEY_BYTES);
   const temporaryKeyPath = childPath(stateRoot, `.journal-key-${entropyUuid(entropy)}.tmp`);
-  let handle;
+  let handle2;
   try {
-    handle = await open2(
+    handle2 = await open2(
       temporaryKeyPath,
       fsConstants2.O_WRONLY | fsConstants2.O_CREAT | fsConstants2.O_EXCL | (fsConstants2.O_NOFOLLOW ?? 0),
       POSIX_FILE_MODE
     );
-    await handle.writeFile(key);
-    await handle.sync();
+    await handle2.writeFile(key);
+    await handle2.sync();
   } finally {
-    await handle?.close();
+    await handle2?.close();
   }
   try {
     await link2(temporaryKeyPath, keyPath);
@@ -23673,17 +24426,17 @@ async function loadOrCreateKey(stateRoot, entropy) {
   return readKey(keyPath);
 }
 async function readKey(keyPath) {
-  let handle;
+  let handle2;
   try {
-    handle = await open2(keyPath, fsConstants2.O_RDONLY | (fsConstants2.O_NOFOLLOW ?? 0));
+    handle2 = await open2(keyPath, fsConstants2.O_RDONLY | (fsConstants2.O_NOFOLLOW ?? 0));
   } catch (error) {
     if (isNodeError4(error, "ENOENT")) throw new OperationJournalError("journal_key_missing", "Operation journal key is missing.");
     if (isNodeError4(error, "ELOOP")) throw new OperationJournalError("unsafe_journal_key", "Refusing to follow a symlinked journal key.");
     throw error;
   }
   try {
-    await assertSecureFileHandle(handle, keyPath);
-    const key = await handle.readFile();
+    await assertSecureFileHandle(handle2, keyPath);
+    const key = await handle2.readFile();
     if (key.byteLength !== KEY_BYTES) {
       throw new OperationJournalError("invalid_journal_key", `Operation journal key must be ${KEY_BYTES} bytes.`);
     }
@@ -23692,7 +24445,7 @@ async function readKey(keyPath) {
     }
     return key;
   } finally {
-    await handle.close();
+    await handle2.close();
   }
 }
 async function ensureSecureDirectory(directory) {
@@ -23703,16 +24456,16 @@ async function ensureSecureDirectory(directory) {
   }
   assertOwnerAndMode(metadata, directory, POSIX_DIRECTORY_MODE);
 }
-async function assertSecureFileHandle(handle, path3) {
-  const metadata = await handle.stat();
+async function assertSecureFileHandle(handle2, path3) {
+  const metadata = await handle2.stat();
   if (!metadata.isFile()) throw new OperationJournalError("unsafe_journal_entry", "Expected a regular operation state file.");
   assertOwnerAndMode(metadata, path3, POSIX_FILE_MODE);
   return metadata;
 }
 function assertOwnerAndMode(metadata, path3, expectedMode) {
   if (platform() === "win32") return;
-  const getuid = process.getuid;
-  if (typeof getuid === "function" && Number(metadata.uid) !== getuid()) {
+  const runtime = requireJournalRuntime();
+  if (Number(metadata.uid) !== runtime.getuid()) {
     throw new OperationJournalError("unsafe_state_owner", "Operation state path is not owned by the current user.");
   }
   if ((Number(metadata.mode) & 63) !== 0) {
@@ -23734,23 +24487,23 @@ async function acquireLock(lockPath, timeoutMs, clock, entropy) {
   const deadline = safeDeadline(clockNow(clock), timeoutMs);
   let remainingWaitBudgetMs = timeoutMs;
   while (true) {
-    let handle;
+    let handle2;
     let createdIdentity;
     try {
-      handle = await open2(
+      handle2 = await open2(
         lockPath,
         fsConstants2.O_WRONLY | fsConstants2.O_CREAT | fsConstants2.O_EXCL | (fsConstants2.O_NOFOLLOW ?? 0),
         POSIX_FILE_MODE
       );
-      const metadata = await handle.stat();
+      const metadata = await handle2.stat();
       createdIdentity = { dev: metadata.dev, ino: metadata.ino };
-      await handle.writeFile(`${canonicalJson(record)}
+      await handle2.writeFile(`${canonicalJson(record)}
 `, "utf8");
-      await handle.sync();
-      await handle.close();
+      await handle2.sync();
+      await handle2.close();
       return { path: lockPath, token };
     } catch (error) {
-      await handle?.close();
+      await handle2?.close();
       if (createdIdentity !== void 0) {
         await removeFailedExclusiveLock(lockPath, createdIdentity);
       }
@@ -23794,9 +24547,9 @@ async function acquireLock(lockPath, timeoutMs, clock, entropy) {
   }
 }
 async function readLock(lockPath) {
-  let handle;
+  let handle2;
   try {
-    handle = await open2(lockPath, fsConstants2.O_RDONLY | (fsConstants2.O_NOFOLLOW ?? 0));
+    handle2 = await open2(lockPath, fsConstants2.O_RDONLY | (fsConstants2.O_NOFOLLOW ?? 0));
   } catch (error) {
     if (isNodeError4(error, "ENOENT")) {
       throw new OperationJournalError("journal_lock_changed", "Operation journal lock changed while being inspected.");
@@ -23808,13 +24561,13 @@ async function readLock(lockPath) {
   }
   let raw;
   try {
-    const metadata = await assertSecureFileHandle(handle, lockPath);
+    const metadata = await assertSecureFileHandle(handle2, lockPath);
     if (!Number.isSafeInteger(metadata.size) || metadata.size > MAX_LOCK_RECORD_BYTES) {
       throw new OperationJournalError("journal_lock_corrupt", "Operation journal lock record is too large.");
     }
-    raw = await handle.readFile({ encoding: "utf8" });
+    raw = await handle2.readFile({ encoding: "utf8" });
   } finally {
-    await handle.close();
+    await handle2.close();
   }
   let value;
   try {
@@ -23868,24 +24621,24 @@ async function tryAcquireRecoveryGuard(lockPath, clock, entropy) {
     hostname: hostname(),
     createdAt: clockTimestamp(clock)
   };
-  let handle;
+  let handle2;
   let createdIdentity;
   try {
-    handle = await open2(
+    handle2 = await open2(
       guardPath,
       fsConstants2.O_WRONLY | fsConstants2.O_CREAT | fsConstants2.O_EXCL | (fsConstants2.O_NOFOLLOW ?? 0),
       POSIX_FILE_MODE
     );
-    const metadata = await handle.stat();
+    const metadata = await handle2.stat();
     createdIdentity = { dev: metadata.dev, ino: metadata.ino };
-    await handle.writeFile(`${canonicalJson(record)}
+    await handle2.writeFile(`${canonicalJson(record)}
 `, "utf8");
-    await handle.sync();
+    await handle2.sync();
     return { path: guardPath, token };
   } catch (error) {
     if (createdIdentity !== void 0) {
-      await handle?.close();
-      handle = void 0;
+      await handle2?.close();
+      handle2 = void 0;
       await removeFailedExclusiveLock(guardPath, createdIdentity);
     }
     if (!isNodeError4(error, "EEXIST")) throw error;
@@ -23904,7 +24657,7 @@ async function tryAcquireRecoveryGuard(lockPath, clock, entropy) {
     }
     return void 0;
   } finally {
-    await handle?.close();
+    await handle2?.close();
   }
 }
 async function removeFailedExclusiveLock(path3, created) {
@@ -23964,11 +24717,11 @@ async function serializeInProcess(key, action) {
 }
 async function syncDirectory(directory) {
   if (platform() === "win32") return;
-  const handle = await open2(directory, fsConstants2.O_RDONLY);
+  const handle2 = await open2(directory, fsConstants2.O_RDONLY);
   try {
-    await handle.sync();
+    await handle2.sync();
   } finally {
-    await handle.close();
+    await handle2.close();
   }
 }
 function childPath(root, ...parts) {
@@ -24120,8 +24873,406 @@ function delay(milliseconds) {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
 }
 
-// src/operations/service.ts
+// src/operations/journal-rpc-client.ts
 import { randomUUID as randomUUID4 } from "node:crypto";
+import { unlink as unlink4 } from "node:fs/promises";
+import { dirname as dirname3, join as join6 } from "node:path";
+
+// src/operations/journal-rpc-protocol.ts
+import { createCipheriv, createDecipheriv, createHmac as createHmac2, randomBytes as randomBytes2 } from "node:crypto";
+import { constants as constants3 } from "node:fs";
+import { lstat as lstat3, open as open3, realpath as realpath2, link as link3, unlink as unlink3 } from "node:fs/promises";
+import { isAbsolute as isAbsolute2, join as join5, resolve as resolve5 } from "node:path";
+import { platform as platform2, userInfo } from "node:os";
+var JOURNAL_RPC_DESCRIPTOR_VERSION = "chatgpt.journal_rpc.descriptor.v1";
+var JOURNAL_RPC_VERSION = "chatgpt.journal_rpc.v1";
+var JOURNAL_RPC_MAX_WIRE_BYTES = 24 * 1024 * 1024;
+var JOURNAL_RPC_MAX_PLAINTEXT_BYTES = 16 * 1024 * 1024;
+var JOURNAL_RPC_MAX_TIMEOUT_MS = 3e4;
+var JOURNAL_RPC_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+var JOURNAL_RPC_DIGEST = /^hmac-sha256:[0-9a-f]{64}$/u;
+var TOKEN = /^[A-Za-z0-9_-]{43}$/u;
+var WIRE_KEYS = ["version", "instanceId", "requestId", "direction", "nonce", "body", "tag"];
+function rpcError(code) {
+  return new OperationJournalError(code, `Journal authority request failed (${code}).`);
+}
+function assertJournalRpcPlatform() {
+  if (platform2() === "win32") throw rpcError("journal_rpc_unsupported_platform");
+}
+function exactRecord(value, keys) {
+  if (typeof value !== "object" || value === null || Array.isArray(value) || Object.keys(value).length !== keys.length || keys.some((key) => !Object.hasOwn(value, key))) {
+    throw rpcError("journal_rpc_protocol_error");
+  }
+}
+function validateDescriptor(value) {
+  exactRecord(value, ["schemaVersion", "transport", "directory", "instanceId", "token"]);
+  if (value.schemaVersion !== JOURNAL_RPC_DESCRIPTOR_VERSION || value.transport !== "file" || typeof value.directory !== "string" || !isAbsolute2(value.directory) || resolve5(value.directory) !== value.directory || typeof value.instanceId !== "string" || !JOURNAL_RPC_UUID.test(value.instanceId) || typeof value.token !== "string" || !TOKEN.test(value.token) || Buffer.from(value.token, "base64url").toString("base64url") !== value.token) {
+    throw rpcError("journal_rpc_protocol_error");
+  }
+  return value;
+}
+function rpcTimeout(value) {
+  const timeout = value ?? JOURNAL_RPC_MAX_TIMEOUT_MS;
+  if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > JOURNAL_RPC_MAX_TIMEOUT_MS) {
+    throw rpcError("journal_rpc_limit_exceeded");
+  }
+  return timeout;
+}
+function sealRpcValue(descriptor, requestId, direction, value) {
+  const plaintext = canonicalJson(value);
+  if (Buffer.byteLength(plaintext) > JOURNAL_RPC_MAX_PLAINTEXT_BYTES) throw rpcError("journal_rpc_limit_exceeded");
+  const nonce = randomBytes2(12);
+  const cipher = createCipheriv("aes-256-gcm", directionKey(descriptor.token, direction), nonce);
+  cipher.setAAD(aad(descriptor.instanceId, requestId, direction));
+  const body = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const wire = JSON.stringify({
+    version: JOURNAL_RPC_VERSION,
+    instanceId: descriptor.instanceId,
+    requestId,
+    direction,
+    nonce: nonce.toString("base64"),
+    body: body.toString("base64"),
+    tag: cipher.getAuthTag().toString("base64")
+  });
+  if (Buffer.byteLength(wire) > JOURNAL_RPC_MAX_WIRE_BYTES) throw rpcError("journal_rpc_limit_exceeded");
+  return wire;
+}
+function openRpcValue(descriptor, requestId, direction, wire) {
+  try {
+    if (Buffer.byteLength(wire) > JOURNAL_RPC_MAX_WIRE_BYTES) throw new Error();
+    const envelope = JSON.parse(wire);
+    exactRecord(envelope, WIRE_KEYS);
+    if (envelope.version !== JOURNAL_RPC_VERSION || envelope.instanceId !== descriptor.instanceId || envelope.requestId !== requestId || envelope.direction !== direction) throw new Error();
+    const nonce = base64(envelope.nonce, 12);
+    const tag = base64(envelope.tag, 16);
+    const body = base64(envelope.body);
+    const decipher = createDecipheriv("aes-256-gcm", directionKey(descriptor.token, direction), nonce);
+    decipher.setAAD(aad(descriptor.instanceId, requestId, direction));
+    decipher.setAuthTag(tag);
+    const plaintext = Buffer.concat([decipher.update(body), decipher.final()]);
+    if (plaintext.length > JOURNAL_RPC_MAX_PLAINTEXT_BYTES) throw new Error();
+    const text = plaintext.toString("utf8");
+    const value = decodeCanonical(JSON.parse(text));
+    if (canonicalJson(value) !== text) throw new Error();
+    return value;
+  } catch {
+    throw rpcError("journal_rpc_authentication_failed");
+  }
+}
+function directionKey(token, direction) {
+  return createHmac2("sha256", Buffer.from(token, "base64url")).update(`chatgpt/journal-rpc/${direction}/v1`).digest();
+}
+function aad(instanceId, requestId, direction) {
+  return Buffer.from(`${JOURNAL_RPC_VERSION}\0${instanceId}\0${requestId}\0${direction}`);
+}
+function base64(value, length) {
+  if (typeof value !== "string" || value.length > JOURNAL_RPC_MAX_WIRE_BYTES) throw new Error();
+  const bytes = Buffer.from(value, "base64");
+  if (bytes.toString("base64") !== value || length !== void 0 && bytes.length !== length) throw new Error();
+  return bytes;
+}
+function decodeCanonical(value, depth = 0, budget = { nodes: 0 }) {
+  budget.nodes += 1;
+  if (depth > 32 || budget.nodes > 1e5) throw new Error();
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    if (value.length > 32768) throw new Error();
+    return value.map((item) => decodeCanonical(item, depth + 1, budget));
+  }
+  const record = value;
+  const keys = Object.keys(record);
+  if (keys.length > 32768) throw new Error();
+  if (keys.length === 1 && record.$undefined === true) return void 0;
+  if (keys.length === 1 && typeof record.$date === "string") {
+    const date = new Date(record.$date);
+    if (date.toISOString() !== record.$date) throw new Error();
+    return date;
+  }
+  if (keys.length === 1 && typeof record.$bytes === "string") return new Uint8Array(base64(record.$bytes));
+  const decoded = /* @__PURE__ */ Object.create(null);
+  for (const key of keys) {
+    if (["$undefined", "$date", "$bytes"].includes(key)) throw new Error();
+    decoded[key] = decodeCanonical(record[key], depth + 1, budget);
+  }
+  return decoded;
+}
+async function assertPrivateDirectory(directory) {
+  assertJournalRpcPlatform();
+  const info = await lstat3(directory);
+  const uid = userInfo().uid;
+  if (!isAbsolute2(directory) || resolve5(directory) !== directory || await realpath2(directory) !== directory || !info.isDirectory() || info.isSymbolicLink() || uid < 0 || info.uid !== uid || (info.mode & 63) !== 0) {
+    throw rpcError("journal_rpc_unavailable");
+  }
+}
+async function readPrivateFile(path3, maxBytes = JOURNAL_RPC_MAX_WIRE_BYTES) {
+  assertJournalRpcPlatform();
+  const file = await open3(path3, constants3.O_RDONLY | constants3.O_NOFOLLOW);
+  try {
+    const info = await file.stat();
+    if (info.nlink === 2) throw rpcError("journal_rpc_file_pending");
+    if (!info.isFile() || info.nlink !== 1 || info.uid !== userInfo().uid || (info.mode & 63) !== 0 || info.size < 0 || info.size > maxBytes) throw rpcError("journal_rpc_limit_exceeded");
+    const bytes = Buffer.alloc(info.size + 1);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const read = await file.read(bytes, offset, bytes.length - offset, offset);
+      if (read.bytesRead === 0) break;
+      offset += read.bytesRead;
+    }
+    const after = await file.stat();
+    if (offset !== info.size || after.size !== info.size || after.mtimeMs !== info.mtimeMs || after.ctimeMs !== info.ctimeMs || after.nlink !== 1) throw rpcError("journal_rpc_protocol_error");
+    return bytes.subarray(0, offset).toString("utf8");
+  } finally {
+    await file.close();
+  }
+}
+async function publishPrivateFile(directory, name, body) {
+  assertJournalRpcPlatform();
+  if (!/^[a-zA-Z0-9.-]+$/u.test(name)) throw rpcError("journal_rpc_protocol_error");
+  await assertPrivateDirectory(directory);
+  const finalPath = join5(directory, name);
+  const temporary = join5(directory, `.pending-${randomBytes2(16).toString("hex")}`);
+  const file = await open3(temporary, constants3.O_WRONLY | constants3.O_CREAT | constants3.O_EXCL | constants3.O_NOFOLLOW, 384);
+  try {
+    try {
+      await file.writeFile(body, "utf8");
+      await file.sync();
+    } finally {
+      await file.close();
+    }
+    await link3(temporary, finalPath);
+  } finally {
+    await unlink3(temporary).catch(() => void 0);
+  }
+}
+function isMissing(error) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
+var rpcSleep = (milliseconds) => new Promise((resolve9) => setTimeout(resolve9, milliseconds));
+
+// src/operations/journal-rpc-client.ts
+var SAFE_REMOTE_CODES = /* @__PURE__ */ new Set([
+  "operation_receipt_expired",
+  "operation_compacted",
+  "creation_event_required",
+  "duplicate_operation_created",
+  "journal_corrupt",
+  "revision_conflict",
+  "operation_not_found",
+  "operation_binding_mismatch",
+  "operation_request_mismatch",
+  "operation_tombstoned",
+  "journal_quota_exceeded",
+  "journal_lock_timeout",
+  "lock_timeout",
+  "journal_snapshot_corrupt",
+  "journal_record_corrupt",
+  "journal_state_corrupt",
+  "journal_quota_counter_corrupt",
+  "journal_scan_limit",
+  "operation_handle_mismatch",
+  "operation_handle_ahead",
+  "operation_handle_state_mismatch",
+  "operation_handle_target_mismatch",
+  "invalid_operation_handle",
+  "invalid_operation_request",
+  "invalid_expected_revision",
+  "invalid_operation_event",
+  "invalid_evidence_domain",
+  "invalid_evidence_material",
+  "evidence_material_too_large",
+  "journal_rpc_protocol_error",
+  "journal_rpc_unavailable",
+  "journal_rpc_outcome_indeterminate",
+  "journal_rpc_request_rejected"
+]);
+async function readJournalRpcDescriptor(descriptorPath) {
+  assertJournalRpcPlatform();
+  try {
+    await assertPrivateDirectory(dirname3(descriptorPath));
+    const descriptor = validateDescriptor(JSON.parse(await readPrivateFile(descriptorPath, 4096)));
+    await assertPrivateDirectory(descriptor.directory);
+    await assertPrivateDirectory(join6(descriptor.directory, "requests"));
+    await assertPrivateDirectory(join6(descriptor.directory, "responses"));
+    return descriptor;
+  } catch {
+    throw rpcError("journal_rpc_unavailable");
+  }
+}
+async function createJournalRpcClientFromDescriptor(descriptorPath, options = {}) {
+  return createJournalRpcClient({ ...await readJournalRpcDescriptor(descriptorPath), ...options });
+}
+function createJournalRpcClient(options) {
+  assertJournalRpcPlatform();
+  const descriptor = validateDescriptor({
+    schemaVersion: JOURNAL_RPC_DESCRIPTOR_VERSION,
+    transport: "file",
+    directory: options.directory,
+    instanceId: options.instanceId,
+    token: options.token
+  });
+  const timeoutMs = rpcTimeout(options.timeoutMs);
+  const requests = join6(descriptor.directory, "requests");
+  const responses = join6(descriptor.directory, "responses");
+  let active = 0;
+  const waiting = [];
+  async function acquire(deadlineAt) {
+    if (Date.now() >= deadlineAt) throw rpcError("journal_rpc_unavailable");
+    if (active < 4) {
+      active += 1;
+      return;
+    }
+    if (waiting.length >= 1024) throw rpcError("journal_rpc_limit_exceeded");
+    await new Promise((resolve9, reject) => {
+      const waiter = {
+        deadlineAt,
+        resolve: resolve9,
+        reject,
+        timer: setTimeout(() => {
+          const index = waiting.indexOf(waiter);
+          if (index < 0) return;
+          waiting.splice(index, 1);
+          reject(rpcError("journal_rpc_unavailable"));
+        }, Math.max(1, deadlineAt - Date.now()))
+      };
+      waiting.push(waiter);
+    });
+  }
+  function release() {
+    while (waiting.length > 0) {
+      const next = waiting.shift();
+      clearTimeout(next.timer);
+      if (Date.now() >= next.deadlineAt) {
+        next.reject(rpcError("journal_rpc_unavailable"));
+        continue;
+      }
+      next.resolve();
+      return;
+    }
+    active -= 1;
+  }
+  async function call(method, args) {
+    const issuedAt = Date.now();
+    const expiresAt = issuedAt + timeoutMs;
+    await acquire(expiresAt);
+    try {
+      return await dispatch(method, args, issuedAt, expiresAt);
+    } finally {
+      release();
+    }
+  }
+  async function dispatch(method, args, issuedAt, expiresAt) {
+    const id2 = randomUUID4();
+    let published = false;
+    let remoteError;
+    try {
+      if (Date.now() >= expiresAt) throw rpcError("journal_rpc_unavailable");
+      const request = sealRpcValue(descriptor, id2, "request", { method, args, issuedAt, expiresAt });
+      await assertPrivateDirectory(descriptor.directory);
+      await assertPrivateDirectory(requests);
+      await assertPrivateDirectory(responses);
+      if (Date.now() >= expiresAt) throw rpcError("journal_rpc_unavailable");
+      published = true;
+      await publishPrivateFile(requests, `${id2}.request.json`, request);
+      do {
+        try {
+          const wire = await readPrivateFile(join6(responses, `${id2}.response.json`));
+          const value = openRpcValue(descriptor, id2, "response", wire);
+          if (typeof value !== "object" || value === null || !("ok" in value)) throw rpcError("journal_rpc_protocol_error");
+          const record = value;
+          if (record.ok === true) {
+            exactRecord(record, ["ok", "result"]);
+            return record.result;
+          }
+          exactRecord(record, ["ok", "error"]);
+          exactRecord(record.error, ["code"]);
+          if (record.ok !== false || typeof record.error.code !== "string" || !SAFE_REMOTE_CODES.has(record.error.code)) {
+            throw rpcError("journal_rpc_protocol_error");
+          }
+          remoteError = rpcError(record.error.code);
+          throw remoteError;
+        } catch (error) {
+          if (!isMissing(error) && !(error instanceof OperationJournalError && error.code === "journal_rpc_file_pending")) throw error;
+        }
+        if (Date.now() >= expiresAt) break;
+        await rpcSleep(Math.min(10, expiresAt - Date.now()));
+      } while (Date.now() <= expiresAt);
+      throw rpcError("journal_rpc_unavailable");
+    } catch (error) {
+      if (remoteError !== void 0) throw remoteError;
+      if (published && (method === "create" || method === "append")) throw rpcError("journal_rpc_outcome_indeterminate");
+      if (error instanceof OperationJournalError) throw error;
+      throw rpcError("journal_rpc_unavailable");
+    } finally {
+      await unlink4(join6(requests, `${id2}.request.json`)).catch(() => void 0);
+      await unlink4(join6(responses, `${id2}.response.json`)).catch(() => void 0);
+    }
+  }
+  async function checked(method, args, validate) {
+    const value = await call(method, args);
+    try {
+      return validate(value);
+    } catch {
+      throw rpcError(method === "create" || method === "append" ? "journal_rpc_outcome_indeterminate" : "journal_rpc_protocol_error");
+    }
+  }
+  return {
+    create: async (event) => checked("create", [event], (value) => loaded(value, event.operationId, event.requestDigest)),
+    append: async (operationId2, revision, event) => checked("append", [operationId2, revision, event], (value) => loaded(value, operationId2)),
+    load: async (operationId2, digest5) => checked("load", [operationId2, digest5], (value) => loaded(value, operationId2, digest5)),
+    submitRequestDigest: async (request, files) => checked("submitRequestDigest", [request, files], digest),
+    controlRequestDigest: async (request) => checked("controlRequestDigest", [request], digest),
+    evidenceDigest: async (domain, material) => checked("evidenceDigest", [domain, material], digest),
+    handleFromState: async (state) => checked("handleFromState", [state], (value) => handle(value, state)),
+    validateHandle: async (candidate, state) => checked("validateHandle", [candidate, state], (result3) => {
+      exactRecord(result3, ["stale", "current"]);
+      if (typeof result3.stale !== "boolean" || result3.stale !== candidate.revision < state.revision) throw rpcError("journal_rpc_protocol_error");
+      return { stale: result3.stale, current: handle(result3.current, state) };
+    })
+  };
+}
+function digest(value) {
+  if (typeof value !== "string" || !JOURNAL_RPC_DIGEST.test(value)) throw rpcError("journal_rpc_protocol_error");
+  return value;
+}
+function handle(value, state) {
+  const required = ["schemaVersion", "operationId", "requestDigest", "surface", "revision", "phase", "mutationBoundary"];
+  const hasTarget = typeof value === "object" && value !== null && Object.hasOwn(value, "targetBindingDigest");
+  exactRecord(value, hasTarget ? [...required, "targetBindingDigest"] : required);
+  if (value.schemaVersion !== OPERATION_HANDLE_SCHEMA_VERSION || value.operationId !== state.operationId || value.requestDigest !== state.requestDigest || value.surface !== state.surface || value.revision !== state.revision || value.phase !== state.phase || value.mutationBoundary !== state.mutationBoundary || state.target !== void 0 && !hasTarget) throw rpcError("journal_rpc_protocol_error");
+  digest(value.requestDigest);
+  if (hasTarget) digest(value.targetBindingDigest);
+  return value;
+}
+function loaded(value, operationId2, expectedDigest) {
+  const keys = ["state", "envelopes", "committedBytes", "partialTailBytes"];
+  const hasLast = typeof value === "object" && value !== null && Object.hasOwn(value, "lastEventDigest");
+  exactRecord(value, hasLast ? [...keys, "lastEventDigest"] : keys);
+  assertOperationStateShape(value.state);
+  if (value.state.operationId !== operationId2 || expectedDigest !== void 0 && value.state.requestDigest !== expectedDigest || !Array.isArray(value.envelopes) || value.envelopes.length > 32768 || !Number.isSafeInteger(value.committedBytes) || value.committedBytes < 0 || !Number.isSafeInteger(value.partialTailBytes) || value.partialTailBytes < 0) throw rpcError("journal_rpc_protocol_error");
+  for (const envelope of value.envelopes) {
+    exactRecord(envelope, ["schemaVersion", "revision", "previousEventDigest", "eventDigest", "event"]);
+    if (envelope.schemaVersion !== OPERATION_EVENT_SCHEMA_VERSION || !Number.isSafeInteger(envelope.revision) || envelope.revision < 1) throw rpcError("journal_rpc_protocol_error");
+    digest(envelope.previousEventDigest);
+    digest(envelope.eventDigest);
+    assertOperationEventShape(envelope.event);
+  }
+  if (hasLast) digest(value.lastEventDigest);
+  return value;
+}
+
+// src/operations/service.ts
+import { randomUUID as randomUUID5 } from "node:crypto";
+
+// src/operations/configuration-routing.ts
+function configurationPowerValues(configuration, surface) {
+  const values = [];
+  if (configuration.reasoning !== void 0) values.push(configuration.reasoning);
+  if (surface === "chat" && configuration.additional?.effort !== void 0) values.push(configuration.additional.effort);
+  return values;
+}
+function configurationHasMenuValues(configuration, surface) {
+  return configuration.experience !== void 0 || configuration.model !== void 0 || configuration.modelVersion !== void 0 || configuration.mode !== void 0 || configuration.additional !== void 0 && Object.keys(configuration.additional).some((key) => surface !== "chat" || key !== "effort");
+}
 
 // src/operations/recovery.ts
 function decideOperationRecovery(state, observation) {
@@ -24735,10 +25886,10 @@ function validateSnapshot(snapshot2) {
     assertDigest2(snapshot2.postSendDelta.deltaDigest, "snapshot.postSendDelta.deltaDigest");
     assertBoundedArray(snapshot2.postSendDelta.addedUserEvidenceDigests, MAX_TURNS, "snapshot.postSendDelta.addedUserEvidenceDigests");
     const seen = /* @__PURE__ */ new Set();
-    for (const digest4 of snapshot2.postSendDelta.addedUserEvidenceDigests) {
-      assertDigest2(digest4, "snapshot.postSendDelta.addedUserEvidenceDigests[]");
-      if (seen.has(digest4)) throw new TypeError("Duplicate post-Send user evidence digest.");
-      seen.add(digest4);
+    for (const digest5 of snapshot2.postSendDelta.addedUserEvidenceDigests) {
+      assertDigest2(digest5, "snapshot.postSendDelta.addedUserEvidenceDigests[]");
+      if (seen.has(digest5)) throw new TypeError("Duplicate post-Send user evidence digest.");
+      seen.add(digest5);
     }
   }
 }
@@ -24802,10 +25953,10 @@ function validateTurns(turns, kind, label) {
     if (turn.branchStableId !== void 0) assertIdentifier(turn.branchStableId, `${label}[${index}].branchStableId`);
     assertBoundedArray(turn.artifactEvidenceDigests ?? [], MAX_ARTIFACTS_PER_TURN, `${label}[${index}].artifactEvidenceDigests`);
     const artifactDigests = /* @__PURE__ */ new Set();
-    for (const digest4 of turn.artifactEvidenceDigests ?? []) {
-      assertDigest2(digest4, `${label}[${index}].artifactEvidenceDigests[]`);
-      if (artifactDigests.has(digest4)) throw new TypeError(`Duplicate artifact evidence digest in ${label}.`);
-      artifactDigests.add(digest4);
+    for (const digest5 of turn.artifactEvidenceDigests ?? []) {
+      assertDigest2(digest5, `${label}[${index}].artifactEvidenceDigests[]`);
+      if (artifactDigests.has(digest5)) throw new TypeError(`Duplicate artifact evidence digest in ${label}.`);
+      artifactDigests.add(digest5);
     }
     if (turn.stableId === void 0) {
       if (evidence.has(turn.evidenceDigest)) throw new TypeError(`Duplicate id-less turn evidence in ${label}.`);
@@ -24867,8 +26018,8 @@ var BOUNDARIES = /* @__PURE__ */ new Set([
   "send_may_have_occurred",
   "control_may_have_occurred"
 ]);
-async function collectOperation(handle, ports, options = {}) {
-  const identity = safeHandleIdentity(handle);
+async function collectOperation(handle2, ports, options = {}) {
+  const identity = safeHandleIdentity(handle2);
   let settings;
   try {
     settings = normalizeOptions4(options);
@@ -24878,7 +26029,7 @@ async function collectOperation(handle, ports, options = {}) {
   const signal = settings.signal;
   if (signal.aborted) return blocked2(identity, "operation_cancelled", 0, "prepared", "none");
   try {
-    validateHandle(handle);
+    validateHandle(handle2);
     validatePorts(ports);
   } catch {
     return blocked2(identity, "port_protocol_violation", 0, "prepared", "none");
@@ -24892,41 +26043,41 @@ async function collectOperation(handle, ports, options = {}) {
     attempts += 1;
     let durable;
     try {
-      durable = await ports.readDurable({ handle });
-      validateDurable(handle, durable);
+      durable = await ports.readDurable({ handle: handle2 });
+      validateDurable(handle2, durable);
     } catch (error) {
       if (signal.aborted) return blocked2(identity, "operation_cancelled", attempts, "prepared", "none");
       if (settings.now() >= deadlineAt) return blocked2(identity, "operation_timeout", attempts, "prepared", "none");
       const durableError = collectorDurableErrorCode(error);
       if (durableError !== void 0) {
-        return blocked2(identity, durableError, attempts, handle.phase, handle.mutationBoundary, handle.targetBindingDigest);
+        return blocked2(identity, durableError, attempts, handle2.phase, handle2.mutationBoundary, handle2.targetBindingDigest);
       }
       return blocked2(identity, "port_protocol_violation", attempts, "prepared", "none");
     }
     let state = durable.state;
     if (state.capturePolicy !== void 0 && settings.responseContent !== state.capturePolicy.responseContent) {
-      return blocked2(identity, "operation_request_mismatch", attempts, state.phase, state.mutationBoundary, handle.targetBindingDigest);
+      return blocked2(identity, "operation_request_mismatch", attempts, state.phase, state.mutationBoundary, handle2.targetBindingDigest);
     }
     const durableResponseFormat = state.capturePolicy?.responseFormat ?? state.responseFormat;
     if (settings.responseFormat !== void 0 && durableResponseFormat !== void 0 && settings.responseFormat !== durableResponseFormat) {
-      return blocked2(identity, "operation_request_mismatch", attempts, state.phase, state.mutationBoundary, handle.targetBindingDigest);
+      return blocked2(identity, "operation_request_mismatch", attempts, state.phase, state.mutationBoundary, handle2.targetBindingDigest);
     }
     if (settings.responseFormat === "text" && durableResponseFormat === void 0) {
-      return blocked2(identity, "operation_request_mismatch", attempts, state.phase, state.mutationBoundary, handle.targetBindingDigest);
+      return blocked2(identity, "operation_request_mismatch", attempts, state.phase, state.mutationBoundary, handle2.targetBindingDigest);
     }
     const responseFormat = settings.responseFormat ?? durableResponseFormat;
     if (state.phase === "completed") {
-      return completedFromReceipt(identity, handle, state.receipt, attempts);
+      return completedFromReceipt(identity, handle2, state.receipt, attempts);
     }
     if (!isCollectableState(state)) {
-      return blockedForState(identity, handle, state, attempts, "operation_not_collectable");
+      return blockedForState(identity, handle2, state, attempts, "operation_not_collectable");
     }
     let observation;
     try {
       observation = await ports.observe({
         operationId: state.operationId,
         requestDigest: state.requestDigest,
-        targetBindingDigest: handle.targetBindingDigest ?? durable.binding.targetBindingDigest,
+        targetBindingDigest: handle2.targetBindingDigest ?? durable.binding.targetBindingDigest,
         responseContent: settings.responseContent,
         ...responseFormat === void 0 ? {} : { responseFormat },
         signal,
@@ -24934,12 +26085,12 @@ async function collectOperation(handle, ports, options = {}) {
       });
       validateObservation(observation, settings.responseContent, responseFormat);
     } catch {
-      if (signal.aborted) return blockedForState(identity, handle, state, attempts, "operation_cancelled");
-      if (settings.now() >= deadlineAt) return blockedForState(identity, handle, state, attempts, "operation_timeout");
-      return blockedForState(identity, handle, state, attempts, "port_protocol_violation");
+      if (signal.aborted) return blockedForState(identity, handle2, state, attempts, "operation_cancelled");
+      if (settings.now() >= deadlineAt) return blockedForState(identity, handle2, state, attempts, "operation_timeout");
+      return blockedForState(identity, handle2, state, attempts, "port_protocol_violation");
     }
-    if (signal.aborted) return blockedForState(identity, handle, state, attempts, "operation_cancelled");
-    if (settings.now() >= deadlineAt) return blockedForState(identity, handle, state, attempts, "operation_timeout");
+    if (signal.aborted) return blockedForState(identity, handle2, state, attempts, "operation_cancelled");
+    if (settings.now() >= deadlineAt) return blockedForState(identity, handle2, state, attempts, "operation_timeout");
     let classification;
     try {
       classification = classifyTurnOwnership({
@@ -24950,18 +26101,18 @@ async function collectOperation(handle, ports, options = {}) {
         ...durable.prior === void 0 ? {} : { prior: durable.prior }
       });
     } catch {
-      return blockedForState(identity, handle, state, attempts, "port_protocol_violation");
+      return blockedForState(identity, handle2, state, attempts, "port_protocol_violation");
     }
     const recoveryObservation = toRecoveryObservation(classification);
     const decision = decideOperationRecovery(state, recoveryObservation);
     if (decision.kind === "capture_owned_turn") {
       if (classification.status !== "owned_assistant_terminal" || observation.terminal === void 0) {
-        return blockedForState(identity, handle, state, attempts, "capture_ownership_lost", classification.evidence.snapshotDigest);
+        return blockedForState(identity, handle2, state, attempts, "capture_ownership_lost", classification.evidence.snapshotDigest);
       }
       try {
         validateTerminalOwnership(observation.terminal, classification);
       } catch {
-        return blockedForState(identity, handle, state, attempts, "port_protocol_violation");
+        return blockedForState(identity, handle2, state, attempts, "port_protocol_violation");
       }
       let receipt;
       try {
@@ -24973,10 +26124,10 @@ async function collectOperation(handle, ports, options = {}) {
           settings.now()
         );
       } catch {
-        return blockedForState(identity, handle, state, attempts, "port_protocol_violation", classification.evidence.snapshotDigest);
+        return blockedForState(identity, handle2, state, attempts, "port_protocol_violation", classification.evidence.snapshotDigest);
       }
-      if (signal.aborted) return blockedForState(identity, handle, state, attempts, "operation_cancelled", classification.evidence.snapshotDigest);
-      if (settings.now() >= deadlineAt) return blockedForState(identity, handle, state, attempts, "operation_timeout", classification.evidence.snapshotDigest);
+      if (signal.aborted) return blockedForState(identity, handle2, state, attempts, "operation_cancelled", classification.evidence.snapshotDigest);
+      if (settings.now() >= deadlineAt) return blockedForState(identity, handle2, state, attempts, "operation_timeout", classification.evidence.snapshotDigest);
       let persisted;
       try {
         persisted = await ports.persistTerminal({
@@ -24985,7 +26136,7 @@ async function collectOperation(handle, ports, options = {}) {
           signal,
           deadlineAt
         });
-        validateDurable(handle, persisted);
+        validateDurable(handle2, persisted);
         if (persisted.state.phase !== "completed" || persisted.state.receipt === void 0) {
           throw new Error("terminal persistence did not return a completed durable receipt");
         }
@@ -24993,14 +26144,14 @@ async function collectOperation(handle, ports, options = {}) {
       } catch (error) {
         return blockedForState(
           identity,
-          handle,
+          handle2,
           state,
           attempts,
           collectorPersistenceErrorCode(error),
           classification.evidence.snapshotDigest
         );
       }
-      const durableResult = completedFromReceipt(identity, handle, persisted.state.receipt, attempts);
+      const durableResult = completedFromReceipt(identity, handle2, persisted.state.receipt, attempts);
       return addLiveContent(durableResult, observation.terminal, classification);
     }
     if (decision.kind === "continue_owned_turn_observation" && decision.evidenceDigest !== void 0 && progressNeedsPersistence(state.phase, decision.phase)) {
@@ -25012,7 +26163,7 @@ async function collectOperation(handle, ports, options = {}) {
           signal,
           deadlineAt
         });
-        validateDurable(handle, durable);
+        validateDurable(handle2, durable);
         if (!progressPhaseReached(durable.state.phase, decision.phase)) {
           throw new Error("progress persistence did not reach the proven ownership phase");
         }
@@ -25020,7 +26171,7 @@ async function collectOperation(handle, ports, options = {}) {
       } catch {
         return blockedForState(
           identity,
-          handle,
+          handle2,
           state,
           attempts,
           "operation_progress_persistence_failed",
@@ -25028,18 +26179,18 @@ async function collectOperation(handle, ports, options = {}) {
         );
       }
     }
-    const blocker3 = blockerForDecision(decision, classification, state, identity, handle, attempts);
+    const blocker3 = blockerForDecision(decision, classification, state, identity, handle2, attempts);
     if (blocker3 !== void 0) return blocker3;
-    if (!settings.wait) return pending(identity, handle, durable.binding.targetBindingDigest, state, attempts);
-    if (attempts >= settings.maxAttempts) return blockedForState(identity, handle, state, attempts, "operation_timeout");
-    if (signal.aborted) return blockedForState(identity, handle, state, attempts, "operation_cancelled");
+    if (!settings.wait) return pending(identity, handle2, durable.binding.targetBindingDigest, state, attempts);
+    if (attempts >= settings.maxAttempts) return blockedForState(identity, handle2, state, attempts, "operation_timeout");
+    if (signal.aborted) return blockedForState(identity, handle2, state, attempts, "operation_cancelled");
     const remaining = Math.max(0, deadlineAt - settings.now());
-    if (remaining <= 0) return blockedForState(identity, handle, state, attempts, "operation_timeout");
+    if (remaining <= 0) return blockedForState(identity, handle2, state, attempts, "operation_timeout");
     const delay2 = Math.min(settings.pollIntervalMs, remaining);
     try {
       await ports.sleep(delay2, signal);
     } catch {
-      return blockedForState(identity, handle, state, attempts, signal.aborted ? "operation_cancelled" : "port_protocol_violation");
+      return blockedForState(identity, handle2, state, attempts, signal.aborted ? "operation_cancelled" : "port_protocol_violation");
     }
   }
   return blocked2(identity, "operation_timeout", attempts, "prepared", "none");
@@ -25074,32 +26225,32 @@ function normalizeOptions4(options) {
     now: checkedNow2
   };
 }
-function validateHandle(handle) {
-  assertExactKeys3(handle, "operation handle", ["schemaVersion", "operationId", "requestDigest", "surface", "revision", "phase", "mutationBoundary", "targetBindingDigest"], ["schemaVersion", "operationId", "requestDigest", "surface", "revision", "phase", "mutationBoundary"]);
-  if (handle.schemaVersion !== OPERATION_HANDLE_SCHEMA_VERSION) throw new TypeError("Unsupported operation handle schema.");
-  assertOperationId2(handle.operationId, "operationId");
-  assertDigest3(handle.requestDigest, "requestDigest");
-  if (handle.surface !== "chat" && handle.surface !== "work") throw new TypeError("Invalid operation surface.");
-  if (!Number.isSafeInteger(handle.revision) || handle.revision < 1) throw new TypeError("Invalid operation revision.");
-  if (!PHASES.has(handle.phase) || !BOUNDARIES.has(handle.mutationBoundary)) throw new TypeError("Invalid operation progress.");
-  if (handle.targetBindingDigest !== void 0) assertDigest3(handle.targetBindingDigest, "targetBindingDigest");
+function validateHandle(handle2) {
+  assertExactKeys3(handle2, "operation handle", ["schemaVersion", "operationId", "requestDigest", "surface", "revision", "phase", "mutationBoundary", "targetBindingDigest"], ["schemaVersion", "operationId", "requestDigest", "surface", "revision", "phase", "mutationBoundary"]);
+  if (handle2.schemaVersion !== OPERATION_HANDLE_SCHEMA_VERSION) throw new TypeError("Unsupported operation handle schema.");
+  assertOperationId2(handle2.operationId, "operationId");
+  assertDigest3(handle2.requestDigest, "requestDigest");
+  if (handle2.surface !== "chat" && handle2.surface !== "work") throw new TypeError("Invalid operation surface.");
+  if (!Number.isSafeInteger(handle2.revision) || handle2.revision < 1) throw new TypeError("Invalid operation revision.");
+  if (!PHASES.has(handle2.phase) || !BOUNDARIES.has(handle2.mutationBoundary)) throw new TypeError("Invalid operation progress.");
+  if (handle2.targetBindingDigest !== void 0) assertDigest3(handle2.targetBindingDigest, "targetBindingDigest");
 }
 function validatePorts(ports) {
   if (!isRecord8(ports) || typeof ports.readDurable !== "function" || typeof ports.observe !== "function" || typeof ports.persistProgress !== "function" || typeof ports.persistTerminal !== "function" || typeof ports.sleep !== "function") throw new TypeError("Collector ports are incomplete.");
   assertExactKeys3(ports, "collector ports", ["readDurable", "observe", "persistProgress", "persistTerminal", "sleep"], ["readDurable", "observe", "persistProgress", "persistTerminal", "sleep"]);
 }
-function validateDurable(handle, durable) {
+function validateDurable(handle2, durable) {
   if (!isRecord8(durable)) throw new TypeError("Durable collector snapshot must be an object.");
   assertExactKeys3(durable, "durable collector snapshot", ["state", "binding", "baseline", "submissionWitness", "prior"], ["state", "binding", "baseline"]);
   assertOperationStateShape(durable.state);
-  if (durable.state.operationId !== handle.operationId || durable.state.requestDigest !== handle.requestDigest || durable.state.surface !== handle.surface) throw new TypeError("Durable state does not match handle.");
-  if (durable.state.revision < handle.revision) throw new TypeError("Durable state is older than handle.");
+  if (durable.state.operationId !== handle2.operationId || durable.state.requestDigest !== handle2.requestDigest || durable.state.surface !== handle2.surface) throw new TypeError("Durable state does not match handle.");
+  if (durable.state.revision < handle2.revision) throw new TypeError("Durable state is older than handle.");
   const boundaryRank = { none: 0, handoff_may_have_occurred: 1, send_may_have_occurred: 2, control_may_have_occurred: 3 };
-  if (boundaryRank[handle.mutationBoundary] > boundaryRank[durable.state.mutationBoundary]) throw new TypeError("Handle claims a mutation boundary ahead of durable state.");
-  if (handle.revision === durable.state.revision && (handle.phase !== durable.state.phase || handle.mutationBoundary !== durable.state.mutationBoundary)) throw new TypeError("Handle progress disagrees with durable state.");
+  if (boundaryRank[handle2.mutationBoundary] > boundaryRank[durable.state.mutationBoundary]) throw new TypeError("Handle claims a mutation boundary ahead of durable state.");
+  if (handle2.revision === durable.state.revision && (handle2.phase !== durable.state.phase || handle2.mutationBoundary !== durable.state.mutationBoundary)) throw new TypeError("Handle progress disagrees with durable state.");
   if (durable.state.target === void 0) throw new TypeError("Collectable durable state is missing its target binding.");
-  if (handle.targetBindingDigest !== void 0 && durable.binding.targetBindingDigest !== handle.targetBindingDigest) throw new TypeError("Durable target binding does not match handle.");
-  if (durable.binding.operationId !== handle.operationId || durable.binding.targetBindingDigest !== (handle.targetBindingDigest ?? durable.binding.targetBindingDigest)) throw new TypeError("Durable ownership binding does not match handle.");
+  if (handle2.targetBindingDigest !== void 0 && durable.binding.targetBindingDigest !== handle2.targetBindingDigest) throw new TypeError("Durable target binding does not match handle.");
+  if (durable.binding.operationId !== handle2.operationId || durable.binding.targetBindingDigest !== (handle2.targetBindingDigest ?? durable.binding.targetBindingDigest)) throw new TypeError("Durable ownership binding does not match handle.");
   const submissionAction = Object.values(durable.state.actions).find((action) => action.kind === "send");
   if (submissionAction?.targetDigest !== durable.binding.targetBindingDigest) throw new TypeError("Durable submission target does not match ownership binding.");
   const postSendPhase = durable.state.phase === "submitted" || durable.state.phase === "generating" || durable.state.phase === "capturing" || durable.state.phase === "completed";
@@ -25272,19 +26423,19 @@ function toRecoveryObservation(classification) {
   }
   return { schemaVersion: OPERATION_RECOVERY_OBSERVATION_SCHEMA_VERSION, target, turn };
 }
-function blockerForDecision(decision, classification, state, identity, handle, attempts) {
-  if (classification.status === "concurrent_user_turn") return blockedForState(identity, handle, state, attempts, "concurrent_user_turn", classification.evidence.snapshotDigest);
-  if (classification.status === "regeneration_ambiguous") return blockedForState(identity, handle, state, attempts, "regeneration_ambiguous", classification.evidence.snapshotDigest);
-  if (classification.reason === "incomplete_snapshot" || classification.reason === "out_of_order_snapshot") return blockedForState(identity, handle, state, attempts, "incomplete_snapshot", classification.evidence.snapshotDigest);
+function blockerForDecision(decision, classification, state, identity, handle2, attempts) {
+  if (classification.status === "concurrent_user_turn") return blockedForState(identity, handle2, state, attempts, "concurrent_user_turn", classification.evidence.snapshotDigest);
+  if (classification.status === "regeneration_ambiguous") return blockedForState(identity, handle2, state, attempts, "regeneration_ambiguous", classification.evidence.snapshotDigest);
+  if (classification.reason === "incomplete_snapshot" || classification.reason === "out_of_order_snapshot") return blockedForState(identity, handle2, state, attempts, "incomplete_snapshot", classification.evidence.snapshotDigest);
   if (decision.kind === "continue_owned_turn_observation" || decision.kind === "observe_action_postcondition") return void 0;
-  if (decision.kind === "continue_preparation") return blockedForState(identity, handle, state, attempts, "operation_not_collectable");
+  if (decision.kind === "continue_preparation") return blockedForState(identity, handle2, state, attempts, "operation_not_collectable");
   if (decision.kind === "block") {
     const code = decision.code === "target_binding_mismatch" ? "target_binding_mismatch" : decision.code === "target_evidence_unavailable" ? "target_evidence_unavailable" : "operation_state_corrupt";
-    return blockedForState(identity, handle, state, attempts, code, classification.evidence.snapshotDigest);
+    return blockedForState(identity, handle2, state, attempts, code, classification.evidence.snapshotDigest);
   }
   if (decision.kind === "enter_uncertain") {
     const code = decision.code === "target_evidence_unavailable" ? "target_evidence_unavailable" : decision.code === "capture_ownership_lost" ? "capture_ownership_lost" : "turn_ownership_ambiguous";
-    return blockedForState(identity, handle, state, attempts, code, classification.evidence.snapshotDigest);
+    return blockedForState(identity, handle2, state, attempts, code, classification.evidence.snapshotDigest);
   }
   return void 0;
 }
@@ -25446,14 +26597,14 @@ function assertConvergedArtifact(persisted, observed) {
     throw new TypeError("partial or blocked artifact receipt is missing a blocker");
   }
 }
-function completedFromReceipt(identity, handle, receipt, attempts) {
-  if (receipt === void 0 || receipt.schemaVersion !== OPERATION_RECEIPT_SCHEMA_VERSION || receipt.operationId !== identity.operationId || receipt.requestDigest !== identity.requestDigest || handle.targetBindingDigest !== void 0 && receipt.targetBindingDigest !== handle.targetBindingDigest) {
-    return blocked2(identity, "operation_state_corrupt", attempts, "completed", "send_may_have_occurred", handle.targetBindingDigest);
+function completedFromReceipt(identity, handle2, receipt, attempts) {
+  if (receipt === void 0 || receipt.schemaVersion !== OPERATION_RECEIPT_SCHEMA_VERSION || receipt.operationId !== identity.operationId || receipt.requestDigest !== identity.requestDigest || handle2.targetBindingDigest !== void 0 && receipt.targetBindingDigest !== handle2.targetBindingDigest) {
+    return blocked2(identity, "operation_state_corrupt", attempts, "completed", "send_may_have_occurred", handle2.targetBindingDigest);
   }
   try {
     assertReceiptSafe(receipt);
   } catch {
-    return blocked2(identity, "operation_state_corrupt", attempts, "completed", "send_may_have_occurred", handle.targetBindingDigest);
+    return blocked2(identity, "operation_state_corrupt", attempts, "completed", "send_may_have_occurred", handle2.targetBindingDigest);
   }
   const artifacts = receipt.artifacts.map((artifact) => ({
     kind: artifact.kind,
@@ -25543,8 +26694,8 @@ function assertReceiptSafe(receipt) {
     if (artifact.status === "available" && artifact.outputKey !== void 0) throw new TypeError("Available artifact receipt cannot contain an output key.");
   }
 }
-function blockedForState(identity, handle, state, attempts, code, evidenceDigest) {
-  return blocked2(identity, code, attempts, state.phase, state.mutationBoundary, handle.targetBindingDigest, evidenceDigest);
+function blockedForState(identity, handle2, state, attempts, code, evidenceDigest) {
+  return blocked2(identity, code, attempts, state.phase, state.mutationBoundary, handle2.targetBindingDigest, evidenceDigest);
 }
 function blocked2(identity, code, attempts, phase, mutationBoundary, targetBindingDigest, evidenceDigest) {
   const message = {
@@ -25584,7 +26735,7 @@ function blocked2(identity, code, attempts, phase, mutationBoundary, targetBindi
     }
   };
 }
-function pending(identity, handle, targetBindingDigest, state, attempts) {
+function pending(identity, handle2, targetBindingDigest, state, attempts) {
   return {
     kind: "pending",
     operationId: identity.operationId,
@@ -25610,8 +26761,8 @@ function progressPhaseReached(current, desired) {
   }
   return current === "generating" || current === "capturing" || current === "completed";
 }
-function safeHandleIdentity(handle) {
-  const candidate = isRecord8(handle) ? handle : {};
+function safeHandleIdentity(handle2) {
+  const candidate = isRecord8(handle2) ? handle2 : {};
   return {
     operationId: typeof candidate.operationId === "string" && UUID_PATTERN2.test(candidate.operationId) ? candidate.operationId : "invalid-operation",
     requestDigest: typeof candidate.requestDigest === "string" && HMAC_DIGEST_PATTERN.test(candidate.requestDigest) ? candidate.requestDigest : "invalid-request"
@@ -26286,14 +27437,14 @@ async function observeAttachmentsAfterHandoff(ports, request, manifest, options)
 }
 async function waitForPostHandoffObservation(milliseconds, signal) {
   if (milliseconds <= 0 || signal?.aborted) return;
-  await new Promise((resolve8) => {
+  await new Promise((resolve9) => {
     let settled = false;
     const finish = () => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       signal?.removeEventListener("abort", finish);
-      resolve8();
+      resolve9();
     };
     const timer = setTimeout(finish, milliseconds);
     signal?.addEventListener("abort", finish, { once: true });
@@ -26317,25 +27468,25 @@ function validateInput2(operation, expected, ports, options) {
   assertExactRecord2(operation, ["state", "handle", "actionIds"], ["state", "handle", "actionIds"]);
   const envelope = sanitizeExpectedEnvelope(expected);
   const state = operation.state;
-  const handle = operation.handle;
+  const handle2 = operation.handle;
   assertExactRecord2(
     state,
     ["schemaVersion", "operationId", "requestDigest", "surface", "phase", "mutationBoundary", "revision", "createdAt", "updatedAt", "capturePolicy", "responseFormat", "target", "actions", "ownershipBaseline", "ownershipBaselines", "artifactTransfers", "submissionWitnesses", "lastBlocker", "receipt", "submissionWitness"],
     ["schemaVersion", "operationId", "requestDigest", "surface", "phase", "mutationBoundary", "revision", "createdAt", "updatedAt", "actions"]
   );
   assertExactRecord2(
-    handle,
+    handle2,
     ["schemaVersion", "operationId", "requestDigest", "surface", "revision", "phase", "mutationBoundary", "targetBindingDigest"],
     ["schemaVersion", "operationId", "requestDigest", "surface", "revision", "phase", "mutationBoundary"]
   );
   assertExactRecord2(operation.actionIds, ["sendActionId", "fileHandoffActionId"], ["sendActionId"]);
-  if (state.schemaVersion !== OPERATION_SCHEMA_VERSION || handle.schemaVersion !== OPERATION_HANDLE_SCHEMA_VERSION) {
+  if (state.schemaVersion !== OPERATION_SCHEMA_VERSION || handle2.schemaVersion !== OPERATION_HANDLE_SCHEMA_VERSION) {
     throw new SubmissionInputError("operation_state_corrupt", "Operation schema versions are invalid.");
   }
-  if (!isUuid(state.operationId) || !isUuid(handle.operationId) || state.operationId !== handle.operationId) {
+  if (!isUuid(state.operationId) || !isUuid(handle2.operationId) || state.operationId !== handle2.operationId) {
     throw new SubmissionInputError("operation_state_corrupt", "Operation identity is invalid.");
   }
-  if (!isDigest3(state.requestDigest) || state.requestDigest !== handle.requestDigest) {
+  if (!isDigest3(state.requestDigest) || state.requestDigest !== handle2.requestDigest) {
     throw new SubmissionInputError("operation_state_corrupt", "Operation request identity is invalid.");
   }
   if (state.surface !== "chat" && state.surface !== "work") throw new SubmissionInputError("operation_state_corrupt", "Operation surface is invalid.");
@@ -26353,10 +27504,10 @@ function validateInput2(operation, expected, ports, options) {
   if (!PHASES2.has(state.phase) || !BOUNDARIES2.has(state.mutationBoundary) || !Number.isSafeInteger(state.revision) || state.revision < 1) {
     throw new SubmissionInputError("operation_state_corrupt", "Operation progress fields are invalid.");
   }
-  if (handle.surface !== state.surface || handle.revision !== state.revision || handle.phase !== state.phase || handle.mutationBoundary !== state.mutationBoundary) {
+  if (handle2.surface !== state.surface || handle2.revision !== state.revision || handle2.phase !== state.phase || handle2.mutationBoundary !== state.mutationBoundary) {
     throw new SubmissionInputError("stale_handle", "Operation handle is stale.");
   }
-  if (envelope.surface !== state.surface || handle.targetBindingDigest !== envelope.targetBindingDigest) {
+  if (envelope.surface !== state.surface || handle2.targetBindingDigest !== envelope.targetBindingDigest) {
     throw new SubmissionInputError("target_binding_mismatch", "Expected target binding does not match the operation.");
   }
   if (!isUuid(operation.actionIds.sendActionId)) throw new SubmissionInputError("operation_state_corrupt", "Send action identity is invalid.");
@@ -26566,8 +27717,8 @@ function validateTargetBinding(value) {
   if (value.canonicalThreadUrl !== void 0 && !isCanonicalThreadUrl(value.canonicalThreadUrl)) {
     throw new SubmissionInputError("operation_state_corrupt", "Operation canonical thread URL is invalid.");
   }
-  for (const digest4 of [value.tabClaimEvidenceDigest, value.userTurnBaselineDigest, value.assistantTurnBaselineDigest, value.configurationReceiptDigest]) {
-    if (digest4 !== void 0 && !isDigest3(digest4)) throw new SubmissionInputError("operation_state_corrupt", "Operation target evidence digest is invalid.");
+  for (const digest5 of [value.tabClaimEvidenceDigest, value.userTurnBaselineDigest, value.assistantTurnBaselineDigest, value.configurationReceiptDigest]) {
+    if (digest5 !== void 0 && !isDigest3(digest5)) throw new SubmissionInputError("operation_state_corrupt", "Operation target evidence digest is invalid.");
   }
   const profile = value.evidenceProfile;
   if (!profile || typeof profile !== "object" || Array.isArray(profile)) throw new SubmissionInputError("operation_state_corrupt", "Operation target evidence profile is invalid.");
@@ -26812,9 +27963,9 @@ function validateDurableTargetEstablishmentResult(value, expectedTargetBindingDi
   if (!isPlainRecord2(value)) throw new Error("invalid durable target establishment result");
   assertExactRecord2(value, ["state", "handle"], ["state", "handle"]);
   const state = value.state;
-  const handle = value.handle;
-  if (!isPlainRecord2(state) || !isPlainRecord2(handle)) throw new Error("invalid durable target establishment result");
-  const handleTargetDigest = readOwnData(handle, "targetBindingDigest");
+  const handle2 = value.handle;
+  if (!isPlainRecord2(state) || !isPlainRecord2(handle2)) throw new Error("invalid durable target establishment result");
+  const handleTargetDigest = readOwnData(handle2, "targetBindingDigest");
   const target = readOwnData(state, "target");
   if (handleTargetDigest !== expectedTargetBindingDigest || !isPlainRecord2(target)) {
     throw new Error("durable target establishment is not authenticated");
@@ -26900,11 +28051,11 @@ function cancellationCode(options) {
 function safeIdentity(operation) {
   const operationRecord2 = safeDataRecord(operation);
   const state = safeDataRecord(readOwnData(operationRecord2, "state"));
-  const handle = safeDataRecord(readOwnData(operationRecord2, "handle"));
+  const handle2 = safeDataRecord(readOwnData(operationRecord2, "handle"));
   const operationId2 = readOwnData(state, "operationId");
   const requestDigest = readOwnData(state, "requestDigest");
   const surface = readOwnData(state, "surface");
-  const targetBindingDigest = state === void 0 ? void 0 : readOwnData(handle, "targetBindingDigest");
+  const targetBindingDigest = state === void 0 ? void 0 : readOwnData(handle2, "targetBindingDigest");
   return {
     operationId: isUuid(operationId2) ? operationId2 : INVALID_OPERATION_ID,
     requestDigest: isDigest3(requestDigest) ? requestDigest : INVALID_DIGEST,
@@ -27913,15 +29064,15 @@ async function waitForPostconditionRetry(normalized, milliseconds) {
   if (remaining <= 0) return false;
   const delay2 = Math.min(milliseconds, remaining);
   if (delay2 === 0) return true;
-  return await new Promise((resolve8) => {
+  return await new Promise((resolve9) => {
     const timer = setTimeout(() => {
       normalized.signal.removeEventListener("abort", onAbort);
-      resolve8(true);
+      resolve9(true);
     }, delay2);
     const onAbort = () => {
       clearTimeout(timer);
       normalized.signal.removeEventListener("abort", onAbort);
-      resolve8(false);
+      resolve9(false);
     };
     normalized.signal.addEventListener("abort", onAbort, { once: true });
   });
@@ -28034,16 +29185,16 @@ function validateParentSnapshot(request, requestDigest, snapshot2) {
     if (hasAccessorInPlainData2(snapshot2.existingSteerIntent)) throw new ControlInputError("operation_state_corrupt", "Steer baseline contains unsafe data.");
   }
 }
-function validateHandle2(handle) {
-  assertExactRecord3(handle, ["schemaVersion", "operationId", "requestDigest", "surface", "revision", "phase", "mutationBoundary", "targetBindingDigest"], ["schemaVersion", "operationId", "requestDigest", "surface", "revision", "phase", "mutationBoundary"]);
-  if (handle.schemaVersion !== OPERATION_HANDLE_SCHEMA_VERSION) throw new ControlInputError("operation_state_corrupt", "Unsupported operation handle schema.");
-  assertUuid(handle.operationId, "handle.operationId");
-  assertDigest5(handle.requestDigest, "handle.requestDigest");
-  if (handle.surface !== "chat" && handle.surface !== "work") throw new ControlInputError("operation_state_corrupt", "Handle surface is invalid.");
-  if (!Number.isSafeInteger(handle.revision) || handle.revision < 1) throw new ControlInputError("operation_state_corrupt", "Handle revision is invalid.");
-  if (!(handle.phase in { prepared: 1, handoff_pending: 1, ready: 1, send_pending: 1, submitted: 1, generating: 1, capturing: 1, completed: 1, uncertain: 1 })) throw new ControlInputError("operation_state_corrupt", "Handle phase is invalid.");
-  if (!(handle.mutationBoundary in BOUNDARY_RANK4)) throw new ControlInputError("operation_state_corrupt", "Handle mutation boundary is invalid.");
-  if (handle.targetBindingDigest !== void 0) assertDigest5(handle.targetBindingDigest, "handle.targetBindingDigest");
+function validateHandle2(handle2) {
+  assertExactRecord3(handle2, ["schemaVersion", "operationId", "requestDigest", "surface", "revision", "phase", "mutationBoundary", "targetBindingDigest"], ["schemaVersion", "operationId", "requestDigest", "surface", "revision", "phase", "mutationBoundary"]);
+  if (handle2.schemaVersion !== OPERATION_HANDLE_SCHEMA_VERSION) throw new ControlInputError("operation_state_corrupt", "Unsupported operation handle schema.");
+  assertUuid(handle2.operationId, "handle.operationId");
+  assertDigest5(handle2.requestDigest, "handle.requestDigest");
+  if (handle2.surface !== "chat" && handle2.surface !== "work") throw new ControlInputError("operation_state_corrupt", "Handle surface is invalid.");
+  if (!Number.isSafeInteger(handle2.revision) || handle2.revision < 1) throw new ControlInputError("operation_state_corrupt", "Handle revision is invalid.");
+  if (!(handle2.phase in { prepared: 1, handoff_pending: 1, ready: 1, send_pending: 1, submitted: 1, generating: 1, capturing: 1, completed: 1, uncertain: 1 })) throw new ControlInputError("operation_state_corrupt", "Handle phase is invalid.");
+  if (!(handle2.mutationBoundary in BOUNDARY_RANK4)) throw new ControlInputError("operation_state_corrupt", "Handle mutation boundary is invalid.");
+  if (handle2.targetBindingDigest !== void 0) assertDigest5(handle2.targetBindingDigest, "handle.targetBindingDigest");
 }
 function validateTurnObservation(value) {
   if (!isRecord9(value) || typeof value.status !== "string") throw new ControlInputError("operation_state_corrupt", "Turn observation is invalid.");
@@ -28963,6 +30114,13 @@ var SAFE_SERVICE_ERROR_MESSAGES = Object.freeze({
   event_not_serializable: "The operation event is not serializable.",
   journal_quota_exceeded: "The operation journal quota is exhausted.",
   journal_unavailable: "The operation journal is unavailable.",
+  journal_rpc_unavailable: "The operation journal authority is unavailable.",
+  journal_rpc_unsupported_platform: "The private-file journal service is unavailable on this operating system.",
+  journal_rpc_authentication_failed: "The operation journal authority could not be authenticated.",
+  journal_rpc_protocol_error: "The operation journal authority returned an invalid response.",
+  journal_rpc_limit_exceeded: "The operation journal request exceeded its safety bound.",
+  journal_rpc_outcome_indeterminate: "The operation journal write may have completed; reconcile durable state before another effect.",
+  journal_rpc_request_rejected: "The operation journal authority rejected the request.",
   journal_corrupt: "The operation journal failed integrity validation.",
   journal_snapshot_corrupt: "The operation snapshot failed integrity validation.",
   journal_tombstone_corrupt: "The operation tombstone failed integrity validation.",
@@ -29028,36 +30186,36 @@ var OperationService = class {
    * does not wait for assistant generation.
    */
   async submit(request, files, adapter, options = {}) {
-    const requestDigest = this.computeRequestDigest(request, files, options.requestDigest);
+    const requestDigest = await this.computeRequestDigest(request, files, options.requestDigest);
     const signal = options.signal ?? new AbortController().signal;
     if (!isAbortSignal3(signal)) throw new OperationServiceError("invalid_signal", "Submission signal must be an AbortSignal.");
     if (signal.aborted) throw new OperationServiceError("operation_cancelled", "The operation was cancelled before submission.");
-    let loaded = await this.ensureCreated(request, requestDigest);
-    if (loaded.state.phase === "completed" && loaded.state.receipt !== void 0) {
+    let loaded2 = await this.ensureCreated(request, requestDigest);
+    if (loaded2.state.phase === "completed" && loaded2.state.receipt !== void 0) {
       return {
-        handle: this.journal.handleFromState(loaded.state),
-        submission: submissionFromCompleted(loaded.state)
+        handle: await this.journal.handleFromState(loaded2.state),
+        submission: submissionFromCompleted(loaded2.state)
       };
     }
     let resolution;
     try {
-      resolution = await this.resolveAndBindTarget(request, requestDigest, adapter, signal, loaded);
+      resolution = await this.resolveAndBindTarget(request, requestDigest, adapter, signal, loaded2);
     } catch (error) {
       const current = await this.journal.load(request.operationId, requestDigest);
-      const handle = this.journal.handleFromState(current.state);
+      const handle2 = await this.journal.handleFromState(current.state);
       await this.persistReturnedSubmissionBlocker(
-        submissionFromTargetResolutionFailure(current.state, handle, error, signal)
+        submissionFromTargetResolutionFailure(current.state, handle2, error, signal)
       );
       const fresh2 = await this.journal.load(request.operationId, requestDigest);
-      const freshHandle = this.journal.handleFromState(fresh2.state);
+      const freshHandle = await this.journal.handleFromState(fresh2.state);
       return {
         handle: freshHandle,
         submission: submissionFromTargetResolutionFailure(fresh2.state, freshHandle, error, signal)
       };
     }
-    loaded = resolution.loaded;
+    loaded2 = resolution.loaded;
     const targetBindingDigest = resolution.targetBindingDigest;
-    if (loaded.state.phase === "prepared" && adapter.staging !== void 0) {
+    if (loaded2.state.phase === "prepared" && adapter.staging !== void 0) {
       const staging = await this.stageRequest(
         request,
         requestDigest,
@@ -29069,14 +30227,14 @@ var OperationService = class {
       if (staging !== void 0) {
         await this.persistReturnedSubmissionBlocker(staging);
         const fresh2 = await this.journal.load(request.operationId, requestDigest);
-        return { handle: this.journal.handleFromState(fresh2.state), submission: staging };
+        return { handle: await this.journal.handleFromState(fresh2.state), submission: staging };
       }
-      loaded = await this.journal.load(request.operationId, requestDigest);
+      loaded2 = await this.journal.load(request.operationId, requestDigest);
     }
-    const attachmentManifest = files.map((file, ordinal) => ({
-      identityDigest: this.journal.evidenceDigest("file-manifest", { ordinal, ...file }),
+    const attachmentManifest = await Promise.all(files.map(async (file, ordinal) => ({
+      identityDigest: await this.journal.evidenceDigest("file-manifest", { ordinal, ...file }),
       ordinal
-    }));
+    })));
     const expected = {
       surface: request.surface,
       targetBindingDigest,
@@ -29088,40 +30246,40 @@ var OperationService = class {
         identities: attachmentManifest
       }
     };
-    const send = uniqueAction(loaded.state, "send");
-    const handoff = uniqueAction(loaded.state, "file_handoff");
+    const send = uniqueAction(loaded2.state, "send");
+    const handoff = uniqueAction(loaded2.state, "file_handoff");
     const operation = {
-      state: loaded.state,
-      handle: this.journal.handleFromState(loaded.state),
+      state: loaded2.state,
+      handle: await this.journal.handleFromState(loaded2.state),
       actionIds: {
-        sendActionId: send?.actionId ?? randomUUID4(),
-        ...files.length === 0 ? {} : { fileHandoffActionId: handoff?.actionId ?? randomUUID4() }
+        sendActionId: send?.actionId ?? randomUUID5(),
+        ...files.length === 0 ? {} : { fileHandoffActionId: handoff?.actionId ?? randomUUID5() }
       }
     };
     const submission = await runAtomicSubmission(
       operation,
       expected,
-      this.submissionPorts(adapter.submission),
+      this.submissionPorts(adapter.submission, loaded2.state.target),
       { signal, ...options.deadlineAt === void 0 ? {} : { deadlineAt: options.deadlineAt } }
     );
     await this.persistReturnedSubmissionBlocker(submission);
     const fresh = await this.journal.load(request.operationId, requestDigest);
-    return { handle: this.journal.handleFromState(fresh.state), submission };
+    return { handle: await this.journal.handleFromState(fresh.state), submission };
   }
   /**
    * Collect from a caller locator. It reloads the journal for every collector
    * attempt and never calls the submission path. Completed receipts are
    * returned directly, so a browser adapter is not needed for that case.
    */
-  async collect(handle, adapter, options = {}) {
-    const loaded = await this.loadForHandle(handle);
-    if (loaded.state.phase === "completed" && loaded.state.receipt !== void 0) {
-      return completedFromState(handle, loaded.state);
+  async collect(handle2, adapter, options = {}) {
+    const loaded2 = await this.loadForHandle(handle2);
+    if (loaded2.state.phase === "completed" && loaded2.state.receipt !== void 0) {
+      return completedFromState(handle2, loaded2.state);
     }
-    if (loaded.state.target === void 0) {
+    if (loaded2.state.target === void 0) {
       throw new OperationServiceError("target_binding_missing", "Collect requires a durable target binding.");
     }
-    if (loaded.state.target.targetLifecycle === "new_pending") {
+    if (loaded2.state.target.targetLifecycle === "new_pending") {
       throw new OperationServiceError("target_establishment_required", "Collect requires durable provider identity establishment for a new target.");
     }
     const signal = options.signal ?? new AbortController().signal;
@@ -29133,7 +30291,7 @@ var OperationService = class {
         if (ownership === void 0) {
           throw new OperationServiceError("submission_witness_missing", "Collect cannot recover ownership without a durable causal baseline and witness.");
         }
-        const targetBindingDigest = this.targetBindingDigest(current.state);
+        const targetBindingDigest = await this.targetBindingDigest(current.state);
         const projectedWitness = ownershipWitnessFromDurable(ownership.witness);
         const context = await adapter.collector.readContext({
           operationId: current.state.operationId,
@@ -29173,18 +30331,18 @@ var OperationService = class {
       persistProgress: (request) => this.persistProgress(request),
       persistTerminal: (request) => this.persistTerminal(request, adapter.artifacts)
     };
-    const capturePolicy = loaded.state.capturePolicy;
+    const capturePolicy = loaded2.state.capturePolicy;
     const policyDefaults = capturePolicy === void 0 ? {} : {
       ...options.responseContent === void 0 ? { responseContent: capturePolicy.responseContent } : {},
       ...options.responseFormat === void 0 ? { responseFormat: capturePolicy.responseFormat } : {}
     };
     const effectiveOptions = { ...policyDefaults, ...options };
-    return await collectOperation(handle, ports, effectiveOptions);
+    return await collectOperation(handle2, ports, effectiveOptions);
   }
   /** Browser-free state inspection. The adapter is intentionally not accepted. */
-  async inspect(handle) {
-    const loaded = await this.loadForHandle(handle);
-    return { state: loaded.state, handle: this.journal.handleFromState(loaded.state) };
+  async inspect(handle2) {
+    const loaded2 = await this.loadForHandle(handle2);
+    return { state: loaded2.state, handle: await this.journal.handleFromState(loaded2.state) };
   }
   /**
    * Persist the one-way provider identity refinement for a genuine new
@@ -29198,19 +30356,19 @@ var OperationService = class {
     if (request.postSendDeltaDigest === void 0) {
       throw new OperationServiceError("target_establishment_delta_missing", "New-target establishment requires exact post-Send delta evidence.");
     }
-    let loaded = await this.journal.load(request.operationId, request.requestDigest);
-    const currentHandle = this.journal.handleFromState(loaded.state);
+    let loaded2 = await this.journal.load(request.operationId, request.requestDigest);
+    const currentHandle = await this.journal.handleFromState(loaded2.state);
     if (currentHandle.targetBindingDigest !== request.targetBindingDigest) {
       throw new OperationServiceError("target_binding_mismatch", "Target establishment target digest does not match durable state.");
     }
-    const target = loaded.state.target;
+    const target = loaded2.state.target;
     if (target === void 0) {
       throw new OperationServiceError("target_binding_missing", "Target establishment requires a durable target anchor.");
     }
     if ((target.targetLifecycle ?? "fixed") === "fixed") {
       throw new OperationServiceError("fixed_target_establishment", "A fixed target cannot be established as a new conversation.");
     }
-    const send = loaded.state.actions[request.causalSendActionId];
+    const send = loaded2.state.actions[request.causalSendActionId];
     if (send === void 0 || send.kind !== "send") {
       throw new OperationServiceError("target_establishment_send_missing", "Target establishment requires the causal original Send intent.");
     }
@@ -29220,10 +30378,10 @@ var OperationService = class {
     if (send.targetDigest !== request.targetBindingDigest) {
       throw new OperationServiceError("target_establishment_target_mismatch", "Target establishment target digest does not match the causal Send intent.");
     }
-    if (loaded.state.phase === "prepared" || loaded.state.phase === "handoff_pending" || loaded.state.phase === "completed") {
+    if (loaded2.state.phase === "prepared" || loaded2.state.phase === "handoff_pending" || loaded2.state.phase === "completed") {
       throw new OperationServiceError("target_establishment_phase_invalid", "Target establishment requires a durable Send lifecycle phase.");
     }
-    const observedAt = request.observedAt ?? this.timestamp(loaded.state.updatedAt);
+    const observedAt = request.observedAt ?? this.timestamp(loaded2.state.updatedAt);
     if (observedAt < send.intentAt) {
       throw new OperationServiceError("target_establishment_before_send", "Target establishment cannot precede the durable Send intent.");
     }
@@ -29243,29 +30401,29 @@ var OperationService = class {
       const existing = state.target?.targetEstablishment;
       return state.target?.targetLifecycle === "new_established" && existing !== void 0 && canonicalJson(existing) === canonicalJson(establishment);
     };
-    if (sameEstablishment(loaded.state)) {
-      if (loaded.state.submissionWitness !== void 0) {
-        if (loaded.state.ownershipBaseline === void 0 || !submissionWitnessMatchesEstablishment(
-          loaded.state.submissionWitness,
+    if (sameEstablishment(loaded2.state)) {
+      if (loaded2.state.submissionWitness !== void 0) {
+        if (loaded2.state.ownershipBaseline === void 0 || !submissionWitnessMatchesEstablishment(
+          loaded2.state.submissionWitness,
           establishment,
-          loaded.state.ownershipBaseline.baseline.snapshotDigest
+          loaded2.state.ownershipBaseline.baseline.snapshotDigest
         )) {
           throw new OperationServiceError("submission_witness_conflict", "A durable submission witness conflicts with the established target evidence.");
         }
-        return { state: loaded.state, handle: this.journal.handleFromState(loaded.state) };
+        return { state: loaded2.state, handle: await this.journal.handleFromState(loaded2.state) };
       }
       const withWitness2 = await this.appendSubmissionWitnessConvergent(
         request.operationId,
         request.requestDigest,
         this.submissionWitnessFromEstablishment(
           establishment,
-          loaded.state.ownershipBaseline?.baseline.snapshotDigest,
-          loaded.state.updatedAt
+          loaded2.state.ownershipBaseline?.baseline.snapshotDigest,
+          loaded2.state.updatedAt
         )
       );
-      return { state: withWitness2.state, handle: this.journal.handleFromState(withWitness2.state) };
+      return { state: withWitness2.state, handle: await this.journal.handleFromState(withWitness2.state) };
     }
-    if (loaded.state.target?.targetLifecycle === "new_established") {
+    if (loaded2.state.target?.targetLifecycle === "new_established") {
       throw new OperationServiceError("target_establishment_conflict", "A different provider identity is already durably established.");
     }
     const event = {
@@ -29273,7 +30431,7 @@ var OperationService = class {
       establishment
     };
     try {
-      loaded = await this.appendConvergent(
+      loaded2 = await this.appendConvergent(
         request.operationId,
         request.requestDigest,
         event,
@@ -29284,7 +30442,7 @@ var OperationService = class {
         const observed = await this.journal.load(request.operationId, request.requestDigest);
         if (observed.state.target?.targetLifecycle === "new_established") {
           if (sameEstablishment(observed.state)) {
-            loaded = observed;
+            loaded2 = observed;
           } else {
             throw new OperationServiceError("target_establishment_conflict", "A different provider identity is already durably established.");
           }
@@ -29301,15 +30459,15 @@ var OperationService = class {
       request.requestDigest,
       this.submissionWitnessFromEstablishment(
         establishment,
-        loaded.state.ownershipBaseline?.baseline.snapshotDigest,
-        loaded.state.updatedAt
+        loaded2.state.ownershipBaseline?.baseline.snapshotDigest,
+        loaded2.state.updatedAt
       )
     );
     const fresh = await this.journal.load(request.operationId, request.requestDigest);
     if (!sameEstablishment(fresh.state) || fresh.state.submissionWitness === void 0 || withWitness.state.submissionWitness === void 0) {
       throw new OperationServiceError("target_establishment_indeterminate", "Target establishment was not durably validated after persistence.");
     }
-    return { state: fresh.state, handle: this.journal.handleFromState(fresh.state) };
+    return { state: fresh.state, handle: await this.journal.handleFromState(fresh.state) };
   }
   /** Submit followed by collect with the same operation ID and handle. */
   async run(request, files, adapter, options = {}) {
@@ -29325,7 +30483,7 @@ var OperationService = class {
     if (adapter.control === void 0) {
       throw new OperationServiceError("control_unavailable", "The operation adapter does not expose control ports.");
     }
-    const requestDigest = this.journal.controlRequestDigest(request);
+    const requestDigest = await this.journal.controlRequestDigest(request);
     const ports = {
       readParent: (requestForParent) => this.readControlParent(requestForParent),
       observeTurn: (requestForTurn) => adapter.control.observeTurn(requestForTurn),
@@ -29350,11 +30508,14 @@ var OperationService = class {
     ports.persistSteerIntentAndBaseline = (requestForPersistence) => this.persistSteerIntentAndBaseline(requestForPersistence);
     return await runOperationControl(request, requestDigest, ports, options);
   }
-  computeRequestDigest(request, files, provided) {
+  async computeRequestDigest(request, files, provided) {
     let computed;
     try {
-      computed = this.journal.submitRequestDigest(request, files);
-    } catch {
+      computed = await this.journal.submitRequestDigest(request, files);
+    } catch (error) {
+      if (readOwnErrorCode(error)?.startsWith("journal_rpc_") === true) {
+        throw this.serviceError(error, "journal_unavailable");
+      }
       throw new OperationServiceError("invalid_operation_request", "The immutable operation request could not be canonicalized.");
     }
     if (provided !== void 0) {
@@ -29383,16 +30544,19 @@ var OperationService = class {
       }
     }
   }
-  async resolveAndBindTarget(request, requestDigest, adapter, signal, loaded) {
+  async resolveAndBindTarget(request, requestDigest, adapter, signal, loaded2) {
     if (!adapter || typeof adapter.resolveTarget !== "function" || !adapter.submission || !adapter.collector) {
       throw new OperationServiceError("adapter_incomplete", "Operation adapter is incomplete.");
     }
-    const durableSubmit = Object.values(loaded.state.actions).some((action) => action.kind === "send");
-    if (durableSubmit && loaded.state.target !== void 0) {
-      const targetBindingDigest2 = this.targetBindingDigest(loaded.state);
-      const configurationReceiptDigest2 = loaded.state.target.configurationReceiptDigest ?? this.journal.evidenceDigest("configuration-request", requestDigest);
-      const composerReceiptDigest2 = this.journal.evidenceDigest("composer-request", requestDigest);
-      return { loaded, targetBindingDigest: targetBindingDigest2, configurationReceiptDigest: configurationReceiptDigest2, composerReceiptDigest: composerReceiptDigest2 };
+    const durableSubmit = Object.values(loaded2.state.actions).some((action) => action.kind === "send");
+    if (durableSubmit && loaded2.state.target !== void 0) {
+      const targetBindingDigest2 = await this.targetBindingDigest(loaded2.state);
+      const configurationReceiptDigest2 = loaded2.state.target.configurationReceiptDigest ?? await this.journal.evidenceDigest("configuration-request", requestDigest);
+      const composerReceiptDigest2 = await this.journal.evidenceDigest("composer-request", requestDigest);
+      return { loaded: loaded2, targetBindingDigest: targetBindingDigest2, configurationReceiptDigest: configurationReceiptDigest2, composerReceiptDigest: composerReceiptDigest2 };
+    }
+    if (loaded2.state.target?.targetLifecycle === "new_pending") {
+      throw new OperationServiceError("target_binding_mismatch", "The durable pending target requires read-only recovery authority.");
     }
     let resolution;
     try {
@@ -29407,8 +30571,8 @@ var OperationService = class {
       throw error;
     }
     validateTargetResolution(resolution);
-    const expectedConfigurationReceiptDigest = this.journal.evidenceDigest("configuration-request", requestDigest);
-    const expectedComposerReceiptDigest = this.journal.evidenceDigest("composer-request", requestDigest);
+    const expectedConfigurationReceiptDigest = await this.journal.evidenceDigest("configuration-request", requestDigest);
+    const expectedComposerReceiptDigest = await this.journal.evidenceDigest("composer-request", requestDigest);
     if (resolution.configurationReceiptDigest !== void 0 && resolution.configurationReceiptDigest !== expectedConfigurationReceiptDigest) {
       throw new OperationServiceError("configuration_drift", "Target resolution returned a configuration receipt outside the operation identity domain.");
     }
@@ -29422,33 +30586,33 @@ var OperationService = class {
       ...resolution.target,
       configurationReceiptDigest: expectedConfigurationReceiptDigest
     };
-    let current = loaded;
+    let current = loaded2;
     if (current.state.target === void 0) {
       current = await this.appendTarget(current, resolvedTarget);
     } else if (canonicalJson(current.state.target) !== canonicalJson(resolvedTarget)) {
       throw new OperationServiceError("target_binding_mismatch", "The durable operation target binding is immutable.");
     }
-    const targetBindingDigest = this.targetBindingDigest(current.state);
+    const targetBindingDigest = await this.targetBindingDigest(current.state);
     const configurationReceiptDigest = current.state.target?.configurationReceiptDigest ?? expectedConfigurationReceiptDigest;
     const composerReceiptDigest = expectedComposerReceiptDigest;
     assertDigest7(configurationReceiptDigest, "configurationReceiptDigest");
     assertDigest7(composerReceiptDigest, "composerReceiptDigest");
     return { loaded: current, targetBindingDigest, configurationReceiptDigest, composerReceiptDigest };
   }
-  async appendTarget(loaded, target) {
+  async appendTarget(loaded2, target) {
     const event = {
       type: "target_bound",
       target,
-      observedAt: this.timestamp(loaded.state.updatedAt)
+      observedAt: this.timestamp(loaded2.state.updatedAt)
     };
     return this.appendConvergent(
-      loaded.state.operationId,
-      loaded.state.requestDigest,
+      loaded2.state.operationId,
+      loaded2.state.requestDigest,
       event,
       (state) => state.target !== void 0 && canonicalJson(state.target) === canonicalJson(target)
     );
   }
-  submissionPorts(adapter) {
+  submissionPorts(adapter, target) {
     return {
       observeStaging: (request) => adapter.observeStaging(request),
       executeFileHandoffOnce: (request) => adapter.executeFileHandoffOnce(request),
@@ -29457,7 +30621,13 @@ var OperationService = class {
       persistPreparedSend: (request) => this.persistPreparedSend(request),
       executePreparedSend: (request) => adapter.executePreparedSend(request),
       verifyPreparedSend: (request) => adapter.verifyPreparedSend(request),
-      recoverSend: (request) => adapter.recoverSend(request),
+      recoverSend: (request) => {
+        if (target === void 0 || adapter.recoverAuthenticatedSend === void 0) return adapter.recoverSend(request);
+        return adapter.recoverAuthenticatedSend(Object.freeze({
+          ...request,
+          target: Object.freeze({ ...target, evidenceProfile: Object.freeze({ ...target.evidenceProfile }) })
+        }));
+      },
       executeFinalTabTransaction: (request) => adapter.executeFinalTabTransaction(request),
       establishTarget: (request) => this.establishTarget(request),
       persistActionIntent: (request) => this.persistActionIntent(request),
@@ -29473,7 +30643,7 @@ var OperationService = class {
         targetBindingDigest,
         actionId: await this.stagingActionId(request.operationId, requestDigest, kind),
         kind,
-        desiredStateDigest: this.journal.evidenceDigest("staging-desired", { requestDigest, kind })
+        desiredStateDigest: await this.journal.evidenceDigest("staging-desired", { requestDigest, kind })
       };
       const result3 = await runOperationStaging(stage, {
         readCurrent: (callback) => adapter.readCurrent(callback),
@@ -29503,7 +30673,7 @@ var OperationService = class {
     if (unsettled.length > 1) {
       throw new OperationServiceError("operation_state_corrupt", "Operation contains duplicate unsettled staging actions.");
     }
-    return unsettled[0]?.actionId ?? randomUUID4();
+    return unsettled[0]?.actionId ?? randomUUID5();
   }
   async persistStagingIntent(identity) {
     const current = await this.journal.load(identity.operationId, identity.requestDigest);
@@ -29658,7 +30828,7 @@ var OperationService = class {
       } catch {
         return { status: "uncertain" };
       }
-      if (current.state.surface !== request.surface || current.state.target === void 0 || this.targetBindingDigest(current.state) !== request.targetBindingDigest) {
+      if (current.state.surface !== request.surface || current.state.target === void 0 || await this.targetBindingDigest(current.state) !== request.targetBindingDigest) {
         return { status: "not_committed", blockerCode: "target_binding_mismatch" };
       }
       const baseline = {
@@ -29783,7 +30953,7 @@ var OperationService = class {
     } catch {
       throw new OperationServiceError("operation_state_corrupt", "Work-steer persistence baseline is invalid.");
     }
-    const expectedPreparedDigest = this.journal.evidenceDigest("work-steer-prepared", material);
+    const expectedPreparedDigest = await this.journal.evidenceDigest("work-steer-prepared", material);
     if (expectedPreparedDigest !== request.preparedDigest) {
       throw new OperationServiceError("operation_request_mismatch", "Work-steer prepared evidence does not match the journal identity.");
     }
@@ -29804,7 +30974,7 @@ var OperationService = class {
       } catch (error) {
         throw this.serviceError(error, "journal_unavailable");
       }
-      if (current.state.target === void 0 || current.state.surface !== "work" || this.targetBindingDigest(current.state) !== request.parentTargetBindingDigest) {
+      if (current.state.target === void 0 || current.state.surface !== "work" || await this.targetBindingDigest(current.state) !== request.parentTargetBindingDigest) {
         throw new OperationServiceError("target_binding_mismatch", "Work-steer target or surface does not match durable state.");
       }
       const existing = current.state.actions[request.controlActionId];
@@ -29824,7 +30994,7 @@ var OperationService = class {
         })) {
           throw new OperationServiceError("operation_state_corrupt", "Durable Work-steer baseline does not match the prepared request.");
         }
-        const durablePrepared = this.reconstructSteerIntent(
+        const durablePrepared = await this.reconstructSteerIntent(
           current.state,
           request.controlActionId,
           request.parentRequestDigest,
@@ -29941,39 +31111,39 @@ var OperationService = class {
       return;
     }
     if (request.kind === "receipt") {
-      let loaded = await this.journal.load(request.operationId, request.requestDigest);
-      const send = originalSendAction(loaded.state);
+      let loaded2 = await this.journal.load(request.operationId, request.requestDigest);
+      const send = originalSendAction(loaded2.state);
       if (send === void 0) throw new OperationServiceError("operation_state_inconsistent", "Receipt evidence has no durable submission intent.");
-      if (loaded.state.submissionWitness !== void 0) {
-        if (loaded.state.ownershipBaseline === void 0 || !submissionWitnessMatchesReceipt(
-          loaded.state.submissionWitness,
+      if (loaded2.state.submissionWitness !== void 0) {
+        if (loaded2.state.ownershipBaseline === void 0 || !submissionWitnessMatchesReceipt(
+          loaded2.state.submissionWitness,
           request,
           send.actionId,
-          loaded.state.ownershipBaseline.baseline.snapshotDigest
+          loaded2.state.ownershipBaseline.baseline.snapshotDigest
         )) {
           throw new OperationServiceError("submission_witness_conflict", "Receipt evidence conflicts with the durable submission witness.");
         }
       } else {
-        if (loaded.state.ownershipBaseline === void 0) {
+        if (loaded2.state.ownershipBaseline === void 0) {
           throw new OperationServiceError("ownership_baseline_missing", "Receipt evidence requires the durable pre-Send ownership baseline.");
         }
         const witness = this.submissionWitnessFromReceipt(
           request,
           send.actionId,
-          loaded.state.ownershipBaseline.baseline.snapshotDigest,
-          loaded.state.updatedAt
+          loaded2.state.ownershipBaseline.baseline.snapshotDigest,
+          loaded2.state.updatedAt
         );
-        loaded = await this.appendSubmissionWitnessConvergent(
+        loaded2 = await this.appendSubmissionWitnessConvergent(
           request.operationId,
           request.requestDigest,
           witness
         );
       }
-      if (loaded.state.phase === "ready") {
+      if (loaded2.state.phase === "ready") {
         if (send.outcome === void 0) {
-          loaded = await this.appendPhaseConvergent(request.operationId, request.requestDigest, "send_pending", send.actionId);
+          loaded2 = await this.appendPhaseConvergent(request.operationId, request.requestDigest, "send_pending", send.actionId);
         } else {
-          loaded = await this.appendPhaseConvergent(
+          loaded2 = await this.appendPhaseConvergent(
             request.operationId,
             request.requestDigest,
             "uncertain",
@@ -29989,7 +31159,7 @@ var OperationService = class {
       return;
     }
     const state = await this.journal.load(request.operationId, request.requestDigest);
-    const messageDigest = this.journal.evidenceDigest("blocker", {
+    const messageDigest = await this.journal.evidenceDigest("blocker", {
       code: request.blocker.code,
       evidenceDigest: request.blocker.evidenceDigest
     });
@@ -30189,32 +31359,32 @@ var OperationService = class {
       type: "ownership_baseline",
       baseline
     };
-    const loaded = await this.appendConvergent(
+    const loaded2 = await this.appendConvergent(
       request.operationId,
       request.requestDigest,
       event,
       (state) => state.ownershipBaseline !== void 0 && canonicalJson(state.ownershipBaseline) === canonicalJson(baseline)
     );
-    if (loaded.state.ownershipBaseline === void 0 || canonicalJson(loaded.state.ownershipBaseline) !== canonicalJson(baseline)) {
+    if (loaded2.state.ownershipBaseline === void 0 || canonicalJson(loaded2.state.ownershipBaseline) !== canonicalJson(baseline)) {
       throw new OperationServiceError("ownership_baseline_indeterminate", "The pre-Send ownership baseline was not durably validated after persistence.");
     }
   }
   async appendPhaseConvergent(operationId2, requestDigest, phase, causeActionId, evidenceDigest) {
     for (let attempt = 0; attempt < this.maxCasRetries; attempt += 1) {
-      const loaded = await this.journal.load(operationId2, requestDigest);
-      if (phaseReached(loaded.state.phase, phase)) return loaded;
-      if (loaded.state.phase === "completed") return loaded;
+      const loaded2 = await this.journal.load(operationId2, requestDigest);
+      if (phaseReached(loaded2.state.phase, phase)) return loaded2;
+      if (loaded2.state.phase === "completed") return loaded2;
       const event = {
         type: "phase_changed",
-        from: loaded.state.phase,
+        from: loaded2.state.phase,
         to: phase,
-        mutationBoundary: loaded.state.mutationBoundary,
+        mutationBoundary: loaded2.state.mutationBoundary,
         ...causeActionId === void 0 ? {} : { causeActionId },
         ...evidenceDigest === void 0 ? {} : { evidenceDigest },
-        observedAt: this.timestamp(loaded.state.updatedAt)
+        observedAt: this.timestamp(loaded2.state.updatedAt)
       };
       try {
-        return await this.journal.append(operationId2, loaded.state.revision, event);
+        return await this.journal.append(operationId2, loaded2.state.revision, event);
       } catch (error) {
         if (await this.eventEffectExists(operationId2, requestDigest, (state) => phaseReached(state.phase, phase))) {
           return await this.journal.load(operationId2, requestDigest);
@@ -30227,10 +31397,10 @@ var OperationService = class {
   }
   async appendConvergent(operationId2, requestDigest, event, effect) {
     for (let attempt = 0; attempt < this.maxCasRetries; attempt += 1) {
-      const loaded = await this.journal.load(operationId2, requestDigest);
-      if (effect(loaded.state)) return loaded;
+      const loaded2 = await this.journal.load(operationId2, requestDigest);
+      if (effect(loaded2.state)) return loaded2;
       try {
-        return await this.journal.append(operationId2, loaded.state.revision, event);
+        return await this.journal.append(operationId2, loaded2.state.revision, event);
       } catch (error) {
         try {
           const observed = await this.journal.load(operationId2, requestDigest);
@@ -30244,8 +31414,8 @@ var OperationService = class {
     throw new OperationServiceError("journal_conflict", "Concurrent operation writers did not converge within the retry bound.");
   }
   async eventEffectExists(operationId2, requestDigest, effect) {
-    const loaded = await this.journal.load(operationId2, requestDigest);
-    return effect(loaded.state);
+    const loaded2 = await this.journal.load(operationId2, requestDigest);
+    return effect(loaded2.state);
   }
   async persistProgress(request) {
     assertOperationStateShape(request.durable.state);
@@ -30405,7 +31575,7 @@ var OperationService = class {
     const requestDigest = current.state.requestDigest;
     const targetBindingDigest = observed.targetBindingDigest;
     const existing = findArtifactTransfer(current.state, observed.assistantTurnId, artifact);
-    const transferActionId = this.artifactTransferActionId(
+    const transferActionId = await this.artifactTransferActionId(
       operationId2,
       requestDigest,
       observed.assistantTurnId,
@@ -30470,7 +31640,7 @@ var OperationService = class {
         artifactAdapter === void 0 || result3 === void 0 ? "artifact_transfer_unavailable" : "artifact_transfer_protocol_violation"
       );
     }
-    const fallbackIntent = this.makeUnavailableArtifactTransferIntent(
+    const fallbackIntent = await this.makeUnavailableArtifactTransferIntent(
       current,
       observed.assistantTurnId,
       artifact,
@@ -30503,8 +31673,8 @@ var OperationService = class {
       };
     }
   }
-  artifactTransferActionId(operationId2, requestDigest, assistantTurnId, artifact) {
-    const evidence = this.journal.evidenceDigest("artifact-transfer-action", {
+  async artifactTransferActionId(operationId2, requestDigest, assistantTurnId, artifact) {
+    const evidence = await this.journal.evidenceDigest("artifact-transfer-action", {
       operationId: operationId2,
       requestDigest,
       assistantTurnId,
@@ -30515,12 +31685,12 @@ var OperationService = class {
     const hex = evidence.slice("hmac-sha256:".length);
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
   }
-  makeUnavailableArtifactTransferIntent(current, assistantTurnId, artifact, transferActionId) {
-    const destinationIdentityDigest = this.journal.evidenceDigest("artifact-destination", {
+  async makeUnavailableArtifactTransferIntent(current, assistantTurnId, artifact, transferActionId) {
+    const destinationIdentityDigest = await this.journal.evidenceDigest("artifact-destination", {
       schemaVersion: OPERATION_ARTIFACT_TRANSFER_INTENT_SCHEMA_VERSION,
       operationId: current.state.operationId,
       requestDigest: current.state.requestDigest,
-      targetBindingDigest: this.targetBindingDigest(current.state),
+      targetBindingDigest: await this.targetBindingDigest(current.state),
       assistantTurnId,
       sourceIdentityDigest: artifact.sourceIdentityDigest,
       kind: artifact.kind,
@@ -30532,7 +31702,7 @@ var OperationService = class {
       schemaVersion: OPERATION_ARTIFACT_TRANSFER_INTENT_SCHEMA_VERSION,
       operationId: current.state.operationId,
       requestDigest: current.state.requestDigest,
-      targetBindingDigest: this.targetBindingDigest(current.state),
+      targetBindingDigest: await this.targetBindingDigest(current.state),
       assistantTurnId,
       sourceIdentityDigest: artifact.sourceIdentityDigest,
       kind: artifact.kind,
@@ -30600,7 +31770,7 @@ var OperationService = class {
   }
   async readArtifactTransferState(lookup) {
     const current = await this.journal.load(lookup.operationId, lookup.requestDigest);
-    if (current.state.target === void 0 || this.targetBindingDigest(current.state) !== lookup.targetBindingDigest) {
+    if (current.state.target === void 0 || await this.targetBindingDigest(current.state) !== lookup.targetBindingDigest) {
       throw new OperationServiceError("operation_request_mismatch", "Artifact transfer target identity does not match durable state.");
     }
     const transfer = current.state.artifactTransfers?.[lookup.transferActionId];
@@ -30702,7 +31872,7 @@ var OperationService = class {
    * assistant branch identity is derived from that baseline and the caller's
    * exact control request, then the keyed prepared digest is recomputed.
    */
-  reconstructSteerIntent(state, controlActionId, parentRequestDigest, parentTargetBindingDigest, requestDigest, expectedAssistantTurnId) {
+  async reconstructSteerIntent(state, controlActionId, parentRequestDigest, parentTargetBindingDigest, requestDigest, expectedAssistantTurnId) {
     const action = state.actions[controlActionId];
     if (action === void 0 || action.kind !== "work_steer" || action.requestDigest !== requestDigest || action.targetDigest !== parentTargetBindingDigest) {
       throw new OperationServiceError("operation_state_corrupt", "Durable Work-steer action identity is invalid.");
@@ -30737,7 +31907,7 @@ var OperationService = class {
     } catch {
       throw new OperationServiceError("operation_state_corrupt", "Durable Work-steer prepared material is invalid.");
     }
-    const preparedDigest = this.journal.evidenceDigest("work-steer-prepared", material);
+    const preparedDigest = await this.journal.evidenceDigest("work-steer-prepared", material);
     return Object.freeze({
       schemaVersion: CONTROL_COORDINATOR_SCHEMA_VERSION,
       parentOperationId: state.operationId,
@@ -30755,44 +31925,44 @@ var OperationService = class {
     });
   }
   async readControlParent(request) {
-    const loaded = await this.journal.load(request.operationId, request.parentRequestDigest);
-    const handle = this.journal.handleFromState(loaded.state);
-    this.journal.validateHandle({
-      ...handle,
+    const loaded2 = await this.journal.load(request.operationId, request.parentRequestDigest);
+    const handle2 = await this.journal.handleFromState(loaded2.state);
+    await this.journal.validateHandle({
+      ...handle2,
       schemaVersion: OPERATION_HANDLE_SCHEMA_VERSION,
       operationId: request.operationId,
       requestDigest: request.parentRequestDigest,
-      surface: loaded.state.surface,
-      revision: loaded.state.revision,
-      phase: loaded.state.phase,
-      mutationBoundary: loaded.state.mutationBoundary,
+      surface: loaded2.state.surface,
+      revision: loaded2.state.revision,
+      phase: loaded2.state.phase,
+      mutationBoundary: loaded2.state.mutationBoundary,
       ...request.parentTargetBindingDigest === void 0 ? {} : { targetBindingDigest: request.parentTargetBindingDigest }
-    }, loaded.state);
-    if (loaded.state.target?.targetLifecycle === "new_pending") {
+    }, loaded2.state);
+    if (loaded2.state.target?.targetLifecycle === "new_pending") {
       throw new OperationServiceError("target_establishment_required", "Control requires durable provider identity establishment for a new target.");
     }
-    if (request.action === "steer" && loaded.state.surface !== "work") {
+    if (request.action === "steer" && loaded2.state.surface !== "work") {
       throw new OperationServiceError("operation_request_mismatch", "Work steer requires a durable Work operation.");
     }
     if (request.action === "steer") {
-      for (const prior of Object.values(loaded.state.actions)) {
+      for (const prior of Object.values(loaded2.state.actions)) {
         if (prior.kind === "work_steer" && (prior.outcome === "satisfied" || prior.outcome === "not_satisfied")) {
-          priorWorkSteerDisposition(loaded.state, prior);
+          priorWorkSteerDisposition(loaded2.state, prior);
         }
       }
     }
-    const action = loaded.state.actions[request.controlActionId];
+    const action = loaded2.state.actions[request.controlActionId];
     if (action !== void 0 && (action.kind !== (request.action === "steer" ? "work_steer" : "stop") || action.requestDigest !== request.requestDigest || action.targetDigest !== request.parentTargetBindingDigest)) {
       throw new OperationServiceError("operation_request_mismatch", "Control action identity conflicts with durable state.");
     }
     let existingSteerIntent;
     if (request.action === "steer" && action !== void 0) {
-      const witness = submissionWitnessForAction(loaded.state, action);
+      const witness = submissionWitnessForAction(loaded2.state, action);
       if (action.outcome === "satisfied" && witness === void 0) {
         throw new OperationServiceError("operation_state_corrupt", "Satisfied Work-steer action is missing its durable submission witness.");
       }
-      existingSteerIntent = this.reconstructSteerIntent(
-        loaded.state,
+      existingSteerIntent = await this.reconstructSteerIntent(
+        loaded2.state,
         action.actionId,
         request.parentRequestDigest,
         request.parentTargetBindingDigest,
@@ -30800,7 +31970,7 @@ var OperationService = class {
         request.expectedAssistantTurnId
       );
       if (witness !== void 0) {
-        const baseline = loaded.state.ownershipBaselines?.[action.actionId];
+        const baseline = loaded2.state.ownershipBaselines?.[action.actionId];
         if (baseline === void 0 || witness.actionKind !== "work_steer" || witness.targetBindingDigest !== request.parentTargetBindingDigest || witness.baselineSnapshotDigest !== baseline.baseline.snapshotDigest) {
           throw new OperationServiceError("operation_state_corrupt", "Durable Work-steer witness does not match its prepared baseline.");
         }
@@ -30808,8 +31978,8 @@ var OperationService = class {
     }
     const existingReceipt = action?.outcome === void 0 || action === void 0 ? void 0 : controlReceiptFromAction(request, action, action.receiptAt);
     return {
-      state: loaded.state,
-      handle,
+      state: loaded2.state,
+      handle: handle2,
       ...existingReceipt === void 0 ? {} : { existingReceipt },
       ...existingSteerIntent === void 0 ? {} : { existingSteerIntent }
     };
@@ -30846,7 +32016,7 @@ var OperationService = class {
         if (request.steerReceipt === void 0) {
           throw new OperationServiceError("submission_witness_missing", "A satisfied Work-steer receipt requires its rich causal witness.");
         }
-        const prepared = this.reconstructSteerIntent(
+        const prepared = await this.reconstructSteerIntent(
           current.state,
           action.actionId,
           receipt.parentRequestDigest,
@@ -30889,23 +32059,23 @@ var OperationService = class {
       throw new OperationServiceError("journal_unavailable", "Control receipt was not durably validated.");
     }
   }
-  async loadForHandle(handle) {
-    if (!handle || handle.schemaVersion !== OPERATION_HANDLE_SCHEMA_VERSION) {
+  async loadForHandle(handle2) {
+    if (!handle2 || handle2.schemaVersion !== OPERATION_HANDLE_SCHEMA_VERSION) {
       throw new OperationServiceError("invalid_operation_handle", "Operation handle schema is unsupported.");
     }
-    let loaded;
+    let loaded2;
     try {
-      loaded = await this.journal.load(handle.operationId, handle.requestDigest);
-      this.journal.validateHandle(handle, loaded.state);
+      loaded2 = await this.journal.load(handle2.operationId, handle2.requestDigest);
+      await this.journal.validateHandle(handle2, loaded2.state);
     } catch (error) {
       throw this.serviceError(error, "invalid_operation_handle");
     }
-    return loaded;
+    return loaded2;
   }
-  targetBindingDigest(state) {
-    const digest4 = this.journal.handleFromState(state).targetBindingDigest;
-    if (digest4 === void 0) throw new OperationServiceError("target_binding_missing", "Operation has no durable target binding.");
-    return digest4;
+  async targetBindingDigest(state) {
+    const digest5 = (await this.journal.handleFromState(state)).targetBindingDigest;
+    if (digest5 === void 0) throw new OperationServiceError("target_binding_missing", "Operation has no durable target binding.");
+    return digest5;
   }
   timestamp(notBefore) {
     const value = this.now();
@@ -31117,7 +32287,7 @@ function validateTargetEstablishmentRequest(value) {
   if (!UUID_PATTERN6.test(normalized.operationId) || !UUID_PATTERN6.test(normalized.causalSendActionId)) {
     throw new OperationServiceError("invalid_target_establishment", "Target establishment operation/action identity is invalid.");
   }
-  for (const [label, digest4] of [
+  for (const [label, digest5] of [
     ["requestDigest", normalized.requestDigest],
     ["targetBindingDigest", normalized.targetBindingDigest],
     ["anchorDigest", normalized.anchorDigest],
@@ -31125,7 +32295,7 @@ function validateTargetEstablishmentRequest(value) {
     ["postSendDeltaDigest", normalized.postSendDeltaDigest],
     ["evidenceDigest", normalized.evidenceDigest]
   ]) {
-    if (typeof digest4 !== "string" || !DIGEST_PATTERN8.test(digest4)) {
+    if (typeof digest5 !== "string" || !DIGEST_PATTERN8.test(digest5)) {
       throw new OperationServiceError("invalid_target_establishment", `${label} is invalid.`);
     }
   }
@@ -31218,7 +32388,7 @@ var NON_RECOVERABLE_TARGET_BLOCKERS = /* @__PURE__ */ new Set([
   "runtime_incompatible",
   "port_protocol_violation"
 ]);
-function submissionFromTargetResolutionFailure(state, handle, error, signal) {
+function submissionFromTargetResolutionFailure(state, handle2, error, signal) {
   const code = targetResolutionBlockerCode(error, signal);
   const observationRequired = state.mutationBoundary !== "none" || !NON_RECOVERABLE_TARGET_BLOCKERS.has(code);
   const blocker3 = {
@@ -31230,7 +32400,7 @@ function submissionFromTargetResolutionFailure(state, handle, error, signal) {
     operationId: state.operationId,
     requestDigest: state.requestDigest,
     surface: state.surface,
-    ...handle.targetBindingDigest === void 0 ? {} : { targetBindingDigest: handle.targetBindingDigest }
+    ...handle2.targetBindingDigest === void 0 ? {} : { targetBindingDigest: handle2.targetBindingDigest }
   };
   if (code === "operation_cancelled" || code === "operation_timeout") {
     return {
@@ -31274,7 +32444,7 @@ function safeOwnErrorCode(error) {
   const descriptor = Object.getOwnPropertyDescriptor(error, "code");
   return descriptor !== void 0 && "value" in descriptor && typeof descriptor.value === "string" ? descriptor.value : void 0;
 }
-function completedFromState(handle, state) {
+function completedFromState(handle2, state) {
   const receipt = state.receipt;
   if (receipt === void 0) throw new OperationServiceError("operation_state_corrupt", "Completed operation has no receipt.");
   return {
@@ -31378,11 +32548,11 @@ function stagingKinds(request) {
   const kinds = [];
   const configuration = request.configuration;
   if (configuration !== void 0) {
-    if (configuration.experience !== void 0 || configuration.model !== void 0 || configuration.modelVersion !== void 0 || configuration.mode !== void 0 || configuration.additional !== void 0) {
+    if (configurationHasMenuValues(configuration, request.surface)) {
       kinds.push("configuration_set");
     }
     if (configuration.tools !== void 0) kinds.push("tool_set");
-    if (configuration.reasoning !== void 0) kinds.push("power_select");
+    if (configurationPowerValues(configuration, request.surface).length > 0) kinds.push("power_select");
   }
   kinds.push("composer_set");
   return kinds;
@@ -31761,6 +32931,164 @@ function createRuntimeEnvSession(options) {
 
 // src/operations/production-configuration.ts
 import { createHash as createHash5 } from "node:crypto";
+
+// src/operations/transactional-chat-power.ts
+async function readTransactionalChatPower(page) {
+  const popover = (await readChatPopover(page)).snapshot;
+  if (page.evaluate === void 0) return void 0;
+  const expandedTriggerLabels = ["Thinking effort"];
+  const trigger = await page.evaluate((config) => {
+    const normalize = (value) => value.replace(/\s+/g, " ").trim();
+    const visible = (element) => {
+      let current = element;
+      for (let depth = 0; current !== null && depth < 64; depth += 1) {
+        if (current.nodeType !== 1) return true;
+        const node = current;
+        if (node.hidden || node.hasAttribute("hidden") || node.hasAttribute("inert") || node.getAttribute("aria-hidden") === "true" || node.getAttribute("aria-disabled") === "true" || node.getAttribute("data-active") === "false") return false;
+        const style = window.getComputedStyle(node);
+        if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || style.pointerEvents === "none") return false;
+        if (current === element) {
+          const rect = node.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) return false;
+        }
+        current = current.parentNode;
+      }
+      return current === null;
+    };
+    const forms = document.querySelectorAll("main form");
+    if (forms.length > 8) return void 0;
+    const candidates = [];
+    let visited = 0;
+    for (const form of Array.from(forms)) {
+      if (!visible(form)) continue;
+      const nodes = [];
+      let node = form.firstChild;
+      while (node !== null) {
+        if (++visited > 4096) return void 0;
+        if (node.nodeType === 1) nodes.push(node);
+        if (node.firstChild !== null) {
+          node = node.firstChild;
+          continue;
+        }
+        while (node !== null && node !== form && node.nextSibling === null) node = node.parentNode;
+        if (node === form || node === null) break;
+        node = node.nextSibling;
+      }
+      const editors = nodes.filter((node2) => (node2.tagName === "TEXTAREA" || node2.getAttribute("contenteditable") === "true" || node2.getAttribute("role") === "textbox") && visible(node2));
+      if (editors.length !== 1) continue;
+      const editor = editors[0];
+      const editorLabel = normalize(editor.getAttribute("aria-label") ?? editor.getAttribute("placeholder") ?? "").toLocaleLowerCase();
+      if (!config.chatLabels.some((label) => normalize(label).toLocaleLowerCase() === editorLabel) || config.workLabels.some((label) => normalize(label).toLocaleLowerCase() === editorLabel)) continue;
+      for (const button of nodes) {
+        if (button.tagName !== "BUTTON" || !visible(button) || button.disabled || button.getAttribute("aria-haspopup") !== "menu" || !(button.getAttribute("class") ?? "").split(/\s+/).includes("__composer-pill")) continue;
+        const expanded = button.getAttribute("aria-expanded");
+        const id2 = button.getAttribute("id");
+        if (expanded !== "true" && expanded !== "false" || id2 === null || id2.length === 0 || id2.length > 240 || /\s/.test(id2)) continue;
+        let raw = "";
+        let child = button.firstChild;
+        while (child !== null) {
+          if (++visited > 4096) return void 0;
+          const hidden = child.nodeType === 1 && !visible(child);
+          if (child.nodeType === 3) {
+            raw += child.nodeValue ?? "";
+            if (raw.length > 240) return void 0;
+          }
+          if (!hidden && child.firstChild !== null) {
+            child = child.firstChild;
+            continue;
+          }
+          while (child !== null && child !== button && child.nextSibling === null) child = child.parentNode;
+          if (child === button || child === null) break;
+          child = child.nextSibling;
+        }
+        const text = normalize(raw);
+        const labels = [...config.effortLabels, ...expanded === "true" ? config.expandedTriggerLabels : []].filter((label) => text.toLocaleLowerCase().endsWith(label.toLocaleLowerCase())).sort((left, right) => right.length - left.length);
+        const currentLabel = labels[0];
+        if (currentLabel === void 0) continue;
+        const prefix = normalize(text.slice(0, text.length - currentLabel.length));
+        if (prefix.length > 0 && !/^(?:latest|(?:gpt[\s-]?)?\d+(?:\.\d+)?(?:[ .-][a-z]+)?)$/i.test(prefix)) continue;
+        candidates.push({ triggerId: id2, currentLabel: text.slice(text.length - currentLabel.length), modelMarker: prefix, expanded: expanded === "true" });
+      }
+    }
+    return candidates.length === 1 ? candidates[0] : void 0;
+  }, {
+    chatLabels: localeLabels.composerTextbox,
+    workLabels: localeLabels.workComposerTextbox,
+    effortLabels: Array.from(/* @__PURE__ */ new Set([...Object.values(localeLabels.configurationOptions).flat(), ...Object.entries(localeLabels.modeOptions).filter(([key]) => key !== "latest").flatMap(([, labels]) => labels)])),
+    expandedTriggerLabels
+  }).catch(() => void 0);
+  if (trigger === void 0 || trigger === null || typeof trigger.currentLabel !== "string") return void 0;
+  if (!trigger.expanded) {
+    if (popover !== void 0) return void 0;
+    return { presentation: "closed", triggerId: trigger.triggerId, currentLabel: trigger.currentLabel, modelMarker: trigger.modelMarker };
+  }
+  if (popover?.view !== "simple" || popover.slider === void 0 || popover.effort === void 0 || popover.triggerId !== trigger.triggerId || popover.effort !== trigger.currentLabel && !expandedTriggerLabels.includes(trigger.currentLabel)) return void 0;
+  return { presentation: "simple", triggerId: trigger.triggerId, currentLabel: popover.effort, modelMarker: trigger.modelMarker, popover };
+}
+function idSelector(id2) {
+  return `[id="${id2.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"]`;
+}
+function transactionalPowerTrigger(page, snapshot2) {
+  return page.locator?.(idSelector(snapshot2.triggerId));
+}
+async function preflightTransactionalPowerTrigger(locator, snapshot2) {
+  if (locator.evaluate === void 0 || await locator.count?.() !== 1) return false;
+  const state = await locator.evaluate((element) => {
+    let current = element;
+    let form = false, main = false;
+    for (let depth = 0; current !== null && depth < 64; depth += 1) {
+      if (current.nodeType !== 1) break;
+      const node = current;
+      if (node.hidden || node.hasAttribute("hidden") || node.hasAttribute("inert") || node.getAttribute("aria-hidden") === "true" || node.getAttribute("aria-disabled") === "true" || node.getAttribute("data-active") === "false") return void 0;
+      const style = window.getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || style.pointerEvents === "none") return void 0;
+      if (node.tagName === "FORM") form = true;
+      if (node.tagName === "MAIN" && form) main = true;
+      current = current.parentNode;
+    }
+    const rect = element.getBoundingClientRect();
+    if (current?.nodeType === 1 || !form || !main || rect.width <= 0 || rect.height <= 0 || element.tagName !== "BUTTON" || element.disabled || element.hasAttribute("disabled") || !(element.getAttribute("class") ?? "").split(/\s+/).includes("__composer-pill")) return void 0;
+    return { id: element.getAttribute("id"), expanded: element.getAttribute("aria-expanded"), popup: element.getAttribute("aria-haspopup") };
+  }).catch(() => void 0);
+  return state !== void 0 && state.id === snapshot2.triggerId && state.expanded === "false" && state.popup === "menu";
+}
+function transactionalPowerMenu(page, snapshot2) {
+  return page.locator?.(`[role="menu"][aria-labelledby="${snapshot2.triggerId.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"]`);
+}
+function transactionalPowerSlider(page, snapshot2) {
+  const popover = snapshot2.popover;
+  if (popover?.slider === void 0) return void 0;
+  const roots = page.locator?.('[data-testid="composer-intelligence-picker-content"]');
+  const root = roots?.nth?.(popover.rootIndex) ?? (popover.rootIndex === 0 ? roots : void 0);
+  const sliders = root?.locator?.('[data-testid="composer-model-picker-slider-simple-view"][data-active="true"] [role="slider"]');
+  return sliders?.nth?.(popover.slider.index) ?? (popover.slider.index === 0 ? sliders : void 0);
+}
+async function preflightTransactionalPowerSlider(locator, snapshot2) {
+  if (locator.evaluate === void 0 || await locator.count?.() !== 1 || snapshot2.popover?.slider === void 0) return false;
+  const state = await locator.evaluate((element) => {
+    let current = element;
+    let owner = false, panel = false, view = false;
+    let triggerId = null;
+    for (let depth = 0; current !== null && depth < 64; depth += 1) {
+      if (current.nodeType !== 1) break;
+      const node = current;
+      if (node.hidden || node.hasAttribute("hidden") || node.hasAttribute("inert") || node.getAttribute("data-active") === "false" || node.getAttribute("aria-disabled") === "true" || node.getAttribute("data-locked") === "true" || current !== element && node.getAttribute("aria-hidden") === "true") return void 0;
+      const style = window.getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || style.pointerEvents === "none") return void 0;
+      if (node.getAttribute("data-testid") === "composer-intelligence-picker-content") owner = true;
+      if (node.getAttribute("data-testid") === "composer-model-picker-slider-simple-view" && node.getAttribute("data-active") === "true") panel = true;
+      if (node.getAttribute("data-view") === "simple" && node.getAttribute("data-has-slider") === "true" && node.getAttribute("data-has-advanced-view") === "true" && node.getAttribute("data-model-selection-view") === "true") view = true;
+      if (node.getAttribute("role") === "menu" && node.getAttribute("data-state") === "open") triggerId = node.getAttribute("aria-labelledby");
+      current = current.parentNode;
+    }
+    const rect = element.getBoundingClientRect();
+    if (current?.nodeType === 1 || !owner || !panel || !view || rect.width <= 0 || rect.height <= 0 || element.getAttribute("role") !== "slider") return void 0;
+    return { triggerId, minimum: element.getAttribute("aria-valuemin"), maximum: element.getAttribute("aria-valuemax"), current: element.getAttribute("aria-valuenow") };
+  }).catch(() => void 0);
+  return state !== void 0 && state.triggerId === snapshot2.triggerId && state.minimum === String(snapshot2.popover.slider.minimum) && state.maximum === String(snapshot2.popover.slider.maximum) && state.current === String(snapshot2.popover.slider.current);
+}
+
+// src/operations/production-configuration.ts
 var DIGEST_PATTERN9 = /^hmac-sha256:[0-9a-f]{64}$/u;
 var ID_PATTERN3 = /^[A-Za-z0-9._:-]{1,512}$/u;
 var MAX_CONFIGURATION_FIELDS = 8;
@@ -31768,6 +33096,7 @@ var MAX_DOM_CONTROLS = 256;
 var MAX_CONTROL_LABEL_LENGTH = 512;
 var MAX_CACHED_ACTIONS = 32;
 var MAX_POWER_STEPS = 32;
+var MAX_CURRENT_LABEL_POWER_STEPS = 64;
 var ProductionConfigurationPrimitiveError = class extends Error {
   code;
   constructor(code) {
@@ -31795,7 +33124,8 @@ function createProductionConfigurationStaging(options) {
   }
   const state = {
     observations: /* @__PURE__ */ new Map(),
-    attempted: /* @__PURE__ */ new Set()
+    attempted: /* @__PURE__ */ new Set(),
+    restoredPower: /* @__PURE__ */ new Map()
   };
   const primitive2 = Object.freeze({
     readCurrent: (request) => readCurrent(request, captured, captured.configuration, state),
@@ -31811,7 +33141,7 @@ async function readCurrent(request, options, configuration, state) {
   } catch (error) {
     return unavailableObservation(request, errorCode2(error, "staging_request_mismatch"));
   }
-  if (!matchesOperation(input.callback, options)) {
+  if (!await matchesOperation(input.callback, options)) {
     return unavailableObservation(input.callback, "staging_request_mismatch");
   }
   try {
@@ -31826,10 +33156,11 @@ async function mutateOnce(request, options, configuration, state) {
   let input;
   try {
     input = normalizeRequest(request);
-    if (!matchesOperation(input.callback, options)) {
+    if (!await matchesOperation(input.callback, options)) {
       throw new ProductionConfigurationPrimitiveError("staging_request_mismatch");
     }
     const { callback, key } = input;
+    assertStagingActionActive(callback);
     const previous = state.observations.get(key);
     if (previous === void 0) {
       throw new ProductionConfigurationPrimitiveError("staging_observation_required");
@@ -31854,30 +33185,53 @@ function inputOrKind(request) {
 async function observeMenuSurface(input, options, configuration, state) {
   const { callback, key } = input;
   const kind = callback.kind;
-  const needed = requestedValues(configuration, kind);
+  const needed = requestedValues(configuration, kind, options.surface);
   if (needed === void 0) {
     return rememberAndReturn(state, key, {
       kind,
       status: "unavailable"
     }, unavailableObservation(callback, kind === "tool_set" ? "tool_not_configured" : "configuration_not_configured"));
   }
+  if (kind === "configuration_set" && options.surface === "chat" && needed.length === 1 && needed[0]?.key === "experience" && needed[0].value === "chat") {
+    const chat = await readTransactionalChatPower(callback.page);
+    if (chat !== void 0) {
+      const signature = currentLabelPowerSignature(chat);
+      const current = await keyedStateDigest(options.evidenceDigest, callback, kind, signature);
+      const digest6 = await safeDigest(options.evidenceDigest, "configuration-staging-observation", {
+        operationId: callback.operationId,
+        targetBindingDigest: callback.targetBindingDigest,
+        kind,
+        stateFingerprint: signature,
+        status: "satisfied"
+      });
+      const observation2 = satisfiedObservation(callback, current, digest6);
+      return rememberAndReturn(state, key, { kind, chatExperience: chat, status: observation2.status }, observation2);
+    }
+  }
   const snapshot2 = await discoverMenuSnapshot(callback.page, options.surface);
   const stateResult = evaluateMenuState(snapshot2, kind, needed, options.surface);
-  const currentStateDigest = stateResult.currentStateDigest === void 0 ? void 0 : keyedStateDigest(options.evidenceDigest, callback, kind, stateResult.currentStateDigest);
-  const digest4 = observationDigest(options.evidenceDigest, callback, snapshot2, stateResult.status);
-  const observation = stateResult.status === "satisfied" ? satisfiedObservation(callback, currentStateDigest, digest4) : stateResult.status === "not_satisfied" ? notSatisfiedObservation(callback, currentStateDigest, digest4) : unavailableObservation(callback, stateResult.blockerCode, currentStateDigest, digest4);
+  const currentStateDigest = stateResult.currentStateDigest === void 0 ? void 0 : await keyedStateDigest(options.evidenceDigest, callback, kind, stateResult.currentStateDigest);
+  const digest5 = await observationDigest(options.evidenceDigest, callback, snapshot2, stateResult.status);
+  const observation = stateResult.status === "satisfied" ? satisfiedObservation(callback, currentStateDigest, digest5) : stateResult.status === "not_satisfied" ? notSatisfiedObservation(callback, currentStateDigest, digest5) : unavailableObservation(callback, stateResult.blockerCode, currentStateDigest, digest5);
   const afterAttempt = state.attempted.has(key);
-  const final = afterAttempt && observation.status !== "satisfied" ? uncertainObservation(callback, "staging_mutation_unreconciled", currentStateDigest, digest4) : observation;
+  const final = afterAttempt && observation.status !== "satisfied" ? uncertainObservation(callback, "staging_mutation_unreconciled", currentStateDigest, digest5) : observation;
   return rememberAndReturn(state, key, { kind, snapshot: snapshot2, status: final.status }, final);
 }
 async function observePower(input, options, configuration, state) {
   const { callback, key } = input;
-  const requested = requestedValues(configuration, callback.kind);
+  const requested = requestedValues(configuration, callback.kind, options.surface);
   if (requested === void 0 || requested.length !== 1) {
     return rememberAndReturn(state, key, {
       kind: callback.kind,
       status: "unavailable"
     }, unavailableObservation(callback, "power_not_configured"));
+  }
+  if (options.surface === "chat") {
+    const chatPower = await readTransactionalChatPower(callback.page);
+    if (chatPower !== void 0) return observeCurrentLabelPower(input, options, requested[0].value, state, chatPower);
+    if (state.observations.get(key)?.chatPower !== void 0) {
+      return uncertainObservation(callback, "power_restoration_required");
+    }
   }
   const discovery = await discoverPowerSlider(callback.page, {
     powerLabels: localeLabels.configurationAxes.power,
@@ -31910,8 +33264,8 @@ async function observePower(input, options, configuration, state) {
       status: "unavailable"
     }, unavailableObservation(callback, "power_mapping_incomplete"));
   }
-  const currentDigest = keyedStateDigest(options.evidenceDigest, callback, "power", powerSignature(discovery));
-  const evidence = safeDigest(options.evidenceDigest, "configuration-staging-observation", {
+  const currentDigest = await keyedStateDigest(options.evidenceDigest, callback, "power", powerSignature(discovery));
+  const evidence = await safeDigest(options.evidenceDigest, "configuration-staging-observation", {
     operationId: callback.operationId,
     targetBindingDigest: callback.targetBindingDigest,
     kind: callback.kind,
@@ -31930,9 +33284,14 @@ async function observePower(input, options, configuration, state) {
 }
 async function mutateMenuSurface(input, options, configuration, state, previous) {
   const { callback, key } = input;
-  const needed = requestedValues(configuration, callback.kind);
+  const needed = requestedValues(configuration, callback.kind, options.surface);
   if (needed === void 0) {
     throw new ProductionConfigurationPrimitiveError(callback.kind === "tool_set" ? "tool_not_configured" : "configuration_not_configured");
+  }
+  if (previous.chatExperience !== void 0) {
+    if (previous.status !== "satisfied") throw new ProductionConfigurationPrimitiveError("configuration_evidence_failed");
+    if (await readTransactionalChatPower(callback.page) === void 0) throw new ProductionConfigurationPrimitiveError("configuration_state_drift");
+    return { status: "started" };
   }
   const snapshot2 = await discoverMenuSnapshot(callback.page, options.surface);
   const evaluated = evaluateMenuState(snapshot2, callback.kind, needed, options.surface);
@@ -31971,14 +33330,14 @@ async function mutateMenuSurface(input, options, configuration, state, previous)
       throw new ProductionConfigurationPrimitiveError(callback.kind === "tool_set" ? "tool_selection_ambiguous" : "configuration_control_ambiguous");
     }
     if (target.status === "found") {
-      await clickControl(callback.page, target.control);
+      await clickControl(callback, target.control);
       continue;
     }
     const opener = findUniqueOpener(current, callback.kind, options.surface);
     if (opener === void 0) {
       throw new ProductionConfigurationPrimitiveError(callback.kind === "tool_set" ? "tool_option_unavailable" : "configuration_option_unavailable");
     }
-    await clickControl(callback.page, opener);
+    await clickControl(callback, opener);
     const afterOpen = await discoverMenuSnapshot(callback.page, options.surface);
     const targetAfterOpen = findTarget(afterOpen, aliases, callback.kind);
     if (targetAfterOpen.status === "ambiguous") {
@@ -31987,15 +33346,19 @@ async function mutateMenuSurface(input, options, configuration, state, previous)
     if (targetAfterOpen.status !== "found") {
       throw new ProductionConfigurationPrimitiveError(callback.kind === "tool_set" ? "tool_option_unavailable" : "configuration_option_unavailable");
     }
-    await clickControl(callback.page, targetAfterOpen.control);
+    await clickControl(callback, targetAfterOpen.control);
   }
   return { status: "started" };
 }
 async function mutatePower(input, options, configuration, state, previous) {
   const { callback, key } = input;
-  const requested = requestedValues(configuration, callback.kind);
+  const requested = requestedValues(configuration, callback.kind, options.surface);
   if (requested === void 0 || requested.length !== 1) {
     throw new ProductionConfigurationPrimitiveError("power_not_configured");
+  }
+  if (previous.chatPower !== void 0) {
+    if (previous.status !== "satisfied" && previous.status !== "not_satisfied") throw new ProductionConfigurationPrimitiveError("configuration_evidence_failed");
+    return mutateCurrentLabelPower(input, requested[0].value, state, previous.chatPower);
   }
   const discovery = await discoverPowerSlider(callback.page, {
     powerLabels: localeLabels.configurationAxes.power,
@@ -32039,8 +33402,120 @@ async function mutatePower(input, options, configuration, state, previous) {
   trimState(state);
   const direction = target > discovery.range.current ? "ArrowRight" : "ArrowLeft";
   for (let index = 0; index < distance; index += 1) {
+    assertStagingActionActive(callback);
     await slider.press(direction);
   }
+  return { status: "started" };
+}
+function currentLabelPowerSignature(snapshot2) {
+  return opaqueFingerprint(JSON.stringify({
+    trigger: snapshot2.triggerId,
+    model: snapshot2.modelMarker,
+    label: snapshot2.currentLabel,
+    presentation: snapshot2.presentation,
+    range: snapshot2.popover?.slider === void 0 ? void 0 : {
+      minimum: snapshot2.popover.slider.minimum,
+      maximum: snapshot2.popover.slider.maximum,
+      current: snapshot2.popover.slider.current
+    }
+  }));
+}
+function exactPowerLabel(current, requested) {
+  const desired = normalizeForLabelMatch(requested);
+  const actual = normalizeForLabelMatch(current);
+  if (desired === actual) return true;
+  return [...Object.values(localeLabels.configurationOptions), ...Object.values(localeLabels.modeOptions)].some((aliases) => aliases.some((label) => normalizeForLabelMatch(label) === desired) && aliases.some((label) => normalizeForLabelMatch(label) === actual));
+}
+async function observeCurrentLabelPower(input, options, requested, state, snapshot2) {
+  const { callback, key } = input;
+  const satisfied = exactPowerLabel(snapshot2.currentLabel, requested);
+  const signature = currentLabelPowerSignature(snapshot2);
+  const current = await keyedStateDigest(options.evidenceDigest, callback, "power", signature);
+  const evidence = await safeDigest(options.evidenceDigest, "configuration-staging-observation", {
+    operationId: callback.operationId,
+    targetBindingDigest: callback.targetBindingDigest,
+    kind: callback.kind,
+    stateFingerprint: signature,
+    status: satisfied ? "satisfied" : "not_satisfied"
+  });
+  const observation = satisfied ? satisfiedObservation(callback, current, evidence) : state.attempted.has(key) && state.restoredPower.get(key) !== signature ? uncertainObservation(callback, "power_restoration_required", current, evidence) : notSatisfiedObservation(callback, current, evidence);
+  return rememberAndReturn(state, key, { kind: callback.kind, chatPower: snapshot2, status: observation.status }, observation);
+}
+function assertStagingActionActive(callback) {
+  if (callback.signal?.aborted) throw new ProductionConfigurationPrimitiveError("operation_cancelled");
+  if (Date.now() >= callback.deadlineAt) throw new ProductionConfigurationPrimitiveError("operation_timeout");
+}
+async function mutateCurrentLabelPower(input, requested, state, previous) {
+  const { callback, key } = input;
+  assertStagingActionActive(callback);
+  let current = await readTransactionalChatPower(callback.page);
+  if (current === void 0) throw new ProductionConfigurationPrimitiveError("power_surface_unavailable");
+  if (exactPowerLabel(current.currentLabel, requested)) return { status: "started" };
+  if (currentLabelPowerSignature(current) !== currentLabelPowerSignature(previous)) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+  const initial = current;
+  state.attempted.add(key);
+  state.restoredPower.delete(key);
+  trimState(state);
+  if (current.presentation === "closed") {
+    const trigger = transactionalPowerTrigger(callback.page, current);
+    if (trigger?.click === void 0 || !await preflightTransactionalPowerTrigger(trigger, current)) throw new ProductionConfigurationPrimitiveError("power_control_unavailable");
+    assertStagingActionActive(callback);
+    await trigger.click();
+    assertStagingActionActive(callback);
+    current = await readTransactionalChatPower(callback.page);
+    if (current?.presentation !== "simple" || current.triggerId !== initial.triggerId || current.modelMarker !== initial.modelMarker || current.currentLabel !== initial.currentLabel) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+  }
+  const original = current;
+  const range = original.popover?.slider;
+  if (range === void 0 || 2 * (range.maximum - range.minimum) > MAX_CURRENT_LABEL_POWER_STEPS) throw new ProductionConfigurationPrimitiveError("power_mapping_incomplete");
+  const observedLabels = /* @__PURE__ */ new Map([[range.current, original.currentLabel]]);
+  let remainingSteps = 2 * (range.maximum - range.minimum);
+  const read = async () => {
+    const observed = await readTransactionalChatPower(callback.page);
+    if (observed?.presentation !== "simple" || observed.popover?.slider === void 0 || observed.triggerId !== original.triggerId || observed.modelMarker !== original.modelMarker || observed.popover.slider.minimum !== range.minimum || observed.popover.slider.maximum !== range.maximum) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+    const known = observedLabels.get(observed.popover.slider.current);
+    if (known !== void 0 && known !== observed.currentLabel) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+    return observed;
+  };
+  const move = async (target) => {
+    let observed = await read();
+    while (observed.popover.slider.current !== target) {
+      assertStagingActionActive(callback);
+      if (remainingSteps-- <= 0) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+      const slider = transactionalPowerSlider(callback.page, observed);
+      if (slider?.press === void 0 || !await preflightTransactionalPowerSlider(slider, observed)) throw new ProductionConfigurationPrimitiveError("power_control_unavailable");
+      const before = observed.popover.slider.current;
+      const delta = target > before ? 1 : -1;
+      assertStagingActionActive(callback);
+      await slider.press(delta > 0 ? "ArrowRight" : "ArrowLeft");
+      assertStagingActionActive(callback);
+      observed = await read();
+      if (observed.popover.slider.current !== before + delta) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+      observedLabels.set(observed.popover.slider.current, observed.currentLabel);
+    }
+    return observed;
+  };
+  let selected;
+  for (let value = range.minimum; value <= range.maximum; value += 1) {
+    const observed = await move(value);
+    if (exactPowerLabel(observed.currentLabel, requested)) {
+      selected = observed;
+      break;
+    }
+  }
+  let final = selected ?? await move(range.current);
+  if (selected === void 0 && (final.currentLabel !== original.currentLabel || final.popover.slider.current !== range.current)) throw new ProductionConfigurationPrimitiveError("power_restoration_required");
+  if (initial.presentation === "closed") {
+    const menu = transactionalPowerMenu(callback.page, final);
+    if (menu?.press === void 0 || await menu.count?.() !== 1) throw new ProductionConfigurationPrimitiveError("power_control_unavailable");
+    assertStagingActionActive(callback);
+    await menu.press("Escape");
+    assertStagingActionActive(callback);
+    const closed = await readTransactionalChatPower(callback.page);
+    if (closed?.presentation !== "closed" || closed.triggerId !== final.triggerId || closed.modelMarker !== final.modelMarker || closed.currentLabel !== final.currentLabel) throw new ProductionConfigurationPrimitiveError("power_state_drift");
+    final = closed;
+  }
+  if (selected === void 0) state.restoredPower.set(key, currentLabelPowerSignature(final));
   return { status: "started" };
 }
 function buildMenuPlan(snapshot2, kind, needed, surface) {
@@ -32150,14 +33625,16 @@ function axesForDesired(desired, explicitAxes, _kind) {
   if (localeLabels.configurationAxes.speed.some((label) => labelsMatch2(desired, label))) return ["speed"];
   return ["intelligence", "effort", "speed", "model", "modelVersion"];
 }
-function requestedValues(configuration, kind) {
+function requestedValues(configuration, kind, surface) {
   if (configuration === void 0) return void 0;
   if (kind === "tool_set") {
     const tools = configuration.tools;
     return tools === void 0 ? void 0 : tools.map((value) => ({ key: "tool", value, axes: [] }));
   }
   if (kind === "power_select") {
-    return configuration.reasoning === void 0 ? void 0 : [{ key: "reasoning", value: configuration.reasoning, axes: ["power"] }];
+    const values2 = configurationPowerValues(configuration, surface);
+    const value = values2[0];
+    return typeof value !== "string" || values2.some((candidate) => typeof candidate !== "string" || !exactPowerLabel(candidate, value)) ? void 0 : [{ key: "reasoning", value, axes: ["power"] }];
   }
   const values = [];
   if (configuration.experience !== void 0) values.push({ key: "experience", value: configuration.experience, axes: ["surface"] });
@@ -32168,6 +33645,7 @@ function requestedValues(configuration, kind) {
     const additional = configuration.additional;
     for (const [key, value] of Object.entries(additional)) {
       if (!["intelligence", "effort", "speed"].includes(key) || typeof value !== "string") return void 0;
+      if (surface === "chat" && key === "effort") continue;
       values.push({ key, value, axes: [key] });
     }
   }
@@ -32538,11 +34016,12 @@ function normalizeSnapshot2(value) {
     opaqueSignature: opaqueFingerprint(`${surfaceValue}${signature}`)
   };
 }
-async function clickControl(page, control) {
-  const locator = await resolveControlLocator(page, control);
+async function clickControl(callback, control) {
+  const locator = await resolveControlLocator(callback.page, control);
   if (locator === void 0 || locator.click === void 0) {
     throw new ProductionConfigurationPrimitiveError("configuration_control_ambiguous");
   }
+  assertStagingActionActive(callback);
   await locator.click();
 }
 async function resolveControlLocator(page, control) {
@@ -32597,11 +34076,13 @@ function trimState(state) {
     if (first === void 0) break;
     state.observations.delete(first);
     state.attempted.delete(first);
+    state.restoredPower.delete(first);
   }
   while (state.attempted.size > MAX_CACHED_ACTIONS) {
     const first = state.attempted.values().next().value;
     if (first === void 0) break;
     state.attempted.delete(first);
+    state.restoredPower.delete(first);
   }
 }
 function satisfiedObservation(request, currentStateDigest, evidenceDigest) {
@@ -32652,7 +34133,7 @@ function uncertainObservation(request, blockerCode, currentStateDigest, evidence
     ...evidenceDigest === void 0 ? {} : { evidenceDigest }
   };
 }
-function observationDigest(evidenceDigest, request, snapshot2, status) {
+async function observationDigest(evidenceDigest, request, snapshot2, status) {
   const fingerprint = "opaqueSignature" in snapshot2 && typeof snapshot2.opaqueSignature === "string" ? snapshot2.opaqueSignature : opaqueFingerprint(JSON.stringify(snapshot2));
   return safeDigest(evidenceDigest, "configuration-staging-observation", {
     operationId: request.operationId,
@@ -32662,7 +34143,7 @@ function observationDigest(evidenceDigest, request, snapshot2, status) {
     stateFingerprint: fingerprint
   });
 }
-function keyedStateDigest(evidenceDigest, request, kind, fingerprint) {
+async function keyedStateDigest(evidenceDigest, request, kind, fingerprint) {
   return safeDigest(evidenceDigest, "configuration-staging-state", {
     operationId: request.operationId,
     targetBindingDigest: request.targetBindingDigest,
@@ -32688,9 +34169,9 @@ function powerSignature(discovery) {
     evidence.valueText === void 0 ? "" : opaqueFingerprint(evidence.valueText)
   ].join(""));
 }
-function safeDigest(evidenceDigest, domain, material) {
+async function safeDigest(evidenceDigest, domain, material) {
   try {
-    const value = evidenceDigest(domain, material);
+    const value = await evidenceDigest(domain, material);
     return typeof value === "string" && DIGEST_PATTERN9.test(value) ? value : void 0;
   } catch {
     return void 0;
@@ -32734,8 +34215,8 @@ function normalizeRequest(request) {
     key: `${operationId2}${actionId}${kind}`
   };
 }
-function matchesOperation(request, options) {
-  const expected = safeDigest(options.evidenceDigest, "staging-desired", {
+async function matchesOperation(request, options) {
+  const expected = await safeDigest(options.evidenceDigest, "staging-desired", {
     requestDigest: request.requestDigest,
     kind: request.kind
   });
@@ -32754,6 +34235,8 @@ function errorCode2(error, fallback) {
 }
 function isBlockerCode3(value) {
   return (/* @__PURE__ */ new Set([
+    "operation_cancelled",
+    "operation_timeout",
     "staging_request_mismatch",
     "staging_observation_required",
     "staging_mutation_already_attempted",
@@ -32946,7 +34429,9 @@ var MAX_GRAPH_DEPTH = 12;
 var MAX_GRAPH_NODES = 4096;
 function createProductionAttachmentPrimitive(options) {
   const normalized = normalizeOptions5(options);
-  const snapshot2 = snapshotFiles(normalized.files, normalized.identityDigest);
+  return buildAttachmentPrimitive(normalized, snapshotFiles(normalized.files, normalized.identityDigest));
+}
+function buildAttachmentPrimitive(normalized, snapshot2) {
   let handoffConsumed = false;
   const observeAttachments = async (request, page, target) => {
     const normalizedRequest = normalizeAttachmentRequest(request, snapshot2);
@@ -33166,14 +34651,15 @@ function snapshotFiles(files, identityDigest) {
   for (let ordinal = 0; ordinal < files.length; ordinal += 1) {
     const identity = files[ordinal];
     if (identity === void 0) throw new Error("attachment identity is missing");
-    let digest4;
+    let digest5;
     try {
-      digest4 = identityDigest(ordinal, identity.manifest);
+      digest5 = identityDigest(ordinal, identity.manifest);
     } catch {
       throw new Error("attachment identity digest failed");
     }
-    if (!isDigest6(digest4) || identityDigests.includes(digest4)) throw new Error("attachment identity digest is invalid");
-    identityDigests.push(digest4);
+    if (isNativePromise(digest5)) void digest5.catch(() => void 0);
+    if (!isDigest6(digest5) || identityDigests.includes(digest5)) throw new Error("attachment identity digest is invalid");
+    identityDigests.push(digest5);
   }
   return Object.freeze({
     files: Object.freeze([...files]),
@@ -33235,7 +34721,7 @@ function normalizeManifest(value, snapshot2) {
     identities: Object.freeze(result3)
   };
 }
-function normalizeSurfaceObservation(request, read, evidenceDigest) {
+async function normalizeSurfaceObservation(request, read, evidenceDigest) {
   if (!isPlainDataRecord(read)) return { status: "unavailable" };
   const status = readData2(read, "status");
   const source = readData2(read, "source");
@@ -33243,7 +34729,7 @@ function normalizeSurfaceObservation(request, read, evidenceDigest) {
   if (source !== "live_surface" || typeof status !== "string") return { status: "unavailable" };
   if (providerEvidenceDigest !== void 0 && !isDigest6(providerEvidenceDigest)) return { status: "unavailable" };
   if (status === "mismatch" || status === "delayed" || status === "ambiguous" || status === "unavailable") {
-    const evidence2 = safeEvidence(evidenceDigest, "attachment-surface", {
+    const evidence2 = await safeEvidence(evidenceDigest, "attachment-surface", {
       operationId: request.operationId,
       requestDigest: request.requestDigest,
       targetBindingDigest: request.targetBindingDigest,
@@ -33267,7 +34753,7 @@ function normalizeSurfaceObservation(request, read, evidenceDigest) {
   }
   if (status === "absent") {
     if (count !== 0 || observed.length !== 0 || request.manifest.count === 0 || providerEvidenceDigest === void 0) return { status: "mismatch" };
-    const evidence2 = safeEvidence(evidenceDigest, "attachment-surface", {
+    const evidence2 = await safeEvidence(evidenceDigest, "attachment-surface", {
       operationId: request.operationId,
       requestDigest: request.requestDigest,
       targetBindingDigest: request.targetBindingDigest,
@@ -33280,7 +34766,7 @@ function normalizeSurfaceObservation(request, read, evidenceDigest) {
   }
   if (status !== "exact") return { status: "unavailable" };
   const exact = providerEvidenceDigest !== void 0 && count === request.manifest.count && observed.every((identity, index) => identity === request.manifest.identities[index]?.identityDigest);
-  const evidence = safeEvidence(evidenceDigest, "attachment-surface", {
+  const evidence = await safeEvidence(evidenceDigest, "attachment-surface", {
     operationId: request.operationId,
     requestDigest: request.requestDigest,
     targetBindingDigest: request.targetBindingDigest,
@@ -33327,7 +34813,7 @@ async function setChooserFilesOnce(chooser, snapshot2, request, options, timeout
   if (request.signal?.aborted || request.deadlineAt !== void 0 && Date.now() >= request.deadlineAt) {
     return { status: "uncertain", quarantine: "caller" };
   }
-  const evidence = safeEvidence(options.evidenceDigest, "attachment-handoff", {
+  const evidence = await safeEvidence(options.evidenceDigest, "attachment-handoff", {
     operationId: request.operationId,
     requestDigest: request.requestDigest,
     actionId: request.actionId,
@@ -33394,7 +34880,7 @@ async function settleChooserBeforeMutation2(waiter, deadlineAt, signal) {
     if (registration === "timeout") return { kind: "timeout" };
     if (waiter.outcome !== void 0) return waiter.outcome;
     if (remainingBudget(deadlineAt) <= 0) return { kind: "timeout" };
-    await new Promise((resolve8) => setTimeout(resolve8, 0));
+    await new Promise((resolve9) => setTimeout(resolve9, 0));
   } else {
     await flushMicrotasks();
   }
@@ -33403,7 +34889,7 @@ async function settleChooserBeforeMutation2(waiter, deadlineAt, signal) {
   return remainingBudget(deadlineAt) <= 0 ? { kind: "timeout" } : void 0;
 }
 async function awaitRegistration(value, timeoutMs, signal) {
-  return await new Promise((resolve8) => {
+  return await new Promise((resolve9) => {
     let settled = false;
     const timer = setTimeout(() => finish("timeout"), timeoutMs);
     const onAbort = () => finish("aborted");
@@ -33412,7 +34898,7 @@ async function awaitRegistration(value, timeoutMs, signal) {
       settled = true;
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
-      resolve8(result3);
+      resolve9(result3);
     };
     signal?.addEventListener("abort", onAbort, { once: true });
     if (signal?.aborted) {
@@ -33424,7 +34910,7 @@ async function awaitRegistration(value, timeoutMs, signal) {
 }
 async function awaitChooser(waiter, timeoutMs, signal) {
   if (waiter.outcome !== void 0) return waiter.outcome;
-  return await new Promise((resolve8) => {
+  return await new Promise((resolve9) => {
     let settled = false;
     const onAbort = () => finish({ kind: "aborted" });
     const finish = (outcome) => {
@@ -33432,7 +34918,7 @@ async function awaitChooser(waiter, timeoutMs, signal) {
       settled = true;
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
-      resolve8(outcome);
+      resolve9(outcome);
     };
     const timer = setTimeout(() => finish({ kind: "timeout" }), timeoutMs);
     if (signal !== void 0) {
@@ -33476,9 +34962,9 @@ async function boundedCallback(value, timeoutMs) {
   if (isObjectLike3(value) && !isNativePromise(value)) throw new Error("provider promise is not native");
   if (!isNativePromise(value)) return value;
   let timer;
-  const promise = new Promise((resolve8, reject) => {
+  const promise = new Promise((resolve9, reject) => {
     timer = setTimeout(() => reject(new Error("provider callback timed out")), timeoutMs);
-    value.then(resolve8, reject);
+    value.then(resolve9, reject);
   });
   try {
     return await promise;
@@ -33578,9 +35064,9 @@ function cloneHandoffRequest(request) {
     ...request.deadlineAt === void 0 ? {} : { deadlineAt: request.deadlineAt }
   });
 }
-function safeEvidence(evidenceDigest, domain, material) {
+async function safeEvidence(evidenceDigest, domain, material) {
   try {
-    const result3 = evidenceDigest(domain, material);
+    const result3 = await evidenceDigest(domain, material);
     return isDigest6(result3) ? result3 : void 0;
   } catch {
     return void 0;
@@ -33726,8 +35212,22 @@ var MAX_PROBE_ITEMS = 256;
 var MAX_PROBE_TEXT = 512;
 var MAX_TIMEOUT_MS3 = 3e4;
 var CAPABILITY_KEY = "chatgpt.attachments.active-composer";
-function createChatGPTAttachmentProvider(options) {
-  const normalized = normalizeOptions6(options);
+var ATTACHMENT_CONTROL_LABELS = Object.freeze([...new Set([
+  ...localeLabels.addFilesOpenerCandidates,
+  ...localeLabels.addPhotosFilesMenuItem,
+  ...localeLabels.projectSourcesUploadFiles
+].filter((label) => typeof label === "string" && label.length > 0 && label.length <= MAX_PROBE_TEXT))]);
+async function createChatGPTAttachmentProviderAsync(options) {
+  const captured = captureOptions(options);
+  let values;
+  try {
+    values = await Promise.all(captured.files.map(async (file, ordinal) => await captured.identityDigest(ordinal, file.manifest)));
+  } catch {
+    throw new Error("invalid ChatGPT attachment provider options");
+  }
+  return buildChatGPTAttachmentProvider(completeOptions(captured, values));
+}
+function buildChatGPTAttachmentProvider(normalized) {
   let causalHandoff;
   let menuOpened = false;
   let hiddenInputActivation;
@@ -33783,7 +35283,7 @@ function createChatGPTAttachmentProvider(options) {
     }
     const baseMaterial = surfaceEvidenceMaterial(request, target, current);
     if (current.facts.length === 0 && current.attachmentRegionCount === 0 && current.inputFilesReadable && current.fileInputCount === 1) {
-      const evidence2 = safeEvidence2(normalized.evidenceDigest, "chatgpt-attachment-surface", {
+      const evidence2 = await safeEvidence2(normalized.evidenceDigest, "chatgpt-attachment-surface", {
         ...baseMaterial,
         status: "absent",
         count: 0
@@ -33808,7 +35308,7 @@ function createChatGPTAttachmentProvider(options) {
       normalized.signal
     ) : void 0;
     const observedStatus = match.status === "exact" && sendReady !== true ? "delayed" : match.status;
-    const evidence = safeEvidence2(normalized.evidenceDigest, "chatgpt-attachment-surface", {
+    const evidence = await safeEvidence2(normalized.evidenceDigest, "chatgpt-attachment-surface", {
       ...baseMaterial,
       status: observedStatus,
       count: current.facts.length,
@@ -33852,7 +35352,7 @@ function createChatGPTAttachmentProvider(options) {
       activationCandidateCount: current.activationCandidateCount,
       menu: current.menuOpenerSelector !== void 0
     };
-    const evidence = safeEvidence2(normalized.evidenceDigest, "chatgpt-attachment-precondition", material);
+    const evidence = await safeEvidence2(normalized.evidenceDigest, "chatgpt-attachment-precondition", material);
     if (evidence === void 0) return { status: "uncertain", quarantine: "provider" };
     if (current.directActivationSelector === void 0 && current.menuOpenerSelector !== void 0) {
       const cdpSend = await resolveCdpSend(page, preparationOptions.timeoutMs);
@@ -33952,7 +35452,7 @@ function createChatGPTAttachmentProvider(options) {
     handoffFilesForAdapter
   });
 }
-function normalizeOptions6(value) {
+function captureOptions(value) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid ChatGPT attachment provider options");
   assertOwnDataKeys(value, ["evidenceDigest", "files", "identityDigest", "revalidateFile", "timeoutMs", "maxCandidates", "locale", "signal"]);
   const evidenceDigest = readOwn(value, "evidenceDigest");
@@ -33975,40 +35475,15 @@ function normalizeOptions6(value) {
     throw new Error("invalid ChatGPT attachment provider options");
   }
   if (signal !== void 0 && !isAbortSignal5(signal)) throw new Error("invalid ChatGPT attachment provider options");
-  const labels = Object.freeze([...new Set([
-    ...localeLabels.addFilesOpenerCandidates,
-    ...localeLabels.addPhotosFilesMenuItem,
-    ...localeLabels.projectSourcesUploadFiles
-  ].filter((label) => typeof label === "string" && label.length > 0 && label.length <= MAX_PROBE_TEXT))]);
+  const labels = ATTACHMENT_CONTROL_LABELS;
   const sendLabels = Object.freeze([...new Set(
     localeLabels.sendButton.filter((label) => typeof label === "string" && label.length > 0 && label.length <= MAX_PROBE_TEXT)
   )]);
   const snapshot2 = snapshotFileIdentities(files);
-  const identityDigestSet = /* @__PURE__ */ new Set();
-  const identityDigests = Object.freeze(snapshot2.map((file, ordinal) => {
-    let digest4;
-    try {
-      digest4 = identityDigest(ordinal, file.manifest);
-    } catch {
-      throw new Error("invalid ChatGPT attachment provider options");
-    }
-    if (typeof digest4 !== "string" || !DIGEST_PATTERN11.test(digest4)) {
-      throw new Error("invalid ChatGPT attachment provider options");
-    }
-    if (identityDigestSet.has(digest4)) throw new Error("invalid ChatGPT attachment provider options");
-    identityDigestSet.add(digest4);
-    return digest4;
-  }));
-  const stableIdentityDigest = (ordinal, _manifest) => {
-    const digest4 = identityDigests[ordinal];
-    if (digest4 === void 0) throw new Error("invalid ChatGPT attachment provider options");
-    return digest4;
-  };
   return Object.freeze({
     evidenceDigest,
     files: snapshot2,
-    identityDigest: stableIdentityDigest,
-    identityDigests,
+    identityDigest,
     revalidateFile,
     timeoutMs,
     maxCandidates,
@@ -34021,7 +35496,17 @@ function normalizeOptions6(value) {
     sendLabelCandidates: sendLabels
   });
 }
-async function readComposerProbe(page, timeoutMs, labelCandidates, signal, expected) {
+function completeOptions(captured, values) {
+  if (values.length !== captured.files.length || values.some((value) => typeof value !== "string" || !DIGEST_PATTERN11.test(value)) || new Set(values).size !== values.length) throw new Error("invalid ChatGPT attachment provider options");
+  const identityDigests = Object.freeze([...values]);
+  const identityDigest = (ordinal, _manifest) => {
+    const value = identityDigests[ordinal];
+    if (value === void 0) throw new Error("invalid ChatGPT attachment provider options");
+    return value;
+  };
+  return Object.freeze({ ...captured, identityDigests, identityDigest });
+}
+async function readComposerProbe(page, timeoutMs, labelCandidates, signal, expected, observationOnly = false) {
   if (signal?.aborted) return void 0;
   const evaluate = safeMethod2(page, "evaluate");
   if (evaluate === void 0) return void 0;
@@ -34029,6 +35514,7 @@ async function readComposerProbe(page, timeoutMs, labelCandidates, signal, expec
   try {
     raw = evaluate.call(page, inspectChatGPTComposer, {
       labels: [...labelCandidates],
+      ...observationOnly ? { observationOnly: true } : {},
       ...expected === void 0 ? {} : {
         expected: expected.map((fact) => ({
           ordinal: fact.ordinal,
@@ -34042,6 +35528,15 @@ async function readComposerProbe(page, timeoutMs, labelCandidates, signal, expec
     return void 0;
   }
   return normalizeProbe(raw);
+}
+async function readChatGPTEmptyAttachmentState(page) {
+  const probe = await readComposerProbe(page, 1e4, ATTACHMENT_CONTROL_LABELS, void 0, void 0, true);
+  if (probe === void 0) return void 0;
+  return {
+    supported: probe.status === "ready" && probe.inputFilesReadable && probe.fileInputCount === 1,
+    count: probe.facts.length,
+    visibleAttachmentCount: probe.attachmentRegionCount
+  };
 }
 async function readComposerSendReadiness(page, timeoutMs, labelCandidates, signal) {
   if (signal?.aborted) return void 0;
@@ -34341,7 +35836,12 @@ function inspectChatGPTComposer(argument) {
       }
       return { readable: typeof value === "string" && value.length === 0, facts: [] };
     }
-    if (files.length > MAX_PROBE_ITEMS2) throw new Error("probe limit exceeded");
+    if (!Number.isSafeInteger(files.length) || files.length < 0 || files.length > MAX_PROBE_ITEMS2) {
+      throw new Error("probe limit exceeded");
+    }
+    if (files.length === 0 && typeof input2.value === "string" && input2.value.length > 0) {
+      return { readable: false, facts: [] };
+    }
     const facts2 = [];
     for (let index = 0; index < files.length; index += 1) {
       const file = files.item(index);
@@ -34369,7 +35869,24 @@ function inspectChatGPTComposer(argument) {
       "[role='listitem']",
       "[role='progressbar']"
     ].join(", ");
-    const raw = unique(boundedQuery(root2, selector).filter(visible).filter((element) => element.tagName !== "INPUT" && element.tagName !== "TEXTAREA" && element.tagName !== "BUTTON" && element.tagName !== "LABEL" && element.getAttribute("role") !== "button" && element.getAttribute("aria-haspopup") === null));
+    const explicitAttachment = (element) => element.hasAttribute("data-file-name") || element.hasAttribute("data-filename") || element.hasAttribute("data-file-size") || element.hasAttribute("data-size") || element.getAttribute("role") === "progressbar" || element.getAttribute("role") === "listitem" || /(?:attachment|file)[-_]?(?:chip|tile|preview)/iu.test(boundedAttribute(element, "data-testid"));
+    const uploadControl = (element) => {
+      const control = element.tagName === "BUTTON" || element.tagName === "LABEL" || element.getAttribute("role") === "button";
+      if (!control || explicitAttachment(element)) return false;
+      const label = boundedAttribute(element, "aria-label");
+      return element.tagName === "LABEL" || element.hasAttribute("aria-haspopup") || element.getAttribute("id") === "composer-plus-btn" || /^(?:add|upload|attach|choose|select|browse)\b/iu.test(label.trim()) || labels.some((candidate) => label.toLocaleLowerCase() === candidate.toLocaleLowerCase());
+    };
+    const raw = unique(boundedQuery(root2, selector).filter(visible).filter((element) => {
+      if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") return false;
+      if (explicitAttachment(element)) return true;
+      let ancestor = element;
+      for (let depth = 0; ancestor !== null && ancestor !== root2 && depth < 4096; depth += 1) {
+        if (ancestor.nodeType === 1 && uploadControl(ancestor)) return false;
+        ancestor = ancestor.parentNode;
+      }
+      if (ancestor !== null && ancestor !== root2) throw new Error("probe limit exceeded");
+      return true;
+    }));
     const rawSet = new Set(raw);
     const nestedContainers = /* @__PURE__ */ new Set();
     for (const other of raw) {
@@ -34434,10 +35951,11 @@ function inspectChatGPTComposer(argument) {
     };
   }
   const root = roots[0];
-  const allInputs = boundedQuery(root, "input[type='file']").filter((input2) => !input2.disabled && input2.getAttribute("aria-disabled") !== "true");
+  const everyInput = boundedQuery(root, "input[type='file']");
+  const allInputs = everyInput.filter((input2) => !input2.disabled && input2.getAttribute("aria-disabled") !== "true");
   const preferred = allInputs.filter((input2) => input2.getAttribute("id") === "upload-files");
   const nonImage = allInputs.filter((input2) => input2.getAttribute("accept") !== "image/*");
-  const inputs = preferred.length === 1 ? preferred : allInputs.length === 1 ? allInputs : nonImage.length === 1 ? nonImage : [];
+  const inputs = preferred.length > 0 ? preferred : nonImage.length > 0 ? nonImage : allInputs;
   if (inputs.length !== 1) {
     return {
       status: "ambiguous",
@@ -34454,12 +35972,29 @@ function inspectChatGPTComposer(argument) {
   }
   const input = inputs[0];
   const inputResult = inputFacts(input);
+  const alternateInputsEmpty = everyInput.filter((candidate) => candidate !== input).every((candidate) => {
+    const result3 = inputFacts(candidate);
+    return result3.readable && result3.facts.length === 0;
+  });
   const metadataResult = metadataFacts(root);
   const inputPrimary = inputResult.readable && inputResult.facts.length > 0;
   const facts = inputPrimary ? inputResult.facts : metadataResult.facts;
   const secondaryFacts = inputPrimary ? metadataResult.facts : [];
   const factSource = inputResult.readable ? inputPrimary ? metadataResult.facts.length > 0 ? "mixed" : "input" : metadataResult.facts.length > 0 ? "metadata" : "none" : metadataResult.facts.length > 0 ? "metadata" : "none";
   const attachmentRegionCount = Math.max(metadataResult.regionCount, inputResult.facts.length);
+  const observation = {
+    status: alternateInputsEmpty ? "ready" : "ambiguous",
+    composerCount: 1,
+    fileInputCount: inputs.length,
+    inputFilesReadable: inputResult.readable,
+    attachmentRegionCount,
+    facts,
+    secondaryFacts,
+    factSource,
+    orderDeterministic: inputResult.readable || metadataResult.orderDeterministic,
+    activationCandidateCount: 0
+  };
+  if (!alternateInputsEmpty || record.observationOnly === true) return observation;
   const controls = boundedQuery(
     root,
     "label, button, [role='button'], [role='menuitem']"
@@ -34501,15 +36036,7 @@ function inspectChatGPTComposer(argument) {
     // Once a file is attached ChatGPT legitimately adds tile/remove controls,
     // so candidateCount can exceed one while the attachment surface remains
     // exact. Mutation paths validate activationCandidateCount independently.
-    status: "ready",
-    composerCount: 1,
-    fileInputCount: allInputs.length,
-    inputFilesReadable: inputResult.readable,
-    attachmentRegionCount,
-    facts,
-    secondaryFacts,
-    factSource,
-    orderDeterministic: inputResult.readable || metadataResult.orderDeterministic,
+    ...observation,
     ...directActivationSelector === void 0 ? {} : { directActivationSelector },
     ...menuOpenerSelector === void 0 ? {} : { menuOpenerSelector },
     ...menuUploadSelector === void 0 ? {} : { menuUploadSelector },
@@ -34667,8 +36194,8 @@ function causalManifestFiles(causal, request) {
   if (files.some((entry) => entry === void 0)) return void 0;
   return files;
 }
-function evidenceStatus(evidenceDigest, baseMaterial, status, count) {
-  const evidence = safeEvidence2(evidenceDigest, "chatgpt-attachment-surface", {
+async function evidenceStatus(evidenceDigest, baseMaterial, status, count) {
+  const evidence = await safeEvidence2(evidenceDigest, "chatgpt-attachment-surface", {
     ...baseMaterial,
     status,
     count
@@ -34740,9 +36267,9 @@ function providerCallable3(value, key) {
     return void 0;
   }
 }
-function safeEvidence2(evidenceDigest, domain, material) {
+async function safeEvidence2(evidenceDigest, domain, material) {
   try {
-    const value = evidenceDigest(domain, material);
+    const value = await evidenceDigest(domain, material);
     return typeof value === "string" && DIGEST_PATTERN11.test(value) ? value : void 0;
   } catch {
     return void 0;
@@ -34753,11 +36280,11 @@ async function boundedNative(value, timeoutMs) {
     if (value !== null && typeof value === "object") throw new Error("provider callback promise is not native");
     return value;
   }
-  return await new Promise((resolve8, reject) => {
+  return await new Promise((resolve9, reject) => {
     const timer = setTimeout(() => reject(new Error("provider callback timed out")), timeoutMs);
     value.then((result3) => {
       clearTimeout(timer);
-      resolve8(result3);
+      resolve9(result3);
     }, (error) => {
       clearTimeout(timer);
       reject(error);
@@ -34992,6 +36519,77 @@ function safeDisplayName(value) {
   return value.length > 0 && value.length <= MAX_PROBE_TEXT && !/[\\/\u0000-\u001f\u007f]/u.test(value);
 }
 
+// src/dom/composer-text.ts
+function inspectComposerText(element) {
+  const maximum = 8 * 1024 * 1024;
+  const candidate = element;
+  const tag = typeof candidate.tagName === "string" ? candidate.tagName.toLowerCase() : "";
+  if (tag === "input" || tag === "textarea" || tag === "select") {
+    const value = candidate.value;
+    return typeof value === "string" && value.length <= maximum ? value : void 0;
+  }
+  const chunks = [];
+  let total = 0;
+  let visited = 0;
+  let lastCharacter = "";
+  const append = (text) => {
+    total += text.length;
+    if (total > maximum) throw new Error("composer text limit exceeded");
+    if (text.length > 0) {
+      chunks.push(text);
+      lastCharacter = text.slice(-1);
+    }
+  };
+  const walk = (node, depth) => {
+    visited += 1;
+    if (visited > 4096 || depth > 128) throw new Error("composer node limit exceeded");
+    if (node.nodeType === 3) {
+      append(node.nodeValue ?? "");
+      return;
+    }
+    const current = node;
+    const currentTag = typeof current.tagName === "string" ? current.tagName.toUpperCase() : "";
+    if (currentTag === "BR") {
+      const classes = (current.getAttribute("class") ?? "").split(/\s+/u);
+      const soleChild = node.parentNode?.firstChild === node && node.nextSibling === null;
+      if (!classes.includes("ProseMirror-trailingBreak") && !soleChild) append("\n");
+      return;
+    }
+    let previousBlock = false;
+    let previousEmptyBlock = false;
+    let hasPrevious = false;
+    let child = node.firstChild;
+    while (child !== null) {
+      const childTag = child.nodeType === 1 ? child.tagName.toUpperCase() : "";
+      const block = childTag === "P" || childTag === "DIV" || childTag === "LI";
+      const boundary = hasPrevious && (block || previousBlock) && (lastCharacter !== "\n" || previousEmptyBlock);
+      const boundaryIndex = chunks.length;
+      if (boundary) chunks.push("");
+      const before = total;
+      walk(child, depth + 1);
+      const emitted = total > before;
+      if (emitted || block) {
+        if (boundary) {
+          chunks[boundaryIndex] = "\n";
+          total += 1;
+          if (total > maximum) throw new Error("composer text limit exceeded");
+          if (!emitted) lastCharacter = "\n";
+        }
+        hasPrevious = true;
+        previousBlock = block;
+        previousEmptyBlock = block && !emitted;
+      }
+      child = child.nextSibling;
+    }
+  };
+  try {
+    walk(candidate, 0);
+    return chunks.join("");
+  } catch {
+    return void 0;
+  }
+}
+
 // src/operations/browser-observation.ts
 var ERROR_MESSAGES = {
   page_evaluation_unavailable: "Browser observation requires a read-only page evaluation boundary.",
@@ -35052,10 +36650,10 @@ async function observeBrowserPage(page, options) {
     throw new BrowserObservationError("page_evaluation_failed");
   }
   const parsed = parseRawObservation(raw, evaluateArgs);
-  const target = buildTarget(parsed, options);
-  const normalized = normalizeTurns(parsed.turns, options);
-  const postSendDelta = options.baseline === void 0 ? void 0 : makePostSendDelta(options.baseline, normalized.userTurns, options.evidenceDigest);
-  const snapshotDigest = digest(options.evidenceDigest, "browser-observation-snapshot", {
+  const target = await buildTarget(parsed, options);
+  const normalized = await normalizeTurns(parsed.turns, options);
+  const postSendDelta = options.baseline === void 0 ? void 0 : await makePostSendDelta(options.baseline, normalized.userTurns, options.evidenceDigest);
+  const snapshotDigest = await digest2(options.evidenceDigest, "browser-observation-snapshot", {
     operationId: options.operationId,
     target: targetMaterial2(target),
     userTurns: normalized.userTurns.map(turnMaterial2),
@@ -35065,7 +36663,7 @@ async function observeBrowserPage(page, options) {
     // A pending target cannot persist a conversation URL yet, but the keyed
     // navigation evidence still makes the blank-task anchor sensitive to a
     // pre-Send navigation change without exposing the raw URL.
-    ...options.target.targetLifecycle === "new_pending" ? { blankTaskNavigationDigest: digest(options.evidenceDigest, "browser-observation-blank-task-navigation", parsed.canonicalUrl) } : {},
+    ...options.target.targetLifecycle === "new_pending" ? { blankTaskNavigationDigest: await digest2(options.evidenceDigest, "browser-observation-blank-task-navigation", parsed.canonicalUrl) } : {},
     ...postSendDelta === void 0 ? {} : { postSendDelta }
   });
   const snapshot2 = Object.freeze({
@@ -35079,10 +36677,10 @@ async function observeBrowserPage(page, options) {
     ...postSendDelta === void 0 ? {} : { postSendDelta }
   });
   const terminalTurn = resolveTerminalTurn(parsed.turns, normalized.assistantTurns, options);
-  const terminal = terminalTurn === void 0 ? void 0 : terminalObservation(terminalTurn.raw, terminalTurn.normalized, normalized.userTurns, options, target);
-  const newTargetAnchor = options.target.targetLifecycle === "new_pending" && target.conversation.status === "unavailable" && target.canonicalThreadUrl.status === "unavailable" && normalized.userTurns.length === 0 && normalized.assistantTurns.length === 0 ? (() => {
+  const terminal = terminalTurn === void 0 ? void 0 : await terminalObservation(terminalTurn.raw, terminalTurn.normalized, normalized.userTurns, options, target);
+  const newTargetAnchor = options.target.targetLifecycle === "new_pending" && target.conversation.status === "unavailable" && target.canonicalThreadUrl.status === "unavailable" && normalized.userTurns.length === 0 && normalized.assistantTurns.length === 0 ? await (async () => {
     const blankTaskEvidenceDigest = snapshot2.snapshotDigest;
-    const anchorDigest = digest(options.evidenceDigest, "browser-observation-new-target-anchor", {
+    const anchorDigest = await digest2(options.evidenceDigest, "browser-observation-new-target-anchor", {
       operationId: options.operationId,
       target: targetMaterial2(target),
       blankTaskEvidenceDigest
@@ -35634,48 +37232,68 @@ function parseRawObservation(value, args) {
     terminalState: value.terminalState
   });
 }
-function normalizeTurns(turns, options) {
+async function normalizeTurns(turns, options) {
+  const artifacts = turns.map((raw) => new Array(raw.artifacts.length));
+  const evidence = new Array(turns.length);
+  const structure = new Array(turns.length);
+  await runTurnDigestJobs((function* () {
+    for (const [index, raw] of turns.entries()) {
+      for (const [ordinal, artifact] of raw.artifacts.entries()) {
+        yield async () => {
+          artifacts[index][ordinal] = await digest2(options.evidenceDigest, "browser-observation-artifact", {
+            operationId: options.operationId,
+            turnId: raw.stableId,
+            ordinal,
+            kind: artifact.kind,
+            identity: artifact.identity,
+            ...artifact.contentDigest === void 0 ? {} : { contentDigest: artifact.contentDigest },
+            ...artifact.bytes === void 0 ? {} : { bytes: artifact.bytes },
+            ...artifact.mimeType === void 0 ? {} : { mimeType: artifact.mimeType }
+          });
+        };
+      }
+    }
+  })());
+  await runTurnDigestJobs((function* () {
+    for (const [index, raw] of turns.entries()) {
+      const artifactEvidenceDigests = artifacts[index];
+      yield async () => {
+        evidence[index] = await digest2(options.evidenceDigest, "browser-observation-turn", {
+          operationId: options.operationId,
+          role: raw.role,
+          stableId: raw.stableId,
+          ...raw.parentStableId === void 0 ? {} : { parentStableId: raw.parentStableId },
+          ...raw.branchStableId === void 0 ? {} : { branchStableId: raw.branchStableId },
+          ordinal: raw.ordinal,
+          text: raw.text,
+          artifacts: artifactEvidenceDigests
+        });
+      };
+      yield async () => {
+        structure[index] = await digest2(options.evidenceDigest, "browser-observation-structure", {
+          operationId: options.operationId,
+          role: raw.role,
+          stableId: raw.stableId,
+          ordinal: raw.ordinal,
+          structure: raw.structure,
+          artifacts: artifactEvidenceDigests
+        });
+      };
+    }
+  })());
   const users = [];
   const assistants = [];
   const assistantParents = /* @__PURE__ */ new Map();
-  for (const raw of turns) {
-    const artifactEvidenceDigests = raw.artifacts.map((artifact, ordinal) => digest(options.evidenceDigest, "browser-observation-artifact", {
-      operationId: options.operationId,
-      turnId: raw.stableId,
-      ordinal,
-      kind: artifact.kind,
-      identity: artifact.identity,
-      ...artifact.contentDigest === void 0 ? {} : { contentDigest: artifact.contentDigest },
-      ...artifact.bytes === void 0 ? {} : { bytes: artifact.bytes },
-      ...artifact.mimeType === void 0 ? {} : { mimeType: artifact.mimeType }
-    }));
-    const evidenceDigest = digest(options.evidenceDigest, "browser-observation-turn", {
-      operationId: options.operationId,
-      role: raw.role,
-      stableId: raw.stableId,
-      ...raw.parentStableId === void 0 ? {} : { parentStableId: raw.parentStableId },
-      ...raw.branchStableId === void 0 ? {} : { branchStableId: raw.branchStableId },
-      ordinal: raw.ordinal,
-      text: raw.text,
-      artifacts: artifactEvidenceDigests
-    });
-    const structureDigest = digest(options.evidenceDigest, "browser-observation-structure", {
-      operationId: options.operationId,
-      role: raw.role,
-      stableId: raw.stableId,
-      ordinal: raw.ordinal,
-      structure: raw.structure,
-      artifacts: artifactEvidenceDigests
-    });
+  for (const [index, raw] of turns.entries()) {
     const turn = Object.freeze({
       stableId: raw.stableId,
-      evidenceDigest,
-      structureDigest,
+      evidenceDigest: evidence[index],
+      structureDigest: structure[index],
       ordinal: raw.ordinal,
       ...raw.parentStableId === void 0 ? {} : { parentStableId: raw.parentStableId },
       ...raw.branchStableId === void 0 ? {} : { branchStableId: raw.branchStableId },
       ...raw.state === void 0 ? {} : { state: raw.state },
-      artifactEvidenceDigests: Object.freeze(artifactEvidenceDigests)
+      artifactEvidenceDigests: Object.freeze(artifacts[index])
     });
     if (raw.role === "user") users.push(turn);
     else {
@@ -35689,6 +37307,27 @@ function normalizeTurns(turns, options) {
   }
   return { userTurns: users, assistantTurns: assistants };
 }
+async function runTurnDigestJobs(jobs) {
+  const iterator = jobs[Symbol.iterator]();
+  let failed = false;
+  let failure;
+  const worker = async () => {
+    while (!failed) {
+      try {
+        const next = iterator.next();
+        if (next.done) return;
+        await next.value();
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          failure = error;
+        }
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: 4 }, worker));
+  if (failed) throw failure;
+}
 function resolveTerminalTurn(rawTurns, assistantTurns, options) {
   const requestedId = options.terminalAssistantTurnId ?? options.rawAssistantTurnId;
   if (requestedId === void 0) return void 0;
@@ -35698,7 +37337,7 @@ function resolveTerminalTurn(rawTurns, assistantTurns, options) {
   if (raw.finishReason === void 0) throw new BrowserObservationError("provider_shape_drift");
   return { raw, normalized };
 }
-function terminalObservation(raw, normalized, userTurns, options, _target) {
+async function terminalObservation(raw, normalized, userTurns, options, _target) {
   if (raw.parentStableId === void 0 || raw.branchStableId === void 0 || raw.state !== "terminal" || raw.finishReason === void 0) {
     throw new BrowserObservationError("provider_shape_drift");
   }
@@ -35722,7 +37361,7 @@ function terminalObservation(raw, normalized, userTurns, options, _target) {
   if (formatted.text.length > maxResponseChars || utf8Bytes(formatted.text) > MAX_RESPONSE_BYTES2) {
     throw new BrowserObservationError("bounded_limit_exceeded");
   }
-  const textDigest = digest(options.evidenceDigest, "browser-observation-response", {
+  const textDigest = await digest2(options.evidenceDigest, "browser-observation-response", {
     operationId: options.operationId,
     assistantTurnId: raw.stableId,
     responseFormat: requestedFormat,
@@ -35761,7 +37400,7 @@ function terminalObservation(raw, normalized, userTurns, options, _target) {
     finishReason: raw.finishReason
   });
 }
-function makePostSendDelta(baseline, users, evidenceDigest) {
+async function makePostSendDelta(baseline, users, evidenceDigest) {
   const baselineIds = /* @__PURE__ */ new Set();
   let baselineCursor = 0;
   for (const turn of baseline.userTurns) {
@@ -35773,7 +37412,7 @@ function makePostSendDelta(baseline, users, evidenceDigest) {
   }
   const added = users.slice(baselineCursor);
   const addedUserEvidenceDigests = added.map((turn) => turn.evidenceDigest);
-  const deltaDigest = digest(evidenceDigest, "browser-observation-post-send-delta", {
+  const deltaDigest = await digest2(evidenceDigest, "browser-observation-post-send-delta", {
     baselineSnapshotDigest: baseline.snapshotDigest,
     addedUserEvidenceDigests
   });
@@ -35783,11 +37422,11 @@ function makePostSendDelta(baseline, users, evidenceDigest) {
     deltaDigest
   });
 }
-function buildTarget(raw, options) {
+async function buildTarget(raw, options) {
   if (options.target.expectedConversationId !== void 0 && options.target.expectedConversationId !== raw.conversationId) throw new BrowserObservationError("navigation_ambiguous");
   if (options.target.expectedThreadId !== void 0 && options.target.expectedThreadId !== raw.threadId) throw new BrowserObservationError("navigation_ambiguous");
   const hasConversationIdentity = raw.conversationId !== void 0 && raw.threadId !== void 0;
-  const canonicalDigest = hasConversationIdentity ? digest(options.evidenceDigest, "browser-observation-url", raw.canonicalUrl) : void 0;
+  const canonicalDigest = hasConversationIdentity ? await digest2(options.evidenceDigest, "browser-observation-url", raw.canonicalUrl) : void 0;
   const target = {
     provider: availableIdentity(options.target.providerId),
     browser: availableIdentity(options.target.browserId),
@@ -35824,10 +37463,10 @@ function turnMaterial2(turn) {
     artifactEvidenceDigests: turn.artifactEvidenceDigests ?? []
   };
 }
-function digest(fn, domain, material) {
+async function digest2(fn, domain, material) {
   let result3;
   try {
-    result3 = fn(domain, material);
+    result3 = await fn(domain, material);
   } catch {
     throw new BrowserObservationError("evidence_digest_failed");
   }
@@ -35992,13 +37631,13 @@ async function readStaging(request, evidenceDigest, state) {
   if (state.desiredComposerText === void 0) {
     return unavailableStaging(request, "composer_primitive_unwired");
   }
-  if (!matchesExpectedStagingDigest(request, evidenceDigest)) {
+  if (!await matchesExpectedStagingDigest(request, evidenceDigest)) {
     return unavailableStaging(request, "composer_request_mismatch");
   }
   const current = await readComposerState(request.page, request.target, request.operationId, evidenceDigest);
   if (current === void 0) return unavailableStaging(request, "composer_control_unavailable");
   const satisfied = current.text === state.desiredComposerText;
-  const evidence = digest2(evidenceDigest, "composer-observation", {
+  const evidence = await digest3(evidenceDigest, "composer-observation", {
     operationId: request.operationId,
     targetBindingDigest: request.targetBindingDigest,
     currentStateDigest: current.currentStateDigest,
@@ -36019,16 +37658,22 @@ async function mutateStagingOnce(request, evidenceDigest, state) {
   if (!isDigest7(request.desiredStateDigest) || !isDigest7(request.requestDigest)) {
     throw new ProductionPrimitiveError("composer_request_mismatch");
   }
-  const expected = safeDigestWith(evidenceDigest, "staging-desired", { requestDigest: request.requestDigest, kind: request.kind });
+  const expected = await safeDigestWith(evidenceDigest, "staging-desired", { requestDigest: request.requestDigest, kind: request.kind });
   if (expected === void 0 || expected !== request.desiredStateDigest) {
     throw new ProductionPrimitiveError("composer_request_mismatch");
   }
+  assertStagingActive(request);
   const locator = await uniqueVisibleLocator(request.page, composerTextbox);
   if (locator === void 0 || typeof locator.fill !== "function") {
     throw new ProductionPrimitiveError("composer_control_unavailable");
   }
+  assertStagingActive(request);
   await locator.fill(state.desiredComposerText);
   return { status: "started" };
+}
+function assertStagingActive(request) {
+  if (request.signal?.aborted) throw new ProductionPrimitiveError("operation_cancelled");
+  if (request.deadlineAt !== void 0 && Date.now() >= request.deadlineAt) throw new ProductionPrimitiveError("operation_deadline_exceeded");
 }
 function stagingUnwiredCode(kind) {
   switch (kind) {
@@ -36049,8 +37694,8 @@ function unavailableStaging(request, blockerCode) {
     blockerCode
   };
 }
-function matchesExpectedStagingDigest(request, evidenceDigest) {
-  return safeDigestWith(evidenceDigest, "staging-desired", {
+async function matchesExpectedStagingDigest(request, evidenceDigest) {
+  return await safeDigestWith(evidenceDigest, "staging-desired", {
     requestDigest: request.requestDigest,
     kind: request.kind
   }) === request.desiredStateDigest;
@@ -36060,13 +37705,13 @@ async function observeSubmissionStaging(request, page, target, evidenceDigest, s
   if (!isDigest7(request.configurationReceiptDigest) || !isDigest7(request.composerReceiptDigest)) {
     return { status: "unavailable", reason: "unknown" };
   }
-  const expectedConfiguration = state.requestDigest === void 0 ? void 0 : safeDigestWith(evidenceDigest, "configuration-request", state.requestDigest);
-  const expectedComposer = state.requestDigest === void 0 ? void 0 : safeDigestWith(evidenceDigest, "composer-request", state.requestDigest);
+  const expectedConfiguration = state.requestDigest === void 0 ? void 0 : await safeDigestWith(evidenceDigest, "configuration-request", state.requestDigest);
+  const expectedComposer = state.requestDigest === void 0 ? void 0 : await safeDigestWith(evidenceDigest, "composer-request", state.requestDigest);
   if (expectedConfiguration === void 0 || expectedComposer === void 0) {
     return { status: "unavailable", reason: "target" };
   }
   if (request.configurationReceiptDigest !== expectedConfiguration) {
-    const evidence = safeDigestWith(evidenceDigest, "submission-stage", { operationId: request.operationId, reason: "configuration" });
+    const evidence = await safeDigestWith(evidenceDigest, "submission-stage", { operationId: request.operationId, reason: "configuration" });
     return evidence === void 0 ? { status: "mismatch", reason: "configuration" } : { status: "mismatch", reason: "configuration", evidenceDigest: evidence };
   }
   if (request.composerReceiptDigest !== expectedComposer || state.desiredComposerText === void 0) {
@@ -36102,7 +37747,7 @@ async function observeSendPrecondition(request, evidenceDigest, state, attachmen
       },
       baseline: {
         ownershipBaseline: recoveryBaseline,
-        userTurnEvidenceDigest: safeDigestWith(evidenceDigest, "send-baseline", {
+        userTurnEvidenceDigest: await safeDigestWith(evidenceDigest, "send-baseline", {
           snapshotDigest: recoveryBaseline.snapshotDigest,
           userTurns: []
         }) ?? recoveryBaseline.snapshotDigest
@@ -36111,8 +37756,8 @@ async function observeSendPrecondition(request, evidenceDigest, state, attachmen
     };
   }
   if (state.desiredComposerText === void 0) return { status: "unavailable", code: "composer_drift" };
-  const expectedComposer = safeDigestWith(evidenceDigest, "composer-request", state.requestDigest);
-  const expectedConfiguration = safeDigestWith(evidenceDigest, "configuration-request", state.requestDigest);
+  const expectedComposer = await safeDigestWith(evidenceDigest, "composer-request", state.requestDigest);
+  const expectedConfiguration = await safeDigestWith(evidenceDigest, "configuration-request", state.requestDigest);
   if (expectedComposer === void 0 || expectedConfiguration === void 0) {
     return { status: "unavailable", code: "target_evidence_unavailable" };
   }
@@ -36167,7 +37812,7 @@ async function observeSendPrecondition(request, evidenceDigest, state, attachmen
   if (attachments.status !== "absent" && attachments.status !== "exact") {
     return { status: "unavailable", code: "attachment_manifest_mismatch", evidenceDigest: snapshot2.snapshotDigest };
   }
-  const baseline = baselineForSnapshot(snapshot2, evidenceDigest, identity, request.expected.targetBindingDigest);
+  const baseline = await baselineForSnapshot(snapshot2, evidenceDigest, identity, request.expected.targetBindingDigest);
   if (baseline === void 0) return { status: "unavailable", code: "target_evidence_unavailable", evidenceDigest: snapshot2.snapshotDigest };
   const sendAttachments = {
     count: attachments.count,
@@ -36183,7 +37828,7 @@ async function observeSendPrecondition(request, evidenceDigest, state, attachmen
     baseline: {
       ...baseline.userTurns.at(-1)?.stableId === void 0 ? {} : { userTurnId: baseline.userTurns.at(-1).stableId },
       ownershipBaseline: baseline,
-      userTurnEvidenceDigest: safeDigestWith(evidenceDigest, "send-baseline", {
+      userTurnEvidenceDigest: await safeDigestWith(evidenceDigest, "send-baseline", {
         snapshotDigest: baseline.snapshotDigest,
         userTurns: baseline.userTurns.map((turn) => turn.evidenceDigest)
       }) ?? baseline.snapshotDigest
@@ -36271,10 +37916,10 @@ async function observeAttachmentEnvelope(request, page, target, evidenceDigest, 
     }
   }
   if (request.manifest.count > 0) return { status: "unavailable" };
-  const result3 = await readEmptyAttachmentState(page);
+  const result3 = await readChatGPTEmptyAttachmentState(page);
   if (result3 === void 0 || !result3.supported) return { status: "unavailable" };
   if (result3.count !== 0 || result3.visibleAttachmentCount !== 0) return { status: "mismatch" };
-  const evidence = safeDigestWith(evidenceDigest, "composer-attachments", {
+  const evidence = await safeDigestWith(evidenceDigest, "composer-attachments", {
     operationId: request.operationId,
     targetBindingDigest: request.targetBindingDigest,
     count: 0
@@ -36288,171 +37933,18 @@ async function observeAttachmentEnvelope(request, page, target, evidenceDigest, 
     identityDigests: []
   };
 }
-async function readEmptyAttachmentState(page) {
-  if (typeof page.evaluate !== "function") return void 0;
-  try {
-    const result3 = await page.evaluate(() => {
-      const visible = (element) => {
-        let ancestor = element;
-        for (let depth = 0; ancestor !== null && depth < 4096; depth += 1) {
-          if (ancestor.nodeType === 1) {
-            const candidate = ancestor;
-            if (candidate.hasAttribute("hidden") || candidate.hasAttribute("inert") || candidate.getAttribute("aria-hidden") === "true") return false;
-          }
-          ancestor = ancestor.parentNode;
-        }
-        if (ancestor !== null) throw new Error("node limit exceeded");
-        const style = window.getComputedStyle(element);
-        if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
-        const rect = typeof element.getBoundingClientRect === "function" ? element.getBoundingClientRect() : void 0;
-        return rect === void 0 || rect.width > 0 || rect.height > 0;
-      };
-      const boundedQuery = (root, selector, maxMatched = 4096, maxVisited = 4096) => {
-        const simpleMatch = (element, token) => {
-          let offset = 0;
-          const tag = /^[A-Za-z][A-Za-z0-9-]*/u.exec(token);
-          if (tag !== null) {
-            if (element.tagName.toLocaleLowerCase() !== tag[0].toLocaleLowerCase()) return false;
-            offset = tag[0].length;
-          }
-          while (offset < token.length) {
-            if (token[offset] !== "[") return false;
-            const close = token.indexOf("]", offset + 1);
-            if (close < 0) return false;
-            const expression = token.slice(offset + 1, close).trim();
-            const attribute = /^([A-Za-z0-9_:-]+)(?:(\*=|=)'([^']*)'(?:\s+(i))?)?$/u.exec(expression);
-            if (attribute === null) return false;
-            const actual = element.getAttribute(attribute[1]);
-            if (attribute[2] === void 0) {
-              if (actual === null) return false;
-            } else {
-              if (actual === null) return false;
-              const insensitive = attribute[4] === "i";
-              const left = insensitive ? actual.toLocaleLowerCase() : actual;
-              const rightValue = attribute[3] ?? "";
-              const right = insensitive ? rightValue.toLocaleLowerCase() : rightValue;
-              if (attribute[2] === "=" ? left !== right : !left.includes(right)) return false;
-            }
-            offset = close + 1;
-          }
-          return true;
-        };
-        const tokensFor = (branch) => {
-          const tokens = [];
-          let depth = 0;
-          let start = 0;
-          for (let index = 0; index <= branch.length; index += 1) {
-            const character = branch[index];
-            if (character === "[") depth += 1;
-            if (character === "]") depth -= 1;
-            if ((character === void 0 || /\s/u.test(character)) && depth === 0) {
-              const token = branch.slice(start, index).trim();
-              if (token.length > 0) tokens.push(token);
-              start = index + 1;
-            }
-          }
-          return tokens;
-        };
-        const selectorMatch = (element) => {
-          for (const rawBranch of selector.split(",")) {
-            const tokens = tokensFor(rawBranch.trim());
-            if (tokens.length === 0 || !simpleMatch(element, tokens[tokens.length - 1])) continue;
-            let ancestor = element.parentNode;
-            let tokenIndex = tokens.length - 2;
-            while (tokenIndex >= 0) {
-              while (ancestor !== null && (ancestor.nodeType !== 1 || !simpleMatch(ancestor, tokens[tokenIndex]))) {
-                ancestor = ancestor.parentNode;
-              }
-              if (ancestor === null) break;
-              tokenIndex -= 1;
-              ancestor = ancestor.parentNode;
-            }
-            if (tokenIndex < 0) return true;
-          }
-          return false;
-        };
-        let visited = 0;
-        const matches = [];
-        let current = root.firstChild;
-        while (current !== null) {
-          visited += 1;
-          if (visited > maxVisited) throw new Error("node limit exceeded");
-          if (current.nodeType === 1 && selectorMatch(current)) {
-            matches.push(current);
-            if (matches.length > maxMatched) throw new Error("node limit exceeded");
-          }
-          if (current.firstChild !== null) {
-            current = current.firstChild;
-            continue;
-          }
-          while (current !== null && current !== root && current.nextSibling === null) current = current.parentNode;
-          current = current === null || current === root ? null : current.nextSibling;
-        }
-        return matches;
-      };
-      const textboxes = boundedQuery(
-        document,
-        "textarea, [contenteditable='true'], [role='textbox']"
-      ).filter(visible);
-      const composerAncestor = (textbox) => {
-        let fallback = null;
-        let current = textbox;
-        for (let depth = 0; current !== null && depth < 4096; depth += 1) {
-          if (current.nodeType === 1) {
-            const element = current;
-            if (element.tagName === "FORM") return element;
-            const testId = (element.getAttribute("data-testid") ?? "").toLocaleLowerCase();
-            const classTokens = (element.getAttribute("class") ?? "").toLocaleLowerCase().split(/\s+/u);
-            if (fallback === null && (testId.includes("composer") || classTokens.includes("composer-parent") || classTokens.includes("group/composer"))) fallback = element;
-          }
-          current = current.parentNode;
-        }
-        if (current !== null) throw new Error("node limit exceeded");
-        return fallback;
-      };
-      const composers = [...new Set(textboxes.map(
-        (textbox) => composerAncestor(textbox)
-      ).filter((value) => value !== null))];
-      if (composers.length !== 1) return { supported: false, count: 0, visibleAttachmentCount: 0 };
-      const inputs = boundedQuery(composers[0], "input[type='file']").filter((input) => !input.disabled && input.getAttribute("aria-disabled") !== "true");
-      if (inputs.length !== 1) return { supported: false, count: 0, visibleAttachmentCount: 0 };
-      const selectors = [
-        "[data-testid*='attachment' i]",
-        "[data-testid*='file' i]",
-        "[aria-label*='attachment' i]",
-        "[aria-label*='upload' i]",
-        "[aria-label*='file' i]",
-        "[class*='attachment' i]",
-        "[class*='upload' i]",
-        "[class*='file' i]",
-        "[role='progressbar']"
-      ].join(", ");
-      const visibleAttachmentCount = boundedQuery(composers[0], selectors).filter(visible).length;
-      return {
-        supported: true,
-        count: inputs[0].files?.length ?? 0,
-        visibleAttachmentCount
-      };
-    });
-    if (result3 === null || typeof result3 !== "object") return void 0;
-    if (typeof result3.supported !== "boolean" || !Number.isSafeInteger(result3.count) || !Number.isSafeInteger(result3.visibleAttachmentCount)) return void 0;
-    return result3;
-  } catch {
-    return void 0;
-  }
-}
 async function readComposerState(page, target, operationId2, evidenceDigest) {
   void target;
   const locator = await uniqueVisibleLocator(page, composerTextbox);
   if (locator === void 0) return void 0;
   const text = await readLocatorText2(locator);
   if (text === void 0 || text.length > MAX_COMPOSER_CHARS || text.includes("\0")) return void 0;
-  const currentStateDigest = safeDigestWith(evidenceDigest, "composer-state", {
+  const currentStateDigest = await safeDigestWith(evidenceDigest, "composer-state", {
     operationId: operationId2,
     text
   });
   if (currentStateDigest === void 0) return void 0;
-  const observationDigest2 = safeDigestWith(evidenceDigest, "composer-observation", {
+  const observationDigest2 = await safeDigestWith(evidenceDigest, "composer-observation", {
     operationId: operationId2,
     currentStateDigest
   });
@@ -36462,42 +37954,7 @@ async function readComposerState(page, target, operationId2, evidenceDigest) {
 async function readLocatorText2(locator) {
   try {
     if (typeof locator.evaluate !== "function") return void 0;
-    const value = await locator.evaluate((element) => {
-      const candidate = element;
-      const candidateValue = candidate.value;
-      const tag = typeof candidate.tagName === "string" ? candidate.tagName.toLowerCase() : "";
-      if ((tag === "input" || tag === "textarea" || tag === "select") && typeof candidateValue === "string") {
-        return candidateValue.length <= 8 * 1024 * 1024 ? candidateValue : void 0;
-      }
-      const chunks = [];
-      const ancestors = [];
-      let visited = 0;
-      let total = 0;
-      let current = candidate;
-      while (current !== null) {
-        visited += 1;
-        if (visited > 4096) return void 0;
-        if (current.nodeType === 3) {
-          const text = current.nodeValue ?? "";
-          total += text.length;
-          if (total > 8 * 1024 * 1024) return void 0;
-          if (text.length > 0) chunks.push(text);
-        }
-        const child = current.firstChild;
-        if (child !== null) {
-          if (ancestors.length >= 4096) return void 0;
-          ancestors.push(current);
-          current = child;
-          continue;
-        }
-        while (current !== null && current !== candidate && current.nextSibling === null) {
-          current = ancestors.pop() ?? null;
-        }
-        if (current === candidate) break;
-        if (current !== null) current = current.nextSibling;
-      }
-      return chunks.join("");
-    });
+    const value = await locator.evaluate(inspectComposerText);
     return typeof value === "string" && value.length <= MAX_COMPOSER_CHARS ? value : void 0;
   } catch {
     return void 0;
@@ -36544,9 +38001,9 @@ function sendIdentity(state, expected) {
 function stableBaseline(snapshot2) {
   return snapshot2.completeness === "complete" && snapshot2.userTurns.every((turn) => turn.stableId !== void 0);
 }
-function baselineForSnapshot(snapshot2, evidenceDigest, operationId2, targetBindingDigest) {
+async function baselineForSnapshot(snapshot2, evidenceDigest, operationId2, targetBindingDigest) {
   if (snapshot2.completeness !== "complete" || !stableBaseline(snapshot2)) return void 0;
-  const snapshotDigest = safeDigestWith(evidenceDigest, "send-baseline-snapshot", {
+  const snapshotDigest = await safeDigestWith(evidenceDigest, "send-baseline-snapshot", {
     operationId: operationId2,
     targetBindingDigest,
     snapshotDigest: snapshot2.snapshotDigest
@@ -36663,6 +38120,7 @@ async function observeCollector(request, page, target, context, evidenceDigest, 
     target: observationTarget,
     evidenceDigest,
     responseContent: request.responseContent,
+    ...request.responseFormat === void 0 ? {} : { responseFormat: request.responseFormat },
     ...context.baseline === void 0 ? {} : { baseline: context.baseline },
     ...context.prior?.assistantTurnId === void 0 ? {} : {
       terminalAssistantTurnId: context.prior.assistantTurnId,
@@ -36678,10 +38136,10 @@ async function observeCollector(request, page, target, context, evidenceDigest, 
 async function sleepOutsideBrowser(milliseconds, signal) {
   if (!Number.isSafeInteger(milliseconds) || milliseconds < 0 || milliseconds > 6e4) throw new ProductionPrimitiveError("invalid_sleep");
   if (signal.aborted) throw new ProductionPrimitiveError("operation_cancelled");
-  await new Promise((resolve8, reject) => {
+  await new Promise((resolve9, reject) => {
     const timer = setTimeout(() => {
       signal.removeEventListener("abort", onAbort);
-      resolve8();
+      resolve9();
     }, milliseconds);
     const onAbort = () => {
       clearTimeout(timer);
@@ -36735,16 +38193,16 @@ async function observeControlSnapshot(operationId2, page, target, evidenceDigest
     return void 0;
   }
 }
-function safeDigestWith(evidenceDigest, domain, material) {
+async function safeDigestWith(evidenceDigest, domain, material) {
   try {
-    const value = evidenceDigest(domain, material);
+    const value = await evidenceDigest(domain, material);
     return isDigest7(value) ? value : void 0;
   } catch {
     return void 0;
   }
 }
-function digest2(evidenceDigest, domain, material) {
-  return safeDigestWith(evidenceDigest, domain, material);
+async function digest3(evidenceDigest, domain, material) {
+  return await safeDigestWith(evidenceDigest, domain, material);
 }
 function isDigest7(value) {
   return typeof value === "string" && DIGEST_PATTERN13.test(value);
@@ -36835,9 +38293,9 @@ function validateRequiredString(value, label, maxLength = MAX_ID_LENGTH) {
   return normalized;
 }
 function validateTargetBindingDigest(value, label = "targetBindingDigest") {
-  const digest4 = validateRequiredString(value, label, MAX_DIGEST_LENGTH2);
-  if (!HMAC_DIGEST_PATTERN2.test(digest4)) throw invalid3(`${label} must be a canonical HMAC digest`);
-  return digest4;
+  const digest5 = validateRequiredString(value, label, MAX_DIGEST_LENGTH2);
+  if (!HMAC_DIGEST_PATTERN2.test(digest5)) throw invalid3(`${label} must be a canonical HMAC digest`);
+  return digest5;
 }
 function normalizeOptionalIdentity(value, label) {
   if (value === void 0 || value === null) return void 0;
@@ -37206,7 +38664,7 @@ function stableId(value, code = "invalid_target_evidence") {
   }
   return normalized;
 }
-function digest3(value, code = "invalid_digest") {
+function digest4(value, code = "invalid_digest") {
   if (typeof value !== "string" || !DIGEST_PATTERN14.test(value)) fail(code, "Target evidence digest is invalid.");
   return value;
 }
@@ -37329,11 +38787,13 @@ function claimEvidenceValue(target) {
 function validateDigestFunction(fn) {
   if (typeof fn !== "function") fail("invalid_digest", "Target evidence digest function is required.");
 }
-function safeDigest2(fn, domain, material) {
+function* targetDigest(fn, domain, material) {
+  return yield { fn, domain, material };
+}
+function validateTargetDigest(value) {
   try {
-    return digest3(fn(domain, material));
-  } catch (error) {
-    if (error instanceof BrowserTargetError && error.code === "invalid_digest") throw error;
+    return digest4(value);
+  } catch {
     fail("invalid_digest", "Target evidence digest is invalid.");
   }
 }
@@ -37405,13 +38865,28 @@ function makeTransactionOptions(owner, options) {
   if (options.label !== void 0) result3.label = options.label;
   return Object.freeze(result3);
 }
-function bindBrowserTarget(input) {
+async function bindBrowserTargetAsync(input) {
+  const steps = bindBrowserTargetSteps(input);
+  let step = steps.next();
+  while (!step.done) {
+    let value;
+    try {
+      value = await step.value.fn(step.value.domain, step.value.material);
+    } catch {
+      fail("invalid_digest", "Target evidence digest is invalid.");
+    }
+    step = steps.next(validateTargetDigest(value));
+  }
+  return step.value;
+}
+function* bindBrowserTargetSteps(input) {
   assertPlainRecord(input, "invalid_target_evidence", "Target binding input is invalid.");
   assertExactKeys7(
     input,
     ["page", "evidence", "targetLifecycle", "newTargetAnchorDigest", "blankTaskEvidenceDigest", "authoritativeClaim", "capabilities", "evidenceDigest", "owner", "coordinator", "userTurnBaselineDigest", "assistantTurnBaselineDigest", "configurationReceiptDigest"],
     "invalid_target_evidence"
   );
+  input = Object.freeze({ ...input });
   assertPageLike(input.page);
   validateDigestFunction(input.evidenceDigest);
   if (input.coordinator === null || typeof input.coordinator !== "object" || typeof input.coordinator.withTabTransaction !== "function" || typeof input.coordinator.withBrowserAcquisition !== "function") {
@@ -37437,7 +38912,7 @@ function bindBrowserTarget(input) {
   }
   const claimValidated = claim !== void 0 && observedClaim === claim.token;
   for (const value of [input.userTurnBaselineDigest, input.assistantTurnBaselineDigest, input.configurationReceiptDigest]) {
-    if (value !== void 0) digest3(value);
+    if (value !== void 0) digest4(value);
   }
   if (pending2) {
     if (evidence.thread.status !== "unavailable" || evidence.conversation.status !== "unavailable" || evidence.canonicalThreadUrl.status !== "unavailable") {
@@ -37446,8 +38921,8 @@ function bindBrowserTarget(input) {
     if (input.newTargetAnchorDigest === void 0 || input.blankTaskEvidenceDigest === void 0) {
       fail("invalid_digest", "A pending new target requires blank-task anchor evidence.");
     }
-    digest3(input.newTargetAnchorDigest);
-    digest3(input.blankTaskEvidenceDigest);
+    digest4(input.newTargetAnchorDigest);
+    digest4(input.blankTaskEvidenceDigest);
   } else if (input.newTargetAnchorDigest !== void 0 || input.blankTaskEvidenceDigest !== void 0) {
     fail("invalid_target_evidence", "Blank-task anchor evidence is only valid for a pending new target.");
   }
@@ -37458,7 +38933,7 @@ function bindBrowserTarget(input) {
     tabId,
     coordinationScope: providerScope ? "provider" : "process",
     ...claimValidated ? {
-      tabClaimEvidenceDigest: safeDigest2(input.evidenceDigest, CLAIM_EVIDENCE_DIGEST_DOMAIN, {
+      tabClaimEvidenceDigest: yield* targetDigest(input.evidenceDigest, CLAIM_EVIDENCE_DIGEST_DOMAIN, {
         token: claim?.token,
         epoch: claim?.epoch
       })
@@ -37484,7 +38959,7 @@ function bindBrowserTarget(input) {
       blankTaskEvidenceDigest: input.blankTaskEvidenceDigest
     } : {}
   });
-  const targetEvidenceDigest = safeDigest2(
+  const targetEvidenceDigest = yield* targetDigest(
     input.evidenceDigest,
     TARGET_EVIDENCE_DIGEST_DOMAIN,
     targetMaterial3(evidence, targetWithoutDigest, claim)
@@ -37907,7 +39382,7 @@ function turnBaselineFromOwnership(value) {
   };
 }
 function samePreparedObservation(prepared, current) {
-  return current.targetBindingDigest === prepared.observation.targetBindingDigest && current.configurationReceiptDigest === prepared.observation.configurationReceiptDigest && current.composerReceiptDigest === prepared.observation.composerReceiptDigest && current.attachments.count === prepared.observation.attachments.count && current.attachments.orderPolicy === prepared.observation.attachments.orderPolicy && current.attachments.identityDigests.length === prepared.observation.attachments.identityDigests.length && current.attachments.identityDigests.every((digest4, index) => digest4 === prepared.observation.attachments.identityDigests[index]) && sameBaseline(prepared.baseline, current.baseline);
+  return current.targetBindingDigest === prepared.observation.targetBindingDigest && current.configurationReceiptDigest === prepared.observation.configurationReceiptDigest && current.composerReceiptDigest === prepared.observation.composerReceiptDigest && current.attachments.count === prepared.observation.attachments.count && current.attachments.orderPolicy === prepared.observation.attachments.orderPolicy && current.attachments.identityDigests.length === prepared.observation.attachments.identityDigests.length && current.attachments.identityDigests.every((digest5, index) => digest5 === prepared.observation.attachments.identityDigests[index]) && sameBaseline(prepared.baseline, current.baseline);
 }
 function cloneExactPrecondition(value) {
   return {
@@ -38033,7 +39508,7 @@ async function sleepOutsideActor(observers, milliseconds, signal) {
     await observers.sleep(milliseconds, signal);
     return;
   }
-  await new Promise((resolve8, reject) => {
+  await new Promise((resolve9, reject) => {
     if (signal.aborted) {
       reject(new Error("operation cancelled"));
       return;
@@ -38047,7 +39522,7 @@ async function sleepOutsideActor(observers, milliseconds, signal) {
     signal.addEventListener("abort", onAbort, { once: true });
     timer = setTimeout(() => {
       signal.removeEventListener("abort", onAbort);
-      resolve8();
+      resolve9();
     }, milliseconds);
   });
 }
@@ -38191,8 +39666,8 @@ function validateExpected(value) {
   if (!isPlainRecord4(value)) throw new Error("invalid expected envelope");
   assertExactKeys8(value, ["surface", "targetBindingDigest", "configurationReceiptDigest", "composerReceiptDigest", "attachmentManifest"]);
   if (value.surface !== "chat" && value.surface !== "work") throw new Error("invalid expected surface");
-  for (const digest4 of [value.targetBindingDigest, value.configurationReceiptDigest, value.composerReceiptDigest]) {
-    if (!isDigest8(digest4)) throw new Error("invalid expected digest");
+  for (const digest5 of [value.targetBindingDigest, value.configurationReceiptDigest, value.composerReceiptDigest]) {
+    if (!isDigest8(digest5)) throw new Error("invalid expected digest");
   }
   if (!isPlainRecord4(value.attachmentManifest)) throw new Error("invalid attachment manifest");
   assertExactKeys8(value.attachmentManifest, ["count", "orderPolicy", "identities"]);
@@ -38231,8 +39706,8 @@ function validateAttachmentObservation2(value, expected) {
   if (!isPlainRecord4(value)) throw new Error("invalid attachment observation");
   assertExactKeys8(value, ["count", "orderPolicy", "identityDigests"]);
   if (!Number.isSafeInteger(value.count) || value.count < 0 || value.count > MAX_ATTACHMENTS2 || value.orderPolicy !== "exact" || !Array.isArray(value.identityDigests) || value.identityDigests.length !== value.count || value.count !== expected.attachmentManifest.count) throw new Error("attachment mismatch");
-  value.identityDigests.forEach((digest4, index) => {
-    if (!isDigest8(digest4) || digest4 !== expected.attachmentManifest.identities[index]?.identityDigest) throw new Error("attachment mismatch");
+  value.identityDigests.forEach((digest5, index) => {
+    if (!isDigest8(digest5) || digest5 !== expected.attachmentManifest.identities[index]?.identityDigest) throw new Error("attachment mismatch");
   });
 }
 function validateBaseline2(value) {
@@ -38448,13 +39923,13 @@ function isSubmissionBlockerCode(value) {
 }
 
 // src/operations/artifact-transfer.ts
-import { resolve as resolve6 } from "node:path";
+import { resolve as resolve7 } from "node:path";
 
 // src/operations/artifact-output.ts
 import { constants as fsConstants3, unlinkSync } from "node:fs";
-import { createHash as createHash6, randomBytes as randomBytes2 } from "node:crypto";
-import { isAbsolute as isAbsolute2, relative, resolve as resolve5, sep as sep2 } from "node:path";
-import { lstat as lstat3, open as open3, opendir as opendir2, realpath as realpath2 } from "node:fs/promises";
+import { createHash as createHash6, randomBytes as randomBytes3 } from "node:crypto";
+import { isAbsolute as isAbsolute3, relative, resolve as resolve6, sep as sep2 } from "node:path";
+import { lstat as lstat4, open as open4, opendir as opendir2, realpath as realpath3 } from "node:fs/promises";
 
 // src/operations/artifact-stream.ts
 var MAX_PROVIDER_CHUNK_BYTES = 8 * 1024 * 1024;
@@ -38505,8 +39980,8 @@ function deriveOperationOutputKey(input) {
   validateOpaqueIdentity(captured.operationId, "operationId");
   validateOpaqueIdentity(captured.artifactIdentity, "artifactIdentity");
   const extension = normalizeExtension(captured.extensionHint, captured.mimeTypeHint);
-  const digest4 = outputIdentityDigest(captured, extension);
-  return `${OUTPUT_KEY_PREFIX}${digest4.slice(0, OUTPUT_KEY_DIGEST_LENGTH)}${extension === "" ? "" : `.${extension}`}`;
+  const digest5 = outputIdentityDigest(captured, extension);
+  return `${OUTPUT_KEY_PREFIX}${digest5.slice(0, OUTPUT_KEY_DIGEST_LENGTH)}${extension === "" ? "" : `.${extension}`}`;
 }
 async function commitOperationOutput(options) {
   const captured = snapshotCommitOptions(options);
@@ -38938,8 +40413,8 @@ function armProviderBoundary(runtime, fallbackTimeoutMs) {
   let resolveBoundary;
   let timer;
   let cancelled = false;
-  const promise = new Promise((resolve8) => {
-    resolveBoundary = resolve8;
+  const promise = new Promise((resolve9) => {
+    resolveBoundary = resolve9;
   });
   const listener = () => trigger("aborted");
   const removeListener = () => {
@@ -39082,8 +40557,8 @@ async function closeAsyncIterator(iterator, runtime) {
   if (runtime.deadlineAt !== void 0 && runtime.lastNow !== void 0 && runtime.lastNow >= runtime.deadlineAt) {
     let tick;
     const closeSettled = operation.then(() => true, () => true);
-    const grace = new Promise((resolve8) => {
-      tick = setTimeout(() => resolve8(false), 0);
+    const grace = new Promise((resolve9) => {
+      tick = setTimeout(() => resolve9(false), 0);
     });
     const settled = await Promise.race([closeSettled, grace]);
     if (tick !== void 0) clearTimeout(tick);
@@ -39145,7 +40620,7 @@ function validateCommitOptions(options) {
   validateOpaqueIdentity(options.operationId, "operationId");
   validateOpaqueIdentity(options.artifactIdentity, "artifactIdentity");
   normalizeExtension(options.extensionHint, options.mimeTypeHint);
-  if (!isAbsolute2(options.outputDirectory)) {
+  if (!isAbsolute3(options.outputDirectory)) {
     throw new ArtifactOutputError("output_directory_not_absolute", "Output directory must be absolute.");
   }
   if (byteLength(options.outputDirectory) > MAX_OUTPUT_DIRECTORY_BYTES || options.outputDirectory.includes("\0")) {
@@ -39180,7 +40655,7 @@ async function secureOutputDirectory(requested, runtime) {
   checkRuntime(runtime);
   let metadata;
   try {
-    metadata = await lstat3(requested, { bigint: true });
+    metadata = await lstat4(requested, { bigint: true });
   } catch {
     throw new ArtifactOutputError("destination_invalid", "Output directory is unavailable.");
   }
@@ -39189,11 +40664,11 @@ async function secureOutputDirectory(requested, runtime) {
   }
   let canonical;
   try {
-    canonical = await realpath2(requested);
+    canonical = await realpath3(requested);
   } catch {
     throw new ArtifactOutputError("destination_invalid", "Output directory could not be resolved.");
   }
-  const canonicalMetadata = await lstat3(canonical, { bigint: true });
+  const canonicalMetadata = await lstat4(canonical, { bigint: true });
   if (canonicalMetadata.isSymbolicLink() || !canonicalMetadata.isDirectory()) {
     throw new ArtifactOutputError("destination_invalid", "Output directory must resolve to a real directory.");
   }
@@ -39204,7 +40679,7 @@ async function assertDirectoryStable(directory, runtime) {
   checkRuntime(runtime);
   let metadata;
   try {
-    metadata = await lstat3(directory.canonical, { bigint: true });
+    metadata = await lstat4(directory.canonical, { bigint: true });
   } catch {
     throw new ArtifactOutputError("destination_invalid", "Output directory is unavailable.");
   }
@@ -39214,9 +40689,9 @@ async function assertDirectoryStable(directory, runtime) {
   checkRuntime(runtime);
 }
 function safeChildPath(directory, outputKey) {
-  const candidate = resolve5(directory, outputKey);
+  const candidate = resolve6(directory, outputKey);
   const remainder = relative(directory, candidate);
-  if (remainder.length === 0 || remainder.startsWith(`..${sep2}`) || remainder === ".." || isAbsolute2(remainder) || remainder.includes(sep2)) {
+  if (remainder.length === 0 || remainder.startsWith(`..${sep2}`) || remainder === ".." || isAbsolute3(remainder) || remainder.includes(sep2)) {
     throw new ArtifactOutputError("unsafe_output_key", "Output key must resolve to one child beneath the destination.");
   }
   return candidate;
@@ -39229,9 +40704,9 @@ async function matchingTemps(directory, prefix, runtime) {
     rethrowRuntimeFailure(error);
     return void 0;
   }
-  let handle;
+  let handle2;
   try {
-    handle = await opendir2(directory.canonical);
+    handle2 = await opendir2(directory.canonical);
   } catch (error) {
     rethrowRuntimeFailure(error);
     return void 0;
@@ -39240,7 +40715,7 @@ async function matchingTemps(directory, prefix, runtime) {
   let scannedEntries = 0;
   try {
     checkScanRuntime(runtime);
-    for await (const entry of handle) {
+    for await (const entry of handle2) {
       checkScanRuntime(runtime);
       scannedEntries += 1;
       if (scannedEntries > MAX_TEMP_SCAN_ENTRIES) {
@@ -39254,7 +40729,7 @@ async function matchingTemps(directory, prefix, runtime) {
     rethrowRuntimeFailure(error);
     return void 0;
   } finally {
-    await handle.close().catch(() => void 0);
+    await handle2.close().catch(() => void 0);
   }
   try {
     checkScanRuntime(runtime);
@@ -39296,7 +40771,7 @@ async function reconcilePreexistingOutput(directory, finalPath, tempPrefix, outp
   let metadata;
   try {
     await assertDirectoryStable(directory, runtime);
-    metadata = await lstat3(tempPath, { bigint: true });
+    metadata = await lstat4(tempPath, { bigint: true });
   } catch (error) {
     rethrowRuntimeFailure(error);
     return result2(outputKey, expected, "blocked", "ambiguous_temp");
@@ -39304,13 +40779,13 @@ async function reconcilePreexistingOutput(directory, finalPath, tempPrefix, outp
   if (metadata.isSymbolicLink() || !metadata.isFile()) return result2(outputKey, expected, "blocked", "ambiguous_temp");
   let temp;
   try {
-    const handle = await open3(tempPath, fsConstants3.O_RDWR | (fsConstants3.O_NOFOLLOW ?? 0));
-    const opened = await handle.stat({ bigint: true });
+    const handle2 = await open4(tempPath, fsConstants3.O_RDWR | (fsConstants3.O_NOFOLLOW ?? 0));
+    const opened = await handle2.stat({ bigint: true });
     if (!sameFileIdentity(metadata, opened) || !opened.isFile()) {
-      await handle.close().catch(() => void 0);
+      await handle2.close().catch(() => void 0);
       return result2(outputKey, expected, "blocked", "ambiguous_temp");
     }
-    temp = { path: tempPath, device: opened.dev, inode: opened.ino, handle };
+    temp = { path: tempPath, device: opened.dev, inode: opened.ino, handle: handle2 };
     if (!await retainedTempMatches(temp, expected, runtime)) {
       return result2(outputKey, expected, "blocked", "ambiguous_temp");
     }
@@ -39355,44 +40830,44 @@ async function createOwnedTemp(directory, prefix, hooks, runtime) {
       rethrowRuntimeFailure(error);
       throw new ArtifactOutputError("temp_open_failed", "Operation-owned temporary output could not be created.");
     }
-    let handle;
+    let handle2;
     try {
       await assertDirectoryStable(directory, runtime);
-      handle = await open3(tempPath, fsConstants3.O_RDWR | fsConstants3.O_CREAT | fsConstants3.O_EXCL | (fsConstants3.O_NOFOLLOW ?? 0), POSIX_FILE_MODE2);
+      handle2 = await open4(tempPath, fsConstants3.O_RDWR | fsConstants3.O_CREAT | fsConstants3.O_EXCL | (fsConstants3.O_NOFOLLOW ?? 0), POSIX_FILE_MODE2);
     } catch (error) {
       rethrowRuntimeFailure(error);
       if (isErrno(error, "EEXIST")) continue;
       throw new ArtifactOutputError("temp_open_failed", "Operation-owned temporary output could not be created.");
     }
     try {
-      const stats = await handle.stat({ bigint: true });
+      const stats = await handle2.stat({ bigint: true });
       if (!stats.isFile()) {
         throw new ArtifactOutputError("temp_open_failed", "Operation-owned temporary output is not a regular file.");
       }
-      return { path: tempPath, device: stats.dev, inode: stats.ino, handle };
+      return { path: tempPath, device: stats.dev, inode: stats.ino, handle: handle2 };
     } catch (error) {
-      await handle.close().catch(() => void 0);
+      await handle2.close().catch(() => void 0);
       throw error;
     }
   }
   throw new ArtifactOutputError("temp_open_failed", "Could not obtain a collision-resistant temporary output name.");
 }
 async function writeSource(temp, options, runtime) {
-  const handle = temp.handle;
+  const handle2 = temp.handle;
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_ARTIFACT_BYTES;
-  const digest4 = createHash6("sha256");
+  const digest5 = createHash6("sha256");
   let bytes = 0;
   let chunkCount = 0;
   let iterator;
   let iteratorDone = false;
   try {
     checkRuntime(runtime);
-    const opened = await handle.stat({ bigint: true });
+    const opened = await handle2.stat({ bigint: true });
     if (!opened.isFile() || opened.dev !== temp.device || opened.ino !== temp.inode) {
       throw new ArtifactOutputError("write_failed", "Operation-owned temporary output changed before writing.");
     }
     if (isSignalAborted(options.signal)) {
-      throw new StreamOutcome("blocked", "source_aborted", bytes, digest4.copy().digest("hex"));
+      throw new StreamOutcome("blocked", "source_aborted", bytes, digest5.copy().digest("hex"));
     }
     iterator = safeAsyncIterator(options.source);
     while (true) {
@@ -39403,73 +40878,73 @@ async function writeSource(temp, options, runtime) {
       }
       chunkCount += 1;
       if (chunkCount > MAX_PROVIDER_CHUNKS) {
-        throw new StreamOutcome("blocked", "source_invalid", bytes, digest4.copy().digest("hex"));
+        throw new StreamOutcome("blocked", "source_invalid", bytes, digest5.copy().digest("hex"));
       }
       const chunk = next.value;
       if (isSignalAborted(options.signal)) {
-        throw new StreamOutcome("blocked", "source_aborted", bytes, digest4.copy().digest("hex"));
+        throw new StreamOutcome("blocked", "source_aborted", bytes, digest5.copy().digest("hex"));
       }
       if (!isByteArrayView(chunk)) {
-        throw new StreamOutcome("blocked", "source_invalid", bytes, digest4.copy().digest("hex"));
+        throw new StreamOutcome("blocked", "source_invalid", bytes, digest5.copy().digest("hex"));
       }
       if (chunk.byteLength > MAX_PROVIDER_CHUNK_BYTES) {
-        throw new StreamOutcome("blocked", "source_invalid", bytes, digest4.copy().digest("hex"));
+        throw new StreamOutcome("blocked", "source_invalid", bytes, digest5.copy().digest("hex"));
       }
       if (chunk.byteLength > maxBytes - bytes) {
-        throw new StreamOutcome("blocked", "byte_limit_exceeded", bytes, digest4.copy().digest("hex"));
+        throw new StreamOutcome("blocked", "byte_limit_exceeded", bytes, digest5.copy().digest("hex"));
       }
       const buffer = isOwnedProviderChunk(chunk) ? Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength) : Buffer.from(chunk);
       try {
         await inject(options.hooks, "before_write", runtime);
       } catch (error) {
         rethrowRuntimeFailure(error);
-        throw new StreamOutcome("blocked", "write_failed", bytes, digest4.copy().digest("hex"));
+        throw new StreamOutcome("blocked", "write_failed", bytes, digest5.copy().digest("hex"));
       }
       let written = 0;
       while (written < buffer.byteLength) {
         let count;
         try {
-          count = (await localEffect(runtime, () => handle.write(buffer, written, buffer.byteLength - written, bytes + written))).bytesWritten;
+          count = (await localEffect(runtime, () => handle2.write(buffer, written, buffer.byteLength - written, bytes + written))).bytesWritten;
         } catch (error) {
           rethrowRuntimeFailure(error);
-          throw new StreamOutcome("blocked", "write_failed", bytes, digest4.copy().digest("hex"));
+          throw new StreamOutcome("blocked", "write_failed", bytes, digest5.copy().digest("hex"));
         }
         if (!Number.isSafeInteger(count) || count <= 0) {
-          throw new StreamOutcome("blocked", "write_failed", bytes, digest4.copy().digest("hex"));
+          throw new StreamOutcome("blocked", "write_failed", bytes, digest5.copy().digest("hex"));
         }
         written += count;
       }
-      digest4.update(buffer);
+      digest5.update(buffer);
       bytes += buffer.byteLength;
       try {
         await inject(options.hooks, "after_write", runtime);
       } catch (error) {
         rethrowRuntimeFailure(error);
-        throw new StreamOutcome("blocked", "write_failed", bytes, digest4.copy().digest("hex"));
+        throw new StreamOutcome("blocked", "write_failed", bytes, digest5.copy().digest("hex"));
       }
     }
     try {
       await inject(options.hooks, "before_file_sync", runtime);
     } catch (error) {
       rethrowRuntimeFailure(error);
-      throw new StreamOutcome("blocked", "file_sync_failed", bytes, digest4.copy().digest("hex"), true);
+      throw new StreamOutcome("blocked", "file_sync_failed", bytes, digest5.copy().digest("hex"), true);
     }
     try {
-      await localEffect(runtime, () => handle.sync());
+      await localEffect(runtime, () => handle2.sync());
     } catch (error) {
       rethrowRuntimeFailure(error);
-      throw new StreamOutcome("blocked", "file_sync_failed", bytes, digest4.copy().digest("hex"), true);
+      throw new StreamOutcome("blocked", "file_sync_failed", bytes, digest5.copy().digest("hex"), true);
     }
     try {
       await inject(options.hooks, "after_file_sync", runtime);
     } catch (error) {
       rethrowRuntimeFailure(error);
-      throw new StreamOutcome("blocked", "file_sync_failed", bytes, digest4.copy().digest("hex"), true);
+      throw new StreamOutcome("blocked", "file_sync_failed", bytes, digest5.copy().digest("hex"), true);
     }
-    return { bytes, sha256: digest4.digest("hex") };
+    return { bytes, sha256: digest5.digest("hex") };
   } catch (error) {
     if (isInstallOutcome(error) || isArtifactOutputError(error)) throw error;
-    throw new StreamOutcome("blocked", "source_read_failed", bytes, digest4.copy().digest("hex"));
+    throw new StreamOutcome("blocked", "source_read_failed", bytes, digest5.copy().digest("hex"));
   } finally {
     if (iterator !== void 0 && !iteratorDone) await closeAsyncIterator(iterator, runtime);
   }
@@ -39490,7 +40965,7 @@ async function installOrReconcile(directory, finalPath, temp, stream, hooks, run
   }
   let destination;
   try {
-    destination = await localEffect(runtime, () => open3(
+    destination = await localEffect(runtime, () => open4(
       finalPath,
       fsConstants3.O_RDWR | fsConstants3.O_CREAT | fsConstants3.O_EXCL | (fsConstants3.O_NOFOLLOW ?? 0),
       POSIX_FILE_MODE2
@@ -39542,19 +41017,19 @@ async function retainedTempMatches(temp, expected, runtime) {
     checkRuntime(runtime);
     const before = await temp.handle.stat({ bigint: true });
     if (!before.isFile() || before.isSymbolicLink() || before.dev !== temp.device || before.ino !== temp.inode || before.size !== BigInt(expected.bytes)) return false;
-    const digest4 = createHash6("sha256");
+    const digest5 = createHash6("sha256");
     const buffer = Buffer.allocUnsafe(Math.min(64 * 1024, Math.max(1, expected.bytes)));
     let position = 0;
     while (position < expected.bytes) {
       const length = Math.min(buffer.byteLength, expected.bytes - position);
       const read = await temp.handle.read(buffer, 0, length, position);
       if (!Number.isSafeInteger(read.bytesRead) || read.bytesRead <= 0 || read.bytesRead > length) return false;
-      digest4.update(buffer.subarray(0, read.bytesRead));
+      digest5.update(buffer.subarray(0, read.bytesRead));
       position += read.bytesRead;
     }
     const after = await temp.handle.stat({ bigint: true });
     checkRuntime(runtime);
-    return sameFileIdentity(before, after) && before.size === after.size && before.mtimeNs === after.mtimeNs && before.ctimeNs === after.ctimeNs && position === expected.bytes && digest4.digest("hex") === expected.sha256;
+    return sameFileIdentity(before, after) && before.size === after.size && before.mtimeNs === after.mtimeNs && before.ctimeNs === after.ctimeNs && position === expected.bytes && digest5.digest("hex") === expected.sha256;
   } catch (error) {
     rethrowRuntimeFailure(error);
     return false;
@@ -39565,7 +41040,7 @@ async function closeTempHandle(temp) {
 }
 async function copyRetainedTemp(temp, destination, expected, runtime) {
   const source = temp.handle;
-  const digest4 = createHash6("sha256");
+  const digest5 = createHash6("sha256");
   const buffer = Buffer.allocUnsafe(Math.min(64 * 1024, Math.max(1, expected.bytes)));
   let position = 0;
   try {
@@ -39589,10 +41064,10 @@ async function copyRetainedTemp(temp, destination, expected, runtime) {
         }
         written += result3.bytesWritten;
       }
-      digest4.update(buffer.subarray(0, read.bytesRead));
+      digest5.update(buffer.subarray(0, read.bytesRead));
       position += read.bytesRead;
     }
-    if (position !== expected.bytes || digest4.digest("hex") !== expected.sha256) {
+    if (position !== expected.bytes || digest5.digest("hex") !== expected.sha256) {
       throw new ArtifactOutputError("copy_mismatch", "Final artifact copy did not match the verified source.");
     }
     await localEffect(runtime, () => destination.sync());
@@ -39607,7 +41082,7 @@ async function copyRetainedTemp(temp, destination, expected, runtime) {
 async function inspectExistingFinalKind(finalPath, runtime) {
   try {
     checkRuntime(runtime);
-    const metadata = await lstat3(finalPath, { bigint: true });
+    const metadata = await lstat4(finalPath, { bigint: true });
     if (metadata.isSymbolicLink() || !metadata.isFile()) return "not_regular";
     return "regular";
   } catch (error) {
@@ -39618,7 +41093,7 @@ async function inspectExistingFinalKind(finalPath, runtime) {
 async function destinationPathMatches(finalPath, destination, expectedBytes, runtime) {
   try {
     checkRuntime(runtime);
-    const pathMetadata = await lstat3(finalPath, { bigint: true });
+    const pathMetadata = await lstat4(finalPath, { bigint: true });
     const descriptorMetadata = await destination.stat({ bigint: true });
     return sameFileIdentity(pathMetadata, descriptorMetadata) && (expectedBytes === void 0 || descriptorMetadata.size === BigInt(expectedBytes));
   } catch (error) {
@@ -39631,7 +41106,7 @@ async function verifyDestination(destination, finalPath, expected, runtime) {
     throw new InstallOutcome("blocked", "commit_indeterminate");
   }
   const before = await destination.stat({ bigint: true });
-  const digest4 = createHash6("sha256");
+  const digest5 = createHash6("sha256");
   const buffer = Buffer.allocUnsafe(Math.min(64 * 1024, Math.max(1, expected.bytes)));
   let position = 0;
   while (position < expected.bytes) {
@@ -39640,11 +41115,11 @@ async function verifyDestination(destination, finalPath, expected, runtime) {
     if (!Number.isSafeInteger(read.bytesRead) || read.bytesRead <= 0 || read.bytesRead > length) {
       throw new InstallOutcome("blocked", "commit_indeterminate");
     }
-    digest4.update(buffer.subarray(0, read.bytesRead));
+    digest5.update(buffer.subarray(0, read.bytesRead));
     position += read.bytesRead;
   }
   const after = await destination.stat({ bigint: true });
-  const digestHex = digest4.digest("hex");
+  const digestHex = digest5.digest("hex");
   const pathMatches = await destinationPathMatches(finalPath, destination, expected.bytes, runtime);
   if (!sameFileIdentity(before, after) || before.size !== after.size || before.mtimeNs !== after.mtimeNs || before.ctimeNs !== after.ctimeNs || position !== expected.bytes || digestHex !== expected.sha256 || !pathMatches) {
     throw new InstallOutcome("blocked", "commit_indeterminate");
@@ -39654,30 +41129,30 @@ async function inspectExistingFinal(finalPath, expected, runtime) {
   let metadata;
   try {
     checkRuntime(runtime);
-    metadata = await lstat3(finalPath, { bigint: true });
+    metadata = await lstat4(finalPath, { bigint: true });
   } catch (error) {
     rethrowRuntimeFailure(error);
     return isErrno(error, "ENOENT") ? "unavailable" : "unavailable";
   }
   if (metadata.isSymbolicLink() || !metadata.isFile()) return "not_regular";
   if (metadata.size < 0n || metadata.size > BigInt(Number.MAX_SAFE_INTEGER) || Number(metadata.size) !== expected.bytes) return "different";
-  let handle;
+  let handle2;
   try {
-    handle = await open3(finalPath, fsConstants3.O_RDONLY | (fsConstants3.O_NOFOLLOW ?? 0));
+    handle2 = await open4(finalPath, fsConstants3.O_RDONLY | (fsConstants3.O_NOFOLLOW ?? 0));
   } catch {
     return "unavailable";
   }
   try {
-    const before = await handle.stat({ bigint: true });
+    const before = await handle2.stat({ bigint: true });
     if (!before.isFile() || before.dev !== metadata.dev || before.ino !== metadata.ino) return "unavailable";
-    const digest4 = createHash6("sha256");
+    const digest5 = createHash6("sha256");
     let bytes = 0;
-    const stream = handle.createReadStream({ autoClose: false, highWaterMark: 64 * 1024 });
+    const stream = handle2.createReadStream({ autoClose: false, highWaterMark: 64 * 1024 });
     try {
       for await (const chunk of stream) {
         checkRuntime(runtime);
         const buffer = chunk;
-        digest4.update(buffer);
+        digest5.update(buffer);
         bytes += buffer.byteLength;
         if (bytes > expected.bytes) return "different";
       }
@@ -39685,14 +41160,14 @@ async function inspectExistingFinal(finalPath, expected, runtime) {
       rethrowRuntimeFailure(error);
       return "unavailable";
     }
-    const after = await handle.stat({ bigint: true });
+    const after = await handle2.stat({ bigint: true });
     checkRuntime(runtime);
     if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size || before.mtimeNs !== after.mtimeNs || before.ctimeNs !== after.ctimeNs) {
       return "unavailable";
     }
-    return bytes === expected.bytes && digest4.digest("hex") === expected.sha256 ? "same" : "different";
+    return bytes === expected.bytes && digest5.digest("hex") === expected.sha256 ? "same" : "different";
   } finally {
-    await handle.close().catch(() => void 0);
+    await handle2.close().catch(() => void 0);
   }
 }
 async function cleanupOwnedTemp(directory, temp, hooks, runtime, preserveForRecovery = false) {
@@ -39706,7 +41181,7 @@ async function cleanupOwnedTemp(directory, temp, hooks, runtime, preserveForReco
   }
   let metadata;
   try {
-    metadata = await lstat3(temp.path, { bigint: true });
+    metadata = await lstat4(temp.path, { bigint: true });
   } catch (error) {
     if (isErrno(error, "ENOENT")) return "clean";
     return "pending";
@@ -39730,21 +41205,21 @@ async function cleanupOwnedTemp(directory, temp, hooks, runtime, preserveForReco
 async function syncDirectory2(directory, hooks, runtime) {
   await inject(hooks, "before_directory_sync", runtime);
   await assertDirectoryStable(directory, runtime);
-  let handle;
+  let handle2;
   try {
-    handle = await open3(directory.canonical, fsConstants3.O_RDONLY | (fsConstants3.O_DIRECTORY ?? 0));
+    handle2 = await open4(directory.canonical, fsConstants3.O_RDONLY | (fsConstants3.O_DIRECTORY ?? 0));
   } catch (error) {
     if (isUnsupportedDirectorySync(error)) return;
     throw error;
   }
   try {
     try {
-      await localEffect(runtime, () => handle.sync());
+      await localEffect(runtime, () => handle2.sync());
     } catch (error) {
       if (!isUnsupportedDirectorySync(error)) throw error;
     }
   } finally {
-    await handle.close().catch(() => void 0);
+    await handle2.close().catch(() => void 0);
   }
   await inject(hooks, "after_directory_sync", runtime);
   await assertDirectoryStable(directory, runtime);
@@ -39752,7 +41227,7 @@ async function syncDirectory2(directory, hooks, runtime) {
 async function entropyHex(entropy, runtime) {
   try {
     checkRuntime(runtime);
-    const value = entropy === void 0 ? randomBytes2(TEMP_TOKEN_BYTES) : await bounded(runtime, () => entropy(TEMP_TOKEN_BYTES));
+    const value = entropy === void 0 ? randomBytes3(TEMP_TOKEN_BYTES) : await bounded(runtime, () => entropy(TEMP_TOKEN_BYTES));
     if (!isByteArrayView(value) || value.byteLength < TEMP_TOKEN_BYTES) {
       throw new Error("invalid entropy");
     }
@@ -39970,8 +41445,8 @@ function armProviderBoundary2(prepared, fallbackTimeoutMs) {
   let resolveBoundary;
   let timer;
   let cancelled = false;
-  const promise = new Promise((resolve8) => {
-    resolveBoundary = resolve8;
+  const promise = new Promise((resolve9) => {
+    resolveBoundary = resolve9;
   });
   const listener = () => trigger("aborted");
   const removeListener = () => {
@@ -40091,7 +41566,7 @@ async function awaitProviderOperation(prepared, operation, fallbackTimeoutMs, on
   return outcome.value;
 }
 async function transferOperationArtifact(options) {
-  const prepared = prepare(options);
+  const prepared = await prepare(options);
   const initialProgress = freshProgress();
   if (isCancelledOrExpired(prepared)) {
     if (prepared.clockFaulted()) return uncertainResult(initialProgress, "operation_state_corrupt");
@@ -40471,7 +41946,7 @@ function transferIdentity(prepared) {
     prepared.outputKey
   ].join("\0");
 }
-function prepare(options) {
+async function prepare(options) {
   const record = snapshotRecord2(options, "options");
   assertAllowedKeys(record, [
     "operationId",
@@ -40505,7 +41980,7 @@ function prepare(options) {
   const transferActionId = requiredString2(record, "transferActionId", UUID_PATTERN8, 128);
   const outputDirectory = requiredString2(record, "outputDirectory", void 0, limits.maxStringBytes);
   if (!isAbsolutePath(outputDirectory)) throw invalidOptions2();
-  const canonicalDestination = resolve6(outputDirectory);
+  const canonicalDestination = resolve7(outputDirectory);
   if (byteLength2(canonicalDestination) > limits.maxStringBytes) throw invalidOptions2();
   const evidenceDigest = requiredFunction(record, "evidenceDigest");
   const openSource = requiredFunction(record, "openSource");
@@ -40519,7 +41994,7 @@ function prepare(options) {
   const mimeTypeHint = readOptionalString(record, "mimeTypeHint", limits.maxStringBytes);
   let destinationIdentityDigest;
   try {
-    destinationIdentityDigest = evidenceDigest("artifact-destination", freezeRecord({
+    destinationIdentityDigest = await evidenceDigest("artifact-destination", freezeRecord({
       schemaVersion: SCHEMA_VERSION,
       operationId: operationId2,
       requestDigest,
@@ -41001,7 +42476,7 @@ function isArtifactStatus(value) {
   return value === "transferred" || value === "partial" || value === "blocked";
 }
 function isAbsolutePath(value) {
-  return resolve6(value) === value || value.startsWith("/");
+  return resolve7(value) === value || value.startsWith("/");
 }
 function byteLength2(value) {
   return Buffer.byteLength(value, "utf8");
@@ -41022,6 +42497,83 @@ var OperationBrowserAdapterError = class extends Error {
     this.code = code;
   }
 };
+function assertAuthenticatedSendRecovery(request) {
+  const { target, durableBaseline: baseline } = request;
+  if (!isPlainDataRecord2(target) || !isSafeDataGraph2(target) || !isPlainDataRecord2(baseline) || !isSafeDataGraph2(baseline) || baseline.schemaVersion !== TURN_OWNERSHIP_SCHEMA_VERSION || baseline.completeness !== "complete" || !DIGEST_PATTERN17.test(baseline.snapshotDigest) || !DIGEST_PATTERN17.test(request.expected.targetBindingDigest) || !OPAQUE_ID_PATTERN3.test(request.operationId) || !OPAQUE_ID_PATTERN3.test(request.actionId) || !DIGEST_PATTERN17.test(request.requestDigest)) throw new OperationBrowserAdapterError("target_binding_mismatch");
+  compareRecoveredIdentity(baseline.target.provider, target.providerId);
+  compareRecoveredIdentity(baseline.target.browser, target.browserId);
+  compareRecoveredIdentity(baseline.target.tab, target.tabId);
+  if (baseline.target.coordinationScope !== target.coordinationScope) throw new OperationBrowserAdapterError("target_binding_mismatch");
+  if (target.targetLifecycle === "new_pending" || target.targetLifecycle === "new_established") {
+    if (!DIGEST_PATTERN17.test(target.newTargetAnchorDigest ?? "") || !DIGEST_PATTERN17.test(target.blankTaskEvidenceDigest ?? "") || target.targetLifecycle === "new_pending" && (target.conversationId !== void 0 || target.canonicalThreadUrl !== void 0) || target.targetLifecycle === "new_established" && (target.targetEstablishment?.causalSendActionId !== request.actionId || target.targetEstablishment.anchorDigest !== target.newTargetAnchorDigest) || baseline.userTurns.length !== 0 || baseline.assistantTurns.length !== 0 || [baseline.target.thread, baseline.target.conversation, baseline.target.canonicalThreadUrl].some((identity) => identity.status === "available")) {
+      throw new OperationBrowserAdapterError("target_binding_mismatch");
+    }
+  } else {
+    compareRecoveredIdentity(baseline.target.conversation, target.conversationId);
+    compareRecoveredIdentity(baseline.target.canonicalThreadUrl, target.canonicalThreadUrl);
+  }
+}
+async function recoverAuthenticatedBrowserSend(request, options) {
+  try {
+    assertAuthenticatedSendRecovery(request);
+    if (options.observeCurrentTarget === void 0 || request.signal?.aborted || request.deadlineAt !== void 0 && Date.now() >= request.deadlineAt) {
+      return { status: "blocked", blockerCode: "target_evidence_unavailable" };
+    }
+    const coordinator = options.coordinator ?? getProcessTabCoordinator();
+    const observed = await coordinator.withBrowserAcquisition(createBrowserResourceKey(request.target.providerId, request.target.browserId), {
+      owner: { ...options.owner, operationId: request.operationId },
+      priority: "read",
+      ...request.signal === void 0 ? {} : { signal: request.signal },
+      timeoutMs: Math.max(1, Math.min(
+        options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS,
+        (request.deadlineAt ?? Number.MAX_SAFE_INTEGER) - Date.now()
+      )),
+      label: "operation-authenticated-send-recovery"
+    }, async (acquisition) => {
+      const current = normalizeCurrentTargetResult(await options.observeCurrentTarget({
+        operationId: request.operationId,
+        page: options.page,
+        target: request.target,
+        signal: acquisition.signal,
+        ...request.deadlineAt === void 0 ? {} : { deadlineAt: request.deadlineAt }
+      }));
+      await assertRecoveredTargetIdentity(request.target, current, options, true);
+      return current;
+    });
+    const binding = await bindBrowserTargetAsync({
+      page: options.page,
+      evidence: request.target.targetLifecycle === "new_established" ? observed.evidence : request.durableBaseline.target,
+      ...request.target.targetLifecycle === "new_pending" ? {
+        targetLifecycle: "new_pending",
+        newTargetAnchorDigest: request.target.newTargetAnchorDigest,
+        blankTaskEvidenceDigest: request.target.blankTaskEvidenceDigest
+      } : {},
+      ...options.authoritativeClaim === void 0 ? {} : { authoritativeClaim: options.authoritativeClaim },
+      ...options.capabilities === void 0 ? {} : { capabilities: options.capabilities },
+      evidenceDigest: options.evidenceDigest,
+      owner: { ...options.owner, operationId: request.operationId },
+      coordinator
+    });
+    binding.assertCurrent(observed.evidence, observed.authoritativeClaim, true);
+    const linked = createLinkedAbortController(request.signal);
+    try {
+      const send = createPhaseSendObservers(
+        binding,
+        request.operationId,
+        options.sendObservers,
+        linked.controller,
+        options.observeCurrentTarget,
+        options.evidenceDigest,
+        options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS
+      );
+      return await recoverSendOnce({ ...request, page: options.page, observers: send.observers, signal: linked.controller.signal });
+    } finally {
+      linked.cleanup();
+    }
+  } catch {
+    return { status: "blocked", blockerCode: "target_binding_mismatch" };
+  }
+}
 var DIGEST_PATTERN17 = /^hmac-sha256:[0-9a-f]{64}$/u;
 var OPAQUE_ID_PATTERN3 = /^[A-Za-z0-9._:-]{1,512}$/u;
 var OPAQUE_THREAD_URL_PATTERN3 = /^https:\/\/opaque\.invalid\/thread\/[0-9a-f]{64}$/u;
@@ -41107,7 +42659,7 @@ function createOperationBrowserAdapter(options) {
         owner,
         coordinator
       };
-      const binding = bindBrowserTarget(input);
+      const binding = await bindBrowserTargetAsync(input);
       const previous = bindings.get(request.operationId);
       if (previous !== void 0 && canonicalJson(previous.target) !== canonicalJson(binding.target)) {
         throw new OperationBrowserAdapterError("target_binding_mismatch");
@@ -41134,7 +42686,7 @@ function createOperationBrowserAdapter(options) {
   const executeFileHandoffOnce = async (request) => {
     const binding = bindingFor(bindings, request.operationId, request.targetBindingDigest);
     if (binding === void 0) return { status: "not_satisfied", blockerCode: "target_binding_mismatch" };
-    const files = matchFileManifest(options.files, options.fileManifestDigest, request.manifest);
+    const files = await matchFileManifest(options.files, options.fileManifestDigest, request.manifest);
     if (files === void 0 || options.submission?.handoffFiles === void 0) {
       return { status: "not_satisfied", blockerCode: "attachment_manifest_mismatch" };
     }
@@ -41794,7 +43346,7 @@ function createOperationBrowserAdapter(options) {
       return await runReadTransaction(
         binding,
         callbackRequest.operationId,
-        (transaction) => options.staging.readCurrent === void 0 ? unavailableStagingObservation(callbackRequest) : options.staging.readCurrent({ ...callbackRequest, page: transaction.page, target: transaction.target }),
+        (transaction) => options.staging.readCurrent === void 0 ? unavailableStagingObservation(callbackRequest) : options.staging.readCurrent({ ...callbackRequest, page: transaction.page, target: transaction.target, signal: transaction.acquisition.signal, deadlineAt: transaction.acquisition.timing.deadlineAt ?? callbackRequest.deadlineAt }),
         options.observeCurrentTarget,
         options.evidenceDigest,
         boundedRequest(callbackRequest.signal, callbackRequest.deadlineAt, transactionTimeoutMs, "operation-staging-read")
@@ -41806,7 +43358,7 @@ function createOperationBrowserAdapter(options) {
       return await runReadTransaction(
         binding,
         callbackRequest.operationId,
-        (transaction) => options.staging.observe === void 0 ? unavailableStagingObservation(callbackRequest) : options.staging.observe({ ...callbackRequest, page: transaction.page, target: transaction.target }),
+        (transaction) => options.staging.observe === void 0 ? unavailableStagingObservation(callbackRequest) : options.staging.observe({ ...callbackRequest, page: transaction.page, target: transaction.target, signal: transaction.acquisition.signal, deadlineAt: transaction.acquisition.timing.deadlineAt ?? callbackRequest.deadlineAt }),
         options.observeCurrentTarget,
         options.evidenceDigest,
         boundedRequest(callbackRequest.signal, callbackRequest.deadlineAt, transactionTimeoutMs, "operation-staging-observe")
@@ -41818,7 +43370,7 @@ function createOperationBrowserAdapter(options) {
       return await runMutationTransaction(
         binding,
         callbackRequest.operationId,
-        (transaction) => options.staging.mutateOnce === void 0 ? Promise.reject(new OperationBrowserAdapterError("unsupported_browser_primitive")) : options.staging.mutateOnce({ ...callbackRequest, page: transaction.page, target: transaction.target }),
+        (transaction) => options.staging.mutateOnce === void 0 ? Promise.reject(new OperationBrowserAdapterError("unsupported_browser_primitive")) : options.staging.mutateOnce({ ...callbackRequest, page: transaction.page, target: transaction.target, signal: transaction.acquisition.signal, deadlineAt: transaction.acquisition.timing.deadlineAt ?? callbackRequest.deadlineAt }),
         options.observeCurrentTarget,
         options.evidenceDigest,
         boundedRequest(callbackRequest.signal, callbackRequest.deadlineAt, transactionTimeoutMs, "operation-staging-mutate", "mutation")
@@ -42058,11 +43610,11 @@ async function hydrateRecoveredTarget(options, recovery, page, coordinator) {
     if (error instanceof OperationBrowserAdapterError) throw error;
     throw new OperationBrowserAdapterError("target_evidence_unavailable");
   }
-  assertRecoveredTargetIdentity(recovery.target, observed, options);
+  await assertRecoveredTargetIdentity(recovery.target, observed, options);
   const lifecycle = recovery.target.targetLifecycle ?? "fixed";
   let bound;
   try {
-    bound = bindBrowserTarget({
+    bound = await bindBrowserTargetAsync({
       page,
       evidence: observed.evidence,
       ...lifecycle === "new_established" ? { targetLifecycle: "new_established" } : {},
@@ -42081,13 +43633,15 @@ async function hydrateRecoveredTarget(options, recovery, page, coordinator) {
   }
   return preserveRecoveredTarget(bound, recovery.target);
 }
-function assertRecoveredTargetIdentity(target, observed, options) {
+async function assertRecoveredTargetIdentity(target, observed, options, pendingSubmitRecovery = false) {
   const evidence = observed.evidence;
   compareRecoveredIdentity(evidence.provider, target.providerId);
   compareRecoveredIdentity(evidence.browser, target.browserId);
   compareRecoveredIdentity(evidence.tab, target.tabId);
-  compareRecoveredIdentity(evidence.conversation, target.conversationId);
-  compareRecoveredIdentity(evidence.canonicalThreadUrl, target.canonicalThreadUrl);
+  if (!pendingSubmitRecovery || target.targetLifecycle !== "new_pending") {
+    compareRecoveredIdentity(evidence.conversation, target.conversationId);
+    compareRecoveredIdentity(evidence.canonicalThreadUrl, target.canonicalThreadUrl);
+  }
   if (target.coordinationScope !== "provider") return;
   const claim = observed.authoritativeClaim;
   if (claim === void 0 || target.tabClaimEvidenceDigest === void 0 || options.capabilities?.stableProviderId !== true || options.capabilities.stableBrowserId !== true || options.capabilities.stableTabId !== true || options.capabilities.concurrentTabs !== true || options.capabilities.authoritativeTabClaim !== true) {
@@ -42095,7 +43649,7 @@ function assertRecoveredTargetIdentity(target, observed, options) {
   }
   let claimDigest;
   try {
-    claimDigest = options.evidenceDigest(CLAIM_EVIDENCE_DIGEST_DOMAIN2, {
+    claimDigest = await options.evidenceDigest(CLAIM_EVIDENCE_DIGEST_DOMAIN2, {
       token: claim.token,
       epoch: claim.epoch
     });
@@ -42365,7 +43919,7 @@ function unavailableStagingObservation(request) {
     blockerCode: "target_evidence_unavailable"
   };
 }
-function matchFileManifest(identities, manifestDigest, manifest) {
+async function matchFileManifest(identities, manifestDigest, manifest) {
   if (manifest.count === 0) return [];
   if (identities === void 0 || identities.length !== manifest.count || manifestDigest === void 0) return void 0;
   const sorted = [...identities];
@@ -42373,13 +43927,13 @@ function matchFileManifest(identities, manifestDigest, manifest) {
     const identity = sorted[ordinal];
     const expected = manifest.identities[ordinal];
     if (identity === void 0 || expected === void 0 || expected.ordinal !== ordinal) return void 0;
-    let digest4;
+    let digest5;
     try {
-      digest4 = manifestDigest(ordinal, identity.manifest);
+      digest5 = await manifestDigest(ordinal, identity.manifest);
     } catch {
       return void 0;
     }
-    if (digest4 !== expected.identityDigest || !DIGEST_PATTERN17.test(digest4)) return void 0;
+    if (digest5 !== expected.identityDigest || !DIGEST_PATTERN17.test(digest5)) return void 0;
   }
   return Object.freeze(sorted);
 }
@@ -42886,10 +44440,10 @@ function sleepOutsideCoordinator(milliseconds, signal) {
     return Promise.reject(new OperationBrowserAdapterError("adapter_incomplete"));
   }
   if (signal.aborted) return Promise.reject(new OperationBrowserAdapterError("browser_bridge_unavailable"));
-  return new Promise((resolve8, reject) => {
+  return new Promise((resolve9, reject) => {
     const timer = setTimeout(() => {
       signal.removeEventListener("abort", onAbort);
-      resolve8();
+      resolve9();
     }, milliseconds);
     const onAbort = () => {
       clearTimeout(timer);
@@ -43045,7 +44599,18 @@ function createRuntimeOperationBrowserAdapter(options) {
     const signal = request.signal ?? new AbortController().signal;
     return ensureRecovered(request.operationId, request.requestDigest, signal).then(callback).catch(() => fallback);
   };
+  let recoveredCollector;
   const submission = Object.freeze({
+    ...options.recoverAuthenticatedSend === void 0 ? {} : { recoverAuthenticatedSend: async (request) => {
+      if (innerPromise !== void 0) {
+        return await (await innerPromise).submission.recoverSend(request);
+      }
+      const recovered = await options.recoverAuthenticatedSend(request);
+      if (recovered.result.status === "submitted" || recovered.result.status === "already_submitted") {
+        recoveredCollector = recovered.collector;
+      }
+      return recovered.result;
+    } },
     observeStaging: (request) => delegateSubmission(innerPromise, (adapter2) => adapter2.submission.observeStaging(request), unavailableStage2()),
     executeFileHandoffOnce: (request) => delegateSubmission(innerPromise, (adapter2) => adapter2.submission.executeFileHandoffOnce(request), unavailableHandoff()),
     observeAttachments: (request) => delegateSubmission(innerPromise, (adapter2) => adapter2.submission.observeAttachments(request), { status: "unavailable" }),
@@ -43083,19 +44648,19 @@ function createRuntimeOperationBrowserAdapter(options) {
     return ensureRecovered(operationId2, requestDigest, signal).then((adapter2) => callback(adapter2) ?? fallback).catch(() => fallback);
   };
   const collector = Object.freeze({
-    readContext: (request) => delegateRecovered(
+    readContext: (request) => recoveredCollector !== void 0 ? recoveredCollector.readContext(request) : delegateRecovered(
       request.operationId,
       request.requestDigest,
       request.signal,
       (adapter2) => adapter2.collector.readContext(request)
     ),
-    observe: (request) => delegateRecovered(
+    observe: (request) => recoveredCollector !== void 0 ? recoveredCollector.observe(request) : delegateRecovered(
       request.operationId,
       request.requestDigest,
       request.signal,
       (adapter2) => adapter2.collector.observe(request)
     ),
-    sleep: (milliseconds, signal) => requireDelegate(innerPromise, (adapter2) => adapter2.collector.sleep(milliseconds, signal))
+    sleep: (milliseconds, signal) => recoveredCollector !== void 0 ? recoveredCollector.sleep(milliseconds, signal) : requireDelegate(innerPromise, (adapter2) => adapter2.collector.sleep(milliseconds, signal))
   });
   const staging = Object.freeze({
     readCurrent: (request) => delegateStaging(innerPromise, (adapter2) => adapter2.staging?.readCurrent(request), unavailableStaging2(request)),
@@ -43195,6 +44760,7 @@ function normalizeRuntimeAdapterOptions(value) {
     const files = readOwnData5(value, "files");
     const fileManifestDigest = readOwnData5(value, "fileManifestDigest");
     const recovery = readOwnData5(value, "recovery");
+    const recoverAuthenticatedSend = readOwnData5(value, "recoverAuthenticatedSend");
     const normalizedRecovery = recovery === void 0 ? void 0 : (() => {
       validateRecoveryContext2(recovery);
       return normalizeRecoveryContext2(recovery);
@@ -43211,7 +44777,8 @@ function normalizeRuntimeAdapterOptions(value) {
       transactionTimeoutMs,
       files: files === void 0 ? void 0 : cloneFrozenData2(files),
       fileManifestDigest,
-      recovery: normalizedRecovery
+      recovery: normalizedRecovery,
+      recoverAuthenticatedSend
     };
     const normalized = Object.freeze(snapshot2);
     validateOptions6(normalized);
@@ -43226,6 +44793,9 @@ function validateOptions6(options) {
     throw new OperationRuntimeAdapterError("adapter_incomplete");
   }
   if (typeof options.capture !== "function" || typeof options.evidenceDigest !== "function") {
+    throw new OperationRuntimeAdapterError("adapter_incomplete");
+  }
+  if (options.recoverAuthenticatedSend !== void 0 && typeof options.recoverAuthenticatedSend !== "function") {
     throw new OperationRuntimeAdapterError("adapter_incomplete");
   }
   if (options.owner === null || typeof options.owner !== "object" || typeof options.owner.backendSessionId !== "string") {
@@ -43632,8 +45202,8 @@ function unavailableStaging2(request) {
 
 // src/operations/production-chatgpt-artifacts.ts
 import { constants as fsConstants4 } from "node:fs";
-import { lstat as lstat4, open as open4 } from "node:fs/promises";
-import { isAbsolute as isAbsolute3 } from "node:path";
+import { lstat as lstat5, open as open5 } from "node:fs/promises";
+import { isAbsolute as isAbsolute4 } from "node:path";
 var DIGEST_PATTERN18 = /^hmac-sha256:[0-9a-f]{64}$/u;
 var ID_PATTERN8 = /^[A-Za-z0-9._:-]{1,512}$/u;
 var CONTENT_DIGEST_PATTERN2 = /^[0-9a-f]{64}$/u;
@@ -43651,7 +45221,7 @@ var MAX_ARTIFACT_BYTES2 = 128 * 1024 * 1024;
 var DOWNLOAD_STREAM_CHUNK_BYTES = 64 * 1024;
 var MAX_PROVIDER_CHUNKS2 = 65536;
 function createProductionChatGPTArtifacts(options) {
-  const normalized = normalizeOptions7(options);
+  const normalized = normalizeOptions6(options);
   const acquiredDownloads = /* @__PURE__ */ new WeakMap();
   const acquireDownload = async (request, pageOverride) => {
     const normalizedRequest = normalizeRequest2(request);
@@ -43677,7 +45247,7 @@ function createProductionChatGPTArtifacts(options) {
     if (exactFacts === void 0 || !matchesRequest(exactFacts, normalizedRequest)) {
       throw providerError();
     }
-    const expectedDigest = artifactEvidenceDigest(normalized, normalizedRequest, exactFacts);
+    const expectedDigest = await artifactEvidenceDigest(normalized, normalizedRequest, exactFacts);
     if (expectedDigest === void 0 || expectedDigest !== normalizedRequest.sourceIdentityDigest) {
       throw providerError();
     }
@@ -43907,7 +45477,7 @@ function probeExactArtifactInBrowser(args) {
   node.click();
   return true;
 }
-function normalizeOptions7(value) {
+function normalizeOptions6(value) {
   const record = ownDataRecord2(value, [
     "page",
     "evidenceDigest",
@@ -43926,7 +45496,7 @@ function normalizeOptions7(value) {
   const signal = readData4(record, "signal");
   if (typeof evidenceDigest !== "function") throw providerError();
   if (page !== void 0 && (!isSafeProviderObject3(page) || safeMethod3(page, "evaluate") === void 0 || safeMethod3(page, "waitForEvent") === void 0)) throw providerError();
-  if (tempDirectory !== void 0 && (typeof tempDirectory !== "string" || !isAbsolute3(tempDirectory) || !isSafeString(tempDirectory, MAX_STRING_LENGTH))) throw providerError();
+  if (tempDirectory !== void 0 && (typeof tempDirectory !== "string" || !isAbsolute4(tempDirectory) || !isSafeString(tempDirectory, MAX_STRING_LENGTH))) throw providerError();
   if (timeoutMs !== void 0 && (!isPositiveSafeInteger2(timeoutMs) || timeoutMs > MAX_TIMEOUT_MS5)) throw providerError();
   if (maxBytes !== void 0 && (!isPositiveSafeInteger2(maxBytes) || maxBytes > MAX_MAX_BYTES2)) throw providerError();
   if (maxArtifacts !== void 0 && (!isPositiveSafeInteger2(maxArtifacts) || maxArtifacts > MAX_MAX_ARTIFACTS)) throw providerError();
@@ -43981,7 +45551,7 @@ function normalizeRequest2(value) {
     destinationIdentityDigest
   });
 }
-function artifactEvidenceDigest(options, request, facts) {
+async function artifactEvidenceDigest(options, request, facts) {
   const material = Object.freeze({
     operationId: request.operationId,
     turnId: request.assistantTurnId,
@@ -43993,7 +45563,7 @@ function artifactEvidenceDigest(options, request, facts) {
     ...facts.mimeType === void 0 ? {} : { mimeType: facts.mimeType }
   });
   try {
-    const value = options.evidenceDigest("browser-observation-artifact", material);
+    const value = await options.evidenceDigest("browser-observation-artifact", material);
     return isDigest9(value) ? value : void 0;
   } catch {
     return void 0;
@@ -44115,7 +45685,7 @@ async function materializeDownloadBytes(download, options) {
         () => pathMethod.call(download),
         options.timeoutMs
       );
-      if (typeof candidate !== "string" || !isAbsolute3(candidate) || !isSafeString(candidate, MAX_STRING_LENGTH)) {
+      if (typeof candidate !== "string" || !isAbsolute4(candidate) || !isSafeString(candidate, MAX_STRING_LENGTH)) {
         throw providerError();
       }
       opened = await openBoundedFile(candidate, options.maxBytes);
@@ -44133,25 +45703,25 @@ async function materializeDownloadBytes(download, options) {
   throw providerError();
 }
 async function openBoundedFile(path3, maxBytes) {
-  let handle;
+  let handle2;
   try {
-    const before = await lstat4(path3, { bigint: true });
+    const before = await lstat5(path3, { bigint: true });
     if (before.isSymbolicLink() || !before.isFile() || before.size > BigInt(maxBytes)) throw providerError();
-    handle = await open4(path3, fsConstants4.O_RDONLY | (fsConstants4.O_NOFOLLOW ?? 0));
-    const opened = await handle.stat({ bigint: true });
+    handle2 = await open5(path3, fsConstants4.O_RDONLY | (fsConstants4.O_NOFOLLOW ?? 0));
+    const opened = await handle2.stat({ bigint: true });
     if (!sameFileSnapshot(before, opened) || opened.size > BigInt(maxBytes)) throw providerError();
-    return Object.freeze({ handle, snapshot: opened });
+    return Object.freeze({ handle: handle2, snapshot: opened });
   } catch {
-    if (handle !== void 0) {
+    if (handle2 !== void 0) {
       try {
-        await handle.close();
+        await handle2.close();
       } catch {
       }
     }
     throw providerError();
   }
 }
-function boundedFileByteStream(handle, snapshot2, signal) {
+function boundedFileByteStream(handle2, snapshot2, signal) {
   let closed = false;
   let position = 0;
   let queue = Promise.resolve();
@@ -44161,14 +45731,14 @@ function boundedFileByteStream(handle, snapshot2, signal) {
     let failed = false;
     if (verifySnapshot) {
       try {
-        const after = await handle.stat({ bigint: true });
+        const after = await handle2.stat({ bigint: true });
         if (!sameFileSnapshot(snapshot2, after) || BigInt(position) !== snapshot2.size) failed = true;
       } catch {
         failed = true;
       }
     }
     try {
-      await handle.close();
+      await handle2.close();
     } catch {
       failed = true;
     }
@@ -44205,7 +45775,7 @@ function boundedFileByteStream(handle, snapshot2, signal) {
       const buffer = Buffer.allocUnsafe(length);
       let bytesRead;
       try {
-        bytesRead = (await handle.read(buffer, 0, length, position)).bytesRead;
+        bytesRead = (await handle2.read(buffer, 0, length, position)).bytesRead;
       } catch {
         try {
           await finalize(false);
@@ -44559,7 +46129,7 @@ var ProductionWorkSteerPrimitiveError = class extends Error {
   }
 };
 function createProductionWorkSteerPrimitive(options) {
-  const captured = captureOptions(options);
+  const captured = captureOptions2(options);
   const clock = makeClock(captured.now);
   let executionConsumed = false;
   const base = (phase, prepared) => Object.freeze({
@@ -44590,7 +46160,7 @@ function createProductionWorkSteerPrimitive(options) {
     const observed = await observeBounded(call, captured, clock, "prepare");
     if (observed.kind === "cancelled") return blocked4(base("prepare"), observed.code, false, "none");
     if (observed.kind === "error") return blocked4(base("prepare"), "target_evidence_unavailable", true, "none");
-    const prepared = makePrepared(observed.value.snapshot, captured);
+    const prepared = await makePrepared(observed.value.snapshot, captured);
     if (prepared.kind === "failure") {
       return blocked4(base("prepare"), prepared.blockerCode, prepared.observationRequired, "none", prepared.evidenceDigest);
     }
@@ -44607,7 +46177,7 @@ function createProductionWorkSteerPrimitive(options) {
     let prepared;
     try {
       call = normalizeCall(request, captured, clock, "execute_prepared");
-      prepared = validatePrepared2(request.prepared, captured);
+      prepared = await validatePrepared2(request.prepared, captured);
     } catch (error) {
       return blocked4(base("execute_prepared"), normalizeInputError(error), false, "none");
     }
@@ -44618,16 +46188,16 @@ function createProductionWorkSteerPrimitive(options) {
     const finalRead = await observeBounded(call, captured, clock, "final_recheck", prepared);
     if (finalRead.kind === "cancelled") return blocked4(base("execute_prepared", prepared), finalRead.code, false, "none");
     if (finalRead.kind === "error") return blocked4(base("execute_prepared", prepared), "target_evidence_unavailable", true, "none");
-    const finalBaseline = makeBaseline(finalRead.value.snapshot, captured);
+    const finalBaseline = await makeBaseline(finalRead.value.snapshot, captured);
     if (finalBaseline.kind === "failure") {
       return blocked4(base("execute_prepared", prepared), finalBaseline.blockerCode, finalBaseline.observationRequired, "none", finalBaseline.evidenceDigest);
     }
-    const parentFailure = validateGeneratingParent(finalRead.value.snapshot, captured, prepared);
+    const parentFailure = await validateGeneratingParent(finalRead.value.snapshot, captured, prepared);
     if (parentFailure !== void 0) {
       return blocked4(base("execute_prepared", prepared), parentFailure.blockerCode, parentFailure.observationRequired, "none", parentFailure.evidenceDigest);
     }
     if (canonicalJson(finalBaseline.value) !== canonicalJson(prepared.baseline)) {
-      return blocked4(base("execute_prepared", prepared), "turn_ownership_ambiguous", true, "none", safeDigest3(captured, "work-steer-final-baseline", {
+      return blocked4(base("execute_prepared", prepared), "turn_ownership_ambiguous", true, "none", await safeDigest2(captured, "work-steer-final-baseline", {
         baselineSnapshotDigest: prepared.baselineSnapshotDigest,
         observedSnapshotDigest: finalBaseline.value.snapshotDigest
       }));
@@ -44687,7 +46257,7 @@ function createProductionWorkSteerPrimitive(options) {
     let prepared;
     try {
       call = normalizeCall(request, captured, clock, phase);
-      prepared = validatePrepared2(request.prepared, captured);
+      prepared = await validatePrepared2(request.prepared, captured);
       if (suppliedBaseline !== void 0) {
         validateBaselineInput(suppliedBaseline, captured, prepared.baselineSnapshotDigest);
         if (canonicalJson(suppliedBaseline) !== canonicalJson(prepared.baseline)) throw new ProductionWorkSteerPrimitiveError("invalid_baseline");
@@ -44700,7 +46270,7 @@ function createProductionWorkSteerPrimitive(options) {
     const observed = await observeBounded(call, captured, clock, phase, prepared, suppliedBaseline);
     if (observed.kind === "cancelled") return uncertain2(base(phase, prepared), observed.code, "caller");
     if (observed.kind === "error") return uncertain2(base(phase, prepared), "target_evidence_unavailable", "caller");
-    const exact = exactPostcondition(observed.value.snapshot, prepared, captured);
+    const exact = await exactPostcondition(observed.value.snapshot, prepared, captured);
     if (exact.kind === "failure") return uncertain2(base(phase, prepared), exact.blockerCode, "caller", exact.evidenceDigest);
     return Object.freeze({
       ...base(phase, prepared),
@@ -44713,7 +46283,7 @@ function createProductionWorkSteerPrimitive(options) {
   };
   return Object.freeze({ prepare: prepare2, executePrepared, verify, recover });
 }
-function captureOptions(options) {
+function captureOptions2(options) {
   if (!isPlainRecord5(options) || hasAccessorInGraph(options)) throw new ProductionWorkSteerPrimitiveError("invalid_options");
   const allowed = /* @__PURE__ */ new Set([
     "evidenceDigest",
@@ -44967,21 +46537,21 @@ function hasUnsafeCapabilityGraph(value, allowed) {
     return true;
   }
 }
-function makePrepared(snapshot2, options) {
-  const baselineResult = makeBaseline(snapshot2, options);
+async function makePrepared(snapshot2, options) {
+  const baselineResult = await makeBaseline(snapshot2, options);
   if (baselineResult.kind === "failure") return baselineResult;
   const assistant = findExpectedAssistant(snapshot2, options.expectedAssistantTurnId);
   if (assistant === void 0 || assistant.state !== "generating" || snapshot2.terminalState !== "generating") {
-    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-parent", snapshot2.snapshotDigest) };
+    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-parent", snapshot2.snapshotDigest) };
   }
   if (assistant.parentStableId === void 0 || assistant.branchStableId === void 0 || !isSafeIdentifier2(assistant.parentStableId) || !isSafeIdentifier2(assistant.branchStableId)) {
-    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-parent", snapshot2.snapshotDigest) };
+    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-parent", snapshot2.snapshotDigest) };
   }
   if (!baselineResult.value.userTurns.some((turn) => turn.stableId === assistant.parentStableId)) {
-    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-parent", snapshot2.snapshotDigest) };
+    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-parent", snapshot2.snapshotDigest) };
   }
   if (snapshot2.assistantTurns.some((turn) => turn !== assistant && turn.parentStableId === assistant.parentStableId && turn.branchStableId !== assistant.branchStableId)) {
-    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-branch", snapshot2.snapshotDigest) };
+    return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-branch", snapshot2.snapshotDigest) };
   }
   const material = {
     schemaVersion: PRODUCTION_WORK_STEER_SCHEMA_VERSION,
@@ -44996,7 +46566,7 @@ function makePrepared(snapshot2, options) {
     baselineSnapshotDigest: baselineResult.value.snapshotDigest,
     baseline: baselineResult.value
   };
-  const preparedDigest = safeDigest3(options, "work-steer-prepared", material);
+  const preparedDigest = await safeDigest2(options, "work-steer-prepared", material);
   if (preparedDigest === void 0) return { kind: "failure", blockerCode: "send_control_unavailable", observationRequired: true, evidenceDigest: void 0 };
   return {
     kind: "ok",
@@ -45006,7 +46576,7 @@ function makePrepared(snapshot2, options) {
     })
   };
 }
-function validatePrepared2(value, options) {
+async function validatePrepared2(value, options) {
   if (!isPlainRecord5(value) || hasAccessorInGraph(value) || !exactKeys(value, [
     "schemaVersion",
     "operationId",
@@ -45041,7 +46611,7 @@ function validatePrepared2(value, options) {
     baselineSnapshotDigest: cloned.baselineSnapshotDigest,
     baseline: cloned.baseline
   };
-  const expectedDigest = safeDigest3(options, "work-steer-prepared", material);
+  const expectedDigest = await safeDigest2(options, "work-steer-prepared", material);
   if (expectedDigest === void 0 || expectedDigest !== cloned.preparedDigest) throw new ProductionWorkSteerPrimitiveError("invalid_prepared");
   const baseline = cloned.baseline;
   const parent = baseline.assistantTurns.find((turn) => turn.stableId === cloned.expectedAssistantTurnId);
@@ -45073,9 +46643,9 @@ function validateBaselineInput(value, options, expectedSnapshotDigest) {
   if (baseline.target.canonicalThreadUrl.status !== "unavailable" || baseline.target.canonicalThreadUrl.reason !== "redacted") throw new ProductionWorkSteerPrimitiveError("invalid_baseline");
   if (!matchesRedactedTarget(options.target, baseline.target)) throw new ProductionWorkSteerPrimitiveError("target_binding_mismatch");
 }
-function makeBaseline(snapshot2, options) {
+async function makeBaseline(snapshot2, options) {
   if (snapshot2.completeness !== "complete" || snapshot2.terminalState === "unknown") {
-    return { kind: "failure", blockerCode: "target_evidence_unavailable", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-snapshot", snapshot2.snapshotDigest) };
+    return { kind: "failure", blockerCode: "target_evidence_unavailable", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-snapshot", snapshot2.snapshotDigest) };
   }
   const target = redactTargetEvidence(snapshot2.target);
   const baseline = deepFreeze3({
@@ -45098,46 +46668,46 @@ function makeBaseline(snapshot2, options) {
     };
     assertOwnershipBaselineShape(wrapper);
   } catch {
-    return { kind: "failure", blockerCode: "target_evidence_unavailable", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-snapshot", snapshot2.snapshotDigest) };
+    return { kind: "failure", blockerCode: "target_evidence_unavailable", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-snapshot", snapshot2.snapshotDigest) };
   }
   return { kind: "ok", value: baseline };
 }
-function validateGeneratingParent(snapshot2, options, prepared) {
+async function validateGeneratingParent(snapshot2, options, prepared) {
   const assistant = findExpectedAssistant(snapshot2, options.expectedAssistantTurnId);
   if (assistant === void 0 || assistant.state !== "generating" || snapshot2.terminalState !== "generating" || assistant.parentStableId !== prepared.assistantParentTurnId || assistant.branchStableId !== prepared.assistantBranchId) {
-    return { blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-parent", snapshot2.snapshotDigest) };
+    return { blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-parent", snapshot2.snapshotDigest) };
   }
   if (snapshot2.assistantTurns.some((turn) => turn !== assistant && turn.parentStableId === prepared.assistantParentTurnId && turn.branchStableId !== prepared.assistantBranchId)) {
-    return { blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-branch", snapshot2.snapshotDigest) };
+    return { blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-branch", snapshot2.snapshotDigest) };
   }
   return void 0;
 }
-function exactPostcondition(snapshot2, prepared, options) {
-  if (snapshot2.completeness !== "complete" || snapshot2.terminalState === "unknown") return { kind: "failure", blockerCode: "target_evidence_unavailable", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-postcondition", snapshot2.snapshotDigest) };
+async function exactPostcondition(snapshot2, prepared, options) {
+  if (snapshot2.completeness !== "complete" || snapshot2.terminalState === "unknown") return { kind: "failure", blockerCode: "target_evidence_unavailable", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-postcondition", snapshot2.snapshotDigest) };
   const baseline = prepared.baseline;
-  if (!preserveUsers(baseline.userTurns, snapshot2.userTurns)) return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-delta", snapshot2.snapshotDigest) };
+  if (!preserveUsers(baseline.userTurns, snapshot2.userTurns)) return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-delta", snapshot2.snapshotDigest) };
   if (snapshot2.userTurns.length !== baseline.userTurns.length + 1) {
-    return { kind: "failure", blockerCode: snapshot2.userTurns.length > baseline.userTurns.length + 1 ? "concurrent_user_turn" : "ambiguous_submit", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-delta", snapshot2.snapshotDigest) };
+    return { kind: "failure", blockerCode: snapshot2.userTurns.length > baseline.userTurns.length + 1 ? "concurrent_user_turn" : "ambiguous_submit", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-delta", snapshot2.snapshotDigest) };
   }
   const addedUser = snapshot2.userTurns[baseline.userTurns.length];
   if (addedUser === void 0 || addedUser.stableId === void 0 || addedUser.ordinal !== baseline.userTurns.length) {
-    return { kind: "failure", blockerCode: "ambiguous_submit", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-delta", snapshot2.snapshotDigest) };
+    return { kind: "failure", blockerCode: "ambiguous_submit", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-delta", snapshot2.snapshotDigest) };
   }
   const delta = snapshot2.postSendDelta;
   if (delta === void 0 || delta.baselineSnapshotDigest !== prepared.baselineSnapshotDigest || delta.addedUserEvidenceDigests.length !== 1 || delta.addedUserEvidenceDigests[0] !== addedUser.evidenceDigest) {
-    return { kind: "failure", blockerCode: "ambiguous_submit", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-delta", snapshot2.snapshotDigest) };
+    return { kind: "failure", blockerCode: "ambiguous_submit", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-delta", snapshot2.snapshotDigest) };
   }
-  const expectedDelta = safeDigest3(options, "browser-observation-post-send-delta", {
+  const expectedDelta = await safeDigest2(options, "browser-observation-post-send-delta", {
     baselineSnapshotDigest: prepared.baselineSnapshotDigest,
     addedUserEvidenceDigests: delta.addedUserEvidenceDigests
   });
   if (expectedDelta === void 0 || expectedDelta !== delta.deltaDigest) {
-    return { kind: "failure", blockerCode: "ambiguous_submit", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-delta", snapshot2.snapshotDigest) };
+    return { kind: "failure", blockerCode: "ambiguous_submit", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-delta", snapshot2.snapshotDigest) };
   }
-  if (!preserveAssistants(baseline.assistantTurns, snapshot2.assistantTurns, prepared)) return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-branch", snapshot2.snapshotDigest) };
+  if (!preserveAssistants(baseline.assistantTurns, snapshot2.assistantTurns, prepared)) return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-branch", snapshot2.snapshotDigest) };
   const addedAssistants = snapshot2.assistantTurns.slice(baseline.assistantTurns.length);
-  if (addedAssistants.length > 1 || addedAssistants.some((turn) => turn.parentStableId !== addedUser.stableId || turn.branchStableId !== prepared.assistantBranchId || turn.ordinal !== baseline.assistantTurns.length)) return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: safeDigest3(options, "work-steer-branch", snapshot2.snapshotDigest) };
-  const evidenceDigest = safeDigest3(options, "work-steer-postcondition", {
+  if (addedAssistants.length > 1 || addedAssistants.some((turn) => turn.parentStableId !== addedUser.stableId || turn.branchStableId !== prepared.assistantBranchId || turn.ordinal !== baseline.assistantTurns.length)) return { kind: "failure", blockerCode: "turn_ownership_ambiguous", observationRequired: true, evidenceDigest: await safeDigest2(options, "work-steer-branch", snapshot2.snapshotDigest) };
+  const evidenceDigest = await safeDigest2(options, "work-steer-postcondition", {
     operationId: options.operationId,
     targetBindingDigest: options.targetBindingDigest,
     controlActionId: options.controlActionId,
@@ -45529,10 +47099,10 @@ function uncertain2(base, blockerCode, quarantine, evidenceDigest) {
     ...evidenceDigest === void 0 ? {} : { evidenceDigest }
   });
 }
-function safeDigest3(options, domain, material) {
+async function safeDigest2(options, domain, material) {
   try {
     const safeMaterial = deepFreeze3(cloneData(material, 0, { count: 0, active: /* @__PURE__ */ new Set() }));
-    const result3 = options.evidenceDigest(domain, safeMaterial);
+    const result3 = await options.evidenceDigest(domain, safeMaterial);
     return typeof result3 === "string" && DIGEST_PATTERN19.test(result3) ? result3 : void 0;
   } catch {
     return void 0;
@@ -45606,6 +47176,95 @@ function createChatGPTOperationAdapterFactory(options) {
       ),
       exposeStaging: true,
       exposeControl: true,
+      recoverAuthenticatedSend: async (recovery) => {
+        try {
+          assertAuthenticatedSendRecovery(recovery);
+          if (recovery.operationId !== request.operationId || recovery.surface !== request.surface || recovery.signal?.aborted || recovery.deadlineAt !== void 0 && Date.now() >= recovery.deadlineAt) {
+            return { result: { status: "blocked", blockerCode: "target_binding_mismatch" } };
+          }
+          const expectedText = request.prompt.replace(/\s+/g, " ").trim().normalize("NFC");
+          const matchingTurns = /* @__PURE__ */ new Set();
+          let matchingProbe = false;
+          const digest5 = async (domain, material) => {
+            const result4 = await normalized.evidenceDigest(domain, material);
+            if (matchingProbe && domain === "browser-observation-turn" && material !== null && typeof material === "object" && readDataProperty2(material, "operationId") === request.operationId && readDataProperty2(material, "role") === "user" && readDataProperty2(material, "text") === expectedText) {
+              matchingTurns.add(result4);
+            }
+            return result4;
+          };
+          const captured = await captureChatGPTRequest({
+            ...normalized,
+            evidenceDigest: digest5,
+            request: void 0,
+            files: Object.freeze([]),
+            captureRequest: {
+              operationId: recovery.operationId,
+              requestDigest: recovery.requestDigest,
+              surface: recovery.surface,
+              target: { type: "tab_id", tabId: recovery.target.tabId },
+              signal: recovery.signal ?? new AbortController().signal
+            },
+            recoveryTarget: recovery.target
+          });
+          const base = captured.primitives?.submission?.sendObservers;
+          if (base === void 0) return { result: { status: "blocked", blockerCode: "target_evidence_unavailable" } };
+          const result3 = await recoverAuthenticatedBrowserSend(recovery, {
+            page: captured.page,
+            owner: normalized.owner,
+            coordinator: normalized.coordinator,
+            evidenceDigest: digest5,
+            ...captured.capabilities === void 0 ? {} : { capabilities: captured.capabilities },
+            ...captured.authoritativeClaim === void 0 ? {} : { authoritativeClaim: captured.authoritativeClaim },
+            ...captured.observeCurrentTarget === void 0 ? {} : { observeCurrentTarget: captured.observeCurrentTarget },
+            ...normalized.transactionTimeoutMs === void 0 ? {} : { transactionTimeoutMs: normalized.transactionTimeoutMs },
+            sendObservers: { ...base, observePostcondition: async (probe) => {
+              matchingTurns.clear();
+              matchingProbe = true;
+              try {
+                const observed = await base.observePostcondition(probe);
+                const result4 = "result" in observed ? observed.result : observed;
+                if ((result4.status === "submitted" || result4.status === "already_submitted") && !matchingTurns.has(result4.userTurnEvidenceDigest)) {
+                  return { result: { status: "blocked", blockerCode: "ambiguous_submit" }, retryable: false };
+                }
+                return observed;
+              } finally {
+                matchingProbe = false;
+                matchingTurns.clear();
+              }
+            } }
+          });
+          if (result3.status !== "submitted" && result3.status !== "already_submitted") return { result: result3 };
+          const proof = result3.targetEstablishment;
+          const target = recovery.target.targetLifecycle === "new_pending" && proof !== void 0 ? {
+            ...recovery.target,
+            targetLifecycle: "new_established",
+            evidenceProfile: { ...recovery.target.evidenceProfile, stableConversationId: "required", stableUserTurnId: "required" },
+            conversationId: proof.conversationId,
+            canonicalThreadUrl: proof.canonicalThreadUrl,
+            targetEstablishment: { ...proof, observedAt: (/* @__PURE__ */ new Date()).toISOString() }
+          } : recovery.target;
+          const readAdapter = createOperationBrowserAdapter({
+            page: captured.page,
+            owner: normalized.owner,
+            evidenceDigest: normalized.evidenceDigest,
+            coordinator: normalized.coordinator,
+            ...captured.observeCurrentTarget === void 0 ? {} : { observeCurrentTarget: captured.observeCurrentTarget },
+            ...captured.capabilities === void 0 ? {} : { capabilities: captured.capabilities },
+            ...captured.authoritativeClaim === void 0 ? {} : { authoritativeClaim: captured.authoritativeClaim },
+            ...captured.primitives?.collector === void 0 ? {} : { collector: captured.primitives.collector },
+            recovery: {
+              operationId: recovery.operationId,
+              requestDigest: recovery.requestDigest,
+              surface: recovery.surface,
+              target,
+              signal: recovery.signal ?? new AbortController().signal
+            }
+          });
+          return { result: result3, collector: readAdapter.collector };
+        } catch {
+          return { result: { status: "blocked", blockerCode: "target_evidence_unavailable" } };
+        }
+      },
       ...hasTransferDestination(request) ? { exposeArtifacts: true } : {},
       capture: async (captureRequest) => {
         return await captureChatGPTRequest({
@@ -45906,7 +47565,7 @@ async function captureChatGPTRequest(options) {
     browserResource,
     {
       owner: acquisitionOwner,
-      priority: "mutation",
+      priority: options.recoveryTarget === void 0 ? "mutation" : "read",
       signal: options.captureRequest.signal,
       ...options.transactionTimeoutMs === void 0 ? {} : { timeoutMs: options.transactionTimeoutMs },
       label: "operation-target-prepare"
@@ -45966,7 +47625,7 @@ async function captureChatGPTRequest(options) {
     ...request === void 0 ? {} : { desiredComposerText: request.prompt },
     ...options.recoveryTarget === void 0 ? {} : { target: options.recoveryTarget }
   };
-  const attachments = request === void 0 || options.files.length === 0 ? void 0 : createChatGPTAttachmentProvider({
+  const attachments = request === void 0 || options.files.length === 0 ? void 0 : await createChatGPTAttachmentProviderAsync({
     evidenceDigest: options.evidenceDigest,
     files: options.files,
     identityDigest: (ordinal, manifest) => options.evidenceDigest(
@@ -46556,9 +48215,9 @@ function cloneSafeData(value, seen = /* @__PURE__ */ new Set(), depth = 0) {
 function createChatGPT(options = {}) {
   const runtimeEnvironment = runtimeEnv(options);
   const runtime = createRuntimeEnvSession(runtimeEnvironment);
-  const operationRuntime = new AsyncLocalStorage2();
+  const operationRuntime = new AsyncLocalStorage3();
   const operationOwner = Object.freeze({
-    backendSessionId: randomUUID5()
+    backendSessionId: randomUUID6()
   });
   const limits = normalizeLimits(options.limits);
   let operationClientPromise;
@@ -46579,11 +48238,11 @@ function createChatGPT(options = {}) {
     submit: (request, operationOptions) => runOperationInvocation(
       () => operationClient().then((client) => client.submit(request, operationOptions))
     ),
-    collect: (handle, operationOptions) => runOperationInvocation(
-      () => operationClient().then((client) => client.collect(handle, operationOptions))
+    collect: (handle2, operationOptions) => runOperationInvocation(
+      () => operationClient().then((client) => client.collect(handle2, operationOptions))
     ),
-    inspect: (handle) => runOperationInvocation(
-      () => operationClient().then((client) => client.inspect(handle))
+    inspect: (handle2) => runOperationInvocation(
+      () => operationClient().then((client) => client.inspect(handle2))
     ),
     control: (request, operationOptions) => runOperationInvocation(
       () => operationClient().then((client) => client.control(request, operationOptions))
@@ -47152,9 +48811,12 @@ function runtimeEnv(options) {
 }
 async function createOperationClientForChatGPT(options, runtimeEnvironment, owner) {
   const operationOptions = options.operations ?? {};
-  const journal = await OperationJournal.open(
-    operationOptions.stateRoot === void 0 ? {} : { stateRoot: operationOptions.stateRoot }
-  );
+  if (operationOptions.journalService !== void 0 && operationOptions.stateRoot !== void 0) {
+    throw new OperationJournalError("journal_service_configuration_conflict", "The journal service owns its state root; configure either journalService or stateRoot.");
+  }
+  const journal = operationOptions.journalService === void 0 ? await OperationJournal.open(operationOptions.stateRoot === void 0 ? {} : { stateRoot: operationOptions.stateRoot }) : await createJournalRpcClientFromDescriptor(operationOptions.journalService.descriptorPath, {
+    ...operationOptions.journalService.timeoutMs === void 0 ? {} : { timeoutMs: operationOptions.journalService.timeoutMs }
+  });
   const serviceOptions = {
     ...operationOptions.maxCasRetries === void 0 ? {} : { maxCasRetries: operationOptions.maxCasRetries },
     ...options.now === void 0 ? {} : { now: () => options.now().getTime() }
@@ -47226,8 +48888,8 @@ async function runTransactionalAsk(args, defaults, clientOptions, operations) {
   if (!prepared.ok) return prepared.result;
   try {
     const run = await operations.run(prepared.value.request, prepared.value.options);
-    const handle = await freshestOperationHandle(operations, run.submit.handle);
-    return transactionalAskCommandResult(prepared.value, run, handle);
+    const handle2 = await freshestOperationHandle(operations, run.submit.handle);
+    return transactionalAskCommandResult(prepared.value, run, handle2);
   } catch (error) {
     return transactionalAskError(args.operationId, error);
   }
@@ -47237,9 +48899,9 @@ async function runTransactionalWorkStart(args, defaults, operations) {
   if (!prepared.ok) return prepared.result;
   try {
     const run = await operations.run(prepared.value.request, prepared.value.options);
-    const handle = await freshestOperationHandle(operations, run.submit.handle);
-    const task = await transactionalWorkTask(operations, handle);
-    return transactionalWorkStartResult(prepared.value, run, handle, task);
+    const handle2 = await freshestOperationHandle(operations, run.submit.handle);
+    const task = await transactionalWorkTask(operations, handle2);
+    return transactionalWorkStartResult(prepared.value, run, handle2, task);
   } catch (error) {
     return transactionalWorkError(args.operationId, error);
   }
@@ -47376,9 +49038,9 @@ function transactionalWorkWaitOptions(wait, read) {
     ...maxResponseChars === void 0 ? {} : { maxResponseChars }
   };
 }
-async function transactionalWorkTask(operations, handle) {
+async function transactionalWorkTask(operations, handle2) {
   try {
-    const inspected = await operations.inspect(handle);
+    const inspected = await operations.inspect(handle2);
     const target = inspected.state.target;
     return {
       ...target?.canonicalThreadUrl === void 0 ? {} : { url: target.canonicalThreadUrl },
@@ -47388,21 +49050,21 @@ async function transactionalWorkTask(operations, handle) {
     return {};
   }
 }
-function transactionalWorkStartResult(prepared, run, handle, task) {
+function transactionalWorkStartResult(prepared, run, handle2, task) {
   const base = {
     task,
     responseFormat: prepared.responseFormat,
-    operationId: handle.operationId,
-    handle,
-    requestDigest: handle.requestDigest,
+    operationId: handle2.operationId,
+    handle: handle2,
+    requestDigest: handle2.requestDigest,
     submitted: {
       submitted: false,
       submissionState: transactionalSubmissionState(
-        handle,
-        "blocker" in run.submit.submission ? run.submit.submission.blocker.mutationBoundary : handle.mutationBoundary
+        handle2,
+        "blocker" in run.submit.submission ? run.submit.submission.blocker.mutationBoundary : handle2.mutationBoundary
       ),
-      completionState: transactionalCompletionState(handle.phase),
-      generationActive: handle.phase === "generating"
+      completionState: transactionalCompletionState(handle2.phase),
+      generationActive: handle2.phase === "generating"
     }
   };
   const submission = run.submit.submission;
@@ -47425,15 +49087,15 @@ function transactionalWorkStartResult(prepared, run, handle, task) {
     ...base.submitted,
     submitted: true,
     submissionState: "submitted",
-    completionState: handle.phase === "generating" ? "generating" : handle.phase === "completed" ? "complete" : "unknown",
-    generationActive: handle.phase === "generating"
+    completionState: handle2.phase === "generating" ? "generating" : handle2.phase === "completed" ? "complete" : "unknown",
+    generationActive: handle2.phase === "generating"
   };
   const collected = run.collect;
   if (collected === void 0) {
     return {
       ok: true,
       status: "ok",
-      data: { ...base, pending: true, complete: handle.phase === "completed" },
+      data: { ...base, pending: true, complete: handle2.phase === "completed" },
       warnings: ["Work was submitted through the transactional path; collect the returned handle to observe its exact assistant turn."],
       context: { timestamp: (/* @__PURE__ */ new Date()).toISOString(), experience: "work" }
     };
@@ -47592,7 +49254,7 @@ function transactionalWorkStartUnsupported(operationId2, message, fieldPath) {
     }
   };
 }
-function transactionalWorkSteerUnsupported(operationId2, message, fieldPath, handle) {
+function transactionalWorkSteerUnsupported(operationId2, message, fieldPath, handle2) {
   const unsupported2 = transactionalUnsupported(operationId2, message, fieldPath);
   if (unsupported2.ok) {
     return {
@@ -47600,7 +49262,7 @@ function transactionalWorkSteerUnsupported(operationId2, message, fieldPath, han
       status: "error",
       data: {
         ...operationId2 === void 0 ? {} : { operationId: operationId2 },
-        ...handle === void 0 ? {} : { handle, parentHandle: handle }
+        ...handle2 === void 0 ? {} : { handle: handle2, parentHandle: handle2 }
       },
       warnings: [],
       error: { name: "OperationInputError", message, recoverable: false },
@@ -47611,7 +49273,7 @@ function transactionalWorkSteerUnsupported(operationId2, message, fieldPath, han
     ...unsupported2.result,
     data: {
       ...operationId2 === void 0 ? {} : { operationId: operationId2 },
-      ...handle === void 0 ? {} : { handle, parentHandle: handle }
+      ...handle2 === void 0 ? {} : { handle: handle2, parentHandle: handle2 }
     }
   };
 }
@@ -47633,8 +49295,11 @@ function transactionalWorkBlockerResult(data, code, uncertain3, recoverable) {
 }
 function transactionalWorkError(operationId2, error, controlActionId, parentHandle) {
   const code = safeOwnErrorCode2(error) ?? "operation_error";
-  const message = `Transactional Work operation failed (${code.replaceAll("_", " ")}).`;
-  const blocker3 = code === "adapter_unavailable" || code === "browser_bridge_unavailable" || code === "target_evidence_unavailable" || code === "backend_unavailable";
+  const runtimeUnavailable = code === "journal_runtime_unavailable";
+  const serviceUnavailable = JOURNAL_SERVICE_FAILURE_CODES.has(code);
+  const indeterminate = code === "journal_rpc_outcome_indeterminate";
+  const message = runtimeUnavailable ? JOURNAL_RUNTIME_UNAVAILABLE_MESSAGE : serviceUnavailable ? journalServiceFailureMessage(code) : `Transactional Work operation failed (${code.replaceAll("_", " ")}).`;
+  const blocker3 = code === "adapter_unavailable" || code === "browser_bridge_unavailable" || code === "target_evidence_unavailable" || code === "backend_unavailable" || runtimeUnavailable || serviceUnavailable;
   const data = parentHandle === void 0 ? {
     operationId: operationId2,
     task: {},
@@ -47647,11 +49312,24 @@ function transactionalWorkError(operationId2, error, controlActionId, parentHand
   };
   return {
     ok: false,
-    status: blocker3 ? "blocked" : "error",
+    status: indeterminate ? "partial" : blocker3 ? "blocked" : "error",
     data,
     warnings: [],
-    ...blocker3 ? { blocker: { kind: transactionalBlockerKind(code), code, message, resumable: true } } : {},
-    error: { name: "OperationError", message, recoverable: blocker3 },
+    ...blocker3 ? { blocker: {
+      kind: transactionalBlockerKind(code),
+      code,
+      message,
+      resumable: !runtimeUnavailable && !serviceUnavailable,
+      ...runtimeUnavailable ? { remediation: [{
+        label: "Use a supported transactional host",
+        instruction: "Start the packaged journal service in a supported Node host and configure operations.journalService.descriptorPath in the browser client.",
+        userActionRequired: false
+      }] } : serviceUnavailable ? { remediation: [{
+        ...journalServiceRemediation(code),
+        userActionRequired: false
+      }] } : {}
+    } } : {},
+    error: { name: "OperationError", message, recoverable: blocker3 && !runtimeUnavailable && !serviceUnavailable },
     context: { timestamp: (/* @__PURE__ */ new Date()).toISOString(), experience: "work" }
   };
 }
@@ -47940,22 +49618,22 @@ function transactionalUnsupported(operationId2, message, fieldPath) {
     }
   };
 }
-function transactionalAskCommandResult(prepared, run, handle) {
+function transactionalAskCommandResult(prepared, run, handle2) {
   const base = {
-    operationId: handle.operationId,
+    operationId: handle2.operationId,
     responseFormat: prepared.responseFormat,
-    handle,
-    requestDigest: handle.requestDigest
+    handle: handle2,
+    requestDigest: handle2.requestDigest
   };
   const submission = run.submit.submission;
   if (submission.kind === "blocked" || submission.kind === "uncertain" || submission.kind === "cancelled") {
     return transactionalBlockerResult(
       {
         ...base,
-        submissionState: transactionalSubmissionState(handle, submission.blocker.mutationBoundary),
+        submissionState: transactionalSubmissionState(handle2, submission.blocker.mutationBoundary),
         complete: false,
-        completionState: transactionalCompletionState(handle.phase),
-        generationActive: handle.phase === "generating"
+        completionState: transactionalCompletionState(handle2.phase),
+        generationActive: handle2.phase === "generating"
       },
       submission.blocker.code,
       submission.blocker.mutationBoundary !== "none",
@@ -48009,19 +49687,19 @@ function transactionalAskCommandResult(prepared, run, handle) {
   return transactionalBlockerResult(
     {
       ...base,
-      submissionState: transactionalSubmissionState(handle, collected.blocker.mutationBoundary),
+      submissionState: transactionalSubmissionState(handle2, collected.blocker.mutationBoundary),
       complete: false,
-      completionState: transactionalCompletionState(handle.phase),
-      generationActive: handle.phase === "generating"
+      completionState: transactionalCompletionState(handle2.phase),
+      generationActive: handle2.phase === "generating"
     },
     collected.blocker.code,
     collected.blocker.mutationBoundary !== "none",
     true
   );
 }
-function transactionalSubmissionState(handle, boundary) {
-  if (["submitted", "generating", "capturing", "completed"].includes(handle.phase)) {
-    return handle.phase === "generating" ? "submitted_generating" : "submitted";
+function transactionalSubmissionState(handle2, boundary) {
+  if (["submitted", "generating", "capturing", "completed"].includes(handle2.phase)) {
+    return handle2.phase === "generating" ? "submitted_generating" : "submitted";
   }
   return boundary === "send_may_have_occurred" || boundary === "control_may_have_occurred" ? "submitted_unconfirmed" : "not_submitted";
 }
@@ -48055,17 +49733,57 @@ function transactionalBlockerKind(code) {
   if (code.includes("file") || code.includes("attachment")) return "upload_failed";
   return "unknown";
 }
+var JOURNAL_SERVICE_FAILURE_CODES = /* @__PURE__ */ new Set([
+  "journal_rpc_unavailable",
+  "journal_rpc_authentication_failed",
+  "journal_rpc_protocol_error",
+  "journal_rpc_limit_exceeded",
+  "journal_rpc_outcome_indeterminate",
+  "journal_rpc_request_rejected",
+  "journal_rpc_unsupported_platform"
+]);
+function journalServiceFailureMessage(code) {
+  if (code === "journal_rpc_unsupported_platform") {
+    return "The private-file journal service requires POSIX file ownership and permissions and is unavailable on Windows.";
+  }
+  return code === "journal_rpc_outcome_indeterminate" ? "The journal service connection ended without confirming a durable write. Preserve the operation identity and reconcile its state before any further browser action." : "The configured journal service could not provide authenticated operation state. Restore its private connection before continuing.";
+}
+function journalServiceRemediation(code) {
+  return code === "journal_rpc_unsupported_platform" ? {
+    label: "Use a supported journal host",
+    instruction: "On Windows, use the local journal in an ordinary Node browser host without operations.journalService. The private-file journal service requires a POSIX host. Preserve any existing operation identity."
+  } : {
+    label: "Reconnect the same journal",
+    instruction: "Restore the private journal-service connection, then inspect or reconcile the same operation identity. Never create a new operation ID to retry an uncertain Send."
+  };
+}
 function transactionalAskError(operationId2, error) {
   const code = safeOwnErrorCode2(error) ?? "operation_error";
-  const blocker3 = code === "adapter_unavailable" || code === "browser_bridge_unavailable" || code === "target_evidence_unavailable";
-  const message = `Transactional operation failed (${code.replaceAll("_", " ")}).`;
+  const runtimeUnavailable = code === "journal_runtime_unavailable";
+  const serviceUnavailable = JOURNAL_SERVICE_FAILURE_CODES.has(code);
+  const indeterminate = code === "journal_rpc_outcome_indeterminate";
+  const blocker3 = runtimeUnavailable || serviceUnavailable || code === "adapter_unavailable" || code === "browser_bridge_unavailable" || code === "target_evidence_unavailable";
+  const message = runtimeUnavailable ? JOURNAL_RUNTIME_UNAVAILABLE_MESSAGE : serviceUnavailable ? journalServiceFailureMessage(code) : `Transactional operation failed (${code.replaceAll("_", " ")}).`;
   return {
     ok: false,
-    status: blocker3 ? "blocked" : "error",
+    status: indeterminate ? "partial" : blocker3 ? "blocked" : "error",
     data: { operationId: operationId2 },
     warnings: [],
-    ...blocker3 ? { blocker: { kind: transactionalBlockerKind(code), code, message, resumable: true } } : {},
-    error: { name: "OperationError", message, recoverable: blocker3 },
+    ...blocker3 ? { blocker: {
+      kind: transactionalBlockerKind(code),
+      code,
+      message,
+      resumable: !runtimeUnavailable && !serviceUnavailable,
+      ...runtimeUnavailable ? { remediation: [{
+        label: "Use a supported transactional host",
+        instruction: "Start the packaged journal service in a supported Node host and configure operations.journalService.descriptorPath in the browser client.",
+        userActionRequired: false
+      }] } : serviceUnavailable ? { remediation: [{
+        ...journalServiceRemediation(code),
+        userActionRequired: false
+      }] } : {}
+    } } : {},
+    error: { name: "OperationError", message, recoverable: blocker3 && !runtimeUnavailable && !serviceUnavailable },
     context: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
   };
 }
@@ -48683,12 +50401,12 @@ function toOperationSubmitWireResult(result3, receipt) {
       });
   }
 }
-function toOperationCollectWireResult(handle, result3, receipt) {
-  assertCollectorIdentity(result3, handle);
+function toOperationCollectWireResult(handle2, result3, receipt) {
+  assertCollectorIdentity(result3, handle2);
   const base = {
-    operationId: handle.operationId,
-    requestDigest: handle.requestDigest,
-    handle
+    operationId: handle2.operationId,
+    requestDigest: handle2.requestDigest,
+    handle: handle2
   };
   switch (result3.kind) {
     case "completed": {
@@ -48715,7 +50433,7 @@ function toOperationCollectWireResult(handle, result3, receipt) {
         schemaVersion: OPERATION_COLLECT_RESULT_SCHEMA_VERSION,
         status: "blocked",
         ...base,
-        blocker: blockerFromCollector(result3.blocker, handle)
+        blocker: blockerFromCollector(result3.blocker, handle2)
       });
   }
 }
@@ -48730,13 +50448,13 @@ function toOperationInspectWireResult(result3) {
     state: result3.state
   });
 }
-function toOperationControlWireResult(result3, handle) {
+function toOperationControlWireResult(result3, handle2) {
   const wire = {
     schemaVersion: OPERATION_CONTROL_RESULT_SCHEMA_VERSION,
     status: result3.kind,
     operationId: result3.parentOperationId,
     requestDigest: result3.requestDigest,
-    handle,
+    handle: handle2,
     parentRequestDigest: result3.parentRequestDigest,
     parentTargetBindingDigest: result3.parentTargetBindingDigest,
     controlActionId: result3.controlActionId,
@@ -48746,7 +50464,7 @@ function toOperationControlWireResult(result3, handle) {
     ...result3.kind === "completed" ? {} : {
       blocker: blockerFromInternal(
         result3.blocker.code,
-        handle,
+        handle2,
         result3.blocker.mutationBoundary,
         result3.blocker.observationRequired,
         result3.blocker.evidenceDigest,
@@ -49147,8 +50865,8 @@ function validateStateAction(actionId, value, operationId2, requestDigest) {
     throw new OperationWireResultError("state_identity_mismatch", "Inspect action request identity does not match the operation.");
   }
 }
-function validateBlockerHandleCoherence(blocker3, handle) {
-  if (blocker3.phase !== handle.phase || blocker3.mutationBoundary !== handle.mutationBoundary) {
+function validateBlockerHandleCoherence(blocker3, handle2) {
+  if (blocker3.phase !== handle2.phase || blocker3.mutationBoundary !== handle2.mutationBoundary) {
     throw new OperationWireResultError("blocker_handle_mismatch", "Operation blocker does not match the fresh handle.");
   }
 }
@@ -49160,34 +50878,34 @@ function validateStateBlocker(value) {
   if (typeof value.recoverable !== "boolean") throw new OperationWireResultError("invalid_state_blocker", "Inspect state blocker recoverable must be boolean.");
   assertInstant2(value.observedAt, "lastBlocker.observedAt");
 }
-function blockerFromCollector(blocker3, handle) {
-  return blockerFromInternal(blocker3.code, handle, blocker3.mutationBoundary, false, blocker3.evidenceDigest);
+function blockerFromCollector(blocker3, handle2) {
+  return blockerFromInternal(blocker3.code, handle2, blocker3.mutationBoundary, false, blocker3.evidenceDigest);
 }
-function assertSubmissionIdentity(result3, handle) {
-  if (result3.operationId !== handle.operationId || result3.requestDigest !== handle.requestDigest) {
+function assertSubmissionIdentity(result3, handle2) {
+  if (result3.operationId !== handle2.operationId || result3.requestDigest !== handle2.requestDigest) {
     throw new OperationWireResultError("operation_identity_mismatch", "Submission identity does not match the fresh handle.");
   }
-  if (result3.targetBindingDigest !== handle.targetBindingDigest) {
+  if (result3.targetBindingDigest !== handle2.targetBindingDigest) {
     throw new OperationWireResultError("target_binding_mismatch", "Submission target identity does not match the fresh handle.");
   }
 }
-function assertCollectorIdentity(result3, handle) {
-  if (result3.operationId !== handle.operationId || result3.requestDigest !== handle.requestDigest) {
+function assertCollectorIdentity(result3, handle2) {
+  if (result3.operationId !== handle2.operationId || result3.requestDigest !== handle2.requestDigest) {
     throw new OperationWireResultError("operation_identity_mismatch", "Collector identity does not match the fresh handle.");
   }
-  if (result3.targetBindingDigest !== void 0 && result3.targetBindingDigest !== handle.targetBindingDigest) {
+  if (result3.targetBindingDigest !== void 0 && result3.targetBindingDigest !== handle2.targetBindingDigest) {
     throw new OperationWireResultError("target_binding_mismatch", "Collector target identity does not match the fresh handle.");
   }
 }
-function blockerFromInternal(code, handle, mutationBoundary, recoverable, evidenceDigest, requestDigest = handle.requestDigest) {
+function blockerFromInternal(code, handle2, mutationBoundary, recoverable, evidenceDigest, requestDigest = handle2.requestDigest) {
   const normalized = normalizeBlockerCode(code);
   return {
     schemaVersion: "chatgpt.browser_control.operation_blocker.v1",
     code: normalized,
     recoverable,
-    operationId: handle.operationId,
+    operationId: handle2.operationId,
     requestDigest,
-    phase: handle.phase,
+    phase: handle2.phase,
     mutationBoundary,
     message: blockerMessage(normalized, evidenceDigest)
   };
@@ -49494,8 +51212,8 @@ function validateOperationCapture(value) {
   if (artifacts === "receipt_only" && outputDirectory !== void 0) throw invalidOperationRequest();
 }
 function validateOperationHandlePayload(value) {
-  const handle = operationRecord(value);
-  operationExactKeys(handle, [
+  const handle2 = operationRecord(value);
+  operationExactKeys(handle2, [
     "schemaVersion",
     "operationId",
     "requestDigest",
@@ -49505,18 +51223,18 @@ function validateOperationHandlePayload(value) {
     "mutationBoundary",
     "targetBindingDigest"
   ]);
-  operationConst(propertyValue(handle, "schemaVersion"), OPERATION_HANDLE_SCHEMA_VERSION);
-  operationId(propertyValue(handle, "operationId"));
-  operationDigest(propertyValue(handle, "requestDigest"));
-  operationSurface(propertyValue(handle, "surface"));
-  const revision = propertyValue(handle, "revision");
+  operationConst(propertyValue(handle2, "schemaVersion"), OPERATION_HANDLE_SCHEMA_VERSION);
+  operationId(propertyValue(handle2, "operationId"));
+  operationDigest(propertyValue(handle2, "requestDigest"));
+  operationSurface(propertyValue(handle2, "surface"));
+  const revision = propertyValue(handle2, "revision");
   if (!Number.isSafeInteger(revision) || revision < 1) throw invalidOperationRequest();
-  if (!OPERATION_PHASES2.has(propertyValue(handle, "phase")) || !OPERATION_BOUNDARIES.has(propertyValue(handle, "mutationBoundary"))) {
+  if (!OPERATION_PHASES2.has(propertyValue(handle2, "phase")) || !OPERATION_BOUNDARIES.has(propertyValue(handle2, "mutationBoundary"))) {
     throw invalidOperationRequest();
   }
-  const targetBindingDigest = propertyValue(handle, "targetBindingDigest");
+  const targetBindingDigest = propertyValue(handle2, "targetBindingDigest");
   if (targetBindingDigest !== void 0) operationDigest(targetBindingDigest);
-  return handle;
+  return handle2;
 }
 function validateOperationTimeout(value) {
   if (value !== void 0 && (!Number.isSafeInteger(value) || value < 0)) throw invalidOperationRequest();
@@ -49679,7 +51397,7 @@ var MAX_OPERATION_JSON_NODES = 1e4;
 var MAX_OPERATION_JSON_UTF8_BYTES = 1024 * 1024;
 
 // src/backend/session.ts
-var PROCESS_BACKEND_SESSION_ID = randomUUID6();
+var PROCESS_BACKEND_SESSION_ID = randomUUID7();
 var MAX_IDENTITY_FIELD_LENGTH = 512;
 var BackendSession = class {
   constructor(options = {}) {
@@ -50443,14 +52161,14 @@ async function writeDiagnostic(error, value) {
 `);
 }
 async function writeLine(output, line) {
-  await new Promise((resolve8, reject) => {
+  await new Promise((resolve9, reject) => {
     let settled = false;
     const finish = (error) => {
       if (settled) return;
       settled = true;
       output.off("error", onError);
       if (error !== void 0 && error !== null) reject(error);
-      else resolve8();
+      else resolve9();
     };
     const onError = (error) => finish(error);
     output.once("error", onError);
@@ -50533,9 +52251,9 @@ function validateServerOptions(options) {
 
 // src/backend/runtime-identity.ts
 import { constants as fsConstants5 } from "node:fs";
-import { lstat as lstat5, open as open5 } from "node:fs/promises";
+import { lstat as lstat6, open as open6 } from "node:fs/promises";
 import { createHash as createHash7 } from "node:crypto";
-import { dirname as dirname3, join as join6, resolve as resolve7 } from "node:path";
+import { dirname as dirname4, join as join8, resolve as resolve8 } from "node:path";
 import { fileURLToPath } from "node:url";
 var MAX_METADATA_BYTES = 1024 * 1024;
 var MAX_BACKEND_ARTIFACT_BYTES = 128 * 1024 * 1024;
@@ -50544,7 +52262,7 @@ var MAX_IDENTITY_FIELD_LENGTH2 = 512;
 async function detectPackagedBackendIdentity(moduleUrl) {
   const artifactPath = modulePath(moduleUrl);
   const [metadata, buildDigest] = await Promise.all([
-    findPackageMetadata(dirname3(artifactPath)),
+    findPackageMetadata(dirname4(artifactPath)),
     digestArtifact(artifactPath)
   ]);
   return {
@@ -50557,7 +52275,7 @@ function modulePath(moduleUrl) {
   try {
     const url = moduleUrl instanceof URL ? moduleUrl : new URL(moduleUrl);
     if (url.protocol !== "file:") throw new TypeError("Backend module URL must use file protocol.");
-    return resolve7(fileURLToPath(url));
+    return resolve8(fileURLToPath(url));
   } catch (error) {
     throw new TypeError(
       `Backend module URL is invalid: ${error instanceof Error ? error.message : "unknown URL error"}`
@@ -50569,9 +52287,9 @@ async function digestArtifact(path3) {
   return bytes === void 0 ? void 0 : `sha256:${createHash7("sha256").update(bytes).digest("hex")}`;
 }
 async function findPackageMetadata(start) {
-  let current = resolve7(start);
+  let current = resolve8(start);
   for (let depth = 0; depth < MAX_ANCESTORS; depth += 1) {
-    for (const candidate of [join6(current, "package.json"), join6(current, ".codex-plugin", "plugin.json")]) {
+    for (const candidate of [join8(current, "package.json"), join8(current, ".codex-plugin", "plugin.json")]) {
       const parsed = await readBoundedJson(candidate);
       if (parsed === void 0) continue;
       const packageName = identityField(parsed.name);
@@ -50583,7 +52301,7 @@ async function findPackageMetadata(start) {
         };
       }
     }
-    const parent = dirname3(current);
+    const parent = dirname4(current);
     if (parent === current) break;
     current = parent;
   }
@@ -50600,16 +52318,16 @@ async function readBoundedJson(path3) {
   }
 }
 async function readStableRegularFile(path3, maxBytes) {
-  let handle;
+  let handle2;
   try {
-    const before = await lstat5(path3);
+    const before = await lstat6(path3);
     if (!isBoundedRegularFile(before, maxBytes)) return void 0;
-    handle = await open5(path3, fsConstants5.O_RDONLY | (fsConstants5.O_NOFOLLOW ?? 0));
-    const opened = await handle.stat();
+    handle2 = await open6(path3, fsConstants5.O_RDONLY | (fsConstants5.O_NOFOLLOW ?? 0));
+    const opened = await handle2.stat();
     if (!isBoundedRegularFile(opened, maxBytes) || !sameFileIdentity2(before, opened)) return void 0;
-    const bytes = await handle.readFile();
-    const finalHandle = await handle.stat();
-    const finalPath = await lstat5(path3);
+    const bytes = await handle2.readFile();
+    const finalHandle = await handle2.stat();
+    const finalPath = await lstat6(path3);
     if (!isBoundedRegularFile(finalHandle, maxBytes) || !isBoundedRegularFile(finalPath, maxBytes) || !sameFileIdentity2(opened, finalHandle) || !sameFileIdentity2(finalHandle, finalPath) || bytes.byteLength !== finalHandle.size) {
       return void 0;
     }
@@ -50617,7 +52335,7 @@ async function readStableRegularFile(path3, maxBytes) {
   } catch {
     return void 0;
   } finally {
-    await handle?.close();
+    await handle2?.close();
   }
 }
 function isBoundedRegularFile(metadata, maxBytes) {

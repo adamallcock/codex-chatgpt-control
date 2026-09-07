@@ -23,6 +23,11 @@ type SurfaceSnapshot = {
   url: string;
   composerLabels: string[];
   mainControls: string[];
+  /** Controls outside overlays, scoped to the composer (or main fallback). */
+  composerControls?: string[];
+  /** Separate visible control roots; unrelated overlays cannot combine axes. */
+  controlGroups?: string[][];
+  rootBudgetExceeded?: true;
   mainText: string;
   selectedSurfaceLabels?: string[];
 };
@@ -30,12 +35,12 @@ type SurfaceSnapshot = {
 const CHATGPT_HOME = "https://chatgpt.com/";
 const EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS = 15_000;
 const EXPERIENCE_POLL_MS = 250;
+const EXPERIENCE_READINESS_TIMEOUT_MS = 1500;
 
 export async function detectExperience(
   env: RuntimeEnv,
   args: DetectExperienceArgs = {}
 ): Promise<CommandResult<DetectExperienceData>> {
-  void args;
   const boot = await ensurePage(env);
   if (!boot.ok) {
     return boot as CommandResult<DetectExperienceData>;
@@ -43,7 +48,21 @@ export async function detectExperience(
 
   const page = env.page!;
   try {
-    const data = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+    const readinessMs = Math.max(0, Math.min(args.timeoutMs ?? EXPERIENCE_READINESS_TIMEOUT_MS,
+      EXPERIENCE_CONTROL_DISCOVERY_TIMEOUT_MS));
+    const readinessDeadline = Date.now() + readinessMs;
+    let data = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+    // An empty post-navigation capture is loading evidence, not a final
+    // classification. Never wait out a known blocker or a genuine score tie.
+    for (let attempt = 1; data.experience === "unknown" && data.evidence.length === 0
+      && Date.now() < readinessDeadline
+      && attempt < pollAttempts(readinessMs, EXPERIENCE_POLL_MS); attempt += 1) {
+      const blocker = await experiencePageBlocker(page, data);
+      if (blocker !== undefined) return blocker;
+      if (page.waitForTimeout === undefined || Date.now() >= readinessDeadline) break;
+      await page.waitForTimeout(Math.min(EXPERIENCE_POLL_MS, readinessDeadline - Date.now()));
+      data = detectExperienceFromSnapshot(await readSurfaceSnapshot(page));
+    }
     return resultOk(data, await contextFromPage(page, {
       experience: data.experience,
       selectorProfile: data.selectorProfile
@@ -180,7 +199,7 @@ export async function openExperience(
 async function experiencePageBlocker(
   page: PageLike,
   observed: DetectExperienceData
-): Promise<CommandResult<OpenExperienceData> | undefined> {
+): Promise<CommandResult<never> | undefined> {
   const state = await readPageState(page);
   if (state.blocker === undefined) return undefined;
   return {
@@ -222,9 +241,14 @@ async function navigateConversationToSurfaceHome(
 }
 
 export function detectExperienceFromSnapshot(snapshot: SurfaceSnapshot): DetectExperienceData {
+  if (snapshot.rootBudgetExceeded === true) {
+    return {
+      experience: "unknown", selectorProfile: "unknown", confidence: "low",
+      evidence: [{ source: "control", label: "Experience surface root budget exceeded" }]
+    };
+  }
   const evidence: ExperienceEvidence[] = [];
   const composerLabels = snapshot.composerLabels.map(normalizeForLabelMatch);
-  const controls = snapshot.mainControls.map(normalizeForLabelMatch);
   const mainText = normalizeForLabelMatch(snapshot.mainText);
   const selectedSurfaceLabels = (snapshot.selectedSurfaceLabels ?? []).map(normalizeForLabelMatch);
   const url = snapshot.url.toLowerCase();
@@ -249,13 +273,19 @@ export function detectExperienceFromSnapshot(snapshot: SurfaceSnapshot): DetectE
     evidence.push({ source: "composer", label });
   }
 
-  const workAxisCount = (["model", "effort", "speed"] as const)
-    .filter(axis => hasAnyLabel(controls, localeLabels.configurationAxes[axis]))
-    .length;
-  if (workAxisCount >= 2) {
-    evidence.push({ source: "control", label: `Work configuration axes (${workAxisCount}/3)` });
+  // Model and effort also occur in the Chat composer popover. Only the
+  // complete Work axis group, including speed in the same visible pane,
+  // supplies Work evidence. Do not combine labels across unrelated overlays.
+  const workAxes = (snapshot.controlGroups ?? [snapshot.mainControls]).some(group => {
+    const groupLabels = group.map(normalizeForLabelMatch);
+    return (["model", "effort", "speed"] as const).every(axis =>
+      hasAnyLabel(groupLabels, localeLabels.configurationAxes[axis]));
+  });
+  if (workAxes) {
+    evidence.push({ source: "control", label: "Work configuration axes (3/3)" });
   }
-  const workConfigurationOpener = controls.some(label =>
+  const composerControls = (snapshot.composerControls ?? snapshot.mainControls).map(normalizeForLabelMatch);
+  const workConfigurationOpener = composerControls.some(label =>
     /\b(?:gpt[\s-]?\d|\d+(?:\.\d+)+|sol|luna|terra)\b/i.test(label)
     && hasAnyLabel([label], [
       ...localeLabels.configurationOptions.light,
@@ -279,7 +309,7 @@ export function detectExperienceFromSnapshot(snapshot: SurfaceSnapshot): DetectE
 
   const workScore = workComposer.length * 4
     + (workSurfaceSelected ? 10 : 0)
-    + (workAxisCount >= 2 ? 4 : 0)
+    + (workAxes ? 6 : 0)
     // The active Work task drops the Chat/Work radio and keeps the shared
     // "Chat with ChatGPT" textbox name. Its compound model + effort opener is
     // therefore strong enough to disambiguate that continuation surface.
@@ -344,7 +374,21 @@ export async function readSurfaceSnapshot(page: PageLike): Promise<SurfaceSnapsh
     const wantedSurfaceLabels = new Set(surfaceOptionLabels.map(normalizeComparable));
     const composerRoots = Array.from(document.querySelectorAll(
       "main form, main [data-testid*='composer' i], main [class*='composer' i]"
-    ));
+    )).filter(visible);
+    const main = document.querySelector("main");
+    const overlayRoots = Array.from(document.querySelectorAll(
+      "[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
+    )).filter(visible);
+    const composerControlRoots = composerRoots.length > 0 ? composerRoots : main === null ? [] : [main];
+    const effectiveControlRoots = Array.from(new Set<Element>([...composerControlRoots, ...overlayRoots]));
+    // Reject oversized captures before expanding overlapping subtrees. A
+    // truncated prefix could omit contradictory surface evidence.
+    if (effectiveControlRoots.length > 32) {
+      return {
+        composerLabels: [], mainControls: [], composerControls: [], controlGroups: [],
+        mainText: "", selectedSurfaceLabels: [], rootBudgetExceeded: true as const
+      };
+    }
     const composerNodes = composerRoots.flatMap(root => [
       root,
       ...Array.from(root.querySelectorAll("textarea, [contenteditable='true'], [role='textbox'], input"))
@@ -355,22 +399,32 @@ export async function readSurfaceSnapshot(page: PageLike): Promise<SurfaceSnapsh
       .map(normalize)
       .filter(Boolean)))
       .slice(0, 16);
-    const main = document.querySelector("main");
-    const overlayRoots = Array.from(document.querySelectorAll(
-      "[role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], [data-radix-menu-content]"
-    )).filter(visible);
-    const controlRoots = Array.from(new Set<Element>([...composerRoots, ...overlayRoots]));
-    const effectiveControlRoots = controlRoots.length > 0
-      ? controlRoots
-      : main === null ? [] : [main];
-    const mainControls = Array.from(new Set(effectiveControlRoots.flatMap(root => Array.from(root.querySelectorAll(
-      "button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option']"
-    )))
-      .filter(visible)
-      .map(labelFor)
-      .map(normalize)
-      .filter(Boolean)))
-      .slice(0, 120);
+    const overlayRootSet = new Set(overlayRoots);
+    const owningOverlay = (node: Element): Element | undefined => {
+      let current: Element | null = node;
+      while (current !== null) {
+        if (overlayRootSet.has(current)) return current;
+        current = current.parentElement;
+      }
+      return undefined;
+    };
+    const controlsFor = (root: Element): string[] => Array.from(new Set(
+      Array.from(root.querySelectorAll(
+        "button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option']"
+      ))
+        .filter(visible)
+        // An ancestor composer/popover must not aggregate independent or
+        // nested menus. Each overlay contributes only its own nearest scope.
+        .filter(node => owningOverlay(node) === (overlayRootSet.has(root) ? root : undefined))
+        .map(labelFor)
+        .map(normalize)
+        .filter(Boolean)
+    )).slice(0, 120);
+    const rootGroups = new Map(effectiveControlRoots.map(root => [root, controlsFor(root)]));
+    const controlGroups = [...rootGroups.values()];
+    const mainControls = Array.from(new Set(controlGroups.flat())).slice(0, 120);
+    const composerControls = Array.from(new Set(composerControlRoots
+      .flatMap(root => rootGroups.get(root) ?? []))).slice(0, 120);
     const surfaceTextNodes = main === null ? [] : Array.from(main.querySelectorAll(
       "h1, h2, h3, form, [data-testid*='composer' i], [class*='composer' i]"
     ))
@@ -385,7 +439,7 @@ export async function readSurfaceSnapshot(page: PageLike): Promise<SurfaceSnapsh
       .map(normalize)
       .filter(label => wantedSurfaceLabels.has(normalizeComparable(label)))))
       .slice(0, 4);
-    return { composerLabels, mainControls, mainText, selectedSurfaceLabels };
+    return { composerLabels, mainControls, composerControls, controlGroups, mainText, selectedSurfaceLabels };
   }, [
     ...localeLabels.experienceOptions.chat,
     ...localeLabels.experienceOptions.work,

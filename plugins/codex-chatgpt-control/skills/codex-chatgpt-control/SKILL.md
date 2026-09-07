@@ -264,6 +264,7 @@ npm run bundle
 npm run bundle:backend
 npm run bundle:live-smoke
 npm run bundle:release-canary
+npm run bundle:journal
 npm run contract:validate
 npm run parity:fixtures
 npm run test:backend-conformance
@@ -311,3 +312,5 @@ via `includeUpload: true`.
 For locale drift, use the Node package's existing language loop with
 `--auto-switch --all --capture-surfaces`; review the JSONL before using the
 `--reviewed` apply gate.
+
+For transactional operations in a browser host without process identity, use the explicit private-file journal service described in [the journal service runbook](references/2026-09-06-journal-service.md). Keep the descriptor secret, preserve the operation ID after uncertainty, and leave prepared Send capabilities in the browser host.

@@ -83,6 +83,26 @@ blockers without claiming live ChatGPT control. Raw
 `liveResponse` content is explicitly ephemeral and is never accepted into a
 durable receipt or operation state.
 
+Operation-aware Python `ask` preserves the Node host blocker
+`journal_runtime_unavailable` as a `CommandResult` with `status == "blocked"`,
+`blocker["kind"] == "unknown"`, `blocker["resumable"] == False`, and
+`error["recoverable"] == False`, including the existing remediation fields.
+Sync and async facades return it after one backend request; they do not replace
+it with transport uncertainty, retry, or open another operation. The shared
+`journal-runtime-unavailable.json` fixture covers exact wire round-tripping.
+No Python model or browser implementation change is needed because the
+TypeScript journal remains authoritative.
+
+The default local journal requires real process identity, platform-appropriate
+ownership, and process-liveness APIs before filesystem or browser mutation.
+The restricted Codex JavaScript host observed on 2026-09-06 lacks those APIs
+even though its browser bridge works. Configure the explicit journal service
+on its bridge-hosted Node `BackendSession` to provide storage and signing from
+a normal Node process. The Python facade and operation protocol stay unchanged.
+A Python-to-Node relay alone cannot supply journal authority, and a plain Node
+subprocess cannot inherit the browser bridge. Do not spoof process identity,
+weaken ownership/lock checks, or retry with a new UUID.
+
 The TypeScript and Python high-level Runner and Responses adapters now have an
 explicit caller-owned operation-ID opt-in. Python accepts the idiomatic
 `operation_id` keyword (or the `operation_id`/`operationId` member of the
@@ -115,6 +135,23 @@ the same backend commands through `chatgpt.artifacts.list_latest(...)`,
 `chatgpt.artifacts.wait(...)`, and `chatgpt.artifacts.download_latest(...)`.
 Those methods forward to `artifacts.listLatest`, `artifacts.wait`, and
 `artifacts.downloadLatest`; they do not duplicate DOM or selector logic.
+
+Python preserves the backend's `download_receipt_timeout` blocker when native
+browser download completion cannot be verified within the deadline. The result
+is blocked, nonresumable and nonrecoverable; the facade does not retry the
+activation or select an alternate download path. Existing browser downloads
+remain in place. Python also preserves `download_blocked_by_browser` when the
+TypeScript runtime identifies Chrome's `ERR_BLOCKED_BY_CLIENT` error page. It
+is a blocked, nonresumable, nonrecoverable command result with no download
+receipt; Python does not retry or duplicate the browser-error detection. The
+shared `download-blocked-by-browser.json` fixture and Python snapshot test lock
+this behavior without adding wire fields or Python-specific browser logic.
+The `download-receipt-failed.json` fixture also preserves the sanitized
+`download_receipt_failed` result from native event or activation failures:
+blocked status, no receipt, and false resumable/recoverable flags. Python keeps
+the fixed backend message and never reconstructs native error details or
+retries an uncertain activation.
+
 If the TypeScript runtime recovers a generated image by reopening a stalled
 claimed conversation in a temporary bridge-owned tab and exporting through
 `pageAssets`, Python observes the same command result through the backend
@@ -255,6 +292,30 @@ Python is a native SDK facade over the local backend protocol. The initial brows
 - Ordinary-shell smoke passes when browser-required calls return structured `browser_bridge_unavailable`.
 - Browser-bridge runtime smoke remains explicitly gated because it can operate a real ChatGPT session.
 
+## Transactional Qualification Is Separate
+
+The opt-in Node scenario `transactional-submit-once` uses the default public
+runtime with `CHATGPT_E2E_TRANSACTIONAL=1`. It verifies a fresh-ID multiline,
+zero-file ask, owned collection, a completed receipt, and same-ID replay with
+one Send and one user/assistant exchange. One `ambiguous_submit` recovery is
+permitted only after proving the existing observation-only Send intent and
+matching target; other blockers stop qualification. See [Transactional Live Qualification](backend-protocol.md#transactional-live-qualification)
+for selection and report checks. A host blocker is a failed qualification,
+even when ordinary-shell blocker handling or compatibility browser smokes
+pass.
+
+Python's existing `scripts/live_smoke.py --mode browser-bridge` matrix omits
+operation IDs and therefore covers compatibility workflows. Its success does
+not establish transactional parity. This patch adds shared-fixture and
+sync/async `ask` preservation coverage; full Python operation-aware relay
+qualification remains a separate gate. It requires a bridge-hosted Node backend
+with either a supported local journal or the configured journal service, plus
+a permitted Python-to-backend transport. The existing HTTP test relay is
+unavailable where that browser host forbids local sockets; filesystem journal
+transport does not itself provide a Python backend relay. Keep browser
+interaction and ownership verification in TypeScript rather than adding Python
+DOM selectors.
+
 ## Browser-Bridge Smoke
 
 Run this only when you intentionally want Python to drive a live backend with browser access:
@@ -318,3 +379,7 @@ Smoke output is a redacted JSON summary. It reports output matches and lengths, 
 | `0` | All browser-bridge scenarios passed. |
 | `1` | At least one scenario failed unexpectedly. |
 | `2` | Scenarios recorded documented blockers such as `browser_bridge_unavailable`, `login_required`, or `selector_drift`. |
+
+## Restricted-host journal authority
+
+The Node backend can use an explicit asynchronous journal service while keeping browser control in its active host. See [the journal service runbook](2026-09-06-journal-service.md) for startup, recovery, transport boundaries, and the intentional TypeScript host API asymmetry. Operation wire shapes and Python facades are unchanged. Python preserves `journal_rpc_unsupported_platform` when the Node backend rejects the private-file transport on Windows; it does not bypass the platform guard. Existing local Node journal behavior on Windows is unchanged.

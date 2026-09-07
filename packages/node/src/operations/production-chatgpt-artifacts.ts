@@ -206,7 +206,7 @@ export function createProductionChatGPTArtifacts(
     if (exactFacts === undefined || !matchesRequest(exactFacts, normalizedRequest)) {
       throw providerError();
     }
-    const expectedDigest = artifactEvidenceDigest(normalized, normalizedRequest, exactFacts);
+    const expectedDigest = await artifactEvidenceDigest(normalized, normalizedRequest, exactFacts);
     if (expectedDigest === undefined || expectedDigest !== normalizedRequest.sourceIdentityDigest) {
       throw providerError();
     }
@@ -609,11 +609,11 @@ function normalizeRequest(value: unknown): NormalizedRequest | undefined {
   });
 }
 
-function artifactEvidenceDigest(
+async function artifactEvidenceDigest(
   options: NormalizedOptions,
   request: NormalizedRequest,
   facts: ArtifactFacts
-): string | undefined {
+): Promise<string | undefined> {
   const material = Object.freeze({
     operationId: request.operationId,
     turnId: request.assistantTurnId,
@@ -625,7 +625,7 @@ function artifactEvidenceDigest(
     ...(facts.mimeType === undefined ? {} : { mimeType: facts.mimeType })
   });
   try {
-    const value = options.evidenceDigest("browser-observation-artifact", material);
+    const value = await options.evidenceDigest("browser-observation-artifact", material);
     return isDigest(value) ? value : undefined;
   } catch {
     return undefined;

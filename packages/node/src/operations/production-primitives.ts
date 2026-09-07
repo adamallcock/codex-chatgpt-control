@@ -1,5 +1,7 @@
 import type { LocatorLike, PageLike } from "../types.js";
 import { composerTextbox, stopGenerationButton } from "../dom/selectors.js";
+import { inspectComposerText } from "../dom/composer-text.js";
+import { readChatGPTEmptyAttachmentState } from "./production-chatgpt-attachments.js";
 import {
   observeBrowserPage,
   type BrowserObservationDigest,
@@ -261,14 +263,14 @@ async function readStaging(
   if (state.desiredComposerText === undefined) {
     return unavailableStaging(request, "composer_primitive_unwired");
   }
-  if (!matchesExpectedStagingDigest(request, evidenceDigest)) {
+  if (!await matchesExpectedStagingDigest(request, evidenceDigest)) {
     return unavailableStaging(request, "composer_request_mismatch");
   }
 
   const current = await readComposerState(request.page, request.target, request.operationId, evidenceDigest);
   if (current === undefined) return unavailableStaging(request, "composer_control_unavailable");
   const satisfied = current.text === state.desiredComposerText;
-  const evidence = digest(evidenceDigest, "composer-observation", {
+  const evidence = await digest(evidenceDigest, "composer-observation", {
     operationId: request.operationId,
     targetBindingDigest: request.targetBindingDigest,
     currentStateDigest: current.currentStateDigest,
@@ -294,18 +296,25 @@ async function mutateStagingOnce(
   if (!isDigest(request.desiredStateDigest) || !isDigest(request.requestDigest)) {
     throw new ProductionPrimitiveError("composer_request_mismatch");
   }
-  const expected = safeDigestWith(evidenceDigest, "staging-desired", { requestDigest: request.requestDigest, kind: request.kind });
+  const expected = await safeDigestWith(evidenceDigest, "staging-desired", { requestDigest: request.requestDigest, kind: request.kind });
   if (expected === undefined || expected !== request.desiredStateDigest) {
     throw new ProductionPrimitiveError("composer_request_mismatch");
   }
+  assertStagingActive(request);
   const locator = await uniqueVisibleLocator(request.page, composerTextbox);
   if (locator === undefined || typeof locator.fill !== "function") {
     throw new ProductionPrimitiveError("composer_control_unavailable");
   }
   // The sole reversible composer mutation.  There is no readiness wait and no
   // fallback press/click path if this call rejects.
+  assertStagingActive(request);
   await locator.fill(state.desiredComposerText);
   return { status: "started" };
+}
+
+function assertStagingActive(request: Pick<OperationStagingCallbackRequest, "signal" | "deadlineAt">): void {
+  if (request.signal?.aborted) throw new ProductionPrimitiveError("operation_cancelled");
+  if (request.deadlineAt !== undefined && Date.now() >= request.deadlineAt) throw new ProductionPrimitiveError("operation_deadline_exceeded");
 }
 
 function stagingUnwiredCode(kind: OperationStagingCallbackRequest["kind"]): string {
@@ -328,11 +337,11 @@ function unavailableStaging(
   };
 }
 
-function matchesExpectedStagingDigest(
+async function matchesExpectedStagingDigest(
   request: Pick<OperationStagingCallbackRequest, "desiredStateDigest" | "requestDigest" | "kind">,
   evidenceDigest: BrowserObservationDigest
-): boolean {
-  return safeDigestWith(evidenceDigest, "staging-desired", {
+): Promise<boolean> {
+  return await safeDigestWith(evidenceDigest, "staging-desired", {
     requestDigest: request.requestDigest,
     kind: request.kind
   }) === request.desiredStateDigest;
@@ -351,15 +360,15 @@ async function observeSubmissionStaging(
   }
   const expectedConfiguration = state.requestDigest === undefined
     ? undefined
-    : safeDigestWith(evidenceDigest, "configuration-request", state.requestDigest);
+    : await safeDigestWith(evidenceDigest, "configuration-request", state.requestDigest);
   const expectedComposer = state.requestDigest === undefined
     ? undefined
-    : safeDigestWith(evidenceDigest, "composer-request", state.requestDigest);
+    : await safeDigestWith(evidenceDigest, "composer-request", state.requestDigest);
   if (expectedConfiguration === undefined || expectedComposer === undefined) {
     return { status: "unavailable", reason: "target" };
   }
   if (request.configurationReceiptDigest !== expectedConfiguration) {
-    const evidence = safeDigestWith(evidenceDigest, "submission-stage", { operationId: request.operationId, reason: "configuration" });
+    const evidence = await safeDigestWith(evidenceDigest, "submission-stage", { operationId: request.operationId, reason: "configuration" });
     return evidence === undefined
       ? { status: "mismatch", reason: "configuration" }
       : { status: "mismatch", reason: "configuration", evidenceDigest: evidence };
@@ -409,7 +418,7 @@ async function observeSendPrecondition(
       },
       baseline: {
         ownershipBaseline: recoveryBaseline,
-        userTurnEvidenceDigest: safeDigestWith(evidenceDigest, "send-baseline", {
+        userTurnEvidenceDigest: await safeDigestWith(evidenceDigest, "send-baseline", {
           snapshotDigest: recoveryBaseline.snapshotDigest,
           userTurns: []
         }) ?? recoveryBaseline.snapshotDigest
@@ -418,8 +427,8 @@ async function observeSendPrecondition(
     };
   }
   if (state.desiredComposerText === undefined) return { status: "unavailable", code: "composer_drift" };
-  const expectedComposer = safeDigestWith(evidenceDigest, "composer-request", state.requestDigest);
-  const expectedConfiguration = safeDigestWith(evidenceDigest, "configuration-request", state.requestDigest);
+  const expectedComposer = await safeDigestWith(evidenceDigest, "composer-request", state.requestDigest);
+  const expectedConfiguration = await safeDigestWith(evidenceDigest, "configuration-request", state.requestDigest);
   if (expectedComposer === undefined || expectedConfiguration === undefined) {
     return { status: "unavailable", code: "target_evidence_unavailable" };
   }
@@ -486,7 +495,7 @@ async function observeSendPrecondition(
     return { status: "unavailable", code: "attachment_manifest_mismatch", evidenceDigest: snapshot.snapshotDigest };
   }
 
-  const baseline = baselineForSnapshot(snapshot, evidenceDigest, identity, request.expected.targetBindingDigest);
+  const baseline = await baselineForSnapshot(snapshot, evidenceDigest, identity, request.expected.targetBindingDigest);
   if (baseline === undefined) return { status: "unavailable", code: "target_evidence_unavailable", evidenceDigest: snapshot.snapshotDigest };
   const sendAttachments: SendOnceAttachmentObservation = {
     count: attachments.count,
@@ -502,7 +511,7 @@ async function observeSendPrecondition(
     baseline: {
       ...(baseline.userTurns.at(-1)?.stableId === undefined ? {} : { userTurnId: baseline.userTurns.at(-1)!.stableId }),
       ownershipBaseline: baseline,
-      userTurnEvidenceDigest: safeDigestWith(evidenceDigest, "send-baseline", {
+      userTurnEvidenceDigest: await safeDigestWith(evidenceDigest, "send-baseline", {
         snapshotDigest: baseline.snapshotDigest,
         userTurns: baseline.userTurns.map(turn => turn.evidenceDigest)
       }) ?? baseline.snapshotDigest
@@ -623,10 +632,10 @@ async function observeAttachmentEnvelope(
     }
   }
   if (request.manifest.count > 0) return { status: "unavailable" };
-  const result = await readEmptyAttachmentState(page);
+  const result = await readChatGPTEmptyAttachmentState(page);
   if (result === undefined || !result.supported) return { status: "unavailable" };
   if (result.count !== 0 || result.visibleAttachmentCount !== 0) return { status: "mismatch" };
-  const evidence = safeDigestWith(evidenceDigest, "composer-attachments", {
+  const evidence = await safeDigestWith(evidenceDigest, "composer-attachments", {
     operationId: request.operationId,
     targetBindingDigest: request.targetBindingDigest,
     count: 0
@@ -641,171 +650,6 @@ async function observeAttachmentEnvelope(
   };
 }
 
-async function readEmptyAttachmentState(page: Readonly<PageLike>): Promise<{
-  supported: boolean;
-  count: number;
-  visibleAttachmentCount: number;
-} | undefined> {
-  if (typeof page.evaluate !== "function") return undefined;
-  try {
-    const result = await page.evaluate(() => {
-      const visible = (element: HTMLElement): boolean => {
-        let ancestor: Node | null = element;
-        for (let depth = 0; ancestor !== null && depth < 4096; depth += 1) {
-          if (ancestor.nodeType === 1) {
-            const candidate = ancestor as Element;
-            if (candidate.hasAttribute("hidden") || candidate.hasAttribute("inert") || candidate.getAttribute("aria-hidden") === "true") return false;
-          }
-          ancestor = ancestor.parentNode;
-        }
-        if (ancestor !== null) throw new Error("node limit exceeded");
-        const style = window.getComputedStyle(element);
-        if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
-        const rect = typeof element.getBoundingClientRect === "function" ? element.getBoundingClientRect() : undefined;
-        return rect === undefined || rect.width > 0 || rect.height > 0;
-      };
-      const boundedQuery = <T extends Element>(
-        root: Node,
-        selector: string,
-        maxMatched = 4096,
-        maxVisited = 4096
-      ): T[] => {
-        const simpleMatch = (element: Element, token: string): boolean => {
-          let offset = 0;
-          const tag = /^[A-Za-z][A-Za-z0-9-]*/u.exec(token);
-          if (tag !== null) {
-            if (element.tagName.toLocaleLowerCase() !== tag[0].toLocaleLowerCase()) return false;
-            offset = tag[0].length;
-          }
-          while (offset < token.length) {
-            if (token[offset] !== "[") return false;
-            const close = token.indexOf("]", offset + 1);
-            if (close < 0) return false;
-            const expression = token.slice(offset + 1, close).trim();
-            const attribute = /^([A-Za-z0-9_:-]+)(?:(\*=|=)'([^']*)'(?:\s+(i))?)?$/u.exec(expression);
-            if (attribute === null) return false;
-            const actual = element.getAttribute(attribute[1]!);
-            if (attribute[2] === undefined) {
-              if (actual === null) return false;
-            } else {
-              if (actual === null) return false;
-              const insensitive = attribute[4] === "i";
-              const left = insensitive ? actual.toLocaleLowerCase() : actual;
-              const rightValue = attribute[3] ?? "";
-              const right = insensitive ? rightValue.toLocaleLowerCase() : rightValue;
-              if (attribute[2] === "=" ? left !== right : !left.includes(right)) return false;
-            }
-            offset = close + 1;
-          }
-          return true;
-        };
-        const tokensFor = (branch: string): string[] => {
-          const tokens: string[] = [];
-          let depth = 0;
-          let start = 0;
-          for (let index = 0; index <= branch.length; index += 1) {
-            const character = branch[index];
-            if (character === "[") depth += 1;
-            if (character === "]") depth -= 1;
-            if ((character === undefined || /\s/u.test(character)) && depth === 0) {
-              const token = branch.slice(start, index).trim();
-              if (token.length > 0) tokens.push(token);
-              start = index + 1;
-            }
-          }
-          return tokens;
-        };
-        const selectorMatch = (element: Element): boolean => {
-          for (const rawBranch of selector.split(",")) {
-            const tokens = tokensFor(rawBranch.trim());
-            if (tokens.length === 0 || !simpleMatch(element, tokens[tokens.length - 1]!)) continue;
-            let ancestor: Node | null = element.parentNode;
-            let tokenIndex = tokens.length - 2;
-            while (tokenIndex >= 0) {
-              while (ancestor !== null
-                && (ancestor.nodeType !== 1 || !simpleMatch(ancestor as Element, tokens[tokenIndex]!))) {
-                ancestor = ancestor.parentNode;
-              }
-              if (ancestor === null) break;
-              tokenIndex -= 1;
-              ancestor = ancestor.parentNode;
-            }
-            if (tokenIndex < 0) return true;
-          }
-          return false;
-        };
-        let visited = 0;
-        const matches: T[] = [];
-        let current: Node | null = root.firstChild;
-        while (current !== null) {
-          visited += 1;
-          if (visited > maxVisited) throw new Error("node limit exceeded");
-          if (current.nodeType === 1 && selectorMatch(current as Element)) {
-            matches.push(current as T);
-            if (matches.length > maxMatched) throw new Error("node limit exceeded");
-          }
-          if (current.firstChild !== null) {
-            current = current.firstChild;
-            continue;
-          }
-          while (current !== null && current !== root && current.nextSibling === null) current = current.parentNode;
-          current = current === null || current === root ? null : current.nextSibling;
-        }
-        return matches;
-      };
-      const textboxes = boundedQuery<HTMLElement>(document,
-        "textarea, [contenteditable='true'], [role='textbox']").filter(visible);
-      const composerAncestor = (textbox: Element): HTMLElement | null => {
-        let fallback: HTMLElement | null = null;
-        let current: Node | null = textbox;
-        for (let depth = 0; current !== null && depth < 4096; depth += 1) {
-          if (current.nodeType === 1) {
-            const element = current as HTMLElement;
-            if (element.tagName === "FORM") return element;
-            const testId = (element.getAttribute("data-testid") ?? "").toLocaleLowerCase();
-            const classTokens = (element.getAttribute("class") ?? "").toLocaleLowerCase().split(/\s+/u);
-            if (fallback === null && (testId.includes("composer")
-              || classTokens.includes("composer-parent")
-              || classTokens.includes("group/composer"))) fallback = element;
-          }
-          current = current.parentNode;
-        }
-        if (current !== null) throw new Error("node limit exceeded");
-        return fallback;
-      };
-      const composers = [...new Set(textboxes.map(textbox =>
-        composerAncestor(textbox)
-      ).filter((value): value is HTMLElement => value !== null))];
-      if (composers.length !== 1) return { supported: false, count: 0, visibleAttachmentCount: 0 };
-      const inputs = boundedQuery<HTMLInputElement>(composers[0]!, "input[type='file']")
-        .filter(input => !input.disabled && input.getAttribute("aria-disabled") !== "true");
-      if (inputs.length !== 1) return { supported: false, count: 0, visibleAttachmentCount: 0 };
-      const selectors = [
-        "[data-testid*='attachment' i]",
-        "[data-testid*='file' i]",
-        "[aria-label*='attachment' i]",
-        "[aria-label*='upload' i]",
-        "[aria-label*='file' i]",
-        "[class*='attachment' i]",
-        "[class*='upload' i]",
-        "[class*='file' i]",
-        "[role='progressbar']"
-      ].join(", ");
-      const visibleAttachmentCount = boundedQuery<HTMLElement>(composers[0]!, selectors).filter(visible).length;
-      return {
-        supported: true,
-        count: inputs[0]!.files?.length ?? 0,
-        visibleAttachmentCount
-      };
-    });
-    if (result === null || typeof result !== "object") return undefined;
-    if (typeof result.supported !== "boolean" || !Number.isSafeInteger(result.count) || !Number.isSafeInteger(result.visibleAttachmentCount)) return undefined;
-    return result;
-  } catch {
-    return undefined;
-  }
-}
-
 async function readComposerState(
   page: Readonly<PageLike>,
   target: OperationTargetBindingV1,
@@ -817,12 +661,12 @@ async function readComposerState(
   if (locator === undefined) return undefined;
   const text = await readLocatorText(locator);
   if (text === undefined || text.length > MAX_COMPOSER_CHARS || text.includes("\u0000")) return undefined;
-  const currentStateDigest = safeDigestWith(evidenceDigest, "composer-state", {
+  const currentStateDigest = await safeDigestWith(evidenceDigest, "composer-state", {
     operationId,
     text
   });
   if (currentStateDigest === undefined) return undefined;
-  const observationDigest = safeDigestWith(evidenceDigest, "composer-observation", {
+  const observationDigest = await safeDigestWith(evidenceDigest, "composer-observation", {
     operationId,
     currentStateDigest
   });
@@ -837,48 +681,7 @@ async function readLocatorText(locator: LocatorLike): Promise<string | undefined
     // could inspect it.  The transactional path therefore requires evaluate
     // so the cap is enforced inside the browser realm.
     if (typeof locator.evaluate !== "function") return undefined;
-    const value = await locator.evaluate(element => {
-      const candidate = element as HTMLElement & { value?: unknown };
-      const candidateValue = candidate.value;
-      const tag = typeof candidate.tagName === "string" ? candidate.tagName.toLowerCase() : "";
-      // The Chrome bridge presents a synthetic empty `value` on ChatGPT's
-      // contenteditable DIV. Only native value controls use that property;
-      // contenteditable composers must be read from their bounded text tree.
-      if ((tag === "input" || tag === "textarea" || tag === "select") && typeof candidateValue === "string") {
-        // Enforce the cap in the browser realm before the bridge serializes
-        // the value.  A post-return check would already have crossed the
-        // unbounded provider boundary.
-        return candidateValue.length <= 8 * 1024 * 1024 ? candidateValue : undefined;
-      }
-      const chunks: string[] = [];
-      const ancestors: Node[] = [];
-      let visited = 0;
-      let total = 0;
-      let current: Node | null = candidate;
-      while (current !== null) {
-        visited += 1;
-        if (visited > 4096) return undefined;
-        if (current.nodeType === 3) {
-          const text = current.nodeValue ?? "";
-          total += text.length;
-          if (total > 8 * 1024 * 1024) return undefined;
-          if (text.length > 0) chunks.push(text);
-        }
-        const child: Node | null = current.firstChild;
-        if (child !== null) {
-          if (ancestors.length >= 4096) return undefined;
-          ancestors.push(current);
-          current = child;
-          continue;
-        }
-        while (current !== null && current !== candidate && current.nextSibling === null) {
-          current = ancestors.pop() ?? null;
-        }
-        if (current === candidate) break;
-        if (current !== null) current = current.nextSibling;
-      }
-      return chunks.join("");
-    });
+    const value = await locator.evaluate(inspectComposerText);
     return typeof value === "string" && value.length <= MAX_COMPOSER_CHARS ? value : undefined;
   } catch {
     return undefined;
@@ -944,14 +747,14 @@ function stableBaseline(snapshot: OwnershipSnapshot): boolean {
     && snapshot.userTurns.every(turn => turn.stableId !== undefined);
 }
 
-function baselineForSnapshot(
+async function baselineForSnapshot(
   snapshot: OwnershipSnapshot,
   evidenceDigest: BrowserObservationDigest,
   operationId: string,
   targetBindingDigest: string
-): OwnershipBaseline | undefined {
+): Promise<OwnershipBaseline | undefined> {
   if (snapshot.completeness !== "complete" || !stableBaseline(snapshot)) return undefined;
-  const snapshotDigest = safeDigestWith(evidenceDigest, "send-baseline-snapshot", {
+  const snapshotDigest = await safeDigestWith(evidenceDigest, "send-baseline-snapshot", {
     operationId,
     targetBindingDigest,
     snapshotDigest: snapshot.snapshotDigest
@@ -1132,6 +935,7 @@ async function observeCollector(
     target: observationTarget,
     evidenceDigest,
     responseContent: request.responseContent,
+    ...(request.responseFormat === undefined ? {} : { responseFormat: request.responseFormat }),
     ...(context.baseline === undefined ? {} : { baseline: context.baseline }),
     ...(context.prior?.assistantTurnId === undefined ? {} : {
       terminalAssistantTurnId: context.prior.assistantTurnId,
@@ -1240,25 +1044,25 @@ async function observeControlSnapshot(
   }
 }
 
-function safeDigestWith(
+async function safeDigestWith(
   evidenceDigest: BrowserObservationDigest,
   domain: string,
   material: unknown
-): string | undefined {
+): Promise<string | undefined> {
   try {
-    const value = evidenceDigest(domain, material);
+    const value = await evidenceDigest(domain, material);
     return isDigest(value) ? value : undefined;
   } catch {
     return undefined;
   }
 }
 
-function digest(
+async function digest(
   evidenceDigest: BrowserObservationDigest,
   domain: string,
   material: unknown
-): string | undefined {
-  return safeDigestWith(evidenceDigest, domain, material);
+): Promise<string | undefined> {
+  return await safeDigestWith(evidenceDigest, domain, material);
 }
 
 function isDigest(value: unknown): value is string {

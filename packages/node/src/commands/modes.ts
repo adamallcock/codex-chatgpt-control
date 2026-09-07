@@ -12,6 +12,7 @@ import {
   resolvePowerTarget
 } from "./power-discovery.js";
 import { ensurePage } from "./session.js";
+import { closeChatPopover, readChatPopover, selectChatPopoverEffort, selectChatPopoverModel, setChatPopoverView } from "./chat-popover.js";
 
 const DEFAULT_MODE_EFFORT = "Thinking";
 const CURRENT_MODE_LABELS: string[] = dedupeLabels([
@@ -21,7 +22,7 @@ const CURRENT_MODE_LABELS: string[] = dedupeLabels([
 ]);
 const MODE_OPENER_LABELS = [...CURRENT_MODE_LABELS.filter(label => label !== "Pro"), ...localeLabels.modeOpenerExtra];
 const MODEL_VERSION_FAMILY_PATTERN = /^gpt[\s-]/i;
-const MODEL_VERSION_LABEL_PATTERN = /^(?:o\d+|\d+(?:\.\d+)?)$/i;
+const MODEL_VERSION_LABEL_PATTERN = /^(?:gpt[\s-].+|o\d+|\d+(?:\.\d+)?|latest)$/i;
 const CANONICAL_INTELLIGENCE_ORDER = new Map<ModeOptionId, number>([
   ["instant", 0],
   ["medium", 1],
@@ -76,6 +77,7 @@ export async function setMode(
   const page = env.page!;
 
   try {
+    const initialPopover = (await readChatPopover(page)).snapshot;
     const requested = requestedModeSelections(args);
     const requestedVersion = requestedModelVersion(args);
     const requestedForOpening = requestedVersion === undefined ? requested : [...requested, requestedModeSelection(requestedVersion)];
@@ -87,6 +89,29 @@ export async function setMode(
       return selectorDrift(page, "No unique ChatGPT mode menu opener was found.");
     }
     await page.waitForTimeout?.(250);
+    const scopedPopover = (await readChatPopover(page)).snapshot;
+    if (scopedPopover !== undefined) {
+      try {
+        const selected: string[] = [];
+        const candidates: string[] = [];
+        if (requestedVersion !== undefined) {
+          const model = await selectChatPopoverModel(page, [requestedVersion]);
+          if (model === undefined) return selectorDrift(page, `Model version "${requestedVersion}" did not verify in the owned Chat model view.`);
+          selected.push(model);
+          candidates.push(model);
+        }
+        for (const request of requested) {
+          const effort = await selectChatPopoverEffort(page, request.labels);
+          if (effort === undefined) return selectorDrift(page, `Mode option "${request.requested}" did not verify in the owned Chat effort control.`);
+          selected.push(effort);
+          candidates.push(effort);
+        }
+        return resultOk({ selected, candidates }, await contextFromPage(page));
+      } finally {
+        if (initialPopover !== undefined) await setChatPopoverView(page, initialPopover.view);
+        else await closeChatPopover(page);
+      }
+    }
     let candidates = await enumerateVisibleMenuItems(page);
     const observedCandidates: MenuItem[] = [...candidates];
     const selected: string[] = [];
@@ -346,6 +371,7 @@ async function waitForModeMenu(page: PageLike, requested: RequestedMode[], timeo
   let modeButtons: string[] = [];
 
   do {
+    if ((await readChatPopover(page)).snapshot !== undefined) return { opened: true, alreadySelected: [], modeButtons };
     modeButtons = await visibleModeButtonLabelList(page);
     const alreadySelected = findAlreadySelectedModes(modeButtons, requested);
     if (alreadySelected.length === requested.length) {
@@ -791,8 +817,8 @@ async function selectModelVersion(
 }
 
 function isModelVersionSubmenuOpener(item: MenuItem): boolean {
-  return item.hasPopup === true
-    || (item.role !== "menuitemradio" && MODEL_VERSION_FAMILY_PATTERN.test(item.label));
+  return item.role !== "menuitemradio"
+    && (MODEL_VERSION_FAMILY_PATTERN.test(item.label) || item.ariaLabel === "Select model");
 }
 
 async function clickResolvedMenuItem(page: PageLike, item: MenuItem): Promise<boolean> {
@@ -812,7 +838,7 @@ async function clickResolvedMenuItem(page: PageLike, item: MenuItem): Promise<bo
 }
 
 async function openModelVersionSubmenu(page: PageLike, candidates: MenuItem[]): Promise<boolean> {
-  const submenuOpeners = candidates.filter(item => item.hasPopup === true || MODEL_VERSION_FAMILY_PATTERN.test(item.label));
+  const submenuOpeners = candidates.filter(isModelVersionSubmenuOpener);
   if (submenuOpeners.length === 0) {
     return false;
   }

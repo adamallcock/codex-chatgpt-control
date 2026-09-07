@@ -1,5 +1,6 @@
 import { attachChatGPTBrowser, isChatGPTUrl, tabIdFromPage } from "../browser/attach.js";
 import { readPageState } from "../browser/page-state.js";
+import { chatGPTAttachmentContextUrl } from "../browser/chatgpt-url.js";
 import { resultError, resultOk } from "../errors.js";
 import { unwrapCoordinatedPage } from "../runtime/coordinated-page.js";
 import type { BootstrapArgs, BootstrapData, CommandResult, RuntimeEnv } from "../types.js";
@@ -25,7 +26,7 @@ export async function bootstrap(
     const data: BootstrapData = {
       browserName: attached.browserName,
       tabId: attached.tabId ?? "unknown",
-      url: state.url,
+      url: chatGPTAttachmentContextUrl(state.url) ?? state.url,
       loggedIn: state.signedIn
     };
 
@@ -66,7 +67,10 @@ export async function ensurePage(
 
 async function verifyChatGPTOrigin(env: RuntimeEnv): Promise<CommandResult<unknown> | undefined> {
   if (env.page === undefined) return undefined;
-  const actualUrl = await Promise.resolve(env.page.url?.()).catch(() => undefined);
+  const page = env.page;
+  // Invoke inside the promise so synchronous provider errors are also kept
+  // out of public diagnostics: their messages can contain the rejected URL.
+  const actualUrl = await Promise.resolve().then(() => page.url?.()).catch(() => undefined);
   if (isChatGPTUrl(actualUrl)) return undefined;
   return {
     ok: false,
@@ -76,7 +80,11 @@ async function verifyChatGPTOrigin(env: RuntimeEnv): Promise<CommandResult<unkno
       kind: "selector_drift",
       code: "unsafe_chatgpt_origin",
       message: "ChatGPT command refused to operate because the controlled tab is not on an allowlisted ChatGPT origin.",
-      visibleText: actualUrl ?? "The current tab URL could not be verified.",
+      // Rejected navigations may contain signed attachment URLs, credentials,
+      // or private path segments. Keep the URL only for the local origin test.
+      visibleText: actualUrl === undefined
+        ? "The current tab URL could not be verified."
+        : "The current tab is outside the supported ChatGPT origins.",
       remediation: [
         {
           label: "Reopen ChatGPT",
@@ -86,7 +94,7 @@ async function verifyChatGPTOrigin(env: RuntimeEnv): Promise<CommandResult<unkno
       ],
       resumable: false
     },
-    context: await contextFromPage(env.page, tabContext(env))
+    context: await contextFromPage(env.page, tabContext(env), { minimal: true })
   };
 }
 

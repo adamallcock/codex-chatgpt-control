@@ -1,0 +1,22 @@
+{
+  "result": {
+    "blocker": {
+      "code": "download_receipt_failed",
+      "kind": "download_unavailable",
+      "message": "The browser did not provide a verified download receipt. Inspect the existing download before retrying; completion is unverified.",
+      "resumable": false
+    },
+    "context": {
+      "timestamp": "2026-06-06T00:00:00.000Z"
+    },
+    "error": {
+      "message": "The browser did not provide a verified download receipt. Inspect the existing download before retrying; completion is unverified.",
+      "name": "DownloadReceiptFailedError",
+      "recoverable": false
+    },
+    "ok": false,
+    "status": "blocked",
+    "warnings": []
+  },
+  "schemaVersion": "chatgpt.browser_control.command_result.v1"
+}

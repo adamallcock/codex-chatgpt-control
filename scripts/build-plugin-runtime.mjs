@@ -102,7 +102,7 @@ async function main() {
   const runtimeDir = path.join(root, "plugins/codex-chatgpt-control/runtime/node");
 
   if (!args.skipBuild) {
-    for (const script of ["build", "bundle", "bundle:backend", "bundle:live-smoke", "bundle:release-canary"]) {
+    for (const script of ["build", "bundle", "bundle:backend", "bundle:live-smoke", "bundle:release-canary", "bundle:journal"]) {
       const npm = npmInvocation(["run", script]);
       execFileSync(npm.program, npm.args, { cwd: packageDir, stdio: "inherit" });
     }
@@ -118,6 +118,10 @@ async function main() {
     [
       sourceBundle(distDir, `${PRIVATE_BUNDLE_PREFIX}-backend.mjs`, "codex-chatgpt-control-backend.mjs"),
       "codex-chatgpt-control-backend.mjs"
+    ],
+    [
+      sourceBundle(distDir, `${PRIVATE_BUNDLE_PREFIX}-journal.mjs`, "codex-chatgpt-control-journal.mjs"),
+      "codex-chatgpt-control-journal.mjs"
     ],
     [
       sourceBundle(distDir, `${PRIVATE_BUNDLE_PREFIX}-live-smoke.bundle.mjs`, "codex-chatgpt-control-live-smoke.bundle.mjs"),

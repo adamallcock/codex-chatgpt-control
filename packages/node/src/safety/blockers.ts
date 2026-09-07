@@ -61,7 +61,14 @@ export function classifyVisibleText(text: string): ClassifiedBlocker | undefined
   const lowerable = visibleText.length > 0 ? visibleText : text;
 
   for (const rule of RULES) {
-    if (rule.patterns.some(pattern => pattern.test(lowerable))) {
+    // The Work effort picker describes higher effort with this informational
+    // copy. It is not an exhausted quota, even on an otherwise empty page.
+    // Inspect the full rate-limit text so stripping this copy cannot hide a
+    // real notice later in the same surface behind the display-text truncation.
+    const candidate = rule.kind === "rate_limit"
+      ? text.replace(/\bConsumes\s+usage\s+limits\s+faster\b/gi, "")
+      : lowerable;
+    if (rule.patterns.some(pattern => pattern.test(candidate))) {
       return { kind: rule.kind, message: rule.message, visibleText };
     }
   }

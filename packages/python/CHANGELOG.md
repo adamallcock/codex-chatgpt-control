@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.1a4
+
+- Preserves the explicit `download_blocked_by_browser` result without retries
+  through the shared backend and Python models.
+- Preserves normal journal-runtime blockers and indeterminate journal writes
+  through synchronous and asynchronous facades without blind retries.
+- Adds shared fixture round-trips for the explicit Node journal service while
+  retaining TypeScript authority over browser interaction and durable operations.
+- Inherits current Work model/effort/speed configuration and authenticated
+  fresh-client Send recovery from the shared TypeScript browser runtime.
+- Documents journal-service setup, recovery and the separate requirements for
+  Python-to-backend transport and live transactional qualification.
+- Preserves explicit unsupported-platform and unverified download-completion
+  blockers through shared backend fixtures without retrying the browser action.
+
 ## 0.5.1a3
 
 - Adds idiomatic sync and async transactional operation clients over the

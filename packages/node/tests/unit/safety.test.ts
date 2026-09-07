@@ -15,6 +15,17 @@ describe("classifyVisibleText", () => {
     expect(classifyVisibleText("You've reached your usage limit. Try again later.")?.kind).toBe("rate_limit");
   });
 
+  it("does not treat Work effort usage guidance as an exhausted quota", () => {
+    expect(classifyVisibleText("GPT-5.6 Sol Light Consumes usage limits faster Light, 1 of 6.")).toBeUndefined();
+    expect(classifyVisibleText("Consumes\nusage limits faster")).toBeUndefined();
+  });
+
+  it("still detects a real limit beside effort guidance, including beyond the preview", () => {
+    for (const notice of ["You have reached your usage limit.", "Too many requests. Try again later.", "Rate limit exceeded."]) {
+      expect(classifyVisibleText(`Consumes usage limits faster ${"ordinary text ".repeat(100)} ${notice}`)?.kind).toBe("rate_limit");
+    }
+  });
+
   it("detects upload failures", () => {
     expect(classifyVisibleText("Upload failed. This file is too large.")?.kind).toBe("upload_failed");
   });
@@ -25,6 +36,18 @@ describe("classifyVisibleText", () => {
 });
 
 describe("readPageState blocker scoping", () => {
+  it("keeps a blank Work surface usable while its effort guidance is visible", async () => {
+    const state = await readPageState({
+      url: () => "https://chatgpt.com/",
+      evaluate: async <T>(): Promise<T> => ({
+        visibleText: "Chat Work What should we work on? GPT-5.6 Sol Light Consumes usage limits faster",
+        blockerText: "Consumes usage limits faster",
+        hasConversationMessages: false
+      }) as T
+    });
+    expect(state.blocker).toBeUndefined();
+  });
+
   it("does not treat a blocker phrase quoted in a conversation message as a system blocker", async () => {
     let evaluations = 0;
     const state = await readPageState({

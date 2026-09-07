@@ -31,6 +31,7 @@ jobs:
       - run: npm run bundle:live-smoke
       - run: npm run bundle:release-canary
       - run: npm run bundle:backend
+      - run: npm run bundle:journal
       - run: npm run contract:generate
       - run: git diff --exit-code -- contracts/v1
       - run: npm run contract:validate
