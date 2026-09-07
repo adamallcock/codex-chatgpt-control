@@ -1794,12 +1794,20 @@ describe("downloadLatestFile", () => {
       url: () => "https://chatgpt.com/c/mock"
     };
 
-    const result = await downloadLatestFile({ page }, { destDir: dest, timeoutMs: 45000 });
-    expect(result.ok).toBe(true);
-    expect(result.data?.suggestedFilename).toBe("answer.txt");
-    expect(result.data?.bytes).toBeGreaterThan(0);
-    expect(downloadOptions).toEqual({ timeout: 45000, timeoutMs: 45000 });
-    await expect(stat(join(dest, "answer.txt"))).resolves.toBeTruthy();
+    // Fix the clock for this exact propagation assertion: diagnostic and
+    // filesystem setup otherwise legitimately consume the receipt deadline.
+    const clock = vi.spyOn(Date, "now").mockReturnValue(1_000);
+    try {
+      const result = await downloadLatestFile({ page }, { destDir: dest, timeoutMs: 45000 });
+      expect(result.ok).toBe(true);
+      expect(result.data?.suggestedFilename).toBe("answer.txt");
+      expect(result.data?.bytes).toBeGreaterThan(0);
+      expect(downloadOptions).toEqual({ timeout: 45000, timeoutMs: 45000 });
+      await expect(stat(join(dest, "answer.txt"))).resolves.toBeTruthy();
+      await expect(readFile(join(dest, "answer.txt"), "utf8")).resolves.toBe("downloaded");
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   it("returns a classified blocker quickly when locating download controls stalls", async () => {
