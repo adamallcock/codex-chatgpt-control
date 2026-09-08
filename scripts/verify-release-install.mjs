@@ -19,9 +19,9 @@ const NPM_REGISTRY = "https://registry.npmjs.org";
 const PYPI_INDEX = "https://pypi.org/simple";
 const REQUEST_SCHEMA = "chatgpt.browser_control.backend_request.v1";
 const RESPONSE_SCHEMA = "chatgpt.browser_control.backend_response.v1";
-const DEFAULT_TIMEOUT_MS = 180_000;
+export const DEFAULT_TIMEOUT_MS = 900_000;
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const options = { mode: undefined, timeoutMs: DEFAULT_TIMEOUT_MS };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -71,51 +71,98 @@ async function metadata() {
   return { nodeVersion: node.version, pythonVersion };
 }
 
+function messageFor(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function capture(check) {
+  try {
+    return { ok: true, value: await check() };
+  } catch (error) {
+    return { ok: false, error: messageFor(error) };
+  }
+}
+
+function npmRegistryVersion(versions) {
+  const npm = npmInvocation([
+    "view",
+    NPM_PACKAGE + "@" + versions.nodeVersion,
+    "version",
+    "--json",
+    "--registry=" + NPM_REGISTRY
+  ]);
+  return JSON.parse(run(npm.program, npm.args, { capture: true }));
+}
+
+async function pypiJsonVersion(versions, fetchImpl) {
+  const response = await fetchImpl(
+    "https://pypi.org/pypi/" + PYPI_PACKAGE + "/" + versions.pythonVersion + "/json",
+    { headers: { "User-Agent": "codex-chatgpt-control-release-verifier" } }
+  );
+  const pypi = response.ok ? await response.json() : undefined;
+  return { status: response.status, version: pypi?.info?.version };
+}
+
+async function pypiSimpleVersion(versions, fetchImpl) {
+  const response = await fetchImpl(PYPI_INDEX + "/" + PYPI_PACKAGE + "/", {
+    headers: {
+      Accept: "application/vnd.pypi.simple.v1+json",
+      "User-Agent": "codex-chatgpt-control-release-verifier"
+    }
+  });
+  const simple = response.ok ? await response.json() : undefined;
+  const hasVersion = Array.isArray(simple?.files) && simple.files.some(file =>
+    typeof file?.filename === "string" && (
+      file.filename.includes("-" + versions.pythonVersion + "-") ||
+      file.filename.includes("-" + versions.pythonVersion + ".")
+    )
+  );
+  return { hasVersion, status: response.status };
+}
+
+export async function observeRegistryVersions(
+  versions,
+  { fetchImpl = fetch, npmLookup = npmRegistryVersion } = {}
+) {
+  const [npm, pypiJson, pypiSimple] = await Promise.all([
+    capture(() => npmLookup(versions)),
+    capture(() => pypiJsonVersion(versions, fetchImpl)),
+    capture(() => pypiSimpleVersion(versions, fetchImpl))
+  ]);
+  const npmVersion = npm.ok ? npm.value : undefined;
+  const pypiJsonValue = pypiJson.ok ? pypiJson.value : undefined;
+  const pypiSimpleValue = pypiSimple.ok ? pypiSimple.value : undefined;
+  const status = [
+    "npm=" + String(npmVersion ?? "unavailable"),
+    "pypi=" + String(pypiJsonValue?.version ?? "unavailable"),
+    "pypiJsonStatus=" + String(pypiJsonValue?.status ?? "unavailable"),
+    "pypiSimple=" + String(pypiSimpleValue?.hasVersion ?? "unavailable"),
+    "pypiSimpleStatus=" + String(pypiSimpleValue?.status ?? "unavailable"),
+    ...(npm.ok ? [] : ["npmError=" + JSON.stringify(npm.error)]),
+    ...(pypiJson.ok ? [] : ["pypiJsonError=" + JSON.stringify(pypiJson.error)]),
+    ...(pypiSimple.ok ? [] : ["pypiSimpleError=" + JSON.stringify(pypiSimple.error)])
+  ].join(" ");
+  return {
+    ready: npmVersion === versions.nodeVersion &&
+      pypiJsonValue?.version === versions.pythonVersion &&
+      pypiSimpleValue?.hasVersion === true,
+    status
+  };
+}
+
 async function waitForRegistryVersions(versions, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   let last = "registry metadata not checked";
   while (Date.now() <= deadline) {
-    try {
-      const npm = npmInvocation([
-        "view",
-        `${NPM_PACKAGE}@${versions.nodeVersion}`,
-        "version",
-        "--json",
-        `--registry=${NPM_REGISTRY}`
-      ]);
-      const npmVersion = JSON.parse(run(npm.program, npm.args, { capture: true }));
-      const response = await fetch(`https://pypi.org/pypi/${PYPI_PACKAGE}/${versions.pythonVersion}/json`, {
-        headers: { "User-Agent": "codex-chatgpt-control-release-verifier" }
-      });
-      const pypi = response.ok ? await response.json() : undefined;
-      const pypiVersion = pypi?.info?.version;
-      const simpleResponse = await fetch(`${PYPI_INDEX}/${PYPI_PACKAGE}/`, {
-        headers: {
-          Accept: "application/vnd.pypi.simple.v1+json",
-          "User-Agent": "codex-chatgpt-control-release-verifier"
-        }
-      });
-      const simple = simpleResponse.ok ? await simpleResponse.json() : undefined;
-      const simpleHasVersion = Array.isArray(simple?.files) && simple.files.some(file =>
-        typeof file?.filename === "string" && (
-          file.filename.includes(`-${versions.pythonVersion}-`) ||
-          file.filename.includes(`-${versions.pythonVersion}.`)
-        )
-      );
-      if (npmVersion === versions.nodeVersion && pypiVersion === versions.pythonVersion && simpleHasVersion) return;
-      last = [
-        `npm=${String(npmVersion)}`,
-        `pypi=${String(pypiVersion)}`,
-        `pypiJsonStatus=${response.status}`,
-        `pypiSimple=${String(simpleHasVersion)}`,
-        `pypiSimpleStatus=${simpleResponse.status}`
-      ].join(" ");
-    } catch (error) {
-      last = error instanceof Error ? error.message : String(error);
+    const observation = await observeRegistryVersions(versions);
+    if (observation.ready) return;
+    if (observation.status !== last) {
+      console.log("Waiting for published registry versions: " + observation.status);
     }
+    last = observation.status;
     await new Promise(resolveDelay => setTimeout(resolveDelay, 5_000));
   }
-  throw new Error(`Timed out waiting for published registry versions: ${last}`);
+  throw new Error("Timed out waiting for published registry versions: " + last);
 }
 
 async function sourceSpecs(root) {
@@ -274,7 +321,9 @@ async function main() {
   }
 }
 
-main().catch(error => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch(error => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}

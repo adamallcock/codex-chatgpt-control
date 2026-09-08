@@ -157,10 +157,13 @@ the package upload itself reproducible and tokenless.
    `macos-latest`.
 7. Let the workflow publish npm and PyPI independently. If one registry publish
    succeeds and the other fails, rerun only the failed job.
-8. The workflow must then clean-install the exact published npm and PyPI
-   versions, import both SDKs, exercise the installed Node backend from Python,
-   and only then create the GitHub prerelease. Re-run the same verification
-   locally if diagnosing propagation:
+8. The workflow then waits up to 15 minutes for the exact npm and PyPI
+   versions to become publicly installable, clean-installs them, imports both
+   SDKs, exercises the installed Node backend from Python, and only then
+   creates the GitHub prerelease. Its wait log records npm, PyPI JSON, and PyPI
+   Simple-index state independently. If it exhausts that window, re-run only
+   the registry-install verification job; do not re-publish immutable package
+   versions. Re-run the same verification locally if diagnosing propagation:
 
    ```bash
    npm run release:verify-published
