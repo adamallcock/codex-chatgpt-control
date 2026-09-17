@@ -90,7 +90,7 @@ export async function composeMessage(
     const actual = normalizeWhitespace(await readLocatorText(textbox));
     const wanted = normalizeWhitespace(text);
 
-    if (actual !== wanted && actual.length > 0) {
+    if (actual !== wanted) {
       return {
         ok: false,
         status: "error",

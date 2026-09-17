@@ -51,11 +51,13 @@ export function composerTextbox(page: PageLike): LocatorLike {
   if (typeof page.getByRole !== "function") {
     return requiredLocator(page, "[contenteditable='true'], textarea");
   }
-  return page.getByRole("textbox", {
-    name: anyLabelPattern([
+  const localized = anyLabelPattern([
       ...localeLabels.composerTextbox,
       ...localeLabels.workComposerTextbox
-    ])
+    ]);
+  // Project composers include the user-defined project name in their label.
+  return page.getByRole("textbox", {
+    name: new RegExp(`(?:${localized.source})|^New chat in .+$`, localized.flags)
   });
 }
 

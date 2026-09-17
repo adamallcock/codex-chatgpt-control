@@ -244,7 +244,7 @@ var RULES = [
   {
     kind: "not_found",
     message: "The requested ChatGPT conversation or page was not found.",
-    patterns: [/conversation not found/i, /404/i, /page not found/i]
+    patterns: [/conversation not found/i, /\b404\b/i, /page not found/i]
   }
 ];
 function classifyVisibleText(text) {
@@ -7488,11 +7488,12 @@ function composerTextbox(page) {
   if (typeof page.getByRole !== "function") {
     return requiredLocator(page, "[contenteditable='true'], textarea");
   }
+  const localized = anyLabelPattern([
+    ...localeLabels.composerTextbox,
+    ...localeLabels.workComposerTextbox
+  ]);
   return page.getByRole("textbox", {
-    name: anyLabelPattern([
-      ...localeLabels.composerTextbox,
-      ...localeLabels.workComposerTextbox
-    ])
+    name: new RegExp(`(?:${localized.source})|^New chat in .+$`, localized.flags)
   });
 }
 function sendButton(page) {
@@ -9045,7 +9046,7 @@ async function composeMessage(env, args) {
     await textbox.fill?.(text);
     const actual = normalizeWhitespace(await readLocatorText(textbox));
     const wanted = normalizeWhitespace(text);
-    if (actual !== wanted && actual.length > 0) {
+    if (actual !== wanted) {
       return {
         ok: false,
         status: "error",
