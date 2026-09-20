@@ -8,11 +8,14 @@ import type { LocaleContribution } from "./types.js";
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
  * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, Chat/Work surface labels updated 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible ChatGPT sessions.
+ *
+ * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.
  */
 export const frCA = {
   configurationAxes: {
     power: ["Puissance"],
-    model: ["Modèle"],
+    model: ["Modèle", "Sélectionner un modèle"],
+    effort: ["Puissance"],
     speed: ["Vitesse"],
     advanced: ["Avancé"],
   },
@@ -41,6 +44,9 @@ export const frCA = {
     extraHigh: ["Très élevé"],
   },
   modeOpenerExtra: ["Configurer..."],
+  experienceOptions: {
+    chat: ["Clavardage"],
+  },
   tools: {
     web_search: ["Recherche sur Internet"],
     deep_research: ["Recherche approfondie"],

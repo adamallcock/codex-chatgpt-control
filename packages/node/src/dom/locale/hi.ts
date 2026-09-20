@@ -7,20 +7,22 @@ import type { LocaleContribution } from "./types.js";
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
  * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, Chat/Work surface labels updated 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible ChatGPT sessions.
+ *
+ * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.
  */
 export const hi = {
   configurationAxes: {
     power: ["पावर"],
-    model: ["मॉडल"],
-    effort: ["प्रयास", "सोचने का स्तर"],
+    model: ["मॉडल", "मॉडल चुनें"],
+    effort: ["प्रयास", "सोचने का स्तर", "पावर"],
     speed: ["गति"],
     advanced: ["एडवांस्ड"],
   },
   configurationOptions: {
-    instant: ["तुरंत"],
+    instant: ["तुरंत", "इंस्टेंट"],
     light: ["लाइट"],
     medium: ["मध्यम"],
-    high: ["उच्च"],
+    high: ["उच्च", "हाई"],
     extraHigh: ["एक्स्ट्रा हाई"],
     max: ["अधिकतम"],
     ultra: ["अल्ट्रा"],
@@ -36,11 +38,11 @@ export const hi = {
   addFilesOpenerCandidates: ["फ़ाइलों को जोड़ें और भी बहुत कुछ करें"],
   addPhotosFilesMenuItem: ["फ़ोटो और फ़ाइलें जोड़ें"],
   copyResponse: ["जवाब को कॉपी करें"],
-  modeLabels: ["तुरंत", "मध्यम", "उच्च", "बहुत उच्च", "एक्स्ट्रा हाई"],
+  modeLabels: ["तुरंत", "मध्यम", "उच्च", "बहुत उच्च", "एक्स्ट्रा हाई", "इंस्टेंट", "हाई"],
   modeOptions: {
-    instant: ["तुरंत"],
+    instant: ["तुरंत", "इंस्टेंट"],
     medium: ["मध्यम"],
-    high: ["उच्च"],
+    high: ["उच्च", "हाई"],
     extraHigh: ["बहुत उच्च", "एक्स्ट्रा हाई"],
   },
   modeOpenerExtra: ["कॉन्फ़िगर करें..."],

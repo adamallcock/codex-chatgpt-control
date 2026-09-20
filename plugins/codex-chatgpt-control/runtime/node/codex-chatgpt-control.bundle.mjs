@@ -364,8 +364,8 @@ var en = {
 var de = {
   configurationAxes: {
     power: ["Leistung"],
-    model: ["Modell"],
-    effort: ["Aufwand", "Denkaufwand"],
+    model: ["Modell", "Modell ausw\xE4hlen"],
+    effort: ["Aufwand", "Denkaufwand", "Leistung"],
     speed: ["Tempo"],
     advanced: ["Erweitert"]
   },
@@ -407,8 +407,8 @@ var de = {
 var esES = {
   configurationAxes: {
     power: ["Potencia"],
-    model: ["Modelo"],
-    effort: ["Esfuerzo"],
+    model: ["Modelo", "Seleccionar modelo"],
+    effort: ["Esfuerzo", "Potencia"],
     speed: ["Velocidad"],
     advanced: ["Avanzadas"]
   },
@@ -453,17 +453,17 @@ var esES = {
 var frFR = {
   configurationAxes: {
     power: ["Puissance"],
-    model: ["Mod\xE8le"],
-    effort: ["Niveau"],
+    model: ["Mod\xE8le", "S\xE9lectionner le mod\xE8le"],
+    effort: ["Niveau", "Puissance"],
     speed: ["Vitesse"],
     advanced: ["Avanc\xE9"]
   },
   configurationOptions: {
     instant: ["Instantan\xE9"],
     light: ["Minimal"],
-    medium: ["Moyenne"],
-    high: ["\xC9lev\xE9e"],
-    extraHigh: ["Tr\xE8s \xE9lev\xE9e"],
+    medium: ["Moyenne", "Moyen"],
+    high: ["\xC9lev\xE9e", "\xC9lev\xE9"],
+    extraHigh: ["Tr\xE8s \xE9lev\xE9e", "Tr\xE8s \xE9lev\xE9"],
     max: ["Maximum"],
     fast: ["Rapide"]
   },
@@ -476,11 +476,11 @@ var frFR = {
   addFilesOpenerCandidates: ["Ajouter des fichiers et plus encore"],
   addPhotosFilesMenuItem: ["Ajouter des photos et fichiers"],
   copyResponse: ["Copier la r\xE9ponse"],
-  modeLabels: ["Moyen", "Avanc\xE9", "Tr\xE8s \xE9lev\xE9", "Instantan\xE9e", "Moyenne", "\xC9lev\xE9e", "Tr\xE8s \xE9lev\xE9e", "Instantan\xE9"],
+  modeLabels: ["Moyen", "Avanc\xE9", "Tr\xE8s \xE9lev\xE9", "Instantan\xE9e", "Moyenne", "\xC9lev\xE9e", "Tr\xE8s \xE9lev\xE9e", "Instantan\xE9", "\xC9lev\xE9"],
   modeOptions: {
     instant: ["Instantan\xE9e", "Instantan\xE9"],
     medium: ["Moyen", "Moyenne"],
-    high: ["Avanc\xE9", "\xC9lev\xE9e"],
+    high: ["Avanc\xE9", "\xC9lev\xE9e", "\xC9lev\xE9"],
     extraHigh: ["Tr\xE8s \xE9lev\xE9", "Tr\xE8s \xE9lev\xE9e"]
   },
   modeOpenerExtra: ["Configurer"],
@@ -498,8 +498,8 @@ var frFR = {
 var zhHK = {
   configurationAxes: {
     power: ["\u667A\u80FD\u5F37\u5EA6"],
-    model: ["\u6A21\u578B"],
-    effort: ["\u63A8\u7406\u5F37\u5EA6"],
+    model: ["\u6A21\u578B", "\u9078\u64C7\u6A21\u578B"],
+    effort: ["\u63A8\u7406\u5F37\u5EA6", "\u667A\u80FD\u5F37\u5EA6"],
     speed: ["\u56DE\u61C9\u901F\u5EA6"],
     advanced: ["\u9032\u968E"]
   },
@@ -548,8 +548,8 @@ var zhHK = {
 var zhTW = {
   configurationAxes: {
     power: ["\u80FD\u529B"],
-    model: ["\u6A21\u578B"],
-    effort: ["\u63A8\u7406\u5F37\u5EA6"],
+    model: ["\u6A21\u578B", "\u9078\u53D6\u6A21\u578B"],
+    effort: ["\u63A8\u7406\u5F37\u5EA6", "\u80FD\u529B"],
     speed: ["\u901F\u5EA6"],
     advanced: ["\u9032\u968E"]
   },
@@ -573,12 +573,12 @@ var zhTW = {
   addFilesOpenerCandidates: ["\u65B0\u589E\u6A94\u6848\u7B49\u66F4\u591A\u529F\u80FD"],
   addPhotosFilesMenuItem: ["\u65B0\u589E\u7167\u7247\u548C\u6A94\u6848"],
   copyResponse: ["\u8907\u88FD\u56DE\u61C9"],
-  modeLabels: ["\u5373\u6642", "\u4E2D\u7B49", "\u9AD8", "\u8D85\u9AD8", "\u5C08\u696D", "\u4E2D"],
+  modeLabels: ["\u5373\u6642", "\u4E2D\u7B49", "\u9AD8", "\u8D85\u9AD8", "\u5C08\u696D", "\u4E2D", "\u6975\u9AD8"],
   modeOptions: {
     instant: ["\u5373\u6642"],
     medium: ["\u4E2D\u7B49", "\u4E2D"],
     high: ["\u9AD8"],
-    extraHigh: ["\u8D85\u9AD8"],
+    extraHigh: ["\u8D85\u9AD8", "\u6975\u9AD8"],
     pro: ["\u5C08\u696D"]
   },
   modeOpenerExtra: ["\u8A2D\u5B9A"],
@@ -600,8 +600,8 @@ var zhTW = {
 var ja = {
   configurationAxes: {
     power: ["\u30D1\u30EF\u30FC"],
-    model: ["\u30E2\u30C7\u30EB"],
-    effort: ["\u601D\u8003\u30EC\u30D9\u30EB", "\u63A8\u8AD6\u30EC\u30D9\u30EB"],
+    model: ["\u30E2\u30C7\u30EB", "\u30E2\u30C7\u30EB\u3092\u9078\u629E"],
+    effort: ["\u601D\u8003\u30EC\u30D9\u30EB", "\u63A8\u8AD6\u30EC\u30D9\u30EB", "\u30D1\u30EF\u30FC"],
     speed: ["\u901F\u5EA6"],
     advanced: ["\u8A73\u7D30\u8A2D\u5B9A"]
   },
@@ -609,8 +609,8 @@ var ja = {
     instant: ["\u6700\u901F"],
     light: ["\u8EFD"],
     medium: ["\u4E2D\u7A0B\u5EA6"],
-    high: ["\u9AD8\u3044"],
-    extraHigh: ["\u975E\u5E38\u306B\u9AD8\u3044"],
+    high: ["\u9AD8\u3044", "\u9AD8"],
+    extraHigh: ["\u975E\u5E38\u306B\u9AD8\u3044", "\u6975\u9AD8"],
     max: ["\u6700\u5927"],
     ultra: ["\u30A6\u30EB\u30C8\u30E9"],
     standard: ["\u6A19\u6E96"],
@@ -625,12 +625,12 @@ var ja = {
   addFilesOpenerCandidates: ["\u30D5\u30A1\u30A4\u30EB\u306E\u8FFD\u52A0\u306A\u3069"],
   addPhotosFilesMenuItem: ["\u5199\u771F\u3068\u30D5\u30A1\u30A4\u30EB\u3092\u8FFD\u52A0"],
   copyResponse: ["\u56DE\u7B54\u3092\u30B3\u30D4\u30FC\u3059\u308B"],
-  modeLabels: ["\u6700\u901F", "\u6A19\u6E96", "\u9AD8", "\u6700\u9AD8", "\u4E2D\u7A0B\u5EA6", "\u9AD8\u3044", "\u975E\u5E38\u306B\u9AD8\u3044"],
+  modeLabels: ["\u6700\u901F", "\u6A19\u6E96", "\u9AD8", "\u6700\u9AD8", "\u4E2D\u7A0B\u5EA6", "\u9AD8\u3044", "\u975E\u5E38\u306B\u9AD8\u3044", "\u6975\u9AD8"],
   modeOptions: {
     instant: ["\u6700\u901F"],
     medium: ["\u6A19\u6E96", "\u4E2D\u7A0B\u5EA6"],
     high: ["\u9AD8", "\u9AD8\u3044"],
-    extraHigh: ["\u6700\u9AD8", "\u975E\u5E38\u306B\u9AD8\u3044"]
+    extraHigh: ["\u6700\u9AD8", "\u975E\u5E38\u306B\u9AD8\u3044", "\u6975\u9AD8"]
   },
   modeOpenerExtra: ["\u8A2D\u5B9A\u3059\u308B"],
   tools: {
@@ -646,13 +646,13 @@ var ja = {
 var it = {
   configurationAxes: {
     power: ["Potenza"],
-    model: ["Modello"],
-    effort: ["Sforzo"],
+    model: ["Modello", "Seleziona modello"],
+    effort: ["Sforzo", "Potenza"],
     speed: ["Velocit\xE0"],
     advanced: ["Avanzate"]
   },
   configurationOptions: {
-    instant: ["Istantaneo"],
+    instant: ["Istantaneo", "Immediato"],
     medium: ["Medio"],
     high: ["Alto"],
     extraHigh: ["Molto alto"],
@@ -667,9 +667,9 @@ var it = {
   addFilesOpenerCandidates: ["Aggiungi file e altro"],
   addPhotosFilesMenuItem: ["Aggiungi foto e file"],
   copyResponse: ["Copia risposta"],
-  modeLabels: ["Istantanea", "Media", "Alta", "Extra elevata", "Medio", "Alto", "Molto alto", "Istantaneo"],
+  modeLabels: ["Istantanea", "Media", "Alta", "Extra elevata", "Medio", "Alto", "Molto alto", "Istantaneo", "Immediato"],
   modeOptions: {
-    instant: ["Istantanea", "Istantaneo"],
+    instant: ["Istantanea", "Istantaneo", "Immediato"],
     medium: ["Media", "Medio"],
     high: ["Alta", "Alto"],
     extraHigh: ["Extra elevata", "Molto alto"]
@@ -688,8 +688,8 @@ var it = {
 var vi = {
   configurationAxes: {
     power: ["S\u1EE9c m\u1EA1nh"],
-    model: ["M\xF4 h\xECnh"],
-    effort: ["M\u1EE9c \u0111\u1ED9", "M\u1EE9c suy lu\u1EADn"],
+    model: ["M\xF4 h\xECnh", "Ch\u1ECDn m\xF4 h\xECnh"],
+    effort: ["M\u1EE9c \u0111\u1ED9", "M\u1EE9c suy lu\u1EADn", "S\u1EE9c m\u1EA1nh"],
     speed: ["T\u1ED1c \u0111\u1ED9"],
     advanced: ["N\xE2ng cao"]
   },
@@ -738,13 +738,13 @@ var vi = {
 var am = {
   configurationAxes: {
     power: ["\u12A0\u1245\u121D"],
-    model: ["\u121E\u12F4\u120D"],
-    effort: ["\u1325\u1228\u1275"],
+    model: ["\u121E\u12F4\u120D", "\u121E\u12F4\u120D \u12ED\u121D\u1228\u1321"],
+    effort: ["\u1325\u1228\u1275", "\u12A0\u1245\u121D"],
     speed: ["\u134D\u1325\u1290\u1275"],
     advanced: ["\u12E8\u120B\u1240"]
   },
   configurationOptions: {
-    instant: ["\u1348\u1323\u1295"],
+    instant: ["\u1348\u1323\u1295", "\u1245\u133D\u1260\u1273\u12CA"],
     light: ["\u1240\u120B\u120D"],
     medium: ["\u1218\u12AB\u12A8\u1208\u129B"],
     high: ["\u12A8\u134D\u1270\u129B"],
@@ -763,9 +763,9 @@ var am = {
   addFilesOpenerCandidates: ["\u134B\u12ED\u120E\u127D\u1295 \u12EB\u12AD\u1209 \u12A5\u1293 \u120C\u120E\u127D\u121D"],
   addPhotosFilesMenuItem: ["\u134E\u1276\u12CE\u127D\u1295 \u12A5\u1293 \u134B\u12ED\u120E\u127D\u1295 \u12EB\u12AD\u1209"],
   copyResponse: ["\u121D\u120B\u1239\u1295 \u12ED\u1245\u12F1"],
-  modeLabels: ["\u1348\u1323\u1295", "\u1218\u12AB\u12A8\u1208\u129B", "\u12A8\u134D\u1270\u129B", "\u12A5\u1305\u130D \u12A8\u134D\u1270\u129B"],
+  modeLabels: ["\u1348\u1323\u1295", "\u1218\u12AB\u12A8\u1208\u129B", "\u12A8\u134D\u1270\u129B", "\u12A5\u1305\u130D \u12A8\u134D\u1270\u129B", "\u1245\u133D\u1260\u1273\u12CA"],
   modeOptions: {
-    instant: ["\u1348\u1323\u1295"],
+    instant: ["\u1348\u1323\u1295", "\u1245\u133D\u1260\u1273\u12CA"],
     medium: ["\u1218\u12AB\u12A8\u1208\u129B"],
     high: ["\u12A8\u134D\u1270\u129B"],
     extraHigh: ["\u12A5\u1305\u130D \u12A8\u134D\u1270\u129B"]
@@ -789,8 +789,8 @@ var am = {
 var ar = {
   configurationAxes: {
     power: ["\u0627\u0644\u0642\u062F\u0631\u0629"],
-    model: ["\u0627\u0644\u0646\u0645\u0648\u0630\u062C"],
-    effort: ["\u0627\u0644\u062C\u0647\u062F"],
+    model: ["\u0627\u0644\u0646\u0645\u0648\u0630\u062C", "\u0627\u062E\u062A\u0631 \u0627\u0644\u0646\u0645\u0648\u0630\u062C"],
+    effort: ["\u0627\u0644\u062C\u0647\u062F", "\u0627\u0644\u0642\u062F\u0631\u0629"],
     speed: ["\u0627\u0644\u0633\u0631\u0639\u0629"],
     advanced: ["\u0645\u062A\u0642\u062F\u0645"]
   },
@@ -839,8 +839,8 @@ var ar = {
 var bg = {
   configurationAxes: {
     power: ["\u041C\u043E\u0449\u043D\u043E\u0441\u0442"],
-    model: ["\u041C\u043E\u0434\u0435\u043B"],
-    effort: ["\u0423\u0441\u0438\u043B\u0438\u0435"],
+    model: ["\u041C\u043E\u0434\u0435\u043B", "\u0418\u0437\u0431\u0435\u0440\u0435\u0442\u0435 \u043C\u043E\u0434\u0435\u043B"],
+    effort: ["\u0423\u0441\u0438\u043B\u0438\u0435", "\u041C\u043E\u0449\u043D\u043E\u0441\u0442"],
     speed: ["\u0421\u043A\u043E\u0440\u043E\u0441\u0442"],
     advanced: ["\u0420\u0430\u0437\u0448\u0438\u0440\u0435\u043D\u0438"]
   },
@@ -887,16 +887,17 @@ var bg = {
 var bs = {
   configurationAxes: {
     power: ["Snaga"],
-    effort: ["Napor"],
+    model: ["Odaberi model"],
+    effort: ["Napor", "Snaga"],
     speed: ["Brzina"],
     advanced: ["Napredno"]
   },
   configurationOptions: {
     instant: ["Brzo"],
     light: ["Lagano"],
-    medium: ["Srednja"],
-    high: ["Visoka"],
-    extraHigh: ["Veoma visoka"],
+    medium: ["Srednja", "Srednji"],
+    high: ["Visoka", "Visoki"],
+    extraHigh: ["Veoma visoka", "Veoma visoki"],
     max: ["Maks."],
     standard: ["Standardno"],
     fast: ["Brzo"]
@@ -910,12 +911,12 @@ var bs = {
   addFilesOpenerCandidates: ["Otpremite datoteke i jo\u0161 mnogo toga"],
   addPhotosFilesMenuItem: ["Dodaj slike i datoteke"],
   copyResponse: ["Kopiraj odgovor"],
-  modeLabels: ["Brzo", "Srednji", "Visoko", "Vrlo visoko", "Srednja", "Visoka", "Veoma visoka"],
+  modeLabels: ["Brzo", "Srednji", "Visoko", "Vrlo visoko", "Srednja", "Visoka", "Veoma visoka", "Visoki", "Veoma visoki"],
   modeOptions: {
     instant: ["Brzo"],
     medium: ["Srednji", "Srednja"],
-    high: ["Visoko", "Visoka"],
-    extraHigh: ["Vrlo visoko", "Veoma visoka"]
+    high: ["Visoko", "Visoka", "Visoki"],
+    extraHigh: ["Vrlo visoko", "Veoma visoka", "Veoma visoki"]
   },
   modeOpenerExtra: ["Podesi"],
   tools: {
@@ -932,7 +933,8 @@ var bs = {
 var ca = {
   configurationAxes: {
     power: ["Pot\xE8ncia"],
-    effort: ["Esfor\xE7"],
+    model: ["Selecciona un model"],
+    effort: ["Esfor\xE7", "Pot\xE8ncia"],
     speed: ["Velocitat"],
     advanced: ["Avan\xE7ades"]
   },
@@ -980,12 +982,13 @@ var ca = {
 var cs = {
   configurationAxes: {
     power: ["V\xFDkon"],
-    effort: ["\xDAsil\xED", "M\xEDra \xFAsil\xED"],
+    model: ["Vyberte model"],
+    effort: ["\xDAsil\xED", "M\xEDra \xFAsil\xED", "V\xFDkon"],
     speed: ["Rychlost"],
     advanced: ["Pokro\u010Dil\xE9"]
   },
   configurationOptions: {
-    instant: ["Okam\u017Eit\xE1"],
+    instant: ["Okam\u017Eit\xE1", "Instantn\xED"],
     light: ["N\xEDzk\xE1"],
     medium: ["St\u0159edn\xED"],
     high: ["Vysok\xE1"],
@@ -1003,9 +1006,9 @@ var cs = {
   addFilesOpenerCandidates: ["P\u0159id\xE1v\xE1n\xED soubor\u016F a dal\u0161\xED"],
   addPhotosFilesMenuItem: ["P\u0159idat fotografie a soubory"],
   copyResponse: ["Zkop\xEDrovat odpov\u011B\u010F"],
-  modeLabels: ["Okam\u017Eit\xE1", "St\u0159edn\xED", "Vysok\xE1", "Velmi vysok\xE1"],
+  modeLabels: ["Okam\u017Eit\xE1", "St\u0159edn\xED", "Vysok\xE1", "Velmi vysok\xE1", "Instantn\xED"],
   modeOptions: {
-    instant: ["Okam\u017Eit\xE1"],
+    instant: ["Okam\u017Eit\xE1", "Instantn\xED"],
     medium: ["St\u0159edn\xED"],
     high: ["Vysok\xE1"],
     extraHigh: ["Velmi vysok\xE1"]
@@ -1025,12 +1028,13 @@ var cs = {
 var da = {
   configurationAxes: {
     power: ["Styrke"],
-    effort: ["Indsats", "T\xE6nkeindsats"],
+    model: ["V\xE6lg model"],
+    effort: ["Indsats", "T\xE6nkeindsats", "Styrke"],
     speed: ["Hastighed"],
     advanced: ["Avanceret"]
   },
   configurationOptions: {
-    instant: ["\xD8jeblikkeligt"],
+    instant: ["\xD8jeblikkeligt", "\xD8jeblikkelig"],
     light: ["Let"],
     medium: ["Mellem"],
     high: ["H\xF8j"],
@@ -1047,9 +1051,9 @@ var da = {
   addFilesOpenerCandidates: ["Tilf\xF8j filer og mere"],
   addPhotosFilesMenuItem: ["Tilf\xF8j billeder og filer"],
   copyResponse: ["Kopi\xE9r svar"],
-  modeLabels: ["\xD8jeblikkeligt", "H\xF8j", "Ekstra h\xF8j", "Mellem"],
+  modeLabels: ["\xD8jeblikkeligt", "H\xF8j", "Ekstra h\xF8j", "Mellem", "\xD8jeblikkelig"],
   modeOptions: {
-    instant: ["\xD8jeblikkeligt"],
+    instant: ["\xD8jeblikkeligt", "\xD8jeblikkelig"],
     medium: ["Mellem"],
     high: ["H\xF8j"],
     extraHigh: ["Ekstra h\xF8j"]
@@ -1069,13 +1073,13 @@ var da = {
 var el = {
   configurationAxes: {
     power: ["\u0399\u03C3\u03C7\u03CD\u03C2"],
-    model: ["\u039C\u03BF\u03BD\u03C4\u03AD\u03BB\u03BF"],
-    effort: ["\u03A0\u03C1\u03BF\u03C3\u03C0\u03AC\u03B8\u03B5\u03B9\u03B1", "\u0395\u03C0\u03AF\u03C0\u03B5\u03B4\u03BF \u03C3\u03C5\u03BB\u03BB\u03BF\u03B3\u03B9\u03C3\u03BC\u03BF\u03CD"],
+    model: ["\u039C\u03BF\u03BD\u03C4\u03AD\u03BB\u03BF", "\u0395\u03C0\u03B9\u03BB\u03BF\u03B3\u03AE \u03BC\u03BF\u03BD\u03C4\u03AD\u03BB\u03BF\u03C5"],
+    effort: ["\u03A0\u03C1\u03BF\u03C3\u03C0\u03AC\u03B8\u03B5\u03B9\u03B1", "\u0395\u03C0\u03AF\u03C0\u03B5\u03B4\u03BF \u03C3\u03C5\u03BB\u03BB\u03BF\u03B3\u03B9\u03C3\u03BC\u03BF\u03CD", "\u0399\u03C3\u03C7\u03CD\u03C2"],
     speed: ["\u03A4\u03B1\u03C7\u03CD\u03C4\u03B7\u03C4\u03B1"],
     advanced: ["\u0393\u03B9\u03B1 \u03C0\u03C1\u03BF\u03C7\u03C9\u03C1\u03B7\u03BC\u03AD\u03BD\u03BF\u03C5\u03C2"]
   },
   configurationOptions: {
-    instant: ["\u0386\u03BC\u03B5\u03C3\u03B7"],
+    instant: ["\u0386\u03BC\u03B5\u03C3\u03B7", "\u0393\u03C1\u03AE\u03B3\u03BF\u03C1\u03BF"],
     light: ["\u0395\u03BB\u03B1\u03C6\u03C1\u03B9\u03AC"],
     medium: ["\u039C\u03B5\u03C3\u03B1\u03AF\u03BF"],
     high: ["\u03A5\u03C8\u03B7\u03BB\u03CC"],
@@ -1093,9 +1097,9 @@ var el = {
   addFilesOpenerCandidates: ["\u03A0\u03C1\u03BF\u03C3\u03B8\u03AE\u03BA\u03B7 \u03B1\u03C1\u03C7\u03B5\u03AF\u03C9\u03BD \u03BA\u03B1\u03B9 \u03AC\u03BB\u03BB\u03B1"],
   addPhotosFilesMenuItem: ["\u03A0\u03C1\u03BF\u03C3\u03B8\u03AE\u03BA\u03B7 \u03C6\u03C9\u03C4\u03BF\u03B3\u03C1\u03B1\u03C6\u03B9\u03CE\u03BD & \u03B1\u03C1\u03C7\u03B5\u03AF\u03C9\u03BD"],
   copyResponse: ["\u0391\u03BD\u03C4\u03B9\u03B3\u03C1\u03B1\u03C6\u03AE \u03B1\u03C0\u03AC\u03BD\u03C4\u03B7\u03C3\u03B7\u03C2"],
-  modeLabels: ["\u0386\u03BC\u03B5\u03C3\u03B7", "\u039C\u03B5\u03C3\u03B1\u03AF\u03B1", "\u03A5\u03C8\u03B7\u03BB\u03AE", "\u03A0\u03BF\u03BB\u03CD \u03C5\u03C8\u03B7\u03BB\u03CC", "\u039C\u03B5\u03C3\u03B1\u03AF\u03BF", "\u03A5\u03C8\u03B7\u03BB\u03CC"],
+  modeLabels: ["\u0386\u03BC\u03B5\u03C3\u03B7", "\u039C\u03B5\u03C3\u03B1\u03AF\u03B1", "\u03A5\u03C8\u03B7\u03BB\u03AE", "\u03A0\u03BF\u03BB\u03CD \u03C5\u03C8\u03B7\u03BB\u03CC", "\u039C\u03B5\u03C3\u03B1\u03AF\u03BF", "\u03A5\u03C8\u03B7\u03BB\u03CC", "\u0393\u03C1\u03AE\u03B3\u03BF\u03C1\u03BF"],
   modeOptions: {
-    instant: ["\u0386\u03BC\u03B5\u03C3\u03B7"],
+    instant: ["\u0386\u03BC\u03B5\u03C3\u03B7", "\u0393\u03C1\u03AE\u03B3\u03BF\u03C1\u03BF"],
     medium: ["\u039C\u03B5\u03C3\u03B1\u03AF\u03B1", "\u039C\u03B5\u03C3\u03B1\u03AF\u03BF"],
     high: ["\u03A5\u03C8\u03B7\u03BB\u03AE", "\u03A5\u03C8\u03B7\u03BB\u03CC"],
     extraHigh: ["\u03A0\u03BF\u03BB\u03CD \u03C5\u03C8\u03B7\u03BB\u03CC"]
@@ -1115,8 +1119,8 @@ var el = {
 var es419 = {
   configurationAxes: {
     power: ["Potencia"],
-    model: ["Modelo"],
-    effort: ["Esfuerzo"],
+    model: ["Modelo", "Seleccionar modelo"],
+    effort: ["Esfuerzo", "Potencia"],
     speed: ["Velocidad"],
     advanced: ["Avanzado"]
   },
@@ -1161,13 +1165,13 @@ var es419 = {
 var et = {
   configurationAxes: {
     power: ["V\xF5imsus"],
-    model: ["Mudel"],
-    effort: ["Pingutus", "P\xF5hjalikkus"],
+    model: ["Mudel", "Vali mudel"],
+    effort: ["Pingutus", "P\xF5hjalikkus", "V\xF5imsus"],
     speed: ["Kiirus"],
     advanced: ["T\xE4psemad seaded"]
   },
   configurationOptions: {
-    instant: ["Kohene"],
+    instant: ["Kohene", "Kiire"],
     light: ["Kerge"],
     medium: ["Keskmine"],
     high: ["K\xF5rge"],
@@ -1183,9 +1187,9 @@ var et = {
   addFilesOpenerCandidates: ["Failide lisamine ja muud"],
   addPhotosFilesMenuItem: ["Lisa fotosid ja faile"],
   copyResponse: ["Kopeeri vastus"],
-  modeLabels: ["Kohene", "Keskmine", "K\xF5rge", "V\xE4ga k\xF5rge"],
+  modeLabels: ["Kohene", "Keskmine", "K\xF5rge", "V\xE4ga k\xF5rge", "Kiire"],
   modeOptions: {
-    instant: ["Kohene"],
+    instant: ["Kohene", "Kiire"],
     medium: ["Keskmine"],
     high: ["K\xF5rge"],
     extraHigh: ["V\xE4ga k\xF5rge"]
@@ -1205,8 +1209,8 @@ var et = {
 var fa = {
   configurationAxes: {
     power: ["\u062A\u0648\u0627\u0646"],
-    model: ["\u0645\u062F\u0644"],
-    effort: ["\u0633\u0637\u062D \u062A\u0644\u0627\u0634", "\u0645\u06CC\u0632\u0627\u0646 \u0627\u0633\u062A\u062F\u0644\u0627\u0644"],
+    model: ["\u0645\u062F\u0644", "\u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u062F\u0644"],
+    effort: ["\u0633\u0637\u062D \u062A\u0644\u0627\u0634", "\u0645\u06CC\u0632\u0627\u0646 \u0627\u0633\u062A\u062F\u0644\u0627\u0644", "\u062A\u0648\u0627\u0646"],
     speed: ["\u0633\u0631\u0639\u062A"],
     advanced: ["\u067E\u06CC\u0634\u0631\u0641\u062A\u0647"]
   },
@@ -1255,8 +1259,8 @@ var fa = {
 var fi = {
   configurationAxes: {
     power: ["Teho"],
-    model: ["Malli"],
-    effort: ["M\xE4\xE4r\xE4", "P\xE4\xE4ttelytaso"],
+    model: ["Malli", "Valitse malli"],
+    effort: ["M\xE4\xE4r\xE4", "P\xE4\xE4ttelytaso", "Teho"],
     speed: ["Nopeus"],
     advanced: ["Lis\xE4asetukset"]
   },
@@ -1301,7 +1305,8 @@ var fi = {
 var frCA = {
   configurationAxes: {
     power: ["Puissance"],
-    model: ["Mod\xE8le"],
+    model: ["Mod\xE8le", "S\xE9lectionner un mod\xE8le"],
+    effort: ["Puissance"],
     speed: ["Vitesse"],
     advanced: ["Avanc\xE9"]
   },
@@ -1330,6 +1335,9 @@ var frCA = {
     extraHigh: ["Tr\xE8s \xE9lev\xE9"]
   },
   modeOpenerExtra: ["Configurer..."],
+  experienceOptions: {
+    chat: ["Clavardage"]
+  },
   tools: {
     web_search: ["Recherche sur Internet"],
     deep_research: ["Recherche approfondie"],
@@ -1344,13 +1352,13 @@ var frCA = {
 var gu = {
   configurationAxes: {
     power: ["\u0A95\u0ACD\u0AB7\u0AAE\u0AA4\u0ABE"],
-    model: ["\u0AAE\u0ACB\u0AA1\u0AC7\u0AB2"],
-    effort: ["\u0AAA\u0ACD\u0AB0\u0AAF\u0ABE\u0AB8"],
+    model: ["\u0AAE\u0ACB\u0AA1\u0AC7\u0AB2", "\u0AAE\u0ACB\u0AA1\u0AC7\u0AB2 \u0AAA\u0AB8\u0A82\u0AA6 \u0A95\u0AB0\u0ACB"],
+    effort: ["\u0AAA\u0ACD\u0AB0\u0AAF\u0ABE\u0AB8", "\u0A95\u0ACD\u0AB7\u0AAE\u0AA4\u0ABE"],
     speed: ["\u0A9D\u0AA1\u0AAA"],
     advanced: ["\u0A8F\u0AA1\u0AB5\u0ABE\u0AA8\u0ACD\u0AB8\u0ACD\u0AA1"]
   },
   configurationOptions: {
-    instant: ["\u0AA4\u0AB0\u0AA4"],
+    instant: ["\u0AA4\u0AB0\u0AA4", "\u0A87\u0AA8\u0ACD\u0AB8\u0ACD\u0A9F\u0AA8\u0ACD\u0A9F"],
     light: ["\u0AB2\u0ABE\u0A87\u0A9F"],
     medium: ["\u0AAE\u0AC0\u0AA1\u0ABF\u0AAF\u0AAE"],
     high: ["\u0AB9\u0ABE\u0A87"],
@@ -1369,9 +1377,9 @@ var gu = {
   addFilesOpenerCandidates: ["\u0AAB\u0ABE\u0A87\u0AB2\u0ACB \u0A85\u0AA8\u0AC7 \u0AB5\u0AA7\u0AC1 \u0A89\u0AAE\u0AC7\u0AB0\u0ACB"],
   addPhotosFilesMenuItem: ["\u0AAB\u0ACB\u0A9F\u0ABE \u0A85\u0AA8\u0AC7 \u0AAB\u0ABE\u0A87\u0AB2\u0ACB \u0A89\u0AAE\u0AC7\u0AB0\u0ACB"],
   copyResponse: ["\u0AAA\u0ACD\u0AB0\u0AA4\u0ABF\u0AAD\u0ABE\u0AB5 \u0A95\u0AC9\u0AAA\u0ABF \u0A95\u0AB0\u0ACB"],
-  modeLabels: ["\u0AA4\u0AB0\u0AA4", "\u0AAE\u0AA7\u0ACD\u0AAF\u0AAE", "\u0A89\u0A9A\u0ACD\u0A9A", "\u0A85\u0AA4\u0ABF \u0A89\u0A9A\u0ACD\u0A9A", "\u0AAE\u0AC0\u0AA1\u0ABF\u0AAF\u0AAE", "\u0AB9\u0ABE\u0A87", "\u0A8F\u0A95\u0ACD\u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABE \u0AB9\u0ABE\u0A87"],
+  modeLabels: ["\u0AA4\u0AB0\u0AA4", "\u0AAE\u0AA7\u0ACD\u0AAF\u0AAE", "\u0A89\u0A9A\u0ACD\u0A9A", "\u0A85\u0AA4\u0ABF \u0A89\u0A9A\u0ACD\u0A9A", "\u0AAE\u0AC0\u0AA1\u0ABF\u0AAF\u0AAE", "\u0AB9\u0ABE\u0A87", "\u0A8F\u0A95\u0ACD\u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABE \u0AB9\u0ABE\u0A87", "\u0A87\u0AA8\u0ACD\u0AB8\u0ACD\u0A9F\u0AA8\u0ACD\u0A9F"],
   modeOptions: {
-    instant: ["\u0AA4\u0AB0\u0AA4"],
+    instant: ["\u0AA4\u0AB0\u0AA4", "\u0A87\u0AA8\u0ACD\u0AB8\u0ACD\u0A9F\u0AA8\u0ACD\u0A9F"],
     medium: ["\u0AAE\u0AA7\u0ACD\u0AAF\u0AAE", "\u0AAE\u0AC0\u0AA1\u0ABF\u0AAF\u0AAE"],
     high: ["\u0A89\u0A9A\u0ACD\u0A9A", "\u0AB9\u0ABE\u0A87"],
     extraHigh: ["\u0A85\u0AA4\u0ABF \u0A89\u0A9A\u0ACD\u0A9A", "\u0A8F\u0A95\u0ACD\u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABE \u0AB9\u0ABE\u0A87"]
@@ -1395,16 +1403,16 @@ var gu = {
 var hi = {
   configurationAxes: {
     power: ["\u092A\u093E\u0935\u0930"],
-    model: ["\u092E\u0949\u0921\u0932"],
-    effort: ["\u092A\u094D\u0930\u092F\u093E\u0938", "\u0938\u094B\u091A\u0928\u0947 \u0915\u093E \u0938\u094D\u0924\u0930"],
+    model: ["\u092E\u0949\u0921\u0932", "\u092E\u0949\u0921\u0932 \u091A\u0941\u0928\u0947\u0902"],
+    effort: ["\u092A\u094D\u0930\u092F\u093E\u0938", "\u0938\u094B\u091A\u0928\u0947 \u0915\u093E \u0938\u094D\u0924\u0930", "\u092A\u093E\u0935\u0930"],
     speed: ["\u0917\u0924\u093F"],
     advanced: ["\u090F\u0921\u0935\u093E\u0902\u0938\u094D\u0921"]
   },
   configurationOptions: {
-    instant: ["\u0924\u0941\u0930\u0902\u0924"],
+    instant: ["\u0924\u0941\u0930\u0902\u0924", "\u0907\u0902\u0938\u094D\u091F\u0947\u0902\u091F"],
     light: ["\u0932\u093E\u0907\u091F"],
     medium: ["\u092E\u0927\u094D\u092F\u092E"],
-    high: ["\u0909\u091A\u094D\u091A"],
+    high: ["\u0909\u091A\u094D\u091A", "\u0939\u093E\u0908"],
     extraHigh: ["\u090F\u0915\u094D\u0938\u094D\u091F\u094D\u0930\u093E \u0939\u093E\u0908"],
     max: ["\u0905\u0927\u093F\u0915\u0924\u092E"],
     ultra: ["\u0905\u0932\u094D\u091F\u094D\u0930\u093E"],
@@ -1420,11 +1428,11 @@ var hi = {
   addFilesOpenerCandidates: ["\u092B\u093C\u093E\u0907\u0932\u094B\u0902 \u0915\u094B \u091C\u094B\u0921\u093C\u0947\u0902 \u0914\u0930 \u092D\u0940 \u092C\u0939\u0941\u0924 \u0915\u0941\u091B \u0915\u0930\u0947\u0902"],
   addPhotosFilesMenuItem: ["\u092B\u093C\u094B\u091F\u094B \u0914\u0930 \u092B\u093C\u093E\u0907\u0932\u0947\u0902 \u091C\u094B\u0921\u093C\u0947\u0902"],
   copyResponse: ["\u091C\u0935\u093E\u092C \u0915\u094B \u0915\u0949\u092A\u0940 \u0915\u0930\u0947\u0902"],
-  modeLabels: ["\u0924\u0941\u0930\u0902\u0924", "\u092E\u0927\u094D\u092F\u092E", "\u0909\u091A\u094D\u091A", "\u092C\u0939\u0941\u0924 \u0909\u091A\u094D\u091A", "\u090F\u0915\u094D\u0938\u094D\u091F\u094D\u0930\u093E \u0939\u093E\u0908"],
+  modeLabels: ["\u0924\u0941\u0930\u0902\u0924", "\u092E\u0927\u094D\u092F\u092E", "\u0909\u091A\u094D\u091A", "\u092C\u0939\u0941\u0924 \u0909\u091A\u094D\u091A", "\u090F\u0915\u094D\u0938\u094D\u091F\u094D\u0930\u093E \u0939\u093E\u0908", "\u0907\u0902\u0938\u094D\u091F\u0947\u0902\u091F", "\u0939\u093E\u0908"],
   modeOptions: {
-    instant: ["\u0924\u0941\u0930\u0902\u0924"],
+    instant: ["\u0924\u0941\u0930\u0902\u0924", "\u0907\u0902\u0938\u094D\u091F\u0947\u0902\u091F"],
     medium: ["\u092E\u0927\u094D\u092F\u092E"],
-    high: ["\u0909\u091A\u094D\u091A"],
+    high: ["\u0909\u091A\u094D\u091A", "\u0939\u093E\u0908"],
     extraHigh: ["\u092C\u0939\u0941\u0924 \u0909\u091A\u094D\u091A", "\u090F\u0915\u094D\u0938\u094D\u091F\u094D\u0930\u093E \u0939\u093E\u0908"]
   },
   modeOpenerExtra: ["\u0915\u0949\u0928\u094D\u092B\u093C\u093F\u0917\u0930 \u0915\u0930\u0947\u0902..."],
@@ -1446,7 +1454,8 @@ var hi = {
 var hr = {
   configurationAxes: {
     power: ["Snaga"],
-    effort: ["Razina napora"],
+    model: ["Odaberite model"],
+    effort: ["Razina napora", "Snaga"],
     speed: ["Brzina"],
     advanced: ["Napredno"]
   },
@@ -1489,8 +1498,8 @@ var hr = {
 var hu = {
   configurationAxes: {
     power: ["Teljes\xEDtm\xE9ny"],
-    model: ["Modell"],
-    effort: ["R\xE1ford\xEDt\xE1s", "Er\u0151fesz\xEDt\xE9s"],
+    model: ["Modell", "Modell kiv\xE1laszt\xE1sa"],
+    effort: ["R\xE1ford\xEDt\xE1s", "Er\u0151fesz\xEDt\xE9s", "Teljes\xEDtm\xE9ny"],
     speed: ["Sebess\xE9g"],
     advanced: ["Speci\xE1lis"]
   },
@@ -1534,8 +1543,8 @@ var hu = {
 var hy = {
   configurationAxes: {
     power: ["\u0540\u0566\u0578\u0580\u0578\u0582\u0569\u0575\u0578\u0582\u0576"],
-    model: ["\u0544\u0578\u0564\u0565\u056C"],
-    effort: ["\u054B\u0561\u0576\u0584", "\u0544\u057F\u0561\u056E\u0578\u0572\u0578\u0582\u0569\u0575\u0561\u0576 \u0574\u0561\u056F\u0561\u0580\u0564\u0561\u056F"],
+    model: ["\u0544\u0578\u0564\u0565\u056C", "\u0538\u0576\u057F\u0580\u0565\u056C \u0574\u0578\u0564\u0565\u056C\u0568"],
+    effort: ["\u054B\u0561\u0576\u0584", "\u0544\u057F\u0561\u056E\u0578\u0572\u0578\u0582\u0569\u0575\u0561\u0576 \u0574\u0561\u056F\u0561\u0580\u0564\u0561\u056F", "\u0540\u0566\u0578\u0580\u0578\u0582\u0569\u0575\u0578\u0582\u0576"],
     speed: ["\u0531\u0580\u0561\u0563\u0578\u0582\u0569\u0575\u0578\u0582\u0576"],
     advanced: ["\u0538\u0576\u0564\u056C\u0561\u0575\u0576\u057E\u0561\u056E"]
   },
@@ -1586,7 +1595,8 @@ var hy = {
 var id = {
   configurationAxes: {
     power: ["Daya"],
-    effort: ["Upaya"],
+    model: ["Pilih model"],
+    effort: ["Upaya", "Daya"],
     speed: ["Kecepatan"],
     advanced: ["Tingkat lanjut"]
   },
@@ -1631,8 +1641,8 @@ var id = {
 var is = {
   configurationAxes: {
     power: ["Afl"],
-    model: ["L\xEDkan"],
-    effort: ["\xC1reynsla", "Vinnsla"],
+    model: ["L\xEDkan", "Velja l\xEDkan"],
+    effort: ["\xC1reynsla", "Vinnsla", "Afl"],
     speed: ["Hra\xF0i"],
     advanced: ["\xCDtarlegt"]
   },
@@ -1680,8 +1690,8 @@ var is = {
 var ka = {
   configurationAxes: {
     power: ["\u10E1\u10D8\u10DB\u10EB\u10DA\u10D0\u10D5\u10E0\u10D4"],
-    model: ["\u10DB\u10DD\u10D3\u10D4\u10DA\u10D8"],
-    effort: ["\u10EB\u10D0\u10DA\u10D8\u10E1\u10EE\u10DB\u10D4\u10D5\u10D0", "\u10DB\u10E1\u10EF\u10D4\u10DA\u10DD\u10D1\u10D8\u10E1 \u10D3\u10DD\u10DC\u10D4"],
+    model: ["\u10DB\u10DD\u10D3\u10D4\u10DA\u10D8", "\u10DB\u10DD\u10D3\u10D4\u10DA\u10D8\u10E1 \u10D0\u10E0\u10E9\u10D4\u10D5\u10D0"],
+    effort: ["\u10EB\u10D0\u10DA\u10D8\u10E1\u10EE\u10DB\u10D4\u10D5\u10D0", "\u10DB\u10E1\u10EF\u10D4\u10DA\u10DD\u10D1\u10D8\u10E1 \u10D3\u10DD\u10DC\u10D4", "\u10E1\u10D8\u10DB\u10EB\u10DA\u10D0\u10D5\u10E0\u10D4"],
     speed: ["\u10E1\u10D8\u10E9\u10E5\u10D0\u10E0\u10D4"],
     advanced: ["\u10D2\u10D0\u10E4\u10D0\u10E0\u10D7\u10DD\u10D4\u10D1\u10E3\u10DA\u10D8"]
   },
@@ -1731,18 +1741,18 @@ var ka = {
 var kk = {
   configurationAxes: {
     power: ["\u049A\u0443\u0430\u0442"],
-    model: ["\u041C\u043E\u0434\u0435\u043B\u044C"],
-    effort: ["\u041A\u04AF\u0448-\u0436\u0456\u0433\u0435\u0440", "\u041E\u0439\u043B\u0430\u043D\u0443 \u0434\u0435\u04A3\u0433\u0435\u0439\u0456"],
+    model: ["\u041C\u043E\u0434\u0435\u043B\u044C", "\u041C\u043E\u0434\u0435\u043B\u044C\u0434\u0456 \u0442\u0430\u04A3\u0434\u0430\u04A3\u044B\u0437"],
+    effort: ["\u041A\u04AF\u0448-\u0436\u0456\u0433\u0435\u0440", "\u041E\u0439\u043B\u0430\u043D\u0443 \u0434\u0435\u04A3\u0433\u0435\u0439\u0456", "\u049A\u0443\u0430\u0442"],
     speed: ["\u0416\u044B\u043B\u0434\u0430\u043C\u0434\u044B\u049B"],
     advanced: ["\u041A\u0435\u04A3\u0435\u0439\u0442\u0456\u043B\u0433\u0435\u043D"]
   },
   configurationOptions: {
-    instant: ["\u0416\u0435\u0434\u0435\u043B"],
+    instant: ["\u0416\u0435\u0434\u0435\u043B", "\u0422\u0435\u0437"],
     light: ["\u0416\u0435\u04A3\u0456\u043B"],
     medium: ["\u041E\u0440\u0442\u0430\u0448\u0430"],
     high: ["\u0416\u043E\u0493\u0430\u0440\u044B"],
     extraHigh: ["\u04E8\u0442\u0435 \u0436\u043E\u0493\u0430\u0440\u044B"],
-    max: ["\u041C\u0430\u043A\u0441"],
+    max: ["\u041C\u0430\u043A\u0441", "\u041C\u0430\u043A\u0441\u0438\u043C\u0430\u043B\u0434\u044B"],
     ultra: ["\u0423\u043B\u044C\u0442\u0440\u0430"],
     standard: ["\u0421\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u0442\u044B"],
     fast: ["\u0416\u044B\u043B\u0434\u0430\u043C"]
@@ -1756,9 +1766,9 @@ var kk = {
   addFilesOpenerCandidates: ["\u0424\u0430\u0439\u043B\u0434\u0430\u0440\u0434\u044B \u0436\u04D9\u043D\u0435 \u0431\u0430\u0441\u049B\u0430 \u0434\u0435\u0440\u0435\u043A\u0442\u0435\u0440\u0434\u0456 \u049B\u043E\u0441\u0443"],
   addPhotosFilesMenuItem: ["\u0424\u043E\u0442\u043E\u0441\u0443\u0440\u0435\u0442\u0442\u0435\u0440 \u043C\u0435\u043D \u0444\u0430\u0439\u043B\u0434\u0430\u0440 \u049B\u043E\u0441\u0443"],
   copyResponse: ["\u0416\u0430\u0443\u0430\u043F\u0442\u044B \u043A\u04E9\u0448\u0456\u0440\u0443"],
-  modeLabels: ["\u0416\u0435\u0434\u0435\u043B", "\u041E\u0440\u0442\u0430\u0448\u0430", "\u0416\u043E\u0493\u0430\u0440\u044B", "\u0410\u0441\u0430 \u0436\u043E\u0493\u0430\u0440\u044B", "\u04E8\u0442\u0435 \u0436\u043E\u0493\u0430\u0440\u044B"],
+  modeLabels: ["\u0416\u0435\u0434\u0435\u043B", "\u041E\u0440\u0442\u0430\u0448\u0430", "\u0416\u043E\u0493\u0430\u0440\u044B", "\u0410\u0441\u0430 \u0436\u043E\u0493\u0430\u0440\u044B", "\u04E8\u0442\u0435 \u0436\u043E\u0493\u0430\u0440\u044B", "\u0422\u0435\u0437"],
   modeOptions: {
-    instant: ["\u0416\u0435\u0434\u0435\u043B"],
+    instant: ["\u0416\u0435\u0434\u0435\u043B", "\u0422\u0435\u0437"],
     medium: ["\u041E\u0440\u0442\u0430\u0448\u0430"],
     high: ["\u0416\u043E\u0493\u0430\u0440\u044B"],
     extraHigh: ["\u0410\u0441\u0430 \u0436\u043E\u0493\u0430\u0440\u044B", "\u04E8\u0442\u0435 \u0436\u043E\u0493\u0430\u0440\u044B"]
@@ -1782,13 +1792,13 @@ var kk = {
 var kn = {
   configurationAxes: {
     power: ["\u0CAA\u0CB5\u0CB0\u0CCD"],
-    model: ["\u0CAE\u0CBE\u0CA1\u0CC6\u0CB2\u0CCD"],
-    effort: ["\u0C8E\u0CAB\u0CB0\u0CCD\u0C9F\u0CCD", "\u0CAA\u0CCD\u0CB0\u0CAF\u0CA4\u0CCD\u0CA8"],
+    model: ["\u0CAE\u0CBE\u0CA1\u0CC6\u0CB2\u0CCD", "\u0CAE\u0CBE\u0CA6\u0CB0\u0CBF\u0CAF\u0CA8\u0CCD\u0CA8\u0CC1 \u0C86\u0CAF\u0CCD\u0C95\u0CC6\u0CAE\u0CBE\u0CA1\u0CBF"],
+    effort: ["\u0C8E\u0CAB\u0CB0\u0CCD\u0C9F\u0CCD", "\u0CAA\u0CCD\u0CB0\u0CAF\u0CA4\u0CCD\u0CA8", "\u0CAA\u0CB5\u0CB0\u0CCD"],
     speed: ["\u0CB5\u0CC7\u0C97"],
     advanced: ["\u0CB8\u0CC1\u0CA7\u0CBE\u0CB0\u0CBF\u0CA4"]
   },
   configurationOptions: {
-    instant: ["\u0CA4\u0C95\u0CCD\u0CB7\u0CA3"],
+    instant: ["\u0CA4\u0C95\u0CCD\u0CB7\u0CA3", "\u0C87\u0CA8\u0CCD\u200C\u0CB8\u0CCD\u0C9F\u0C82\u0C9F\u0CCD"],
     light: ["\u0CB2\u0CC8\u0C9F\u0CCD"],
     medium: ["\u0CAE\u0CC0\u0CA1\u0CBF\u0CAF\u0C82"],
     high: ["\u0CB9\u0CC8"],
@@ -1807,9 +1817,9 @@ var kn = {
   addFilesOpenerCandidates: ["\u0CAB\u0CC8\u0CB2\u0CCD\u200C\u0C97\u0CB3\u0CC1 \u0CAE\u0CA4\u0CCD\u0CA4\u0CC1 \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CBF\u0CA8\u0CB5\u0CC1\u0C97\u0CB3\u0CA8\u0CCD\u0CA8\u0CC1 \u0CB8\u0CC7\u0CB0\u0CBF\u0CB8\u0CBF"],
   addPhotosFilesMenuItem: ["\u0CAB\u0CCB\u0C9F\u0CCA \u0CAE\u0CA4\u0CCD\u0CA4\u0CC1 \u0CAB\u0CC8\u0CB2\u0CCD\u200C\u0C97\u0CB3\u0CA8\u0CCD\u0CA8\u0CC1 \u0CB8\u0CC7\u0CB0\u0CBF\u0CB8\u0CBF"],
   copyResponse: ["\u0CAA\u0CCD\u0CB0\u0CA4\u0CBF\u0C95\u0CCD\u0CB0\u0CBF\u0CAF\u0CC6\u0CAF\u0CA8\u0CCD\u0CA8\u0CC1 \u0CA8\u0C95\u0CB2\u0CBF\u0CB8\u0CBF"],
-  modeLabels: ["\u0CA4\u0C95\u0CCD\u0CB7\u0CA3", "\u0CAE\u0CA7\u0CCD\u0CAF\u0CAE", "\u0C89\u0CA8\u0CCD\u0CA8\u0CA4", "\u0C85\u0CA4\u0CBF \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CC1", "\u0CAA\u0CCD\u0CB0\u0CCA", "\u0CAE\u0CC0\u0CA1\u0CBF\u0CAF\u0C82", "\u0CB9\u0CC8", "\u0C8E\u0C95\u0CCD\u0CB8\u0CCD\u200C\u0C9F\u0CCD\u0CB0\u0CBE \u0CB9\u0CC8"],
+  modeLabels: ["\u0CA4\u0C95\u0CCD\u0CB7\u0CA3", "\u0CAE\u0CA7\u0CCD\u0CAF\u0CAE", "\u0C89\u0CA8\u0CCD\u0CA8\u0CA4", "\u0C85\u0CA4\u0CBF \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CC1", "\u0CAA\u0CCD\u0CB0\u0CCA", "\u0CAE\u0CC0\u0CA1\u0CBF\u0CAF\u0C82", "\u0CB9\u0CC8", "\u0C8E\u0C95\u0CCD\u0CB8\u0CCD\u200C\u0C9F\u0CCD\u0CB0\u0CBE \u0CB9\u0CC8", "\u0C87\u0CA8\u0CCD\u200C\u0CB8\u0CCD\u0C9F\u0C82\u0C9F\u0CCD"],
   modeOptions: {
-    instant: ["\u0CA4\u0C95\u0CCD\u0CB7\u0CA3"],
+    instant: ["\u0CA4\u0C95\u0CCD\u0CB7\u0CA3", "\u0C87\u0CA8\u0CCD\u200C\u0CB8\u0CCD\u0C9F\u0C82\u0C9F\u0CCD"],
     medium: ["\u0CAE\u0CA7\u0CCD\u0CAF\u0CAE", "\u0CAE\u0CC0\u0CA1\u0CBF\u0CAF\u0C82"],
     high: ["\u0C89\u0CA8\u0CCD\u0CA8\u0CA4", "\u0CB9\u0CC8"],
     extraHigh: ["\u0C85\u0CA4\u0CBF \u0CB9\u0CC6\u0C9A\u0CCD\u0C9A\u0CC1", "\u0C8E\u0C95\u0CCD\u0CB8\u0CCD\u200C\u0C9F\u0CCD\u0CB0\u0CBE \u0CB9\u0CC8"],
@@ -1817,7 +1827,8 @@ var kn = {
   },
   modeOpenerExtra: ["\u0C95\u0CBE\u0CA8\u0CCD\u0CAB\u0CBF\u0C97\u0CB0\u0CCD \u0CAE\u0CBE\u0CA1\u0CBF..."],
   experienceOptions: {
-    chat: ["\u0C9A\u0CBE\u0C9F\u0CCD"]
+    chat: ["\u0C9A\u0CBE\u0C9F\u0CCD"],
+    work: ["\u0CB5\u0CB0\u0CCD\u0C95\u0CCD"]
   },
   tools: {
     web_search: ["\u0CB5\u0CC6\u0CAC\u0CCD \u0CB8\u0CB0\u0CCD\u0C9A\u0CCD"],
@@ -1833,8 +1844,8 @@ var kn = {
 var ko = {
   configurationAxes: {
     power: ["\uC131\uB2A5"],
-    model: ["\uBAA8\uB378"],
-    effort: ["\uCD94\uB860 \uC218\uC900", "\uCD94\uB860 \uAC15\uB3C4"],
+    model: ["\uBAA8\uB378", "\uBAA8\uB378 \uC120\uD0DD"],
+    effort: ["\uCD94\uB860 \uC218\uC900", "\uCD94\uB860 \uAC15\uB3C4", "\uC131\uB2A5"],
     speed: ["\uC18D\uB3C4"],
     advanced: ["\uACE0\uAE09"]
   },
@@ -1878,8 +1889,8 @@ var ko = {
 var lt = {
   configurationAxes: {
     power: ["Paj\u0117gumas"],
-    model: ["Modelis"],
-    effort: ["Pastangos", "M\u0105stymo lygis"],
+    model: ["Modelis", "Pasirinkti model\u012F"],
+    effort: ["Pastangos", "M\u0105stymo lygis", "Paj\u0117gumas"],
     speed: ["Greitis"],
     advanced: ["I\u0161pl\u0117stiniai"]
   },
@@ -1888,7 +1899,7 @@ var lt = {
     light: ["Lengvas"],
     medium: ["Vidutinis"],
     high: ["Auk\u0161tas"],
-    extraHigh: ["Labai auk\u0161tas"],
+    extraHigh: ["Labai auk\u0161tas", "Ypa\u010D didel\u0117s"],
     max: ["Maks."],
     standard: ["Standartinis"],
     fast: ["Greitas"]
@@ -1925,13 +1936,13 @@ var lt = {
 var zhHans = {
   configurationAxes: {
     power: ["\u80FD\u529B"],
-    model: ["\u6A21\u578B"],
-    effort: ["\u63A8\u7406\u5F3A\u5EA6", "\u601D\u8003\u5F3A\u5EA6"],
+    model: ["\u6A21\u578B", "\u9009\u62E9\u6A21\u578B"],
+    effort: ["\u63A8\u7406\u5F3A\u5EA6", "\u601D\u8003\u5F3A\u5EA6", "\u80FD\u529B"],
     speed: ["\u901F\u5EA6"],
     advanced: ["\u9AD8\u7EA7"]
   },
   configurationOptions: {
-    instant: ["\u6781\u901F"],
+    instant: ["\u6781\u901F", "\u5373\u65F6"],
     light: ["\u8F7B\u5EA6"],
     medium: ["\u4E2D"],
     high: ["\u9AD8"],
@@ -1950,9 +1961,9 @@ var zhHans = {
   addFilesOpenerCandidates: ["\u6DFB\u52A0\u6587\u4EF6\u7B49"],
   addPhotosFilesMenuItem: ["\u6DFB\u52A0\u7167\u7247\u548C\u6587\u4EF6"],
   copyResponse: ["\u590D\u5236\u56DE\u590D"],
-  modeLabels: ["\u6781\u901F", "\u5747\u8861", "\u9AD8\u7EA7", "\u8D85\u9AD8", "\u4E13\u4E1A", "\u4E2D", "\u9AD8", "\u6781\u9AD8"],
+  modeLabels: ["\u6781\u901F", "\u5747\u8861", "\u9AD8\u7EA7", "\u8D85\u9AD8", "\u4E13\u4E1A", "\u4E2D", "\u9AD8", "\u6781\u9AD8", "\u5373\u65F6"],
   modeOptions: {
-    instant: ["\u6781\u901F"],
+    instant: ["\u6781\u901F", "\u5373\u65F6"],
     medium: ["\u5747\u8861", "\u4E2D"],
     high: ["\u9AD8\u7EA7", "\u9AD8"],
     extraHigh: ["\u8D85\u9AD8", "\u6781\u9AD8"],
@@ -1976,8 +1987,8 @@ var zhHans = {
 // src/dom/locale/ur.ts
 var ur = {
   configurationAxes: {
-    model: ["\u0645\u0627\u0688\u0644"],
-    effort: ["\u06A9\u0648\u0634\u0634"],
+    model: ["\u0645\u0627\u0688\u0644", "\u0645\u0627\u0688\u0644 \u0645\u0646\u062A\u062E\u0628 \u06A9\u0631\u06CC\u06BA"],
+    effort: ["\u06A9\u0648\u0634\u0634", "Power"],
     speed: ["\u0631\u0641\u062A\u0627\u0631"],
     advanced: ["\u0627\u06CC\u0688\u0648\u0627\u0646\u0633\u0688"]
   },
@@ -2027,13 +2038,13 @@ var ur = {
 var uk = {
   configurationAxes: {
     power: ["\u041F\u043E\u0442\u0443\u0436\u043D\u0456\u0441\u0442\u044C"],
-    model: ["\u041C\u043E\u0434\u0435\u043B\u044C"],
-    effort: ["\u0417\u0443\u0441\u0438\u043B\u043B\u044F", "\u041C\u0456\u0440\u043A\u0443\u0432\u0430\u043D\u043D\u044F"],
+    model: ["\u041C\u043E\u0434\u0435\u043B\u044C", "\u0412\u0438\u0431\u0440\u0430\u0442\u0438 \u043C\u043E\u0434\u0435\u043B\u044C"],
+    effort: ["\u0417\u0443\u0441\u0438\u043B\u043B\u044F", "\u041C\u0456\u0440\u043A\u0443\u0432\u0430\u043D\u043D\u044F", "\u041F\u043E\u0442\u0443\u0436\u043D\u0456\u0441\u0442\u044C"],
     speed: ["\u0428\u0432\u0438\u0434\u043A\u0456\u0441\u0442\u044C"],
     advanced: ["\u0414\u043E\u0434\u0430\u0442\u043A\u043E\u0432\u043E"]
   },
   configurationOptions: {
-    instant: ["\u041C\u0438\u0442\u0442\u0454\u0432\u0438\u0439"],
+    instant: ["\u041C\u0438\u0442\u0442\u0454\u0432\u0438\u0439", "\u041C\u0438\u0442\u0442\u0454\u0432\u0435"],
     light: ["\u041D\u0438\u0437\u044C\u043A\u0438\u0439"],
     medium: ["\u0421\u0435\u0440\u0435\u0434\u043D\u0456\u0439"],
     high: ["\u0412\u0438\u0441\u043E\u043A\u0438\u0439"],
@@ -2052,9 +2063,9 @@ var uk = {
   addFilesOpenerCandidates: ["\u0414\u043E\u0434\u0430\u0432\u0430\u0439\u0442\u0435 \u0444\u0430\u0439\u043B\u0438 \u0439 \u0432\u0438\u043A\u043E\u043D\u0443\u0439\u0442\u0435 \u0456\u043D\u0448\u0456 \u0434\u0456\u0457"],
   addPhotosFilesMenuItem: ["\u0414\u043E\u0434\u0430\u0442\u0438 \u0441\u0432\u0456\u0442\u043B\u0438\u043D\u0438 \u0442\u0430 \u0444\u0430\u0439\u043B\u0438"],
   copyResponse: ["\u041A\u043E\u043F\u0456\u044E\u0432\u0430\u0442\u0438 \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u044C"],
-  modeLabels: ["\u041C\u0438\u0442\u0442\u0454\u0432\u0438\u0439", "\u0421\u0435\u0440\u0435\u0434\u043D\u0456\u0439", "\u0412\u0438\u0441\u043E\u043A\u0438\u0439", "\u0414\u0443\u0436\u0435 \u0432\u0438\u0441\u043E\u043A\u0438\u0439", "\u041D\u0430\u0439\u0432\u0438\u0449\u0438\u0439"],
+  modeLabels: ["\u041C\u0438\u0442\u0442\u0454\u0432\u0438\u0439", "\u0421\u0435\u0440\u0435\u0434\u043D\u0456\u0439", "\u0412\u0438\u0441\u043E\u043A\u0438\u0439", "\u0414\u0443\u0436\u0435 \u0432\u0438\u0441\u043E\u043A\u0438\u0439", "\u041D\u0430\u0439\u0432\u0438\u0449\u0438\u0439", "\u041C\u0438\u0442\u0442\u0454\u0432\u0435"],
   modeOptions: {
-    instant: ["\u041C\u0438\u0442\u0442\u0454\u0432\u0438\u0439"],
+    instant: ["\u041C\u0438\u0442\u0442\u0454\u0432\u0438\u0439", "\u041C\u0438\u0442\u0442\u0454\u0432\u0435"],
     medium: ["\u0421\u0435\u0440\u0435\u0434\u043D\u0456\u0439"],
     high: ["\u0412\u0438\u0441\u043E\u043A\u0438\u0439"],
     extraHigh: ["\u0414\u0443\u0436\u0435 \u0432\u0438\u0441\u043E\u043A\u0438\u0439", "\u041D\u0430\u0439\u0432\u0438\u0449\u0438\u0439"]
@@ -2078,16 +2089,16 @@ var uk = {
 var ptBR = {
   configurationAxes: {
     power: ["Pot\xEAncia"],
-    model: ["Modelo"],
-    effort: ["Esfor\xE7o", "N\xEDvel de racioc\xEDnio"],
+    model: ["Modelo", "Selecionar modelo"],
+    effort: ["Esfor\xE7o", "N\xEDvel de racioc\xEDnio", "Pot\xEAncia"],
     speed: ["Velocidade"],
     advanced: ["Avan\xE7ado"]
   },
   configurationOptions: {
-    instant: ["Instant\xE2neo"],
+    instant: ["Instant\xE2neo", "Instant\xE2nea"],
     light: ["Leve"],
-    medium: ["M\xE9dio"],
-    high: ["Alto"],
+    medium: ["M\xE9dio", "M\xE9dia"],
+    high: ["Alto", "Alta"],
     extraHigh: ["Extra alto"],
     max: ["M\xE1ximo"],
     standard: ["Padr\xE3o"],
@@ -2102,11 +2113,11 @@ var ptBR = {
   addFilesOpenerCandidates: ["Adicionar arquivos e mais"],
   addPhotosFilesMenuItem: ["Carregar fotos e arquivos"],
   copyResponse: ["Copiar resposta"],
-  modeLabels: ["Instant\xE2neo", "M\xE9dio", "Alto", "Muito alta", "Extra alto"],
+  modeLabels: ["Instant\xE2neo", "M\xE9dio", "Alto", "Muito alta", "Extra alto", "Instant\xE2nea", "M\xE9dia", "Alta"],
   modeOptions: {
-    instant: ["Instant\xE2neo"],
-    medium: ["M\xE9dio"],
-    high: ["Alto"],
+    instant: ["Instant\xE2neo", "Instant\xE2nea"],
+    medium: ["M\xE9dio", "M\xE9dia"],
+    high: ["Alto", "Alta"],
     extraHigh: ["Muito alta", "Extra alto"]
   },
   modeOpenerExtra: ["Configurar\u2026"],
@@ -2124,8 +2135,8 @@ var ptBR = {
 var ptPT = {
   configurationAxes: {
     power: ["Capacidade"],
-    model: ["Modelo"],
-    effort: ["Esfor\xE7o"],
+    model: ["Modelo", "Selecionar modelo"],
+    effort: ["Esfor\xE7o", "Capacidade"],
     speed: ["Velocidade"],
     advanced: ["Avan\xE7ado"]
   },
@@ -2133,7 +2144,7 @@ var ptPT = {
     instant: ["Instant\xE2neo"],
     light: ["Leve"],
     medium: ["M\xE9dio"],
-    high: ["Elevado"],
+    high: ["Elevado", "Elevada"],
     extraHigh: ["Muito elevado"],
     max: ["M\xE1x."],
     standard: ["Padr\xE3o"],
@@ -2148,11 +2159,11 @@ var ptPT = {
   addFilesOpenerCandidates: ["Adicionar ficheiros e mais"],
   addPhotosFilesMenuItem: ["Carregar fotos e ficheiros"],
   copyResponse: ["Copiar resposta"],
-  modeLabels: ["Instant\xE2neo", "M\xE9dia", "Alta", "M\xE1ximo", "M\xE9dio", "Elevado", "Muito elevado"],
+  modeLabels: ["Instant\xE2neo", "M\xE9dia", "Alta", "M\xE1ximo", "M\xE9dio", "Elevado", "Muito elevado", "Elevada"],
   modeOptions: {
     instant: ["Instant\xE2neo"],
     medium: ["M\xE9dia", "M\xE9dio"],
-    high: ["Alta", "Elevado"],
+    high: ["Alta", "Elevado", "Elevada"],
     extraHigh: ["M\xE1ximo", "Muito elevado"]
   },
   modeOpenerExtra: ["Configurar..."],
@@ -2170,7 +2181,8 @@ var ptPT = {
 var pl = {
   configurationAxes: {
     power: ["Moc"],
-    effort: ["Nak\u0142ad pracy", "Wysi\u0142ek"],
+    model: ["Wybierz model"],
+    effort: ["Nak\u0142ad pracy", "Wysi\u0142ek", "Moc"],
     speed: ["Szybko\u015B\u0107"],
     advanced: ["Zaawansowane"]
   },
@@ -2215,7 +2227,8 @@ var pl = {
 var sk = {
   configurationAxes: {
     power: ["V\xFDkon"],
-    effort: ["\xDAsilie"],
+    model: ["Vyberte model"],
+    effort: ["\xDAsilie", "V\xFDkon"],
     speed: ["R\xFDchlos\u0165"],
     advanced: ["Roz\u0161\xEDren\xE9"]
   },
@@ -2260,7 +2273,8 @@ var sk = {
 var ro = {
   configurationAxes: {
     power: ["Capacitate"],
-    effort: ["Efort"],
+    model: ["Selecteaz\u0103 modelul"],
+    effort: ["Efort", "Capacitate"],
     speed: ["Vitez\u0103"],
     advanced: ["Avansat"]
   },
@@ -2302,8 +2316,8 @@ var ro = {
 var nb = {
   configurationAxes: {
     power: ["Styrke"],
-    model: ["Modell"],
-    effort: ["Innsats", "Resonneringsniv\xE5"],
+    model: ["Modell", "Velg modell"],
+    effort: ["Innsats", "Resonneringsniv\xE5", "Styrke"],
     speed: ["Hastighet"],
     advanced: ["Avansert"]
   },
@@ -2347,13 +2361,13 @@ var nb = {
 var ml = {
   configurationAxes: {
     power: ["\u0D2A\u0D35\u0D7C"],
-    model: ["\u0D2E\u0D4B\u0D21\u0D7D"],
-    effort: ["\u0D36\u0D4D\u0D30\u0D2E\u0D02"],
+    model: ["\u0D2E\u0D4B\u0D21\u0D7D", "\u0D2E\u0D4B\u0D21\u0D7D \u0D24\u0D3F\u0D30\u0D1E\u0D4D\u0D1E\u0D46\u0D1F\u0D41\u0D15\u0D4D\u0D15\u0D41\u0D15"],
+    effort: ["\u0D36\u0D4D\u0D30\u0D2E\u0D02", "\u0D2A\u0D35\u0D7C"],
     speed: ["\u0D35\u0D47\u0D17\u0D24"],
     advanced: ["\u0D35\u0D3F\u0D2A\u0D41\u0D32\u0D2E\u0D3E\u0D2F\u0D24\u0D4D"]
   },
   configurationOptions: {
-    instant: ["\u0D24\u0D7D\u0D15\u0D4D\u0D37\u0D23\u0D02"],
+    instant: ["\u0D24\u0D7D\u0D15\u0D4D\u0D37\u0D23\u0D02", "\u0D07\u0D7B\u0D38\u0D4D\u0D31\u0D4D\u0D31\u0D7B\u0D4D\u0D31\u0D4D"],
     light: ["\u0D32\u0D33\u0D3F\u0D24\u0D02"],
     medium: ["\u0D07\u0D1F\u0D24\u0D4D\u0D24\u0D30\u0D02"],
     high: ["\u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D"],
@@ -2372,9 +2386,9 @@ var ml = {
   addFilesOpenerCandidates: ["\u0D2B\u0D2F\u0D32\u0D41\u0D15\u0D33\u0D41\u0D02 \u0D2E\u0D31\u0D4D\u0D31\u0D41\u0D02 \u0D1A\u0D47\u0D7C\u0D15\u0D4D\u0D15\u0D41\u0D15"],
   addPhotosFilesMenuItem: ["\u0D2B\u0D4B\u0D1F\u0D4D\u0D1F\u0D4B\u0D15\u0D33\u0D41\u0D02 \u0D2B\u0D2F\u0D32\u0D41\u0D15\u0D33\u0D41\u0D02 \u0D05\u0D2A\u0D4D\u200C\u0D32\u0D4B\u0D21\u0D4D \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15"],
   copyResponse: ["\u0D2E\u0D31\u0D41\u0D2A\u0D1F\u0D3F \u0D15\u0D4B\u0D2A\u0D4D\u0D2A\u0D3F \u0D1A\u0D46\u0D2F\u0D4D\u0D2F\u0D41\u0D15"],
-  modeLabels: ["\u0D24\u0D7D\u0D15\u0D4D\u0D37\u0D23\u0D02", "\u0D07\u0D1F\u0D24\u0D4D\u0D24\u0D30\u0D02", "\u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D", "\u0D35\u0D33\u0D30\u0D46 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28", "\u0D2A\u0D4D\u0D30\u0D4B", "\u0D05\u0D24\u0D4D\u0D2F\u0D27\u0D3F\u0D15\u0D02 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D"],
+  modeLabels: ["\u0D24\u0D7D\u0D15\u0D4D\u0D37\u0D23\u0D02", "\u0D07\u0D1F\u0D24\u0D4D\u0D24\u0D30\u0D02", "\u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D", "\u0D35\u0D33\u0D30\u0D46 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28", "\u0D2A\u0D4D\u0D30\u0D4B", "\u0D05\u0D24\u0D4D\u0D2F\u0D27\u0D3F\u0D15\u0D02 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D", "\u0D07\u0D7B\u0D38\u0D4D\u0D31\u0D4D\u0D31\u0D7B\u0D4D\u0D31\u0D4D"],
   modeOptions: {
-    instant: ["\u0D24\u0D7D\u0D15\u0D4D\u0D37\u0D23\u0D02"],
+    instant: ["\u0D24\u0D7D\u0D15\u0D4D\u0D37\u0D23\u0D02", "\u0D07\u0D7B\u0D38\u0D4D\u0D31\u0D4D\u0D31\u0D7B\u0D4D\u0D31\u0D4D"],
     medium: ["\u0D07\u0D1F\u0D24\u0D4D\u0D24\u0D30\u0D02"],
     high: ["\u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D"],
     extraHigh: ["\u0D35\u0D33\u0D30\u0D46 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28", "\u0D05\u0D24\u0D4D\u0D2F\u0D27\u0D3F\u0D15\u0D02 \u0D09\u0D2F\u0D7C\u0D28\u0D4D\u0D28\u0D24\u0D4D"],
@@ -2398,8 +2412,8 @@ var ml = {
 // src/dom/locale/ru.ts
 var ru = {
   configurationAxes: {
-    model: ["\u041C\u043E\u0434\u0435\u043B\u044C"],
-    effort: ["\u0423\u0440\u043E\u0432\u0435\u043D\u044C", "\u0423\u0440\u043E\u0432\u0435\u043D\u044C \u043F\u0440\u043E\u0440\u0430\u0431\u043E\u0442\u043A\u0438"],
+    model: ["\u041C\u043E\u0434\u0435\u043B\u044C", "\u0412\u044B\u0431\u0440\u0430\u0442\u044C \u043C\u043E\u0434\u0435\u043B\u044C"],
+    effort: ["\u0423\u0440\u043E\u0432\u0435\u043D\u044C", "\u0423\u0440\u043E\u0432\u0435\u043D\u044C \u043F\u0440\u043E\u0440\u0430\u0431\u043E\u0442\u043A\u0438", "Power"],
     speed: ["\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C"],
     advanced: ["\u0420\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u043D\u044B\u0435"]
   },
@@ -2447,8 +2461,8 @@ var ru = {
 var pa = {
   configurationAxes: {
     power: ["\u0A2A\u0A3E\u0A35\u0A30"],
-    model: ["\u0A2E\u0A3E\u0A21\u0A32"],
-    effort: ["\u0A15\u0A4B\u0A38\u0A3C\u0A3F\u0A38\u0A3C"],
+    model: ["\u0A2E\u0A3E\u0A21\u0A32", "\u0A2E\u0A3E\u0A21\u0A32 \u0A1A\u0A41\u0A23\u0A4B"],
+    effort: ["\u0A15\u0A4B\u0A38\u0A3C\u0A3F\u0A38\u0A3C", "\u0A2A\u0A3E\u0A35\u0A30"],
     speed: ["\u0A17\u0A24\u0A40"],
     advanced: ["\u0A09\u0A71\u0A28\u0A24"]
   },
@@ -2499,13 +2513,13 @@ var pa = {
 var mr = {
   configurationAxes: {
     power: ["\u092A\u0949\u0935\u0930"],
-    model: ["\u092E\u0949\u0921\u0947\u0932"],
-    effort: ["\u092A\u094D\u0930\u092F\u0924\u094D\u0928"],
+    model: ["\u092E\u0949\u0921\u0947\u0932", "\u092E\u0949\u0921\u0947\u0932 \u0928\u093F\u0935\u0921\u093E"],
+    effort: ["\u092A\u094D\u0930\u092F\u0924\u094D\u0928", "\u092A\u0949\u0935\u0930"],
     speed: ["\u0935\u0947\u0917"],
     advanced: ["\u092A\u094D\u0930\u0917\u0924"]
   },
   configurationOptions: {
-    instant: ["\u091D\u091F\u092A\u091F"],
+    instant: ["\u091D\u091F\u092A\u091F", "\u0907\u0928\u094D\u0938\u094D\u091F\u0902\u091F"],
     light: ["\u0939\u0932\u0915\u093E"],
     medium: ["\u092E\u0927\u094D\u092F\u092E"],
     high: ["\u0909\u091A\u094D\u091A"],
@@ -2524,9 +2538,9 @@ var mr = {
   addFilesOpenerCandidates: ["\u092B\u093E\u0907\u0932\u094D\u0938 \u091C\u094B\u0921\u093E \u0906\u0923\u093F \u0907\u0924\u0930 \u0905\u0928\u0947\u0915 \u0917\u094B\u0937\u094D\u091F\u0940 \u0915\u0930\u093E"],
   addPhotosFilesMenuItem: ["\u092B\u094B\u091F\u094B \u0906\u0923\u093F \u092B\u093E\u0907\u0932\u094D\u0938 \u0905\u092A\u0932\u094B\u0921 \u0915\u0930\u093E"],
   copyResponse: ["\u092A\u094D\u0930\u0924\u093F\u0938\u093E\u0926 \u0915\u0949\u092A\u0940 \u0915\u0930\u093E"],
-  modeLabels: ["\u091D\u091F\u092A\u091F", "\u092E\u0927\u094D\u092F\u092E", "\u0909\u091A\u094D\u091A", "\u0905\u0924\u093F\u0909\u091A\u094D\u091A", "\u092A\u094D\u0930\u094B", "\u0905\u0924\u094D\u092F\u0941\u091A\u094D\u091A"],
+  modeLabels: ["\u091D\u091F\u092A\u091F", "\u092E\u0927\u094D\u092F\u092E", "\u0909\u091A\u094D\u091A", "\u0905\u0924\u093F\u0909\u091A\u094D\u091A", "\u092A\u094D\u0930\u094B", "\u0905\u0924\u094D\u092F\u0941\u091A\u094D\u091A", "\u0907\u0928\u094D\u0938\u094D\u091F\u0902\u091F"],
   modeOptions: {
-    instant: ["\u091D\u091F\u092A\u091F"],
+    instant: ["\u091D\u091F\u092A\u091F", "\u0907\u0928\u094D\u0938\u094D\u091F\u0902\u091F"],
     medium: ["\u092E\u0927\u094D\u092F\u092E"],
     high: ["\u0909\u091A\u094D\u091A"],
     extraHigh: ["\u0905\u0924\u093F\u0909\u091A\u094D\u091A", "\u0905\u0924\u094D\u092F\u0941\u091A\u094D\u091A"],
@@ -2551,7 +2565,8 @@ var mr = {
 var tr = {
   configurationAxes: {
     power: ["G\xFC\xE7"],
-    effort: ["D\xFCzey", "\xC7aba"],
+    model: ["Model se\xE7"],
+    effort: ["D\xFCzey", "\xC7aba", "G\xFC\xE7"],
     speed: ["H\u0131z"],
     advanced: ["Geli\u015Fmi\u015F"]
   },
@@ -2600,8 +2615,8 @@ var tr = {
 var sw = {
   configurationAxes: {
     power: ["Umahiri"],
-    model: ["Modeli", "Mfumo"],
-    effort: ["Juhudi", "Kiwango cha uchambuzi"],
+    model: ["Modeli", "Mfumo", "Chagua muundo"],
+    effort: ["Juhudi", "Kiwango cha uchambuzi", "Umahiri"],
     speed: ["Kasi"],
     advanced: ["Za kina"]
   },
@@ -2610,7 +2625,7 @@ var sw = {
     light: ["Nyepesi"],
     medium: ["Wastani"],
     high: ["Juu"],
-    extraHigh: ["Juu Zaidi"],
+    extraHigh: ["Juu Zaidi", "Juu Sana"],
     max: ["Juu kabisa"],
     standard: ["Kawaida"],
     fast: ["Haraka"]
@@ -2646,13 +2661,13 @@ var sw = {
 var te = {
   configurationAxes: {
     power: ["\u0C2A\u0C35\u0C30\u0C4D"],
-    model: ["\u0C2E\u0C4B\u0C21\u0C32\u0C4D"],
-    effort: ["\u0C2A\u0C4D\u0C30\u0C2F\u0C24\u0C4D\u0C28\u0C02", "\u0C06\u0C32\u0C4B\u0C1A\u0C28"],
+    model: ["\u0C2E\u0C4B\u0C21\u0C32\u0C4D", "\u0C2E\u0C4B\u0C21\u0C32\u0C4D\u200C\u0C28\u0C41 \u0C0E\u0C02\u0C1A\u0C41\u0C15\u0C4B\u0C02\u0C21\u0C3F"],
+    effort: ["\u0C2A\u0C4D\u0C30\u0C2F\u0C24\u0C4D\u0C28\u0C02", "\u0C06\u0C32\u0C4B\u0C1A\u0C28", "\u0C2A\u0C35\u0C30\u0C4D"],
     speed: ["\u0C35\u0C47\u0C17\u0C02"],
     advanced: ["\u0C05\u0C27\u0C41\u0C28\u0C3E\u0C24\u0C28\u0C02"]
   },
   configurationOptions: {
-    instant: ["\u0C24\u0C15\u0C4D\u0C37\u0C23\u0C02"],
+    instant: ["\u0C24\u0C15\u0C4D\u0C37\u0C23\u0C02", "\u0C07\u0C28\u0C4D\u200C\u0C38\u0C4D\u0C1F\u0C46\u0C02\u0C1F\u0C4D\u200C\u0C17\u0C3E"],
     light: ["\u0C32\u0C48\u0C1F\u0C4D"],
     medium: ["\u0C2E\u0C40\u0C21\u0C3F\u0C2F\u0C02"],
     high: ["\u0C39\u0C48"],
@@ -2671,9 +2686,9 @@ var te = {
   addFilesOpenerCandidates: ["\u0C2B\u0C48\u0C32\u0C4D\u200C\u0C32\u0C28\u0C41 \u0C2E\u0C30\u0C3F\u0C2F\u0C41 \u0C2E\u0C30\u0C3F\u0C28\u0C4D\u0C28\u0C3F \u0C1C\u0C4B\u0C21\u0C3F\u0C02\u0C1A\u0C02\u0C21\u0C3F"],
   addPhotosFilesMenuItem: ["\u0C2B\u0C4B\u0C1F\u0C4B\u0C32\u0C41 & \u0C2B\u0C48\u0C32\u0C4D\u200C\u0C32\u0C28\u0C41 \u0C05\u0C2A\u0C4D\u200C\u0C32\u0C4B\u0C21\u0C4D \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"],
   copyResponse: ["\u0C2A\u0C4D\u0C30\u0C24\u0C3F\u0C38\u0C4D\u0C2A\u0C02\u0C26\u0C28\u0C28\u0C41 \u0C15\u0C3E\u0C2A\u0C40 \u0C1A\u0C47\u0C2F\u0C02\u0C21\u0C3F"],
-  modeLabels: ["\u0C24\u0C15\u0C4D\u0C37\u0C23\u0C02", "\u0C2E\u0C27\u0C4D\u0C2F\u0C38\u0C4D\u0C25", "\u0C05\u0C27\u0C3F\u0C15", "\u0C05\u0C24\u0C4D\u0C2F\u0C27\u0C3F\u0C15", "\u0C2A\u0C4D\u0C30\u0C4B", "\u0C2E\u0C40\u0C21\u0C3F\u0C2F\u0C02", "\u0C39\u0C48", "\u0C0E\u0C15\u0C4D\u0C38\u0C4D\u200C\u0C1F\u0C4D\u0C30\u0C3E \u0C39\u0C48"],
+  modeLabels: ["\u0C24\u0C15\u0C4D\u0C37\u0C23\u0C02", "\u0C2E\u0C27\u0C4D\u0C2F\u0C38\u0C4D\u0C25", "\u0C05\u0C27\u0C3F\u0C15", "\u0C05\u0C24\u0C4D\u0C2F\u0C27\u0C3F\u0C15", "\u0C2A\u0C4D\u0C30\u0C4B", "\u0C2E\u0C40\u0C21\u0C3F\u0C2F\u0C02", "\u0C39\u0C48", "\u0C0E\u0C15\u0C4D\u0C38\u0C4D\u200C\u0C1F\u0C4D\u0C30\u0C3E \u0C39\u0C48", "\u0C07\u0C28\u0C4D\u200C\u0C38\u0C4D\u0C1F\u0C46\u0C02\u0C1F\u0C4D\u200C\u0C17\u0C3E"],
   modeOptions: {
-    instant: ["\u0C24\u0C15\u0C4D\u0C37\u0C23\u0C02"],
+    instant: ["\u0C24\u0C15\u0C4D\u0C37\u0C23\u0C02", "\u0C07\u0C28\u0C4D\u200C\u0C38\u0C4D\u0C1F\u0C46\u0C02\u0C1F\u0C4D\u200C\u0C17\u0C3E"],
     medium: ["\u0C2E\u0C27\u0C4D\u0C2F\u0C38\u0C4D\u0C25", "\u0C2E\u0C40\u0C21\u0C3F\u0C2F\u0C02"],
     high: ["\u0C05\u0C27\u0C3F\u0C15", "\u0C39\u0C48"],
     extraHigh: ["\u0C05\u0C24\u0C4D\u0C2F\u0C27\u0C3F\u0C15", "\u0C0E\u0C15\u0C4D\u0C38\u0C4D\u200C\u0C1F\u0C4D\u0C30\u0C3E \u0C39\u0C48"],
@@ -2697,7 +2712,8 @@ var te = {
 // src/dom/locale/tl.ts
 var tl = {
   configurationAxes: {
-    effort: ["Pagsisikap", "Pag-iisip"],
+    model: ["Mag-select ng model"],
+    effort: ["Pagsisikap", "Pag-iisip", "Power"],
     speed: ["Bilis"]
   },
   configurationOptions: {
@@ -2726,8 +2742,8 @@ var tl = {
 var th = {
   configurationAxes: {
     power: ["\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E04\u0E27\u0E32\u0E21\u0E2A\u0E32\u0E21\u0E32\u0E23\u0E16"],
-    model: ["\u0E42\u0E21\u0E40\u0E14\u0E25"],
-    effort: ["\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E01\u0E32\u0E23\u0E04\u0E34\u0E14"],
+    model: ["\u0E42\u0E21\u0E40\u0E14\u0E25", "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E42\u0E21\u0E40\u0E14\u0E25"],
+    effort: ["\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E01\u0E32\u0E23\u0E04\u0E34\u0E14", "\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E04\u0E27\u0E32\u0E21\u0E2A\u0E32\u0E21\u0E32\u0E23\u0E16"],
     speed: ["\u0E04\u0E27\u0E32\u0E21\u0E40\u0E23\u0E47\u0E27"],
     advanced: ["\u0E02\u0E31\u0E49\u0E19\u0E2A\u0E39\u0E07"]
   },
@@ -2765,8 +2781,8 @@ var th = {
 var bn = {
   configurationAxes: {
     power: ["\u0995\u09CD\u09B7\u09AE\u09A4\u09BE"],
-    model: ["\u09AE\u09A1\u09C7\u09B2"],
-    effort: ["\u09AA\u09CD\u09B0\u099A\u09C7\u09B7\u09CD\u099F\u09BE"],
+    model: ["\u09AE\u09A1\u09C7\u09B2", "\u09AE\u09A1\u09C7\u09B2 \u09AC\u09C7\u099B\u09C7 \u09A8\u09BF\u09A8"],
+    effort: ["\u09AA\u09CD\u09B0\u099A\u09C7\u09B7\u09CD\u099F\u09BE", "\u0995\u09CD\u09B7\u09AE\u09A4\u09BE"],
     speed: ["\u0997\u09A4\u09BF"],
     advanced: ["\u0989\u09A8\u09CD\u09A8\u09A4"]
   },
@@ -2817,7 +2833,8 @@ var bn = {
 var ms = {
   configurationAxes: {
     power: ["Kuasa"],
-    effort: ["Usaha"],
+    model: ["Pilih model"],
+    effort: ["Usaha", "Kuasa"],
     speed: ["Kelajuan"],
     advanced: ["Lanjutan"]
   },
@@ -2865,8 +2882,8 @@ var ms = {
 var so = {
   configurationAxes: {
     power: ["Awood"],
-    model: ["Moodel"],
-    effort: ["Dadaal"],
+    model: ["Moodel", "Dooro moodelka"],
+    effort: ["Dadaal", "Awood"],
     speed: ["Xawaare"],
     advanced: ["Horumarsan"]
   },
@@ -2915,7 +2932,8 @@ var so = {
 var nl = {
   configurationAxes: {
     power: ["Rekenkracht"],
-    effort: ["Inspanning"],
+    model: ["Model selecteren"],
+    effort: ["Inspanning", "Rekenkracht"],
     speed: ["Snelheid"],
     advanced: ["Geavanceerd"]
   },
@@ -2958,8 +2976,8 @@ var nl = {
 var sv = {
   configurationAxes: {
     power: ["Prestanda"],
-    model: ["Modell"],
-    effort: ["Resonemangsniv\xE5"],
+    model: ["Modell", "V\xE4lj modell"],
+    effort: ["Resonemangsniv\xE5", "Prestanda"],
     speed: ["Hastighet"],
     advanced: ["Avancerat"]
   },
@@ -3002,8 +3020,8 @@ var sv = {
 var lv = {
   configurationAxes: {
     power: ["Jauda"],
-    model: ["Modelis"],
-    effort: ["P\u016Bles"],
+    model: ["Modelis", "Izv\u0113l\u0113ties modeli"],
+    effort: ["P\u016Bles", "Jauda"],
     speed: ["\u0100trums"],
     advanced: ["Papildu"]
   },
@@ -3048,8 +3066,8 @@ var lv = {
 var mk = {
   configurationAxes: {
     power: ["\u041C\u043E\u045C\u043D\u043E\u0441\u0442"],
-    model: ["\u041C\u043E\u0434\u0435\u043B"],
-    effort: ["\u041D\u0430\u043F\u043E\u0440"],
+    model: ["\u041C\u043E\u0434\u0435\u043B", "\u0418\u0437\u0431\u0435\u0440\u0438 \u043C\u043E\u0434\u0435\u043B"],
+    effort: ["\u041D\u0430\u043F\u043E\u0440", "\u041C\u043E\u045C\u043D\u043E\u0441\u0442"],
     speed: ["\u0411\u0440\u0437\u0438\u043D\u0430"],
     advanced: ["\u041D\u0430\u043F\u0440\u0435\u0434\u043D\u043E"]
   },
@@ -3097,8 +3115,8 @@ var mk = {
 var sq = {
   configurationAxes: {
     power: ["Fuqia"],
-    model: ["Modeli"],
-    effort: ["P\xEBrpjekje", "Arsyetim"],
+    model: ["Modeli", "Zgjidh modelin"],
+    effort: ["P\xEBrpjekje", "Arsyetim", "Fuqia"],
     speed: ["Shpejt\xEBsi"],
     advanced: ["T\xEB avancuara"]
   },
@@ -3146,7 +3164,8 @@ var sq = {
 var sl = {
   configurationAxes: {
     power: ["Mo\u010D"],
-    effort: ["Napor"],
+    model: ["Izberite model"],
+    effort: ["Napor", "Mo\u010D"],
     speed: ["Hitrost"],
     advanced: ["Napredno"]
   },
@@ -3195,8 +3214,8 @@ var sl = {
 var sr = {
   configurationAxes: {
     power: ["\u0421\u043D\u0430\u0433\u0430"],
-    model: ["\u041C\u043E\u0434\u0435\u043B"],
-    effort: ["\u041D\u0438\u0432\u043E", "\u041D\u0430\u043F\u043E\u0440"],
+    model: ["\u041C\u043E\u0434\u0435\u043B", "\u0418\u0437\u0430\u0431\u0435\u0440\u0438 \u043C\u043E\u0434\u0435\u043B"],
+    effort: ["\u041D\u0438\u0432\u043E", "\u041D\u0430\u043F\u043E\u0440", "\u0421\u043D\u0430\u0433\u0430"],
     speed: ["\u0411\u0440\u0437\u0438\u043D\u0430"],
     advanced: ["\u041D\u0430\u043F\u0440\u0435\u0434\u043D\u043E"]
   },
@@ -3244,8 +3263,8 @@ var sr = {
 var mn = {
   configurationAxes: {
     power: ["\u0427\u0430\u0434\u0430\u043B"],
-    model: ["\u0417\u0430\u0433\u0432\u0430\u0440"],
-    effort: ["\u0425\u04AF\u0447\u0438\u043D \u0447\u0430\u0440\u043C\u0430\u0439\u043B\u0442", "\u0422\u043E\u043E\u0446\u043E\u043E\u043B\u043E\u043B"],
+    model: ["\u0417\u0430\u0433\u0432\u0430\u0440", "\u0417\u0430\u0433\u0432\u0430\u0440 \u0441\u043E\u043D\u0433\u043E\u0445"],
+    effort: ["\u0425\u04AF\u0447\u0438\u043D \u0447\u0430\u0440\u043C\u0430\u0439\u043B\u0442", "\u0422\u043E\u043E\u0446\u043E\u043E\u043B\u043E\u043B", "\u0427\u0430\u0434\u0430\u043B"],
     speed: ["\u0425\u0443\u0440\u0434"],
     advanced: ["\u0414\u044D\u0432\u0448\u0438\u043B\u0442\u044D\u0442"]
   },
@@ -3296,8 +3315,8 @@ var mn = {
 var my = {
   configurationAxes: {
     power: ["\u1005\u103D\u1019\u103A\u1038\u1021\u102C\u1038"],
-    model: ["\u1019\u1031\u102C\u103A\u1012\u101A\u103A"],
-    effort: ["\u1021\u102C\u1038\u1011\u102F\u1010\u103A\u1019\u103E\u102F"],
+    model: ["\u1019\u1031\u102C\u103A\u1012\u101A\u103A", "\u1019\u1031\u102C\u103A\u1012\u101A\u103A \u101B\u103D\u1031\u1038\u1001\u103B\u101A\u103A\u101B\u1014\u103A"],
+    effort: ["\u1021\u102C\u1038\u1011\u102F\u1010\u103A\u1019\u103E\u102F", "\u1005\u103D\u1019\u103A\u1038\u1021\u102C\u1038"],
     speed: ["\u1021\u1019\u103C\u1014\u103A\u1014\u103E\u102F\u1014\u103A\u1038"],
     advanced: ["\u1021\u1006\u1004\u1037\u103A\u1019\u103C\u1004\u1037\u103A"]
   },
@@ -3346,8 +3365,8 @@ var my = {
 var ta = {
   configurationAxes: {
     power: ["\u0BA4\u0BBF\u0BB1\u0BA9\u0BCD"],
-    model: ["\u0BAE\u0BBE\u0BA4\u0BBF\u0BB0\u0BBF", "\u0BAE\u0BBE\u0B9F\u0BB2\u0BCD"],
-    effort: ["\u0BAE\u0BC1\u0BAF\u0BB1\u0BCD\u0B9A\u0BBF", "\u0B9A\u0BBF\u0BA8\u0BCD\u0BA4\u0BA9\u0BC8 \u0B85\u0BB3\u0BB5\u0BC1"],
+    model: ["\u0BAE\u0BBE\u0BA4\u0BBF\u0BB0\u0BBF", "\u0BAE\u0BBE\u0B9F\u0BB2\u0BCD", "\u0BAE\u0BBE\u0B9F\u0BB2\u0BC8\u0BA4\u0BCD \u0BA4\u0BC7\u0BB0\u0BCD\u0BB5\u0BC1\u0B9A\u0BC6\u0BAF\u0BCD"],
+    effort: ["\u0BAE\u0BC1\u0BAF\u0BB1\u0BCD\u0B9A\u0BBF", "\u0B9A\u0BBF\u0BA8\u0BCD\u0BA4\u0BA9\u0BC8 \u0B85\u0BB3\u0BB5\u0BC1", "\u0BA4\u0BBF\u0BB1\u0BA9\u0BCD"],
     speed: ["\u0BB5\u0BC7\u0B95\u0BAE\u0BCD"],
     advanced: ["\u0BAE\u0BC7\u0BAE\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F"]
   },
@@ -3355,8 +3374,8 @@ var ta = {
     instant: ["\u0B89\u0B9F\u0BA9\u0B9F\u0BBF"],
     light: ["\u0B95\u0BC1\u0BB1\u0BC8\u0BB5\u0BC1"],
     medium: ["\u0BAE\u0BBF\u0BA4\u0BAE\u0BBE\u0BA9"],
-    high: ["\u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9"],
-    extraHigh: ["\u0BAE\u0BBF\u0B95 \u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9"],
+    high: ["\u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9", "\u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BCD"],
+    extraHigh: ["\u0BAE\u0BBF\u0B95 \u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9", "\u0BAE\u0BBF\u0B95 \u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BCD"],
     max: ["\u0B85\u0BA4\u0BBF\u0B95\u0BAA\u0B9F\u0BCD\u0B9A\u0BAE\u0BCD"],
     ultra: ["\u0B85\u0BB2\u0BCD\u0B9F\u0BCD\u0BB0\u0BBE"],
     standard: ["\u0BB5\u0BB4\u0B95\u0BCD\u0B95\u0BAE\u0BBE\u0BA9"],
@@ -3371,11 +3390,11 @@ var ta = {
   addFilesOpenerCandidates: ["\u0B95\u0BCB\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BC8\u0BAF\u0BC1\u0BAE\u0BCD \u0BAE\u0BC7\u0BB2\u0BC1\u0BAE\u0BCD \u0BAA\u0BB2\u0BB5\u0BB1\u0BCD\u0BB1\u0BC8\u0BAF\u0BC1\u0BAE\u0BCD \u0B9A\u0BC7\u0BB0\u0BCD"],
   addPhotosFilesMenuItem: ["\u0BAA\u0B9F\u0B99\u0BCD\u0B95\u0BB3\u0BCD \u0BAE\u0BB1\u0BCD\u0BB1\u0BC1\u0BAE\u0BCD \u0B83\u0BAA\u0BC8\u0BB2\u0BCD\u0B95\u0BB3\u0BC8\u0BAA\u0BCD \u0BAA\u0BA4\u0BBF\u0BB5\u0BC7\u0BB1\u0BCD\u0BB1\u0BC1"],
   copyResponse: ["\u0BAA\u0BA4\u0BBF\u0BB2\u0BC8 \u0BA8\u0B95\u0BB2\u0BC6\u0B9F\u0BC1\u0B95\u0BCD\u0B95\u0BB2\u0BBE\u0BAE\u0BCD"],
-  modeLabels: ["\u0B89\u0B9F\u0BA9\u0B9F\u0BBF", "\u0BA8\u0B9F\u0BC1\u0BA4\u0BCD\u0BA4\u0BB0", "\u0B89\u0BAF\u0BB0\u0BCD", "\u0BAE\u0BBF\u0B95 \u0B89\u0BAF\u0BB0\u0BCD\u0BB5\u0BC1", "\u0BAA\u0BCD\u0BB0\u0BCB", "\u0BAE\u0BBF\u0BA4\u0BAE\u0BBE\u0BA9", "\u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9", "\u0BAE\u0BBF\u0B95 \u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9"],
+  modeLabels: ["\u0B89\u0B9F\u0BA9\u0B9F\u0BBF", "\u0BA8\u0B9F\u0BC1\u0BA4\u0BCD\u0BA4\u0BB0", "\u0B89\u0BAF\u0BB0\u0BCD", "\u0BAE\u0BBF\u0B95 \u0B89\u0BAF\u0BB0\u0BCD\u0BB5\u0BC1", "\u0BAA\u0BCD\u0BB0\u0BCB", "\u0BAE\u0BBF\u0BA4\u0BAE\u0BBE\u0BA9", "\u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9", "\u0BAE\u0BBF\u0B95 \u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9", "\u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BCD"],
   modeOptions: {
     instant: ["\u0B89\u0B9F\u0BA9\u0B9F\u0BBF"],
     medium: ["\u0BA8\u0B9F\u0BC1\u0BA4\u0BCD\u0BA4\u0BB0", "\u0BAE\u0BBF\u0BA4\u0BAE\u0BBE\u0BA9"],
-    high: ["\u0B89\u0BAF\u0BB0\u0BCD", "\u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9"],
+    high: ["\u0B89\u0BAF\u0BB0\u0BCD", "\u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9", "\u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BCD"],
     extraHigh: ["\u0BAE\u0BBF\u0B95 \u0B89\u0BAF\u0BB0\u0BCD\u0BB5\u0BC1", "\u0BAE\u0BBF\u0B95 \u0B85\u0BA4\u0BBF\u0B95\u0BAE\u0BBE\u0BA9"],
     pro: ["\u0BAA\u0BCD\u0BB0\u0BCB"]
   },

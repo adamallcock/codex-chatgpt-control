@@ -7,12 +7,14 @@ import type { LocaleContribution } from "./types.js";
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
  * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, Chat/Work surface labels updated 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible ChatGPT sessions.
+ *
+ * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.
  */
 export const ptPT = {
   configurationAxes: {
     power: ["Capacidade"],
-    model: ["Modelo"],
-    effort: ["Esforço"],
+    model: ["Modelo", "Selecionar modelo"],
+    effort: ["Esforço", "Capacidade"],
     speed: ["Velocidade"],
     advanced: ["Avançado"],
   },
@@ -20,7 +22,7 @@ export const ptPT = {
     instant: ["Instantâneo"],
     light: ["Leve"],
     medium: ["Médio"],
-    high: ["Elevado"],
+    high: ["Elevado", "Elevada"],
     extraHigh: ["Muito elevado"],
     max: ["Máx."],
     standard: ["Padrão"],
@@ -35,11 +37,11 @@ export const ptPT = {
   addFilesOpenerCandidates: ["Adicionar ficheiros e mais"],
   addPhotosFilesMenuItem: ["Carregar fotos e ficheiros"],
   copyResponse: ["Copiar resposta"],
-  modeLabels: ["Instantâneo", "Média", "Alta", "Máximo", "Médio", "Elevado", "Muito elevado"],
+  modeLabels: ["Instantâneo", "Média", "Alta", "Máximo", "Médio", "Elevado", "Muito elevado", "Elevada"],
   modeOptions: {
     instant: ["Instantâneo"],
     medium: ["Média", "Médio"],
-    high: ["Alta", "Elevado"],
+    high: ["Alta", "Elevado", "Elevada"],
     extraHigh: ["Máximo", "Muito elevado"],
   },
   modeOpenerExtra: ["Configurar..."],

@@ -7,17 +7,19 @@ import type { LocaleContribution } from "./types.js";
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
  * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, Chat/Work surface labels updated 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible ChatGPT sessions.
+ *
+ * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.
  */
 export const mr = {
   configurationAxes: {
     power: ["पॉवर"],
-    model: ["मॉडेल"],
-    effort: ["प्रयत्न"],
+    model: ["मॉडेल", "मॉडेल निवडा"],
+    effort: ["प्रयत्न", "पॉवर"],
     speed: ["वेग"],
     advanced: ["प्रगत"],
   },
   configurationOptions: {
-    instant: ["झटपट"],
+    instant: ["झटपट", "इन्स्टंट"],
     light: ["हलका"],
     medium: ["मध्यम"],
     high: ["उच्च"],
@@ -36,9 +38,9 @@ export const mr = {
   addFilesOpenerCandidates: ["फाइल्स जोडा आणि इतर अनेक गोष्टी करा"],
   addPhotosFilesMenuItem: ["फोटो आणि फाइल्स अपलोड करा"],
   copyResponse: ["प्रतिसाद कॉपी करा"],
-  modeLabels: ["झटपट", "मध्यम", "उच्च", "अतिउच्च", "प्रो", "अत्युच्च"],
+  modeLabels: ["झटपट", "मध्यम", "उच्च", "अतिउच्च", "प्रो", "अत्युच्च", "इन्स्टंट"],
   modeOptions: {
-    instant: ["झटपट"],
+    instant: ["झटपट", "इन्स्टंट"],
     medium: ["मध्यम"],
     high: ["उच्च"],
     extraHigh: ["अतिउच्च", "अत्युच्च"],

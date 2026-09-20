@@ -11,11 +11,14 @@ import type { LocaleContribution } from "./types.js";
  * ChatGPT sessions. The 2026-06-15 stop-control candidate matched the Send label
  * and is intentionally omitted until a new mid-generation capture verifies a
  * distinct Dutch stop label.
+ *
+ * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.
  */
 export const nl = {
   configurationAxes: {
     power: ["Rekenkracht"],
-    effort: ["Inspanning"],
+    model: ["Model selecteren"],
+    effort: ["Inspanning", "Rekenkracht"],
     speed: ["Snelheid"],
     advanced: ["Geavanceerd"],
   },

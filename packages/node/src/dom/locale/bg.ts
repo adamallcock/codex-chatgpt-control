@@ -7,12 +7,14 @@ import type { LocaleContribution } from "./types.js";
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
  * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, Chat/Work surface labels updated 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible ChatGPT sessions.
+ *
+ * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.
  */
 export const bg = {
   configurationAxes: {
     power: ["Мощност"],
-    model: ["Модел"],
-    effort: ["Усилие"],
+    model: ["Модел", "Изберете модел"],
+    effort: ["Усилие", "Мощност"],
     speed: ["Скорост"],
     advanced: ["Разширени"],
   },
