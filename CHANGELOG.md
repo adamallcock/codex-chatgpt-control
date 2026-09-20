@@ -6,7 +6,12 @@
   `New chat in`, verifies that composer fills reconcile before submission, and
   reads textarea values when content text is empty.
 - Keeps reviewed Power/Advanced locale evidence replays idempotent while
-  preserving the Dutch stop-control safety exception and its provenance note.
+  preserving the Dutch stop-control safety exception and its provenance note;
+  the capture tool now handles slider-based simplified Chat/Work popovers,
+  restores probed Power values, and respects RTL keyboard direction.
+- Refreshes all 64 advertised non-English locale registries from the visible
+  simplified Chat/Work surface and removes locale-specific ordinal metadata
+  from captured Power labels before reviewed application.
 - Tightens visible 404 blocker matching, tolerates independent npm/PyPI
   propagation during release verification, and updates Vitest past the
   `@vitest/mocker` path-traversal advisory.
