@@ -30,6 +30,8 @@ type SurfaceSnapshot = {
   rootBudgetExceeded?: true;
   mainText: string;
   selectedSurfaceLabels?: string[];
+  /** Simplified Work popover owns the independent structural Fast checkbox. */
+  workPopoverOpen?: boolean;
 };
 
 const CHATGPT_HOME = "https://chatgpt.com/";
@@ -299,6 +301,9 @@ export function detectExperienceFromSnapshot(snapshot: SurfaceSnapshot): DetectE
   if (workConfigurationOpener) {
     evidence.push({ source: "control", label: "Work configuration opener" });
   }
+  if (snapshot.workPopoverOpen === true) {
+    evidence.push({ source: "control", label: "Work configuration popover" });
+  }
 
   if (/\/work(?:\/|$|\?)/.test(url)) {
     evidence.push({ source: "url", label: snapshot.url });
@@ -314,6 +319,7 @@ export function detectExperienceFromSnapshot(snapshot: SurfaceSnapshot): DetectE
     // "Chat with ChatGPT" textbox name. Its compound model + effort opener is
     // therefore strong enough to disambiguate that continuation surface.
     + (workConfigurationOpener ? 6 : 0)
+    + (snapshot.workPopoverOpen === true ? 10 : 0)
     + (/\/work(?:\/|$|\?)/.test(url) ? 3 : 0)
     + (containsAny(mainText, ["work on something else", "work on anything"]) ? 2 : 0);
   const chatScore = chatComposer.length * 4
@@ -439,7 +445,16 @@ export async function readSurfaceSnapshot(page: PageLike): Promise<SurfaceSnapsh
       .map(normalize)
       .filter(label => wantedSurfaceLabels.has(normalizeComparable(label)))))
       .slice(0, 4);
-    return { composerLabels, mainControls, composerControls, controlGroups, mainText, selectedSurfaceLabels };
+    const workPopoverOpen = Array.from(document.querySelectorAll(
+      '[data-testid="composer-intelligence-picker-content"]'
+    )).filter(visible).some(root => {
+      const speed = Array.from(root.querySelectorAll(
+        '[role="menuitemcheckbox"][data-fast-mode-enabled]'
+      )).filter(visible);
+      const sliders = Array.from(root.querySelectorAll('[role="slider"]'));
+      return speed.length === 1 && sliders.length === 1;
+    });
+    return { composerLabels, mainControls, composerControls, controlGroups, mainText, selectedSurfaceLabels, workPopoverOpen };
   }, [
     ...localeLabels.experienceOptions.chat,
     ...localeLabels.experienceOptions.work,

@@ -12,6 +12,9 @@
 - Refreshes all 64 advertised non-English locale registries from the visible
   simplified Chat/Work surface and removes locale-specific ordinal metadata
   from captured Power labels before reviewed application.
+- Keeps strict configuration verification stable while Chat exposes a combined
+  generation-and-effort opener, Work task controls hydrate, and the independent
+  Fast toggle finishes its opening transition.
 - Tightens visible 404 blocker matching and updates Vitest past the
   `@vitest/mocker` path-traversal advisory.
 

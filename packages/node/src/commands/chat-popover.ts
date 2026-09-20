@@ -403,7 +403,13 @@ export async function selectChatPopoverSpeed(page: PageLike, labels: string[]): 
   const initial = (await readChatPopover(page)).snapshot;
   if (initial === undefined) return undefined;
   try {
-    const simple = await setChatPopoverView(page, "simple");
+    const opened = await setChatPopoverView(page, "simple");
+    if (opened?.speed === undefined || opened.speedIndex === undefined) return undefined;
+    // The Radix menu becomes structurally readable before its opening motion
+    // is complete. Wait for actionability, then bind the click to a fresh
+    // snapshot instead of clicking the partially animated control.
+    await waitForPopoverTransition(page, 200);
+    const simple = (await readChatPopover(page)).snapshot;
     if (simple?.speed === undefined || simple.speedIndex === undefined) return undefined;
     const desired = (["Standard", "Fast"] as const).filter(value => labels.some(label => normalizeForLabelMatch(label) === normalizeForLabelMatch(value)));
     if (desired.length !== 1) return undefined;
@@ -411,7 +417,7 @@ export async function selectChatPopoverSpeed(page: PageLike, labels: string[]): 
     const candidates = observedRoot(page, simple)?.locator?.('[role="menuitemcheckbox"][data-fast-mode-enabled]');
     const locator = candidates?.nth?.(simple.speedIndex) ?? (simple.speedIndex === 0 ? candidates : undefined);
     if (locator?.click === undefined || locator.evaluate === undefined || await locator.count?.() !== 1) return undefined;
-    const state = await locator.evaluate(element => {
+    const readActionableState = () => locator.evaluate!(element => {
       let current: Node | null = element;
       let owned = false, simple = false, open = false;
       for (let depth = 0; current !== null && depth < 64; depth += 1) {
@@ -421,7 +427,10 @@ export async function selectChatPopoverSpeed(page: PageLike, labels: string[]): 
           || node.getAttribute("aria-disabled") === "true" || node.getAttribute("data-active") === "false" || node.getAttribute("data-locked") === "true") return undefined;
         const style = window.getComputedStyle(node);
         if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || style.pointerEvents === "none") return undefined;
-        if (node.getAttribute("role") === "menu" && node.getAttribute("data-state") === "open") open = true;
+        if (node.getAttribute("role") === "menu" && node.getAttribute("data-state") === "open") {
+          open = true;
+          if (style.opacity !== "1") return undefined;
+        }
         if (node.getAttribute("data-testid") === "composer-intelligence-picker-content") owned = true;
         if (node.getAttribute("data-view") === "simple" && node.getAttribute("data-model-selection-view") === "true") simple = true;
         current = current.parentNode;
@@ -430,12 +439,21 @@ export async function selectChatPopoverSpeed(page: PageLike, labels: string[]): 
       if (current?.nodeType === 1 || !owned || !simple || !open || rect.width <= 0 || rect.height <= 0
         || element.getAttribute("role") !== "menuitemcheckbox" || element.getAttribute("data-visible") !== "true") return undefined;
       const checked = element.getAttribute("aria-checked");
-      return element.getAttribute("data-fast-mode-enabled") === checked ? checked : undefined;
+      return element.getAttribute("data-fast-mode-enabled") === checked ? checked ?? undefined : undefined;
     }).catch(() => undefined);
+    let state: string | undefined;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      state = await readActionableState();
+      if (state === String(simple.speed === "Fast")) break;
+      if (attempt + 1 < 8) await waitForPopoverTransition(page, 100);
+    }
     if (state !== String(simple.speed === "Fast")) return undefined;
     await locator.click();
-    await waitForPopoverTransition(page, 150);
-    const after = (await readChatPopover(page)).snapshot;
-    return after !== undefined && after.speed === desired[0] ? after.speed : undefined;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      await waitForPopoverTransition(page, attempt === 0 ? 150 : 100);
+      const after = (await readChatPopover(page)).snapshot;
+      if (after?.speed === desired[0]) return desired[0];
+    }
+    return undefined;
   } finally { await setChatPopoverView(page, initial.view); }
 }
