@@ -1008,6 +1008,8 @@ export type LocatorLike = {
   fill?: (value: string, options?: unknown) => Promise<void>;
   textContent?: (options?: unknown) => Promise<string | null>;
   innerText?: (options?: unknown) => Promise<string>;
+  /** Present on real input/textarea locators; throws on contenteditable elements. */
+  inputValue?: (options?: unknown) => Promise<string>;
   innerHTML?: (options?: unknown) => Promise<string>;
   count?: () => Promise<number>;
   allTextContents?: (options?: BrowserOperationOptions) => Promise<string[]>;

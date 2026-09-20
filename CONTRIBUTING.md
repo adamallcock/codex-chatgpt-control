@@ -2,6 +2,12 @@
 
 Contributions should preserve the narrow scope: Codex agents controlling visible ChatGPT web sessions through explicit browser-bridge operations.
 
+> **This repository is a generated mirror.** `docs/`, `packages/`, `plugins/`, `scripts/`
+> and `skills/` are rebuilt in full from a private source repository on every release, so a
+> pull request touching those paths cannot be merged here — the next export would overwrite
+> it. Please open an issue describing the change instead; a patch or diff in the issue is
+> very welcome, and fixes are applied upstream and ship in the next release.
+
 Before opening a PR:
 
 1. Run the Node deterministic gates in `packages/node`.

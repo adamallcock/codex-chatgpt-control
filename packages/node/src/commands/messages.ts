@@ -13,6 +13,7 @@ import type {
   CompletionState,
   ComposeArgs,
   ComposeData,
+  LocatorLike,
   MessageStatusArgs,
   MessageStatusData,
   PageLike,
@@ -33,6 +34,14 @@ import { withCommandOutputText } from "./output.js";
 import { createSingleFlightProbe, type ProbeResult } from "./probes.js";
 import { ensurePage } from "./session.js";
 import { withTimeout } from "./timeouts.js";
+
+/**
+ * Composer readback settle budget. Short on purpose: this runs before every submit, and a
+ * genuine lost fill should surface quickly rather than stall the command.
+ */
+const COMPOSER_SETTLE_TIMEOUT_MS = 2_000;
+const COMPOSER_SETTLE_INTERVAL_MS = 100;
+const COMPOSER_SETTLE_ATTEMPTS = 20;
 
 export type CompletionSnapshot = {
   textStableForMs: number;
@@ -87,10 +96,11 @@ export async function composeMessage(
 
     await textbox.click?.();
     await textbox.fill?.(text);
-    const actual = normalizeWhitespace(await readLocatorText(textbox));
-    const wanted = normalizeWhitespace(text);
 
-    if (actual !== wanted && actual.length > 0) {
+    const wanted = normalizeWhitespace(text);
+    const actual = await settleComposerText(page, textbox, wanted, args.timeoutMs);
+
+    if (actual !== wanted) {
       return {
         ok: false,
         status: "error",
@@ -1393,14 +1403,65 @@ function waitTargetReached(
   return assistantTargetReached && turnTargetReached;
 }
 
-async function readLocatorText(locator: { innerText?: () => Promise<string>; textContent?: () => Promise<string | null> }): Promise<string> {
+/**
+ * Reads the composer's current text.
+ *
+ * A `<textarea>` composer holds its text in `value`, not in `innerText`/`textContent`, so a
+ * text-only read reports an empty field for a fill that did land. `inputValue()` throws on a
+ * contenteditable element, hence the ordered, individually guarded fallbacks.
+ */
+async function readLocatorText(locator: {
+  innerText?: () => Promise<string>;
+  inputValue?: () => Promise<string>;
+  textContent?: () => Promise<string | null>;
+}): Promise<string> {
   if (typeof locator.innerText === "function") {
-    return locator.innerText().catch(() => "");
+    const text = await locator.innerText().catch(() => "");
+    if (text.length > 0) {
+      return text;
+    }
+  }
+  if (typeof locator.inputValue === "function") {
+    const value = await locator.inputValue().catch(() => "");
+    if (value.length > 0) {
+      return value;
+    }
   }
   if (typeof locator.textContent === "function") {
     return locator.textContent().then(text => text ?? "").catch(() => "");
   }
   return "";
+}
+
+/**
+ * Re-reads the composer until it reflects `wanted`, or the settle budget expires.
+ *
+ * `fill()` resolves before ChatGPT's editor has necessarily reconciled its own DOM, so a
+ * single immediate read can observe a stale or empty field for a fill that did land. Polling
+ * keeps the verification fail-closed — an unfilled composer must never be reported as
+ * composed, because the caller submits next — without turning that ordinary race into a
+ * command failure. The budget is deliberately short and is additionally capped by the
+ * caller's own timeout when that is smaller.
+ */
+async function settleComposerText(
+  page: PageLike,
+  textbox: LocatorLike,
+  wanted: string,
+  timeoutMs?: number
+): Promise<string> {
+  const budgetMs = Math.min(timeoutMs ?? COMPOSER_SETTLE_TIMEOUT_MS, COMPOSER_SETTLE_TIMEOUT_MS);
+  const deadline = Date.now() + budgetMs;
+  let actual = normalizeWhitespace(await readLocatorText(textbox));
+
+  for (let attempt = 0; attempt < COMPOSER_SETTLE_ATTEMPTS && actual !== wanted; attempt += 1) {
+    if (Date.now() >= deadline) {
+      break;
+    }
+    await sleep(page, COMPOSER_SETTLE_INTERVAL_MS);
+    actual = normalizeWhitespace(await readLocatorText(textbox));
+  }
+
+  return actual;
 }
 
 async function sleep(page: PageLike, ms: number): Promise<void> {

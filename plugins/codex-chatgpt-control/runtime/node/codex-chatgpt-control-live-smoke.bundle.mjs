@@ -189,7 +189,7 @@ var RULES = [
   {
     kind: "not_found",
     message: "The requested ChatGPT conversation or page was not found.",
-    patterns: [/conversation not found/i, /404/i, /page not found/i]
+    patterns: [/conversation not found/i, /\b404\b/i, /page not found/i]
   }
 ];
 function classifyVisibleText(text) {
@@ -216,6 +216,7 @@ var en = {
   // --- Primary interaction path (accessible names) ---
   composerTextbox: ["Chat with ChatGPT", "Ask ChatGPT"],
   workComposerTextbox: ["Work on anything", "Work on something"],
+  projectComposerPrefixes: ["New chat in"],
   newWork: ["Work on something else", "New work", "New task"],
   sendButton: ["Send prompt"],
   searchChatsButton: ["Search chats"],
@@ -3462,6 +3463,7 @@ function flattenNestedLabel(localeList, group, id2) {
 var nonToolKeys = [
   "composerTextbox",
   "workComposerTextbox",
+  "projectComposerPrefixes",
   "newWork",
   "sendButton",
   "searchChatsButton",
@@ -3521,6 +3523,15 @@ function escapeRegExp(value) {
 }
 function anyLabelPattern(candidates) {
   return new RegExp(candidates.map(escapeRegExp).join("|"), "i");
+}
+function labelOrPrefixPattern(candidates, prefixes) {
+  const sources = candidates.map(escapeRegExp);
+  for (const prefix of prefixes) {
+    if (prefix.length > 0) {
+      sources.push(`^${escapeRegExp(prefix)}\\s+\\S`);
+    }
+  }
+  return new RegExp(sources.join("|"), "i");
 }
 
 // src/commands/timeouts.ts
@@ -7702,10 +7713,10 @@ function composerTextbox(page) {
     return requiredLocator(page, "[contenteditable='true'], textarea");
   }
   return page.getByRole("textbox", {
-    name: anyLabelPattern([
-      ...localeLabels.composerTextbox,
-      ...localeLabels.workComposerTextbox
-    ])
+    name: labelOrPrefixPattern(
+      [...localeLabels.composerTextbox, ...localeLabels.workComposerTextbox],
+      localeLabels.projectComposerPrefixes
+    )
   });
 }
 function sendButton(page) {
@@ -9133,6 +9144,9 @@ var ProbeTimeoutError = class extends Error {
 };
 
 // src/commands/messages.ts
+var COMPOSER_SETTLE_TIMEOUT_MS = 2e3;
+var COMPOSER_SETTLE_INTERVAL_MS = 100;
+var COMPOSER_SETTLE_ATTEMPTS = 20;
 function isResponseComplete(snapshot) {
   return snapshot.latestText.trim().length > 0 && !isTransientAssistantText(snapshot.latestText) && snapshot.textStableForMs >= snapshot.stableMs && snapshot.generation.observed && !snapshot.generation.active && !snapshot.generation.stopped && snapshot.hasResponseActions;
 }
@@ -9147,9 +9161,9 @@ async function composeMessage(env, args) {
     const text = args.mode === "append" ? `${await readLocatorText(textbox)}${args.text}` : args.text;
     await textbox.click?.();
     await textbox.fill?.(text);
-    const actual = normalizeWhitespace(await readLocatorText(textbox));
     const wanted = normalizeWhitespace(text);
-    if (actual !== wanted && actual.length > 0) {
+    const actual = await settleComposerText(page, textbox, wanted, args.timeoutMs);
+    if (actual !== wanted) {
       return {
         ok: false,
         status: "error",
@@ -10185,12 +10199,34 @@ function waitTargetReached(args, snapshot) {
 }
 async function readLocatorText(locator) {
   if (typeof locator.innerText === "function") {
-    return locator.innerText().catch(() => "");
+    const text = await locator.innerText().catch(() => "");
+    if (text.length > 0) {
+      return text;
+    }
+  }
+  if (typeof locator.inputValue === "function") {
+    const value = await locator.inputValue().catch(() => "");
+    if (value.length > 0) {
+      return value;
+    }
   }
   if (typeof locator.textContent === "function") {
     return locator.textContent().then((text) => text ?? "").catch(() => "");
   }
   return "";
+}
+async function settleComposerText(page, textbox, wanted, timeoutMs) {
+  const budgetMs = Math.min(timeoutMs ?? COMPOSER_SETTLE_TIMEOUT_MS, COMPOSER_SETTLE_TIMEOUT_MS);
+  const deadline = Date.now() + budgetMs;
+  let actual = normalizeWhitespace(await readLocatorText(textbox));
+  for (let attempt = 0; attempt < COMPOSER_SETTLE_ATTEMPTS && actual !== wanted; attempt += 1) {
+    if (Date.now() >= deadline) {
+      break;
+    }
+    await sleep(page, COMPOSER_SETTLE_INTERVAL_MS);
+    actual = normalizeWhitespace(await readLocatorText(textbox));
+  }
+  return actual;
 }
 async function sleep(page, ms2) {
   if (typeof page.waitForTimeout === "function") {

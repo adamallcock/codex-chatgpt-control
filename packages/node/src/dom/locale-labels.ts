@@ -23,4 +23,4 @@
  *
  * To add a new language, see `src/dom/locale/index.ts`.
  */
-export { localeLabels, anyLabelPattern, escapeRegExp } from "./locale/index.js";
+export { localeLabels, anyLabelPattern, labelOrPrefixPattern, escapeRegExp } from "./locale/index.js";

@@ -1,5 +1,5 @@
 import type { LocatorLike, PageLike } from "../types.js";
-import { anyLabelPattern, escapeRegExp, localeLabels } from "./locale-labels.js";
+import { anyLabelPattern, escapeRegExp, labelOrPrefixPattern, localeLabels } from "./locale-labels.js";
 
 // Language-sensitive label tokens are sourced from the locale registry; the structural
 // clauses (download attributes, file-backend hrefs, blob/data sources) are language-agnostic
@@ -52,10 +52,10 @@ export function composerTextbox(page: PageLike): LocatorLike {
     return requiredLocator(page, "[contenteditable='true'], textarea");
   }
   return page.getByRole("textbox", {
-    name: anyLabelPattern([
-      ...localeLabels.composerTextbox,
-      ...localeLabels.workComposerTextbox
-    ])
+    name: labelOrPrefixPattern(
+      [...localeLabels.composerTextbox, ...localeLabels.workComposerTextbox],
+      localeLabels.projectComposerPrefixes
+    )
   });
 }
 

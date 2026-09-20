@@ -2,6 +2,26 @@ import { describe, expect, it } from "vitest";
 import { mergeCapture } from "../../src/scripts/apply-intelligence-locale-captures.js";
 
 describe("apply intelligence locale captures", () => {
+  it("preserves a reviewed wrapped provenance note on replay", () => {
+    const source = [
+      "import type { LocaleContribution } from \"./types.js\";",
+      "",
+      "/**",
+      " * Dutch (nl-NL).",
+      " *",
+      " * Intelligence picker labels updated 2026-06-10, Chat/Work surface labels updated",
+      " * 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible",
+      " * ChatGPT sessions. The stop-control candidate is intentionally omitted.",
+      " */",
+      "export const nl = {",
+      "  modeLabels: [\"Direct\"],",
+      "} satisfies LocaleContribution;",
+      ""
+    ].join("\n");
+
+    expect(mergeCapture(source, [], {})).toBe(source);
+  });
+
   it("merges generation-state labels without dropping existing mode options", () => {
     const source = [
       "import type { LocaleContribution } from \"./types.js\";",

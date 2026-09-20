@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1a5
+
+- Inherits project-composer recognition, verified composer fill behavior, and
+  tighter visible 404 blocker matching from the shared TypeScript backend.
+- Retains the existing Python API and shared wire shapes; the locale replay
+  repair is confined to the TypeScript repository-maintenance CLI.
+
 ## 0.5.1a4
 
 - Preserves the explicit `download_blocked_by_browser` result without retries

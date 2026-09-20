@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.1-alpha.5
+
+- Recognizes project-scoped composers whose accessible name begins with
+  `New chat in`, verifies that composer fills reconcile before submission, and
+  reads textarea values when content text is empty.
+- Keeps reviewed Power/Advanced locale evidence replays idempotent while
+  preserving the Dutch stop-control safety exception and its provenance note.
+- Tightens visible 404 blocker matching, tolerates independent npm/PyPI
+  propagation during release verification, and updates Vitest past the
+  `@vitest/mocker` path-traversal advisory.
+
 ## 0.5.1-alpha.4
 
 - Detects Chrome's explicit blocked-download error page, avoids alternate

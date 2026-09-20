@@ -1,6 +1,6 @@
 {
   "name": "codex-chatgpt-control-repo",
-  "version": "0.5.1-alpha.4",
+  "version": "0.5.1-alpha.5",
   "private": true,
   "description": "Public source repo for the unofficial visible ChatGPT Chat and Work control SDK.",
   "type": "module",
