@@ -291,6 +291,7 @@ function flattenNestedLabel<TId extends string>(
 const nonToolKeys = [
   "composerTextbox",
   "workComposerTextbox",
+  "projectComposerPrefixes",
   "newWork",
   "sendButton",
   "searchChatsButton",
@@ -352,6 +353,7 @@ const builtConfigurationOptions = Object.fromEntries(
 export const localeLabels: {
   composerTextbox: string[];
   workComposerTextbox: string[];
+  projectComposerPrefixes: string[];
   newWork: string[];
   sendButton: string[];
   searchChatsButton: string[];
@@ -407,6 +409,28 @@ export function escapeRegExp(value: string): string {
  */
 export function anyLabelPattern(candidates: readonly string[]): RegExp {
   return new RegExp(candidates.map(escapeRegExp).join("|"), "i");
+}
+
+/**
+ * Builds a case-insensitive RegExp that matches any of `candidates` as a substring, OR any
+ * accessible name that STARTS WITH one of `prefixes` and is followed by further text.
+ *
+ * Project composers expose a dynamic accessible name — `New chat in <project name>` — whose
+ * tail is user-defined and cannot be enumerated. Anchoring each prefix at the start of the
+ * name, and requiring a non-space character after it, keeps the dynamic tail from widening
+ * the match to unrelated textboxes such as a search field.
+ */
+export function labelOrPrefixPattern(
+  candidates: readonly string[],
+  prefixes: readonly string[]
+): RegExp {
+  const sources = candidates.map(escapeRegExp);
+  for (const prefix of prefixes) {
+    if (prefix.length > 0) {
+      sources.push(`^${escapeRegExp(prefix)}\\s+\\S`);
+    }
+  }
+  return new RegExp(sources.join("|"), "i");
 }
 
 export type {

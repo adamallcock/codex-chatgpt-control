@@ -11,6 +11,7 @@ export const en = {
   // --- Primary interaction path (accessible names) ---
   composerTextbox: ["Chat with ChatGPT", "Ask ChatGPT"],
   workComposerTextbox: ["Work on anything", "Work on something"],
+  projectComposerPrefixes: ["New chat in"],
   newWork: ["Work on something else", "New work", "New task"],
   sendButton: ["Send prompt"],
   searchChatsButton: ["Search chats"],

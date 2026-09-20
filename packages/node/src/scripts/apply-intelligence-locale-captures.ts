@@ -580,6 +580,13 @@ function updateComment(source: string): string {
     /\n \* Omitted because they match English case-insensitively: `modeLabels`[\s\S]*?blocker copy\.\n/g,
     "\n * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.\n"
   );
+  // A locale can carry a reviewed, wrapped provenance note that explains why
+  // one capture slot was intentionally omitted. Treat the dated Power/Advanced
+  // marker as current instead of replacing the first line with the generic
+  // one-line note and corrupting the comment on every replay.
+  if (/^ \* .*Power\/Advanced selector labels updated 2026-08-08/m.test(text)) {
+    return text;
+  }
   text = text.replace(
     /^ \* Intelligence picker labels updated 2026-06-10[^\n]*$/m,
     UPDATE_NOTE

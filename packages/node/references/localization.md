@@ -69,6 +69,7 @@ Localized — lives in `src/dom/locale/en.ts` (English) and per-locale files, sa
 |---|---|---|
 | `composerTextbox` | composer textbox | `aria-label` |
 | `workComposerTextbox` | Work composer textbox | `aria-label` / placeholder |
+| `projectComposerPrefixes` | project composer textbox, whose name ends in the project name | leading text of the `aria-label`, e.g. `New chat in ` |
 | `newWork` | start-another-Work-task control | visible button or link text |
 | `experienceOptions.chat` / `.work` | Chat/Work switch controls | visible button, tab, link, or menu text |
 | `configurationAxes.*` | power/model/intelligence/effort/speed/advanced controls | visible or accessible text |
@@ -240,6 +241,12 @@ See [Verification](#verification).
 - **Project Sources labels are English-only until verified.** Do not translate the Sources
   tab, Add source button, or upload-files menu item from general language knowledge. Capture
   the actual localized Project UI first, then add only observed strings.
+- **`projectComposerPrefixes` is a prefix, not a whole label, and is English-only until
+  verified.** A project composer's accessible name is `New chat in <project name>`, so only
+  the fixed leading text belongs in the array — never a whole captured name, which would
+  pin the matcher to one project. Entries are matched start-anchored and must be followed
+  by further text. Capture the localized project page before adding a translation; a wrong
+  prefix silently fails to select the composer on that locale.
 
 ## Maintaining detection when ChatGPT changes its UI
 

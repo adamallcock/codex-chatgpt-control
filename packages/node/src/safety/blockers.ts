@@ -52,7 +52,7 @@ const RULES: BlockerRule[] = [
   {
     kind: "not_found",
     message: "The requested ChatGPT conversation or page was not found.",
-    patterns: [/conversation not found/i, /404/i, /page not found/i]
+    patterns: [/conversation not found/i, /\b404\b/i, /page not found/i]
   }
 ];
 

@@ -47,6 +47,12 @@ export type LocaleStrings = {
   // --- Primary interaction path (accessible names) ---
   composerTextbox: string | readonly string[];
   workComposerTextbox: string | readonly string[];
+  /**
+   * Leading text of a project composer's accessible name, e.g. `New chat in <project>`.
+   * The trailing project name is user-defined, so these are matched as START-ANCHORED
+   * prefixes followed by further text — never as bare substrings.
+   */
+  projectComposerPrefixes: string | readonly string[];
   newWork: string | readonly string[];
   sendButton: string | readonly string[];
   searchChatsButton: string | readonly string[];
