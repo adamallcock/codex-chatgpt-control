@@ -6,6 +6,7 @@ import { filterScenarios, requiredFailures, runScenario, writeReport } from "../
 import {
   chatActiveSelection,
   generatedFileAskCanProceed,
+  generatedFileDownloadShouldRetry,
   optionalScenarios,
   requiredScenarios,
   restoreChatExperience,
@@ -301,6 +302,40 @@ describe("live smoke harness", () => {
       status: "partial",
       data: { prompt: "generated file probe", complete: false, generationActive: true },
       warnings: [],
+      context: { timestamp: "2026-07-17T00:00:00.000Z" }
+    })).toBe(false);
+    expect(generatedFileAskCanProceed({
+      ok: false,
+      status: "partial",
+      data: {
+        prompt: "generated file probe",
+        complete: false,
+        generationActive: true,
+        submissionState: "submitted"
+      },
+      warnings: [],
+      context: { timestamp: "2026-07-17T00:00:00.000Z" }
+    })).toBe(true);
+  });
+
+  it("retries only a missing expected generated filename", () => {
+    expect(generatedFileDownloadShouldRetry({
+      ok: false,
+      status: "unsupported",
+      warnings: [],
+      blocker: {
+        kind: "download_unavailable",
+        code: "download_filename_not_found",
+        message: "not rendered yet",
+        resumable: true
+      },
+      context: { timestamp: "2026-07-17T00:00:00.000Z" }
+    })).toBe(true);
+    expect(generatedFileDownloadShouldRetry({
+      ok: false,
+      status: "blocked",
+      warnings: [],
+      blocker: { kind: "rate_limit", message: "try later", resumable: true },
       context: { timestamp: "2026-07-17T00:00:00.000Z" }
     })).toBe(false);
   });
