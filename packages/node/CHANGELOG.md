@@ -15,6 +15,8 @@
 - Keeps strict configuration verification stable while Chat exposes a combined
   generation-and-effort opener, Work task controls hydrate, and the independent
   Fast toggle finishes its opening transition.
+- Lets the release canary hand a confirmed submitted generation to its bounded
+  exact-filename download waiter instead of failing while the file still renders.
 - Tightens visible 404 blocker matching and updates Vitest past the
   `@vitest/mocker` path-traversal advisory.
 

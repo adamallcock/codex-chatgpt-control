@@ -991,11 +991,18 @@ export const optionalScenarios: LiveSmokeScenario[] = [
       read: true
     });
     if (!generatedFileAskCanProceed(asked)) return fail(meta, asked);
-    const result = await downloadLatestAttachment({
-      destDir: context.reportDir,
-      filenamePattern: "^chatgpt-live-smoke\\.csv$",
-      timeoutMs: 120000
-    }, env);
+    const downloadDeadline = Date.now() + 120000;
+    let result: CommandResult<unknown>;
+    do {
+      result = await downloadLatestAttachment({
+        destDir: context.reportDir,
+        filenamePattern: "^chatgpt-live-smoke\\.csv$",
+        timeoutMs: Math.max(1000, downloadDeadline - Date.now())
+      }, env);
+      if (!generatedFileDownloadShouldRetry(result) || Date.now() >= downloadDeadline) break;
+      if (env.page?.waitForTimeout !== undefined) await env.page.waitForTimeout(1000);
+      else await new Promise<void>(resolve => setTimeout(resolve, 1000));
+    } while (true);
     const download = typeof result.data === "object" && result.data !== null
       ? result.data as { path?: string; suggestedFilename?: string }
       : undefined;
@@ -1070,7 +1077,14 @@ export const optionalScenarios: LiveSmokeScenario[] = [
 
 export function generatedFileAskCanProceed(result: CommandResult<AskReadData>): boolean {
   return result.ok
-    || (result.status === "partial" && result.data?.generationActive !== true);
+    || (result.status === "partial"
+      && (result.data?.generationActive !== true || result.data?.submissionState === "submitted"));
+}
+
+export function generatedFileDownloadShouldRetry(result: CommandResult<unknown>): boolean {
+  return !result.ok
+    && result.blocker?.kind === "download_unavailable"
+    && result.blocker.code === "download_filename_not_found";
 }
 
 function scenario(
