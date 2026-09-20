@@ -4,6 +4,8 @@
 
 - Inherits project-composer recognition, verified composer fill behavior, and
   tighter visible 404 blocker matching from the shared TypeScript backend.
+- Inherits current Chat/Work configuration hydration and Fast-toggle stability
+  from the shared TypeScript backend without changing Python wire shapes.
 - Retains the existing Python API and shared wire shapes; the locale replay
   repair is confined to the TypeScript repository-maintenance CLI.
 

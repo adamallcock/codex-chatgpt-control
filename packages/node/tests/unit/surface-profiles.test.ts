@@ -220,6 +220,23 @@ describe("sanitized Chat and Work surface profiles", () => {
     ]));
   });
 
+  it("recognizes Work while its simplified configuration popover is open", () => {
+    const detected = detectExperienceFromSnapshot({
+      url: "https://chatgpt.com/c/sanitized-task",
+      composerLabels: ["Chat with ChatGPT"],
+      mainControls: ["Select effort", "Send prompt"],
+      mainText: "",
+      workPopoverOpen: true
+    });
+
+    expect(detected.experience).toBe("work");
+    expect(detected.confidence).toBe("high");
+    expect(detected.evidence).toContainEqual({
+      source: "control",
+      label: "Work configuration popover"
+    });
+  });
+
   it("uses the compound Work opener when the task composer exposes only the shared textbox name", () => {
     const detected = detectExperienceFromSnapshot({
       url: "https://chatgpt.com/c/sanitized-task",
@@ -276,6 +293,66 @@ describe("sanitized Chat and Work surface profiles", () => {
       speed: "Standard"
     });
     expect(page.configurationOpenCount()).toBe(1);
+  });
+
+  it("rechecks an expected Work task when its compound opener hydrates after the shared textbox", async () => {
+    const page = mainScopedWorkConfigurationPage();
+    const evaluate = page.evaluate!;
+    let surfaceReads = 0;
+    page.evaluate = async (fn, arg) => {
+      const source = String(fn);
+      if (source.includes("composerRoots") && source.includes("mainControls") && surfaceReads++ === 0) {
+        return {
+          composerLabels: ["Chat with ChatGPT"],
+          mainControls: [],
+          composerControls: [],
+          controlGroups: [],
+          mainText: "",
+          selectedSurfaceLabels: []
+        } as never;
+      }
+      return evaluate(fn, arg);
+    };
+
+    const result = await inspectConfiguration({ page }, {
+      experience: "work",
+      includeOptions: false,
+      timeoutMs: 1000
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.experience).toBe("work");
+    expect(surfaceReads).toBeGreaterThanOrEqual(2);
+  });
+
+  it("keeps the expected Work surface while re-observing a multi-axis selection", async () => {
+    const page = mainScopedWorkConfigurationPage();
+    const evaluate = page.evaluate!;
+    let surfaceReads = 0;
+    page.evaluate = async (fn, arg) => {
+      const source = String(fn);
+      if (source.includes("composerRoots") && source.includes("mainControls") && ++surfaceReads === 2) {
+        return {
+          composerLabels: ["Chat with ChatGPT"],
+          mainControls: [],
+          composerControls: [],
+          controlGroups: [],
+          mainText: "",
+          selectedSurfaceLabels: []
+        } as never;
+      }
+      return evaluate(fn, arg);
+    };
+
+    const result = await applyConfiguration({ page }, {
+      experience: "work",
+      desired: { model: "GPT-5.5", effort: "Light" },
+      timeoutMs: 1000
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.verified).toBe(true);
+    expect(result.data?.selected.map(item => item.axis)).toEqual(["model", "effort"]);
   });
 
   it("opens the Work Advanced panel before inspecting its axes", async () => {

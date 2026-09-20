@@ -52,6 +52,21 @@ describe("Chat model and effort configuration classification", () => {
     expect(result.active.modelVersion).toBe("Latest");
     expect(configurationMatchesSelection(result, { modelVersion: "Latest" })).toBe(true);
   });
+
+  it("separates the current generation badge from a combined Chat effort opener", () => {
+    const result = configurationInspectionFromSurface("chat", "chat_simplified_v1", [], {
+      openerValue: "6 Pro", axisRows: [], advancedVisible: false
+    }, [item("Latest", { role: "menuitemradio", checked: true })]);
+    expect(result.active).toEqual({ effort: "Pro", modelVersion: "Latest" });
+    expect(configurationMatchesSelection(result, { modelVersion: "Latest", effort: "Pro" })).toBe(true);
+  });
+
+  it("does not treat an unrecognized combined Chat opener as an effort", () => {
+    const result = configurationInspectionFromSurface("chat", "chat_simplified_v1", [], {
+      openerValue: "6 Mystery", axisRows: [], advancedVisible: false
+    }, []);
+    expect(result.active).toEqual({});
+  });
 });
 
 
@@ -376,6 +391,36 @@ describe("current Work composer configuration", () => {
     expect(data.active).toEqual({ model: "Default", effort: "Pro", speed: "Fast" });
     expect(await selectChatPopoverSpeed(fixture.page, ["Standard"])).toBe("Standard");
     expect(fixture.owner.attributes["data-view"]).toBe("simple");
+  });
+
+  it("waits for the live Fast toggle to become actionable and settle after the click", async () => {
+    const fixture = popoverDom(["Light", "Medium", "High", "Max", "Ultra", "Pro"], true);
+    const evaluate = fixture.page.evaluate!;
+    let transitionWaits = 0;
+    fixture.menu.style.opacity = "0.4";
+    fixture.page.waitForTimeout = async () => {
+      transitionWaits += 1;
+      if (transitionWaits >= 2) fixture.menu.style.opacity = "1";
+    };
+    let staleReads = 2;
+    fixture.page.evaluate = async (fn, arg) => {
+      if (fixture.speedClicks() === 0 || staleReads <= 0) return evaluate(fn, arg);
+      staleReads -= 1;
+      const checked = fixture.speed.attributes["aria-checked"];
+      const fast = fixture.speed.attributes["data-fast-mode-enabled"];
+      fixture.speed.attributes["aria-checked"] = "false";
+      fixture.speed.attributes["data-fast-mode-enabled"] = "false";
+      try { return await evaluate(fn, arg); }
+      finally {
+        if (checked === undefined) delete fixture.speed.attributes["aria-checked"];
+        else fixture.speed.attributes["aria-checked"] = checked;
+        if (fast === undefined) delete fixture.speed.attributes["data-fast-mode-enabled"];
+        else fixture.speed.attributes["data-fast-mode-enabled"] = fast;
+      }
+    };
+    expect(await selectChatPopoverSpeed(fixture.page, ["Fast"])).toBe("Fast");
+    expect(transitionWaits).toBeGreaterThanOrEqual(2);
+    expect(staleReads).toBe(0);
   });
 
   it("does not invent a speed axis when the checkbox is unavailable or inconsistent", async () => {
