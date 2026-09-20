@@ -113,6 +113,14 @@ That proves the reviewed labels for the observed account and rollout, not every
 plan, region, workspace, or staged experiment. Keep capability discovery and
 fail-closed shape checks even when a locale is present in the registry.
 
+The current simplified Chat and Work popover renders effort as a Power slider
+and model choices in a structural advanced view. The capture tool walks every
+bounded slider position, records its rendered value text, restores the original
+position, and reverses arrow-key direction for RTL layouts. Work speed may be
+rendered only as a Fast checkbox; when the complementary Standard label is not
+visible, the capture leaves that ordered option set empty so reviewed locale
+labels remain unchanged instead of inferring an unobserved translation.
+
 Create a read-only draft from an already-open authorized ChatGPT tab:
 
 ```bash

@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readLanguageCoverage } from "./locale-capture/language-coverage.js";
+import { cleanCapturedSliderLabel } from "./locale-capture/slider-label.js";
 
 type CaptureRecord = {
   status: "ok" | "blocked";
@@ -101,7 +102,7 @@ const ENGLISH_CONFIGURATION_OPTIONS: Record<ConfigurationOptionId, string> = {
   fast: "Fast",
 };
 const ENGLISH_COMPOSER_LABELS = new Set(["chat with chatgpt", "ask chatgpt", "work on anything", "work on something"]);
-const UPDATE_NOTE = " * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, Chat/Work surface labels updated 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible ChatGPT sessions.";
+const UPDATE_NOTE = " * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.";
 
 class ApplyUsageError extends Error {
   constructor(message: string, readonly exitCode = 2) {
@@ -213,7 +214,8 @@ function latestSuccessfulCaptures(jsonl: string): Map<string, CaptureRecord> {
 function observedNonEnglishLabels(record: CaptureRecord): string[] {
   const seen = new Set<string>();
   const labels: string[] = [];
-  for (const label of record.intelligenceLabels ?? []) {
+  for (const captured of record.intelligenceLabels ?? []) {
+    const label = cleanCapturedSliderLabel(captured);
     if (ENGLISH_MODE_LABELS.has(label) || seen.has(label)) continue;
     seen.add(label);
     labels.push(label);
@@ -229,7 +231,7 @@ function observedNonEnglishModeOptions(record: CaptureRecord): Partial<Record<In
   const modeOptions: Partial<Record<IntelligenceModeOptionId, string[]>> = {};
   for (let index = 0; index < INTELLIGENCE_MODE_OPTION_IDS.length; index += 1) {
     const id = INTELLIGENCE_MODE_OPTION_IDS[index]!;
-    const label = labels[index]!;
+    const label = cleanCapturedSliderLabel(labels[index]!);
     if (label !== ENGLISH_INTELLIGENCE_MODE_OPTIONS[id]) {
       modeOptions[id] = [label];
     }
@@ -319,13 +321,18 @@ function observedNonEnglishSurface(record: CaptureRecord): SurfaceContribution {
         "Effort"
       );
     } else if (row.axis === "speed") {
-      assignOrderedLocalizedOptions(
-        record.requestedLocale,
-        row.options,
-        SPEED_OPTION_IDS,
-        contribution.configurationOptions,
-        "Speed"
-      );
+      // A simplified Work popover may expose Fast only as a checkbox, without
+      // rendering the complementary Standard label. Preserve the prior
+      // reviewed pair when the capture intentionally leaves this slot empty.
+      if (row.options.length > 0) {
+        assignOrderedLocalizedOptions(
+          record.requestedLocale,
+          row.options,
+          SPEED_OPTION_IDS,
+          contribution.configurationOptions,
+          "Speed"
+        );
+      }
     }
   }
   return contribution;
@@ -353,7 +360,7 @@ function assignOrderedLocalizedOptions(
   }
   options.forEach((option, index) => {
     const id = ids[index]!;
-    const label = normalized(option.label);
+    const label = cleanCapturedSliderLabel(option.label);
     if (label.length > 0 && label !== ENGLISH_CONFIGURATION_OPTIONS[id]) {
       target[id] = dedupe([...(target[id] ?? []), label]);
     }
@@ -580,17 +587,9 @@ function updateComment(source: string): string {
     /\n \* Omitted because they match English case-insensitively: `modeLabels`[\s\S]*?blocker copy\.\n/g,
     "\n * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.\n"
   );
-  // A locale can carry a reviewed, wrapped provenance note that explains why
-  // one capture slot was intentionally omitted. Treat the dated Power/Advanced
-  // marker as current instead of replacing the first line with the generic
-  // one-line note and corrupting the comment on every replay.
-  if (/^ \* .*Power\/Advanced selector labels updated 2026-08-08/m.test(text)) {
-    return text;
-  }
-  text = text.replace(
-    /^ \* Intelligence picker labels updated 2026-06-10[^\n]*$/m,
-    UPDATE_NOTE
-  );
+  // Preserve every reviewed historical provenance note, including wrapped
+  // notes that explain why a capture slot was intentionally omitted. Add the
+  // current sweep marker alongside them and make replay idempotent.
   if (!text.includes(UPDATE_NOTE)) {
     text = text.replace(/\n \*\//, `\n *\n${UPDATE_NOTE}\n */`);
   }

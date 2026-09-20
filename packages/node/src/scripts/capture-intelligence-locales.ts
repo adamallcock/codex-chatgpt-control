@@ -3,9 +3,15 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { attachChatGPTBrowser } from "../browser/attach.js";
+import {
+  readChatPopover,
+  setChatPopoverView,
+  type ChatPopoverSnapshot
+} from "../commands/chat-popover.js";
 import { BROWSER_BRIDGE_REMEDIATION, BROWSER_BRIDGE_UNAVAILABLE_MESSAGE } from "../errors.js";
 import type { BrowserLike, ExistingTabPolicy, LocatorLike, PageLike, RuntimeEnv } from "../types.js";
 import { nonEnglishLanguages, readLanguageCoverage, type CoverageLanguage } from "./locale-capture/language-coverage.js";
+import { cleanCapturedSliderLabel } from "./locale-capture/slider-label.js";
 import {
   assignOrderedChatConfigurationRows,
   assignChatSelectedSurfaceOptions,
@@ -62,14 +68,14 @@ type LocaleSurfaceCapture = {
     optionLabel: string;
     composerLabels: string[];
     power: CapturedPowerControl;
-    advanced: CapturedAdvancedControl;
+    advanced?: CapturedAdvancedControl;
     configurationRows: CapturedChatConfigurationRow[];
   };
   work?: {
     optionLabel: string;
     composerLabels: string[];
     power: CapturedPowerControl;
-    advanced: CapturedAdvancedControl;
+    advanced?: CapturedAdvancedControl;
     configurationRows: CapturedWorkConfigurationRow[];
   };
   restoredChat: boolean;
@@ -101,7 +107,7 @@ type CapturedAdvancedControl = {
 type CapturedConfigurationMenu<TRow extends CapturedChatConfigurationRow | CapturedWorkConfigurationRow> = {
   openerLabel: string;
   power: CapturedPowerControl;
-  advanced: CapturedAdvancedControl;
+  advanced?: CapturedAdvancedControl;
   rows: TRow[];
 };
 
@@ -796,14 +802,14 @@ async function captureLocaleSurface(
         optionLabel: chatLabel,
         composerLabels: chatComposerLabels,
         power: chatConfiguration.power,
-        advanced: chatConfiguration.advanced,
+        ...(chatConfiguration.advanced === undefined ? {} : { advanced: chatConfiguration.advanced }),
         configurationRows: chatConfiguration.rows
       },
       work: {
         optionLabel: workLabel,
         composerLabels: workComposerLabels,
         power: workConfiguration.power,
-        advanced: workConfiguration.advanced,
+        ...(workConfiguration.advanced === undefined ? {} : { advanced: workConfiguration.advanced }),
         configurationRows: workConfiguration.rows
       },
       warnings
@@ -976,6 +982,16 @@ async function captureConfigurationMenu(
 
   await opener.click();
   await wait(Math.min(settleMs, 750));
+  const simplified = (await readChatPopover(page)).snapshot;
+  if (simplified !== undefined) {
+    try {
+      return await captureSimplifiedConfigurationMenu(page, experience, openerLabel, simplified);
+    } finally {
+      await setChatPopoverView(page, simplified.view).catch(() => undefined);
+      await closeFloatingMenus(page).catch(() => undefined);
+    }
+  }
+
   let root = await waitForRawConfigurationRoot(page, expectedRowCount, 5_000);
   const initialAdvancedExpanded = root.advanced.expanded;
 
@@ -1025,6 +1041,217 @@ async function captureConfigurationMenu(
     await restoreAdvancedExpansion(page, opener, initialAdvancedExpanded, expectedRowCount);
     await closeFloatingMenus(page).catch(() => undefined);
   }
+}
+
+type SimplifiedPopoverLabels = {
+  powerAxisLabel: string;
+  modelAxisLabel: string;
+  sliderIndex: number;
+  minimum: number;
+  maximum: number;
+  current: number;
+  valueText: string;
+  direction: "ltr" | "rtl";
+};
+
+type RawSimplifiedPopoverLabels = Omit<SimplifiedPopoverLabels, "valueText" | "minimum" | "maximum" | "current"> & {
+  minimum: number | undefined;
+  maximum: number | undefined;
+  current: number | undefined;
+  ariaValueText: string;
+  descriptions: string[];
+};
+
+async function captureSimplifiedConfigurationMenu(
+  page: PageLike,
+  experience: "chat" | "work",
+  openerLabel: string,
+  initial: ChatPopoverSnapshot
+): Promise<CapturedConfigurationMenu<CapturedChatConfigurationRow> | CapturedConfigurationMenu<CapturedWorkConfigurationRow>> {
+  const simple = await setChatPopoverView(page, "simple");
+  if (simple === undefined) {
+    throw new Error(`${experienceLabel(experience)} simplified configuration did not expose a labeled Power slider.`);
+  }
+  const labels = await readSimplifiedPopoverLabels(page);
+  const effortOptions = await captureSimplifiedEffortOptions(page, labels);
+  const advanced = await setChatPopoverView(page, "advanced");
+  if (advanced === undefined || advanced.modelOptions.length === 0) {
+    throw new Error(`${experienceLabel(experience)} simplified configuration did not expose model options.`);
+  }
+  const modelRow: RawConfigurationRow = {
+    label: labels.modelAxisLabel,
+    axisLabel: labels.modelAxisLabel,
+    options: advanced.modelOptions.map(option => ({ label: option.label, checked: option.checked }))
+  };
+  const effortRow: RawConfigurationRow = {
+    label: labels.powerAxisLabel,
+    axisLabel: labels.powerAxisLabel,
+    options: effortOptions
+  };
+  const power: CapturedPowerControl = {
+    axisLabel: labels.powerAxisLabel,
+    valueLabel: labels.valueText,
+    minimum: labels.minimum,
+    maximum: labels.maximum,
+    value: labels.current,
+    position: labels.current - labels.minimum + 1,
+    count: labels.maximum - labels.minimum + 1
+  };
+  if (experience === "chat") {
+    return {
+      openerLabel,
+      power,
+      rows: assignOrderedChatConfigurationRows([modelRow, effortRow])
+    };
+  }
+  // The simplified Work popover exposes Fast as a checkbox rather than a
+  // two-option localized row. Keep the required axis position but leave its
+  // options empty so the reviewed applier preserves previously verified
+  // Standard/Fast labels instead of guessing an unrendered translation.
+  const speedRow: RawConfigurationRow = { label: "", axisLabel: "", options: [] };
+  return {
+    openerLabel,
+    power,
+    rows: assignOrderedWorkConfigurationRows([modelRow, effortRow, speedRow])
+  };
+}
+
+async function readSimplifiedPopoverLabels(page: PageLike): Promise<SimplifiedPopoverLabels> {
+  const labels: RawSimplifiedPopoverLabels | undefined = await page.evaluate?.(() => {
+    const visible = (element: Element): boolean => {
+      const rect = (element as HTMLElement).getBoundingClientRect?.();
+      const style = window.getComputedStyle?.(element as HTMLElement);
+      return rect !== undefined && rect.width > 0 && rect.height > 0
+        && style?.display !== "none" && style?.visibility !== "hidden";
+    };
+    const normalize = (value: string): string => value.replace(/\s+/g, " ").trim();
+    const roots = Array.from(document.querySelectorAll('[data-testid="composer-intelligence-picker-content"]'))
+      .filter(visible);
+    if (roots.length !== 1) return undefined;
+    const root = roots[0]!;
+    const simple = root.querySelector('[data-testid="composer-model-picker-slider-simple-view"][data-active="true"]');
+    const slider = simple?.querySelector('[role="slider"]');
+    const power = slider?.closest('[role="menuitem"]');
+    const toggle = Array.from(root.querySelectorAll('[role="menuitem"][data-interactive="true"]'))
+      .find(visible);
+    const powerAxisLabel = normalize(power?.getAttribute("aria-label") ?? "");
+    const modelAxisLabel = normalize(toggle?.getAttribute("aria-label") ?? "");
+    const integer = (name: string): number | undefined => {
+      const raw = slider?.getAttribute(name);
+      return raw !== null && raw !== undefined && /^-?\d+$/.test(raw)
+        && Number.isSafeInteger(Number(raw)) ? Number(raw) : undefined;
+    };
+    const minimum = integer("aria-valuemin");
+    const maximum = integer("aria-valuemax");
+    const current = integer("aria-valuenow");
+    const descriptions = (power?.getAttribute("aria-describedby") ?? "")
+      .split(/\s+/)
+      .slice(0, 8)
+      .map(id => document.getElementById(id))
+      .filter((element): element is HTMLElement => element !== null)
+      .map(element => normalize(element.innerText ?? element.textContent ?? ""));
+    const ariaValueText = normalize(slider?.getAttribute("aria-valuetext") ?? "");
+    const sliders = simple === null ? [] : Array.from(simple.querySelectorAll('[role="slider"]'));
+    const sliderIndex = slider === null || slider === undefined ? -1 : sliders.indexOf(slider);
+    const direction = slider !== null && slider !== undefined && window.getComputedStyle(slider).direction === "rtl"
+      ? "rtl" as const
+      : "ltr" as const;
+    return { powerAxisLabel, modelAxisLabel, sliderIndex, minimum, maximum, current, ariaValueText, descriptions, direction };
+  });
+  const valueText = simplifiedSliderValue(labels?.ariaValueText, labels?.descriptions ?? []);
+  if (labels === undefined || labels.powerAxisLabel.length === 0 || labels.modelAxisLabel.length === 0
+    || valueText.length === 0 || labels.minimum === undefined || labels.maximum === undefined
+    || labels.current === undefined || labels.sliderIndex < 0 || labels.maximum <= labels.minimum
+    || labels.current < labels.minimum || labels.current > labels.maximum) {
+    throw new Error(`Simplified configuration axis labels were missing or ambiguous; state=${JSON.stringify({
+      root: labels !== undefined,
+      powerLabel: (labels?.powerAxisLabel.length ?? 0) > 0,
+      modelLabel: (labels?.modelAxisLabel.length ?? 0) > 0,
+      valueText: valueText.length > 0,
+      sliderIndex: labels?.sliderIndex,
+      minimum: labels?.minimum,
+      maximum: labels?.maximum,
+      current: labels?.current
+    })}.`);
+  }
+  return {
+    powerAxisLabel: labels.powerAxisLabel,
+    modelAxisLabel: labels.modelAxisLabel,
+    sliderIndex: labels.sliderIndex,
+    minimum: labels.minimum,
+    maximum: labels.maximum,
+    current: labels.current,
+    valueText,
+    direction: labels.direction
+  };
+}
+
+export function simplifiedSliderValue(
+  ariaValueText: string | undefined,
+  descriptions: readonly string[]
+): string {
+  const aria = normalized(ariaValueText);
+  if (aria.length > 0) return aria;
+  return descriptions
+    .map(cleanCapturedSliderLabel)
+    .find(description => description.length > 0) ?? "";
+}
+
+export function simplifiedSliderStepKey(
+  direction: "ltr" | "rtl",
+  increment: boolean
+): "ArrowLeft" | "ArrowRight" {
+  return increment === (direction === "ltr") ? "ArrowRight" : "ArrowLeft";
+}
+
+async function captureSimplifiedEffortOptions(
+  page: PageLike,
+  initial: SimplifiedPopoverLabels
+): Promise<Array<{ label: string; checked: boolean }>> {
+  const options: Array<{ label: string; checked: boolean }> = [];
+  let current = initial;
+  try {
+    for (let value = initial.minimum; value <= initial.maximum; value += 1) {
+      current = await moveSimplifiedSlider(page, current, value);
+      options.push({ label: current.valueText, checked: value === initial.current });
+    }
+  } finally {
+    if (current.current !== initial.current) {
+      await moveSimplifiedSlider(page, current, initial.current);
+    }
+  }
+  return options;
+}
+
+async function moveSimplifiedSlider(
+  page: PageLike,
+  before: SimplifiedPopoverLabels,
+  target: number
+): Promise<SimplifiedPopoverLabels> {
+  const original = before;
+  let current = before;
+  for (let attempt = 0; attempt < 32 && current.current !== target; attempt += 1) {
+    if (current.minimum !== original.minimum || current.maximum !== original.maximum) {
+      throw new Error("Simplified configuration Power slider changed shape during traversal.");
+    }
+    const sliders = page.locator?.('[data-testid="composer-model-picker-slider-simple-view"][data-active="true"] [role="slider"]');
+    const locator = sliders?.nth?.(current.sliderIndex) ?? (current.sliderIndex === 0 ? sliders : undefined);
+    if (locator?.press === undefined || await locator.count?.().catch(() => 0) !== 1) {
+      throw new Error("Simplified configuration Power slider was missing or ambiguous during traversal.");
+    }
+    await locator.press(simplifiedSliderStepKey(current.direction, target > current.current));
+    await wait(100);
+    const after = await readSimplifiedPopoverLabels(page);
+    const expected = current.current + (target > current.current ? 1 : -1);
+    if (after.current !== expected) {
+      throw new Error(`Simplified configuration Power slider moved to ${after.current}; expected ${expected}.`);
+    }
+    current = after;
+  }
+  if (current.current !== target) {
+    throw new Error(`Simplified configuration Power slider did not reach position ${target}.`);
+  }
+  return current;
 }
 
 async function findConfigurationOpener(page: PageLike, experience: "chat" | "work") {

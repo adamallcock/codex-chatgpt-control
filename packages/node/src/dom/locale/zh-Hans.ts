@@ -7,17 +7,19 @@ import type { LocaleContribution } from "./types.js";
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
  * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, Chat/Work surface labels updated 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible ChatGPT sessions.
+ *
+ * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.
  */
 export const zhHans = {
   configurationAxes: {
     power: ["能力"],
-    model: ["模型"],
-    effort: ["推理强度", "思考强度"],
+    model: ["模型", "选择模型"],
+    effort: ["推理强度", "思考强度", "能力"],
     speed: ["速度"],
     advanced: ["高级"],
   },
   configurationOptions: {
-    instant: ["极速"],
+    instant: ["极速", "即时"],
     light: ["轻度"],
     medium: ["中"],
     high: ["高"],
@@ -36,9 +38,9 @@ export const zhHans = {
   addFilesOpenerCandidates: ["添加文件等"],
   addPhotosFilesMenuItem: ["添加照片和文件"],
   copyResponse: ["复制回复"],
-  modeLabels: ["极速", "均衡", "高级", "超高", "专业", "中", "高", "极高"],
+  modeLabels: ["极速", "均衡", "高级", "超高", "专业", "中", "高", "极高", "即时"],
   modeOptions: {
-    instant: ["极速"],
+    instant: ["极速", "即时"],
     medium: ["均衡", "中"],
     high: ["高级", "高"],
     extraHigh: ["超高", "极高"],

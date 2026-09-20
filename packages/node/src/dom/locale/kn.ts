@@ -7,17 +7,19 @@ import type { LocaleContribution } from "./types.js";
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
  * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, Chat/Work surface labels updated 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible ChatGPT sessions.
+ *
+ * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.
  */
 export const kn = {
   configurationAxes: {
     power: ["ಪವರ್"],
-    model: ["ಮಾಡೆಲ್"],
-    effort: ["ಎಫರ್ಟ್", "ಪ್ರಯತ್ನ"],
+    model: ["ಮಾಡೆಲ್", "ಮಾದರಿಯನ್ನು ಆಯ್ಕೆಮಾಡಿ"],
+    effort: ["ಎಫರ್ಟ್", "ಪ್ರಯತ್ನ", "ಪವರ್"],
     speed: ["ವೇಗ"],
     advanced: ["ಸುಧಾರಿತ"],
   },
   configurationOptions: {
-    instant: ["ತಕ್ಷಣ"],
+    instant: ["ತಕ್ಷಣ", "ಇನ್‌ಸ್ಟಂಟ್"],
     light: ["ಲೈಟ್"],
     medium: ["ಮೀಡಿಯಂ"],
     high: ["ಹೈ"],
@@ -36,9 +38,9 @@ export const kn = {
   addFilesOpenerCandidates: ["ಫೈಲ್‌ಗಳು ಮತ್ತು ಹೆಚ್ಚಿನವುಗಳನ್ನು ಸೇರಿಸಿ"],
   addPhotosFilesMenuItem: ["ಫೋಟೊ ಮತ್ತು ಫೈಲ್‌ಗಳನ್ನು ಸೇರಿಸಿ"],
   copyResponse: ["ಪ್ರತಿಕ್ರಿಯೆಯನ್ನು ನಕಲಿಸಿ"],
-  modeLabels: ["ತಕ್ಷಣ", "ಮಧ್ಯಮ", "ಉನ್ನತ", "ಅತಿ ಹೆಚ್ಚು", "ಪ್ರೊ", "ಮೀಡಿಯಂ", "ಹೈ", "ಎಕ್ಸ್‌ಟ್ರಾ ಹೈ"],
+  modeLabels: ["ತಕ್ಷಣ", "ಮಧ್ಯಮ", "ಉನ್ನತ", "ಅತಿ ಹೆಚ್ಚು", "ಪ್ರೊ", "ಮೀಡಿಯಂ", "ಹೈ", "ಎಕ್ಸ್‌ಟ್ರಾ ಹೈ", "ಇನ್‌ಸ್ಟಂಟ್"],
   modeOptions: {
-    instant: ["ತಕ್ಷಣ"],
+    instant: ["ತಕ್ಷಣ", "ಇನ್‌ಸ್ಟಂಟ್"],
     medium: ["ಮಧ್ಯಮ", "ಮೀಡಿಯಂ"],
     high: ["ಉನ್ನತ", "ಹೈ"],
     extraHigh: ["ಅತಿ ಹೆಚ್ಚು", "ಎಕ್ಸ್‌ಟ್ರಾ ಹೈ"],
@@ -47,6 +49,7 @@ export const kn = {
   modeOpenerExtra: ["ಕಾನ್ಫಿಗರ್ ಮಾಡಿ..."],
   experienceOptions: {
     chat: ["ಚಾಟ್"],
+    work: ["ವರ್ಕ್"],
   },
   tools: {
     web_search: ["ವೆಬ್ ಸರ್ಚ್"],

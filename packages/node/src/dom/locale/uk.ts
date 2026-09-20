@@ -7,17 +7,19 @@ import type { LocaleContribution } from "./types.js";
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
  * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, Chat/Work surface labels updated 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible ChatGPT sessions.
+ *
+ * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.
  */
 export const uk = {
   configurationAxes: {
     power: ["Потужність"],
-    model: ["Модель"],
-    effort: ["Зусилля", "Міркування"],
+    model: ["Модель", "Вибрати модель"],
+    effort: ["Зусилля", "Міркування", "Потужність"],
     speed: ["Швидкість"],
     advanced: ["Додатково"],
   },
   configurationOptions: {
-    instant: ["Миттєвий"],
+    instant: ["Миттєвий", "Миттєве"],
     light: ["Низький"],
     medium: ["Середній"],
     high: ["Високий"],
@@ -36,9 +38,9 @@ export const uk = {
   addFilesOpenerCandidates: ["Додавайте файли й виконуйте інші дії"],
   addPhotosFilesMenuItem: ["Додати світлини та файли"],
   copyResponse: ["Копіювати відповідь"],
-  modeLabels: ["Миттєвий", "Середній", "Високий", "Дуже високий", "Найвищий"],
+  modeLabels: ["Миттєвий", "Середній", "Високий", "Дуже високий", "Найвищий", "Миттєве"],
   modeOptions: {
-    instant: ["Миттєвий"],
+    instant: ["Миттєвий", "Миттєве"],
     medium: ["Середній"],
     high: ["Високий"],
     extraHigh: ["Дуже високий", "Найвищий"],

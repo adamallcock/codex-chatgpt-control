@@ -7,17 +7,19 @@ import type { LocaleContribution } from "./types.js";
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
  * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, Chat/Work surface labels updated 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible ChatGPT sessions.
+ *
+ * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.
  */
 export const te = {
   configurationAxes: {
     power: ["పవర్"],
-    model: ["మోడల్"],
-    effort: ["ప్రయత్నం", "ఆలోచన"],
+    model: ["మోడల్", "మోడల్‌ను ఎంచుకోండి"],
+    effort: ["ప్రయత్నం", "ఆలోచన", "పవర్"],
     speed: ["వేగం"],
     advanced: ["అధునాతనం"],
   },
   configurationOptions: {
-    instant: ["తక్షణం"],
+    instant: ["తక్షణం", "ఇన్‌స్టెంట్‌గా"],
     light: ["లైట్"],
     medium: ["మీడియం"],
     high: ["హై"],
@@ -36,9 +38,9 @@ export const te = {
   addFilesOpenerCandidates: ["ఫైల్‌లను మరియు మరిన్ని జోడించండి"],
   addPhotosFilesMenuItem: ["ఫోటోలు & ఫైల్‌లను అప్‌లోడ్ చేయండి"],
   copyResponse: ["ప్రతిస్పందనను కాపీ చేయండి"],
-  modeLabels: ["తక్షణం", "మధ్యస్థ", "అధిక", "అత్యధిక", "ప్రో", "మీడియం", "హై", "ఎక్స్‌ట్రా హై"],
+  modeLabels: ["తక్షణం", "మధ్యస్థ", "అధిక", "అత్యధిక", "ప్రో", "మీడియం", "హై", "ఎక్స్‌ట్రా హై", "ఇన్‌స్టెంట్‌గా"],
   modeOptions: {
-    instant: ["తక్షణం"],
+    instant: ["తక్షణం", "ఇన్‌స్టెంట్‌గా"],
     medium: ["మధ్యస్థ", "మీడియం"],
     high: ["అధిక", "హై"],
     extraHigh: ["అత్యధిక", "ఎక్స్‌ట్రా హై"],

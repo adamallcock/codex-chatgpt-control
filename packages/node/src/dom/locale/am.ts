@@ -7,17 +7,19 @@ import type { LocaleContribution } from "./types.js";
  * Some non-Intelligence surfaces may still fall back to English + `selector_drift`.
  *
  * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, Chat/Work surface labels updated 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible ChatGPT sessions.
+ *
+ * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.
  */
 export const am = {
   configurationAxes: {
     power: ["አቅም"],
-    model: ["ሞዴል"],
-    effort: ["ጥረት"],
+    model: ["ሞዴል", "ሞዴል ይምረጡ"],
+    effort: ["ጥረት", "አቅም"],
     speed: ["ፍጥነት"],
     advanced: ["የላቀ"],
   },
   configurationOptions: {
-    instant: ["ፈጣን"],
+    instant: ["ፈጣን", "ቅጽበታዊ"],
     light: ["ቀላል"],
     medium: ["መካከለኛ"],
     high: ["ከፍተኛ"],
@@ -36,9 +38,9 @@ export const am = {
   addFilesOpenerCandidates: ["ፋይሎችን ያክሉ እና ሌሎችም"],
   addPhotosFilesMenuItem: ["ፎቶዎችን እና ፋይሎችን ያክሉ"],
   copyResponse: ["ምላሹን ይቅዱ"],
-  modeLabels: ["ፈጣን", "መካከለኛ", "ከፍተኛ", "እጅግ ከፍተኛ"],
+  modeLabels: ["ፈጣን", "መካከለኛ", "ከፍተኛ", "እጅግ ከፍተኛ", "ቅጽበታዊ"],
   modeOptions: {
-    instant: ["ፈጣን"],
+    instant: ["ፈጣን", "ቅጽበታዊ"],
     medium: ["መካከለኛ"],
     high: ["ከፍተኛ"],
     extraHigh: ["እጅግ ከፍተኛ"],

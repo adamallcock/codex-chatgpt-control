@@ -8,21 +8,23 @@ import type { LocaleContribution } from "./types.js";
  * `imageContainerHint`, `transientAssistant`, and the login/captcha/rate-limit blocker copy.
  *
  * Intelligence picker labels updated 2026-06-10, stop-control labels updated 2026-06-15, Chat/Work surface labels updated 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible ChatGPT sessions.
+ *
+ * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.
  */
 export const frFR = {
   configurationAxes: {
     power: ["Puissance"],
-    model: ["Modèle"],
-    effort: ["Niveau"],
+    model: ["Modèle", "Sélectionner le modèle"],
+    effort: ["Niveau", "Puissance"],
     speed: ["Vitesse"],
     advanced: ["Avancé"],
   },
   configurationOptions: {
     instant: ["Instantané"],
     light: ["Minimal"],
-    medium: ["Moyenne"],
-    high: ["Élevée"],
-    extraHigh: ["Très élevée"],
+    medium: ["Moyenne", "Moyen"],
+    high: ["Élevée", "Élevé"],
+    extraHigh: ["Très élevée", "Très élevé"],
     max: ["Maximum"],
     fast: ["Rapide"],
   },
@@ -35,11 +37,11 @@ export const frFR = {
   addFilesOpenerCandidates: ["Ajouter des fichiers et plus encore"],
   addPhotosFilesMenuItem: ["Ajouter des photos et fichiers"],
   copyResponse: ["Copier la réponse"],
-  modeLabels: ["Moyen", "Avancé", "Très élevé", "Instantanée", "Moyenne", "Élevée", "Très élevée", "Instantané"],
+  modeLabels: ["Moyen", "Avancé", "Très élevé", "Instantanée", "Moyenne", "Élevée", "Très élevée", "Instantané", "Élevé"],
   modeOptions: {
     instant: ["Instantanée", "Instantané"],
     medium: ["Moyen", "Moyenne"],
-    high: ["Avancé", "Élevée"],
+    high: ["Avancé", "Élevée", "Élevé"],
     extraHigh: ["Très élevé", "Très élevée"],
   },
   modeOpenerExtra: ["Configurer"],

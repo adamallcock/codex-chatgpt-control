@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mergeCapture } from "../../src/scripts/apply-intelligence-locale-captures.js";
 
 describe("apply intelligence locale captures", () => {
-  it("preserves a reviewed wrapped provenance note on replay", () => {
+  it("preserves a reviewed wrapped provenance note and adds the current sweep idempotently", () => {
     const source = [
       "import type { LocaleContribution } from \"./types.js\";",
       "",
@@ -19,7 +19,11 @@ describe("apply intelligence locale captures", () => {
       ""
     ].join("\n");
 
-    expect(mergeCapture(source, [], {})).toBe(source);
+    const result = mergeCapture(source, [], {});
+    expect(result).toContain(" * 2026-07-17, and Power/Advanced selector labels updated 2026-08-08 from visible");
+    expect(result).toContain(" * ChatGPT sessions. The stop-control candidate is intentionally omitted.");
+    expect(result).toContain(" * Simplified Power/Advanced selector labels refreshed 2026-09-20 from a visible 64-locale ChatGPT sweep.");
+    expect(mergeCapture(result, [], {})).toBe(result);
   });
 
   it("merges generation-state labels without dropping existing mode options", () => {

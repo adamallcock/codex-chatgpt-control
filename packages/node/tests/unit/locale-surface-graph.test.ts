@@ -7,6 +7,8 @@ import {
 } from "../../src/scripts/locale-capture/surface-graph.js";
 import {
   parseArgs,
+  simplifiedSliderStepKey,
+  simplifiedSliderValue,
   surfaceCaptureSucceeded
 } from "../../src/scripts/capture-intelligence-locales.js";
 
@@ -71,5 +73,36 @@ describe("locale surface graph", () => {
     expect(() => assignOrderedSurfaceOptions([{ label: "Chat", checked: true }])).toThrow("Expected ordered Chat and Work radios");
     expect(() => assignOrderedChatConfigurationRows([])).toThrow("Expected two ordered Chat configuration rows");
     expect(() => assignOrderedWorkConfigurationRows([])).toThrow("Expected three ordered Work configuration rows");
+  });
+
+  it("keeps an unrendered simplified Work speed row structurally ordered", () => {
+    const rows = [
+      { label: "Modell auswählen", axisLabel: "Modell auswählen", options: [] },
+      { label: "Leistung", axisLabel: "Leistung", options: [] },
+      { label: "", axisLabel: "", options: [] }
+    ];
+    expect(assignOrderedWorkConfigurationRows(rows)).toEqual([
+      { ...rows[0], axis: "model" },
+      { ...rows[1], axis: "effort" },
+      { ...rows[2], axis: "speed" }
+    ]);
+  });
+
+  it("reads localized Power values from aria text or an ordinal description", () => {
+    expect(simplifiedSliderValue("Medium", ["ignored, 2 of 5."])).toBe("Medium");
+    expect(simplifiedSliderValue(undefined, ["متوسط، 2 من 5."])).toBe("متوسط");
+    expect(simplifiedSliderValue("", ["मध्यम, 2/5"])).toBe("मध्यम");
+    expect(simplifiedSliderValue("", ["即时，第 2 项，共 5 项"])).toBe("即时");
+    expect(simplifiedSliderValue("", ["متوسط، ٢ من ٥."])).toBe("متوسط");
+    expect(simplifiedSliderValue("", ["中程度、2/5"])).toBe("中程度");
+    expect(simplifiedSliderValue("", ["ቅጽበታዊ፣ ከ 5 2ኛ"])).toBe("ቅጽበታዊ");
+    expect(simplifiedSliderValue("", ["Шуурхай, нийт 5-аас 2"])).toBe("Шуурхай");
+  });
+
+  it("moves the Power slider in its rendered text direction", () => {
+    expect(simplifiedSliderStepKey("ltr", true)).toBe("ArrowRight");
+    expect(simplifiedSliderStepKey("ltr", false)).toBe("ArrowLeft");
+    expect(simplifiedSliderStepKey("rtl", true)).toBe("ArrowLeft");
+    expect(simplifiedSliderStepKey("rtl", false)).toBe("ArrowRight");
   });
 });
