@@ -11500,13 +11500,16 @@ function detectExperienceFromSnapshot(snapshot) {
   if (workConfigurationOpener) {
     evidence.push({ source: "control", label: "Work configuration opener" });
   }
+  if (snapshot.workPopoverOpen === true) {
+    evidence.push({ source: "control", label: "Work configuration popover" });
+  }
   if (/\/work(?:\/|$|\?)/.test(url)) {
     evidence.push({ source: "url", label: snapshot.url });
   }
   if (containsAny(mainText, ["work on something else", "work on anything"])) {
     evidence.push({ source: "heading", label: "Work composer copy" });
   }
-  const workScore = workComposer.length * 4 + (workSurfaceSelected ? 10 : 0) + (workAxes ? 6 : 0) + (workConfigurationOpener ? 6 : 0) + (/\/work(?:\/|$|\?)/.test(url) ? 3 : 0) + (containsAny(mainText, ["work on something else", "work on anything"]) ? 2 : 0);
+  const workScore = workComposer.length * 4 + (workSurfaceSelected ? 10 : 0) + (workAxes ? 6 : 0) + (workConfigurationOpener ? 6 : 0) + (snapshot.workPopoverOpen === true ? 10 : 0) + (/\/work(?:\/|$|\?)/.test(url) ? 3 : 0) + (containsAny(mainText, ["work on something else", "work on anything"]) ? 2 : 0);
   const chatScore = chatComposer.length * 4 + (chatSurfaceSelected ? 10 : 0);
   let experience = "unknown";
   let confidence = "low";
@@ -11600,7 +11603,16 @@ async function readSurfaceSnapshot(page) {
     const selectedSurfaceLabels = Array.from(new Set(Array.from(document.querySelectorAll(
       "[role='radio'][aria-checked='true'], [role='radio'][data-state='checked'], input[type='radio']:checked"
     )).filter(visible).map(labelFor).map(normalize2).filter((label) => wantedSurfaceLabels.has(normalizeComparable(label))))).slice(0, 4);
-    return { composerLabels, mainControls, composerControls, controlGroups, mainText, selectedSurfaceLabels };
+    const workPopoverOpen = Array.from(document.querySelectorAll(
+      '[data-testid="composer-intelligence-picker-content"]'
+    )).filter(visible).some((root) => {
+      const speed = Array.from(root.querySelectorAll(
+        '[role="menuitemcheckbox"][data-fast-mode-enabled]'
+      )).filter(visible);
+      const sliders = Array.from(root.querySelectorAll('[role="slider"]'));
+      return speed.length === 1 && sliders.length === 1;
+    });
+    return { composerLabels, mainControls, composerControls, controlGroups, mainText, selectedSurfaceLabels, workPopoverOpen };
   }, [
     ...localeLabels.experienceOptions.chat,
     ...localeLabels.experienceOptions.work
@@ -12603,7 +12615,10 @@ async function selectChatPopoverSpeed(page, labels) {
   const initial = (await readChatPopover(page)).snapshot;
   if (initial === void 0) return void 0;
   try {
-    const simple = await setChatPopoverView(page, "simple");
+    const opened = await setChatPopoverView(page, "simple");
+    if (opened?.speed === void 0 || opened.speedIndex === void 0) return void 0;
+    await waitForPopoverTransition(page, 200);
+    const simple = (await readChatPopover(page)).snapshot;
     if (simple?.speed === void 0 || simple.speedIndex === void 0) return void 0;
     const desired = ["Standard", "Fast"].filter((value) => labels.some((label) => normalizeForLabelMatch(label) === normalizeForLabelMatch(value)));
     if (desired.length !== 1) return void 0;
@@ -12611,7 +12626,7 @@ async function selectChatPopoverSpeed(page, labels) {
     const candidates = observedRoot(page, simple)?.locator?.('[role="menuitemcheckbox"][data-fast-mode-enabled]');
     const locator = candidates?.nth?.(simple.speedIndex) ?? (simple.speedIndex === 0 ? candidates : void 0);
     if (locator?.click === void 0 || locator.evaluate === void 0 || await locator.count?.() !== 1) return void 0;
-    const state = await locator.evaluate((element) => {
+    const readActionableState = () => locator.evaluate((element) => {
       let current = element;
       let owned = false, simple2 = false, open6 = false;
       for (let depth = 0; current !== null && depth < 64; depth += 1) {
@@ -12620,7 +12635,10 @@ async function selectChatPopoverSpeed(page, labels) {
         if (node.hidden || node.hasAttribute("hidden") || node.hasAttribute("inert") || node.getAttribute("aria-hidden") === "true" || node.getAttribute("aria-disabled") === "true" || node.getAttribute("data-active") === "false" || node.getAttribute("data-locked") === "true") return void 0;
         const style = window.getComputedStyle(node);
         if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || style.pointerEvents === "none") return void 0;
-        if (node.getAttribute("role") === "menu" && node.getAttribute("data-state") === "open") open6 = true;
+        if (node.getAttribute("role") === "menu" && node.getAttribute("data-state") === "open") {
+          open6 = true;
+          if (style.opacity !== "1") return void 0;
+        }
         if (node.getAttribute("data-testid") === "composer-intelligence-picker-content") owned = true;
         if (node.getAttribute("data-view") === "simple" && node.getAttribute("data-model-selection-view") === "true") simple2 = true;
         current = current.parentNode;
@@ -12628,13 +12646,22 @@ async function selectChatPopoverSpeed(page, labels) {
       const rect = element.getBoundingClientRect();
       if (current?.nodeType === 1 || !owned || !simple2 || !open6 || rect.width <= 0 || rect.height <= 0 || element.getAttribute("role") !== "menuitemcheckbox" || element.getAttribute("data-visible") !== "true") return void 0;
       const checked = element.getAttribute("aria-checked");
-      return element.getAttribute("data-fast-mode-enabled") === checked ? checked : void 0;
+      return element.getAttribute("data-fast-mode-enabled") === checked ? checked ?? void 0 : void 0;
     }).catch(() => void 0);
+    let state;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      state = await readActionableState();
+      if (state === String(simple.speed === "Fast")) break;
+      if (attempt + 1 < 8) await waitForPopoverTransition(page, 100);
+    }
     if (state !== String(simple.speed === "Fast")) return void 0;
     await locator.click();
-    await waitForPopoverTransition(page, 150);
-    const after = (await readChatPopover(page)).snapshot;
-    return after !== void 0 && after.speed === desired[0] ? after.speed : void 0;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      await waitForPopoverTransition(page, attempt === 0 ? 150 : 100);
+      const after = (await readChatPopover(page)).snapshot;
+      if (after?.speed === desired[0]) return desired[0];
+    }
+    return void 0;
   } finally {
     await setChatPopoverView(page, initial.view);
   }
@@ -13434,14 +13461,30 @@ async function inspectConfiguration(env, args = {}) {
   }
   const page = env.page;
   try {
-    const detected = await detectExperience(
+    let detected = await detectExperience(
       env,
       args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
     );
     if (!detected.ok || detected.data === void 0) {
       return forwardFailure2(detected);
     }
-    if (args.experience !== void 0 && detected.data.experience !== args.experience) {
+    let detectedData = detected.data;
+    if (args.experience !== void 0 && detectedData.experience !== args.experience) {
+      const retryMs = Math.min(
+        args.timeoutMs ?? CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS,
+        CONFIGURATION_CONTROL_DISCOVERY_TIMEOUT_MS
+      );
+      const attempts = Math.max(1, Math.ceil(Math.max(0, retryMs) / CONFIGURATION_CONTROL_POLL_MS));
+      for (let attempt = 1; attempt < attempts; attempt += 1) {
+        await page.waitForTimeout?.(CONFIGURATION_CONTROL_POLL_MS);
+        const retried = await detectExperience(env, { timeoutMs: 0 });
+        if (!retried.ok || retried.data === void 0) return forwardFailure2(retried);
+        detected = retried;
+        detectedData = retried.data;
+        if (detectedData.experience === args.experience) break;
+      }
+    }
+    if (args.experience !== void 0 && detectedData.experience !== args.experience) {
       return {
         ok: false,
         status: "unsupported",
@@ -13450,16 +13493,16 @@ async function inspectConfiguration(env, args = {}) {
           kind: "selector_drift",
           code: "experience_mismatch",
           fieldPath: "experience",
-          message: `Configuration inspection expected ${args.experience}, but the visible composer is ${detected.data.experience}. Call experience.open first or omit the expected experience.`,
+          message: `Configuration inspection expected ${args.experience}, but the visible composer is ${detectedData.experience}. Call experience.open first or omit the expected experience.`,
           resumable: true
         },
         context: await contextFromPage(page, {
-          experience: detected.data.experience,
-          selectorProfile: detected.data.selectorProfile
+          experience: detectedData.experience,
+          selectorProfile: detectedData.selectorProfile
         })
       };
     }
-    const experience = detected.data.experience;
+    const experience = detectedData.experience;
     const initialChatPopover = experience !== "unknown" ? (await readChatPopover(page)).snapshot : void 0;
     const initialPanel = await readConfigurationPanel(page);
     const rootOpened = experience !== "unknown" && await waitForConfigurationRoot(
@@ -13467,13 +13510,11 @@ async function inspectConfiguration(env, args = {}) {
       experience,
       args.timeoutMs
     );
-    if (rootOpened) {
-      await page.waitForTimeout?.(150);
-    }
-    if (experience !== "unknown" && (await readChatPopover(page)).snapshot !== void 0) {
+    const openedPopover = rootOpened ? await waitForObservedChatPopover(page) : void 0;
+    if (experience !== "unknown" && openedPopover !== void 0) {
       try {
         const chat = await inspectChatPopover(page);
-        const data2 = configurationInspectionFromPopover(experience, detected.data.evidence, chat);
+        const data2 = configurationInspectionFromPopover(experience, detectedData.evidence, chat);
         if (args.includeOptions === false) data2.options = {};
         return resultOk(
           data2,
@@ -13495,8 +13536,8 @@ async function inspectConfiguration(env, args = {}) {
     const rootItems = rootOpened ? await enumerateVisibleMenuItems(page) : [];
     const data = configurationInspectionFromSurface(
       experience,
-      detected.data.selectorProfile,
-      detected.data.evidence,
+      detectedData.selectorProfile,
+      detectedData.evidence,
       panel,
       rootItems
     );
@@ -13620,7 +13661,11 @@ async function applyConfiguration(env, args) {
     }
     const selected = [];
     for (const [axis, requested] of selectionEntries(desired)) {
-      const currentResult = selected.length === 0 ? beforeResult : await inspectConfiguration(env, { includeOptions: false });
+      const currentResult = selected.length === 0 ? beforeResult : await inspectConfiguration(env, {
+        experience: before.experience,
+        includeOptions: false,
+        ...args.timeoutMs === void 0 ? {} : { timeoutMs: args.timeoutMs }
+      });
       if (!currentResult.ok || currentResult.data === void 0) return forwardFailure2(currentResult);
       const current = currentResult.data;
       if (current.experience !== before.experience) return configurationFailure(page, before, desired, selected, "The composer experience changed during configuration selection.", "experience_mismatch");
@@ -13701,7 +13746,7 @@ function configurationInspectionFromSurface(experience, detectedProfile, evidenc
     const modelRows = menuItems.filter((item) => item.role === "menuitemradio" && item.hasPopup !== true && (/^(?:gpt[\s-]|o\d+(?:\b|$)|\d+(?:\.\d+)?$)/i.test(item.label) || localeLabels.modeOptions.latest.some((label) => visibleLabelMatches(item.label, label))));
     const chatOptions = menuItems.filter((item) => !isConfigurationAxisRow(item.label) && !modelRows.includes(item) && item.hasPopup !== true && !/^gpt[\s-]/i.test(item.label) && item.ariaLabel !== "Select model").map(menuItemToOption);
     const selectedEffort = chatOptions.filter((option) => option.selected === true);
-    const openerValue = panel.openerValue ?? panel.openerLabel;
+    const openerValue = chatOpenerEffortValue(panel.openerValue ?? panel.openerLabel);
     if (chatOptions.length > 0 || openerValue !== void 0) availableAxes.push(axis);
     if (selectedEffort.length === 1) active[axis] = selectedEffort[0].label;
     else if (openerValue !== void 0 && !isConfigurationAxisRow(openerValue) && !/^(?:thinking effort|select model|power)$/i.test(openerValue)) active[axis] = openerValue;
@@ -13724,6 +13769,24 @@ function configurationInspectionFromSurface(experience, detectedProfile, evidenc
     evidence
   };
 }
+function chatOpenerEffortValue(value) {
+  if (value === void 0) return void 0;
+  const combined = /^(?:gpt[-\s]*)?[\p{N}]+(?:[.,][\p{N}]+)?\s+(.+)$/u.exec(value.trim());
+  if (combined === null) return value;
+  const effort = combined[1]?.trim();
+  if (effort === void 0 || effort.length === 0) return void 0;
+  const labels = [
+    ...localeLabels.configurationOptions.instant,
+    ...localeLabels.configurationOptions.light,
+    ...localeLabels.configurationOptions.medium,
+    ...localeLabels.configurationOptions.high,
+    ...localeLabels.configurationOptions.extraHigh,
+    ...localeLabels.configurationOptions.max,
+    ...localeLabels.configurationOptions.ultra,
+    ...localeLabels.configurationOptions.pro
+  ];
+  return labels.some((label) => normalizeForLabelMatch(label) === normalizeForLabelMatch(effort)) ? effort : void 0;
+}
 async function inspectWorkAxisOptions(env, axis) {
   const page = env.page;
   const options = (await openWorkAxisOptions(env, axis)).map(menuItemToOption);
@@ -13737,12 +13800,24 @@ async function selectWorkAxis(env, axis, requested, timeoutMs) {
   }
   const initialPopover = (await readChatPopover(page)).snapshot;
   await openConfigurationRoot(page, "work");
-  if ((await readChatPopover(page)).snapshot !== void 0) {
+  if (await waitForObservedChatPopover(page) !== void 0) {
     try {
       const labels = configurationSemanticLabels(requested);
       if (axis === "model") return await selectChatPopoverModel(page, labels);
       if (axis === "effort") return await selectChatPopoverEffort(page, labels);
-      if (axis === "speed") return await selectChatPopoverSpeed(page, labels);
+      if (axis === "speed") {
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const selected = await selectChatPopoverSpeed(page, labels);
+          if (selected !== void 0) return selected;
+          if (attempt + 1 < 3) {
+            await closeConfigurationMenus(page);
+            await page.waitForTimeout?.(CONFIGURATION_SELECTION_RETRY_MS);
+            await openConfigurationRoot(page, "work");
+            if (await waitForObservedChatPopover(page) === void 0) return void 0;
+          }
+        }
+        return void 0;
+      }
       return void 0;
     } finally {
       if (initialPopover === void 0) await closeConfigurationMenus(page);
@@ -13875,7 +13950,7 @@ async function selectChatAxis(env, axis, requested, timeoutMs) {
   const page = env.page;
   const initialPopover = (await readChatPopover(page)).snapshot;
   await openConfigurationRoot(page, "chat");
-  if ((await readChatPopover(page)).snapshot !== void 0) {
+  if (await waitForObservedChatPopover(page) !== void 0) {
     try {
       if (axis === "modelVersion") return await selectChatPopoverModel(page, configurationSemanticLabels(requested));
       if (axis === "effort" || axis === "intelligence" || axis === "model") return await selectChatPopoverEffort(page, configurationSemanticLabels(requested));
@@ -13969,6 +14044,14 @@ async function openConfigurationRoot(page, experience) {
     }
   }
   return false;
+}
+async function waitForObservedChatPopover(page) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const snapshot = (await readChatPopover(page)).snapshot;
+    if (snapshot !== void 0) return snapshot;
+    if (attempt + 1 < 6) await page.waitForTimeout?.(100);
+  }
+  return void 0;
 }
 function configurationMenuLooksRecognized(items, experience, openerLabel) {
   if (items.some((item) => /(?:model|mode|effort|speed)-(?:switcher|selector)|model-switcher/i.test(item.testId ?? ""))) {
@@ -14245,6 +14328,7 @@ function normalizeConfigurationId(value) {
 async function closeConfigurationMenus(page) {
   if ((await readChatPopover(page)).snapshot !== void 0) {
     await closeChatPopover(page);
+    await page.waitForTimeout?.(350);
     return;
   }
   if (!await pressConfigurationEscape(page)) return;
