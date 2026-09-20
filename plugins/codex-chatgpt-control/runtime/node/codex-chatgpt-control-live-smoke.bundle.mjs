@@ -51519,11 +51519,18 @@ var optionalScenarios = [
       read: true
     });
     if (!generatedFileAskCanProceed(asked)) return fail2(meta, asked);
-    const result3 = await downloadLatestAttachment({
-      destDir: context.reportDir,
-      filenamePattern: "^chatgpt-live-smoke\\.csv$",
-      timeoutMs: 12e4
-    }, env);
+    const downloadDeadline = Date.now() + 12e4;
+    let result3;
+    do {
+      result3 = await downloadLatestAttachment({
+        destDir: context.reportDir,
+        filenamePattern: "^chatgpt-live-smoke\\.csv$",
+        timeoutMs: Math.max(1e3, downloadDeadline - Date.now())
+      }, env);
+      if (!generatedFileDownloadShouldRetry(result3) || Date.now() >= downloadDeadline) break;
+      if (env.page?.waitForTimeout !== void 0) await env.page.waitForTimeout(1e3);
+      else await new Promise((resolve8) => setTimeout(resolve8, 1e3));
+    } while (true);
     const download = typeof result3.data === "object" && result3.data !== null ? result3.data : void 0;
     const path3 = download?.path;
     const bytes = path3 === void 0 ? 0 : (await stat7(path3).catch(() => void 0))?.size ?? 0;
@@ -51586,7 +51593,10 @@ var optionalScenarios = [
   })
 ];
 function generatedFileAskCanProceed(result3) {
-  return result3.ok || result3.status === "partial" && result3.data?.generationActive !== true;
+  return result3.ok || result3.status === "partial" && (result3.data?.generationActive !== true || result3.data?.submissionState === "submitted");
+}
+function generatedFileDownloadShouldRetry(result3) {
+  return !result3.ok && result3.blocker?.kind === "download_unavailable" && result3.blocker.code === "download_filename_not_found";
 }
 function scenario(name, required, enabled, run) {
   return {
